@@ -1,0 +1,728 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Welcome to the s3dxrd package &mdash; s3dxrd 0.0.1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home"> s3dxrd
+          
+
+          
+          </a>
+
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">Welcome to the s3dxrd package</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#module-measurement.Id11">measurement</a></li>
+<li><a class="reference internal" href="#module-regression.bayesian">regression</a></li>
+<li><a class="reference internal" href="#module-utils.mesher">utils</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">s3dxrd</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Welcome to the s3dxrd package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="toctree-wrapper compound">
+</div>
+<div class="section" id="welcome-to-the-s3dxrd-package">
+<h1>Welcome to the s3dxrd package<a class="headerlink" href="#welcome-to-the-s3dxrd-package" title="Permalink to this headline">¶</a></h1>
+<p>This is a scientific code originally developed to adress scanning-3d-xray-diffraction (s3dxrd)
+strain measurements of polycrystalline materials.</p>
+<p>Intragranular strain is computed based on a series of line integral measurements. The s3dxrd package supports
+regression either by a simple weighted least squares approach or alternatively by a Gaussian Proccess. The later
+statistical model uses spatial correlation assumptions and an equlibrium prior to find good fits to data.</p>
+<p>If you want to use this code, it is strongly recomended that you have a look at <a class="reference external" href="https://journals.iucr.org/j/issues/2020/02/00/nb5257/">the underlying publication</a>:
+describing the weighted least squares approach (named “ASR” in the paper)</p>
+<blockquote>
+<div><p><em>Reconstructing intragranular strain fields in polycrystalline materials from scanning 3DXRD data,
+Henningsson, N. A., Hall, S. A., Wright, J. P. &amp; Hektor, J. (2020). J. Appl. Cryst. 53, 314-325.</em></p>
+</div></blockquote>
+<p>A preprint describing the Gaussian Process regression procedure is also available <a class="reference external" href="https://arxiv.org/abs/2102.11018">here</a>:</p>
+<blockquote>
+<div><p><em>Intragranular Strain Estimation in Far-Field Scanning X-ray Diffraction using a Gaussian Processes,
+Axel Henningsson and Johannes Hendriks. (2021). arXiv Preprint.</em></p>
+</div></blockquote>
+<p>This paper may also help the user to understand some of the mathematical notation hinted at in the code.</p>
+</div>
+<div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>Installation via pip is available as</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip3</span> <span class="n">install</span> <span class="n">s3dxrd</span>
+</pre></div>
+</div>
+<p>For manuall installation, first get the code to your local machine by:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">AxelHenningsson</span><span class="o">/</span><span class="n">scanning</span><span class="o">-</span><span class="n">xray</span><span class="o">-</span><span class="n">diffraction</span><span class="o">.</span><span class="n">git</span>
+</pre></div>
+</div>
+<p>Next go to the repository and try to install</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">scanning</span><span class="o">-</span><span class="n">xray</span><span class="o">-</span><span class="n">diffraction</span>
+<span class="n">python</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="n">build</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>You will now recieve messages about dependecies that need be installed first.
+Go through these untill the build succeeds.</p>
+</div>
+<div class="section" id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
+<p>Documentation is hosted seperately at <a class="reference external" href="https://axelhenningsson.github.io/scanning-xray-diffraction/">github pages</a>:</p>
+</div>
+<div class="section" id="module-measurement.Id11">
+<span id="measurement"></span><h1>measurement<a class="headerlink" href="#module-measurement.Id11" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="measurement.Id11.peaks_to_vectors">
+<code class="sig-prename descclassname"><span class="pre">measurement.Id11.</span></code><code class="sig-name descname"><span class="pre">peaks_to_vectors</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flt_paths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ubi_paths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omegastep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ymin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ymax</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ystep</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hkltol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nmedian</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rcut</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#measurement.Id11.peaks_to_vectors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert an x-ray diffraction dataset saved in the ImageD11 format to vector format</p>
+<p>Based on an inital guess of ubi matrices all data contained in a sereis of Id11 peak files
+is analysed. Grian shapes are reconstructed and grain orientations refined. The data is converted
+into a vector format where each measurement is associated to a parametric line trhough the grain
+as well as an average approximate strain along the diffracting planes.</p>
+<p>The proccessed output from this function can be used to further perform regression for strain tensor
+maps using any of the in package supported regression techinques.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>flt_paths</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Absolute file paths to Id11 peaks files. These must contain
+a column named <code class="docutils literal notranslate"><span class="pre">`dty`</span></code> that stores the sample y-translations in units of microns. These translations
+should be centered at the rotation axis (dty=0 means the xray go through the rotation axis.)</p></li>
+<li><p><strong>zpos</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – z-translations of sample corresponding to peaks in <code class="xref py py-obj docutils literal notranslate"><span class="pre">flt_paths</span></code>.</p></li>
+<li><p><strong>param_path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Absolute file path to Id11 parameters file.</p></li>
+<li><p><strong>ubi_paths</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Absolute file paths to Id11 ubi matrices file.</p></li>
+<li><p><strong>omegastep</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Rotation intervall in degrees over wich detector images are where read out.</p></li>
+<li><p><strong>ymin</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum y-translation of smaple in units of microns.</p></li>
+<li><p><strong>ymax</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Maximum y-translation of smaple in units of microns.</p></li>
+<li><p><strong>ystep</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Sample y-translation stepsize.</p></li>
+<li><p><strong>hkltol</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Miller index tolerance for assigning peaks to a grain. Defaults to 0.05.</p></li>
+<li><p><strong>nmedian</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Number of median deviations of a peak to discard as outlier. Defaults to 5.</p></li>
+<li><p><strong>rcut</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Relative threshold for defining grain shape from tomographic reconstrction. Defaults to 0.2.</p></li>
+<li><p><strong>save_path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Path at which to save all computed for arrays. Defaults to <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>dictionary with keys and values:</p>
+<blockquote>
+<div><p><strong>Y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Average scalar strains along scanned lines. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p>
+<p><strong>sig_m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Per measurement standard deviations. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p>
+<p><strong>entry</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Entry points for line integral meaurements.  <code class="docutils literal notranslate"><span class="pre">shape=(k,N)</span></code></p>
+<p><strong>exit</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Exit points for line integral meaurements.  <code class="docutils literal notranslate"><span class="pre">shape=(k,N)</span></code></p>
+<p><strong>nhat</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): X-ray beam direction normal in sample coordinate system. <code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code></p>
+<p><strong>kappa</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Direction of strain (Y) in sample coordinate system. <code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code></p>
+<p><strong>L</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Lengths of scanned lines. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p>
+<p><strong>nsegs</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Number of segments for each line integral. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p>
+<p><strong>polygons</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">Shapely</span> <span class="pre">Polygons</span></code>): Polygonal boundary representation of grians.</p>
+<p><strong>polygon_orientations</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Crystal orientation of each grain slice in polygons.</p>
+<p><strong>orientations</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Per measurement crystal orientation (uniform along scan-line).</p>
+<p><strong>measurement_grain_map</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): dictionary keys as integers corresponding to polygons, such that
+<code class="docutils literal notranslate"><span class="pre">polygons[str(measurement_grain_map[i])]</span></code> gives the polygon slices dictionary of the grain
+that gave rise to measurement number i. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p>
+<p><strong>labeled_volume</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): 3d numpy array of sample with values corresponding to grain index.</p>
+<p><strong>labeled_grains</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageD11</span> <span class="pre">Grain</span></code>): Id11 grain for each grain slice in polygons.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-regression.bayesian">
+<span id="regression"></span><h1>regression<a class="headerlink" href="#module-regression.bayesian" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="regression.bayesian.BeltramiApproxAnisoRayMeas">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">BeltramiApproxAnisoRayMeas</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">D</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsegs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subset_idx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.BeltramiApproxAnisoRayMeas" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.BeltramiApproxAnisoStrainField">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">BeltramiApproxAnisoStrainField</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">D</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.BeltramiApproxAnisoStrainField" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates regressor matrix given hyperparameters for beltrami components and spatial locations.</p>
+<p>This function works for aniostropic materials as the compliance H can be supplied.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component A</p></li>
+<li><p><strong>B</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component B</p></li>
+<li><p><strong>C</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component C</p></li>
+<li><p><strong>D</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component D</p></li>
+<li><p><strong>E</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component E</p></li>
+<li><p><strong>F</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component F</p></li>
+<li><p><strong>x</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – x coordinate of points to calculate basis functions at</p></li>
+<li><p><strong>y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – y coordinate of points to calculate basis functions at</p></li>
+<li><p><strong>z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – z coordinate of points to calculate basis functions at</p></li>
+<li><p><strong>H</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the compliance matrix, either a <code class="docutils literal notranslate"><span class="pre">`shape=(6,6)`</span></code> average
+for the material or <code class="docutils literal notranslate"><span class="pre">`shape=(N,6,6)`</span></code> individual compliances for each point</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The regressor matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.BeltramiApproxAnisoStressField">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">BeltramiApproxAnisoStressField</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">D</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.BeltramiApproxAnisoStressField" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates regressor matrix given hyperparameters for beltrami components and spatial locations.</p>
+<p>This function works for aniostropic materials as the compliance H can be supplied.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component A</p></li>
+<li><p><strong>B</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component B</p></li>
+<li><p><strong>C</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component C</p></li>
+<li><p><strong>D</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component D</p></li>
+<li><p><strong>E</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component E</p></li>
+<li><p><strong>F</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – Basis fuctions for Beltrami component F</p></li>
+<li><p><strong>x</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – x coordinate of points to calculate basis functions at</p></li>
+<li><p><strong>y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – y coordinate of points to calculate basis functions at</p></li>
+<li><p><strong>z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – z coordinate of points to calculate basis functions at</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The regressor matrix</p>
+</dd>
+</dl>
+<p>NOTE: Approximating stress is simply done by approximating strain with H=I unity.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.basisFuncDInts">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">basisFuncDInts</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lambdas</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">req</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsegs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q4</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.basisFuncDInts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes line integrals of the derivatives of basis functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lambdas</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – placement of each basis function (frequencies)</p></li>
+<li><p><strong>Lx</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – domain size in x,y,z directions</p></li>
+<li><p><strong>Ly</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – domain size in x,y,z directions</p></li>
+<li><p><strong>Lz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – domain size in x,y,z directions</p></li>
+<li><p><strong>entry</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – entry points of each segment of each measurement ray</p></li>
+<li><p><strong>exit</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – exit points of each segment of each measurement ray</p></li>
+<li><p><strong>req</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Components desired to calculate for.</p></li>
+<li><p><strong>nsegs</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Number of segments for each line integral. <code class="docutils literal notranslate"><span class="pre">shape=(N,)</span></code></p></li>
+<li><p><strong>Q1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Integral partial results computed by <a class="reference internal" href="#regression.bayesian.defineFourierBasis" title="regression.bayesian.defineFourierBasis"><code class="xref py py-func docutils literal notranslate"><span class="pre">defineFourierBasis()</span></code></a>.</p></li>
+<li><p><strong>Q2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Integral partial results computed by <a class="reference internal" href="#regression.bayesian.defineFourierBasis" title="regression.bayesian.defineFourierBasis"><code class="xref py py-func docutils literal notranslate"><span class="pre">defineFourierBasis()</span></code></a>.</p></li>
+<li><p><strong>Q3</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Integral partial results computed by <a class="reference internal" href="#regression.bayesian.defineFourierBasis" title="regression.bayesian.defineFourierBasis"><code class="xref py py-func docutils literal notranslate"><span class="pre">defineFourierBasis()</span></code></a>.</p></li>
+<li><p><strong>Q4</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Integral partial results computed by <a class="reference internal" href="#regression.bayesian.defineFourierBasis" title="regression.bayesian.defineFourierBasis"><code class="xref py py-func docutils literal notranslate"><span class="pre">defineFourierBasis()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code> of <code class="docutils literal notranslate"><span class="pre">`shape=(n,</span> <span class="pre">mm_adj,</span> <span class="pre">6)`</span></code>, the line integrals of the derivatives of each basis function</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.basisFuncDerivs">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">basisFuncDerivs</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lambdas</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">req</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.basisFuncDerivs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the basis function derivatives Beltrami basis components.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lambdas</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Basis function frequencies.</p></li>
+<li><p><strong>Lx</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Basis function phases in x,y,z domain.</p></li>
+<li><p><strong>Ly</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Basis function phases in x,y,z domain.</p></li>
+<li><p><strong>Lz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Basis function phases in x,y,z domain.</p></li>
+<li><p><strong>x</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Coordinates at which to calculate basis functions at.</p></li>
+<li><p><strong>y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Coordinates at which to calculate basis functions at.</p></li>
+<li><p><strong>z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Coordinates at which to calculate basis functions at.</p></li>
+<li><p><strong>req</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Components desired to calculate for.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Partial derivatives of the basis function, <code class="docutils literal notranslate"><span class="pre">`shape=6,n,m)`</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.defineBeltramiBasis">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">defineBeltramiBasis</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nhat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.defineBeltramiBasis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a set of Fourier basis functions used in the bayesian regression.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Number of basis functions in each frequency dimension.</p></li>
+<li><p><strong>theta</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – Hyper parameters defining covariance function.</p></li>
+<li><p><strong>nhat</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – X-ray beam directionin sample coordinate system.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>tuple of dictionaries dictionaries of type <a class="reference internal" href="#regression.bayesian.defineFourierBasis" title="regression.bayesian.defineFourierBasis"><code class="xref py py-func docutils literal notranslate"><span class="pre">defineFourierBasis()</span></code></a>.
+one dictionary for each beltrami tensor componenent. Also returns a concatenated tensor with all
+dictionaries contained.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.defineFourierBasis">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">defineFourierBasis</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nhat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.defineFourierBasis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a set of Fourier basis functions used in the bayesian regression.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – number of basis functions along each axis</p></li>
+<li><p><strong>lx</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – lengthscale along x axis</p></li>
+<li><p><strong>ly</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – lengthscale along y axis</p></li>
+<li><p><strong>lz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – lengthscale along z axis</p></li>
+<li><p><strong>sig_f</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – prior signal uncertainty</p></li>
+<li><p><strong>nhat</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the unit vector directions of the measurements</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>dictionary with keys and values:</p>
+<blockquote>
+<div><p><strong>lambdas</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>): placement of each basis function (frequencies)</p>
+<p><strong>SLambda</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>): spectral densities for each basis function (i.e. prior variances)</p>
+<p><strong>Lx,Ly,Lz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>): domain size in x,y,z directions</p>
+<p><strong>Q1,Q2,Q3,Q4</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>): Integral partial results to be used in <a class="reference internal" href="#regression.bayesian.basisFuncDInts" title="regression.bayesian.basisFuncDInts"><code class="xref py py-func docutils literal notranslate"><span class="pre">basisFuncDInts()</span></code></a>.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.negativeLogLikelihood">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">negativeLogLikelihood</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.negativeLogLikelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the negative log likelihood based on gaussian measurement model.</p>
+<p>cost =  0.5*error^T Sigma^{-1} error + 0.5 log(det(Sigma)) + C
+where Sigma is the predictions of the measurement variances
+Sigma = Variance of the predicted value + variance of the measurements (sig_m^2)
+This computation is done in square root form for computational efficiency and
+numerical accuracy</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Phi</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the regressor matrix</p></li>
+<li><p><strong>Y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the measurement values</p></li>
+<li><p><strong>sig_m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the measurement standard deviations, either a scalar or an N,1 vector of individual stds</p></li>
+<li><p><strong>v</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the fit basis function coefficients</p></li>
+<li><p><strong>r</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – the cholesky factor calculated during regression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The negative log likelihood</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.nll_scipy_wrapper_RT_aniso">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">nll_scipy_wrapper_RT_aniso</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logtheta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsegs_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nsegs_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_m_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_m_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Hray_train</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Hray_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nhat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_idx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.nll_scipy_wrapper_RT_aniso" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the negative log likelihood based on gaussian measurement model.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.predict">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">predict</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predicts the point location values of a field given regressor matrix.</p>
+<p>Based on the fitted basis function coefficients v, and the cholesky factor r
+also returns the cholesky factor of the variances of these predictions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Phi</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The regressor matrix</p></li>
+<li><p><strong>v</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The fit basis function coefficients</p></li>
+<li><p><strong>r</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The cholesky factor calculated during regression</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>predictions, chol_var</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="regression.bayesian.regression">
+<code class="sig-prename descclassname"><span class="pre">regression.bayesian.</span></code><code class="sig-name descname"><span class="pre">regression</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_m</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">SLambda</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.bayesian.regression" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs linear bayesian regression to fit basis function coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Phi</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The regressor matrix</p></li>
+<li><p><strong>Y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The measurements</p></li>
+<li><p><strong>sig_m</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The measurement standard deviation, either a scalar or a N,1 array of individual stds</p></li>
+<li><p><strong>SLambda</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">torch.tensor</span></code>) – The prior covariances for the basis functions</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>(v,r) where v is the basis function coefficients and r is the cholesky factor required form stuffs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-regression.wlsq"></span><dl class="py function">
+<dt id="regression.wlsq.trust_constr_solve">
+<code class="sig-prename descclassname"><span class="pre">regression.wlsq.</span></code><code class="sig-name descname"><span class="pre">trust_constr_solve</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nhat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_constraint</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#regression.wlsq.trust_constr_solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute a voxelated strain-tensor field weighted least squares fit to a series of line integral strain measures.</p>
+<p>Assigns strain tensors over a 2d input mesh on a per element basis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Coordinate of mesh element nodes, <code class="docutils literal notranslate"><span class="pre">`shape=(N,4)`</span></code> for quads.</p></li>
+<li><p><strong>directions</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – unit vectors along which <code class="xref py py-obj docutils literal notranslate"><span class="pre">strains</span></code> apply.</p></li>
+<li><p><strong>strains</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Average strains along lines.</p></li>
+<li><p><strong>entry</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray grian entry points per line.</p></li>
+<li><p><strong>exit</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray grian exit points per line.</p></li>
+<li><p><strong>nhat</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray direction per integral in sample coordinate system.</p></li>
+<li><p><strong>weights</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per measurement weights, higher weight gives more impact of equation.</p></li>
+<li><p><strong>beam_width</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Width of beam in units of microns.</p></li>
+<li><p><strong>grad_constraint</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – In x-y plane smoothing constraint of strain reconstruction. Deviations between
+two neighbouring pixels cannot exceed this value for any strain component.</p></li>
+<li><p><strong>maxiter</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>) – Maximum number of WLSQ iterations to perform.</p></li>
+<li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – If to print progress. Defaults to True.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of strain tensor components each with <code class="docutils literal notranslate"><span class="pre">`shape=mesh.shape`</span></code>.
+The order of components is “XX”,”YY”,”ZZ”,”YZ”,”XZ”,”XY”.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-utils.mesher">
+<span id="utils"></span><h1>utils<a class="headerlink" href="#module-utils.mesher" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="utils.mesher.mesh_from_polygon">
+<code class="sig-prename descclassname"><span class="pre">utils.mesher.</span></code><code class="sig-name descname"><span class="pre">mesh_from_polygon</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.mesher.mesh_from_polygon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a quadratile 2d mesh over a Shapely polygon object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>w</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Element side length.</p></li>
+<li><p><strong>poly</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Shapely</span> <span class="pre">Polygon</span></code>) – Polygon object to be meshed. The output mesh
+follows the <code class="xref py py-obj docutils literal notranslate"><span class="pre">poly</span></code> coordinate system.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) The nodal coordinates of each element in the mesh.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="utils.mesher.mesh_to_pixels">
+<code class="sig-prename descclassname"><span class="pre">utils.mesher.</span></code><code class="sig-name descname"><span class="pre">mesh_to_pixels</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.mesher.mesh_to_pixels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate pixelated map from a mesh coordinate matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mesh</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Element nodal coordinates</p></li>
+<li><p><strong>element_width</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Element side length.</p></li>
+<li><p><strong>shape</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>) – Desired output array shape, (always uses odd shape)</p></li>
+<li><p><strong>values</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per elemetn values to fill the output array with.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) Pixelated map of input field stored in values.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-utils.save"></span><dl class="py function">
+<dt id="utils.save.as_vtk_voxel_volume">
+<code class="sig-prename descclassname"><span class="pre">utils.save.</span></code><code class="sig-name descname"><span class="pre">as_vtk_voxel_volume</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arrays</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.save.as_vtk_voxel_volume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save arrays as fields that are paraview compatible (vtk files).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Asolute path to save the output at ending with desired filename.</p></li>
+<li><p><strong>arrays</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – The arrays to be saved.</p></li>
+<li><p><strong>names</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Names of the arrays refered to by paraview. These
+will also be the default titles in paraview.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="utils.save.load_vectors">
+<code class="sig-prename descclassname"><span class="pre">utils.save.</span></code><code class="sig-name descname"><span class="pre">load_vectors</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.save.load_vectors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load vectors produced and saved by s3dxrd.Id11.peaks_to_vectors().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Asolute path ending with filename of file to load.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>dictionary with fields as specified in s3dxrd.Id11.peaks_to_vectors().</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="utils.save.mesh2voxels">
+<code class="sig-prename descclassname"><span class="pre">utils.save.</span></code><code class="sig-name descname"><span class="pre">mesh2voxels</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.save.mesh2voxels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save arrays as fields that are paraview compatible (vtk files).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Asolute path to save the output at ending with desired filename.</p></li>
+<li><p><strong>mesh</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Series of 2d x-y element mesh coordinate arrays.</p></li>
+<li><p><strong>zpos</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – z-cordinates of each of the meshes in ´´´mesh´´´.</p></li>
+<li><p><strong>values</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – For each mesh this list contains
+a list for each tensor component and each mesh element. I.e values[i][j][k] gives the
+value associated to the k:th element in the mesh[i] for the tensor component j.</p></li>
+<li><p><strong>names</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Names of the tensor component arrays refered to by
+paraview. These will also be the default titles in paraview.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-utils.compliance"></span><dl class="py function">
+<dt id="utils.compliance.build_per_point_compliance_and_mask">
+<code class="sig-prename descclassname"><span class="pre">utils.compliance.</span></code><code class="sig-name descname"><span class="pre">build_per_point_compliance_and_mask</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">compliance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xgrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ygrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zgrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygon_orientations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ystep</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.compliance.build_per_point_compliance_and_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a material compliance and orientation field, build a per point complance field and density mask.</p>
+<p>This function iterates over <code class="docutils literal notranslate"><span class="pre">`polygons`</span></code> to check if the points in <code class="docutils literal notranslate"><span class="pre">`Xgrid`</span></code>, <code class="docutils literal notranslate"><span class="pre">`Ygrid`</span></code>, <code class="docutils literal notranslate"><span class="pre">`Zgrid`</span></code>
+are contained by any polygon. If so, the compliance of the given polygon is assigned to the point, as specified
+by polygon_orientations and compliance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compliance</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Compliance matrix, <code class="docutils literal notranslate"><span class="pre">shape=(6,6)</span></code>.</p></li>
+<li><p><strong>Xgrid</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – x,y,z coordinate arrays, <code class="docutils literal notranslate"><span class="pre">shape=(m,n,l)</span></code>.</p></li>
+<li><p><strong>Ygrid</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – x,y,z coordinate arrays, <code class="docutils literal notranslate"><span class="pre">shape=(m,n,l)</span></code>.</p></li>
+<li><p><strong>Zgrid</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – x,y,z coordinate arrays, <code class="docutils literal notranslate"><span class="pre">shape=(m,n,l)</span></code>.</p></li>
+<li><p><strong>polygons</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – See s3dxrd.measurements.Id11.peaks_to_vectors()</p></li>
+<li><p><strong>polygon_orientations</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – See s3dxrd.measurements.Id11.peaks_to_vectors()</p></li>
+<li><p><strong>zpos</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code>) – z-coordinates of polygons.</p></li>
+<li><p><strong>ystep</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Distance in microns between gridpoints.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>tuple with values:</p>
+<blockquote>
+<div><p><strong>Hpoint</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>): Per gridpoint compliance of <code class="docutils literal notranslate"><span class="pre">shape=(m,n,l,6,6)</span></code>. Zero outside of mask.</p>
+<p><strong>mask</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>):  Density mask of <code class="docutils literal notranslate"><span class="pre">shape=(m,n,l)</span></code>. np.nan is assigned to empty points.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="utils.compliance.rotate_compliance">
+<code class="sig-prename descclassname"><span class="pre">utils.compliance.</span></code><code class="sig-name descname"><span class="pre">rotate_compliance</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.compliance.rotate_compliance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rotate a series of 6x6 “tensor matrices” according to a series of 3x3 rotation matrices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>U</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Orientation/rotation tensors, <code class="docutils literal notranslate"><span class="pre">`shape=(Nx3x3)`</span></code></p></li>
+<li><p><strong>H</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Compliance matrices, <code class="docutils literal notranslate"><span class="pre">`shape=(Nx6x6)`</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) of <code class="docutils literal notranslate"><span class="pre">`shape=(Nx6x6)`</span></code> rotated compliance matrices.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Axel Henningsson.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
