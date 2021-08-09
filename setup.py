@@ -8,12 +8,12 @@ setuptools.setup(
     version="0.0.0",
     author="Axel Henningsson",
     author_email="nilsaxelhenningsson@gmail.com",
-    description="Tools for simulating x-ray diffraction",
+    description="Tools for diffraction simulation of s3dxrd type experiments.",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    url="https://github.com/AxelHenningsson/scanning-xray-diffraction",
+    url="https://github.com/AxelHenningsson/xrd_simulator",
     project_urls={
-        "Documentation": "https://axelhenningsson.github.io/scanning-xray-diffraction/",
+        "Documentation": "https://axelhenningsson.github.io/xrd_simulator/",
     },
     classifiers=[
         "Programming Language :: Python :: 3",

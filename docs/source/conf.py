@@ -14,9 +14,7 @@ import os
 import sys
 import sphinx_rtd_theme
 
-sys.path.insert(0, os.path.abspath('../../xrd_simulator/'))
-#sys.path.insert(0, os.path.abspath('../../s3dxrd/utils'))
-#sys.path.insert(0, os.path.abspath('../../s3dxrd/regression'))
+sys.path.insert(0, os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------
 

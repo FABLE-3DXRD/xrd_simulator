@@ -1,41 +1,33 @@
-.. contomo documentation master file.
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
 .. include:: ../../README.rst
 
-measurement
+xrd_simulator
 ======================================
 
-.. automodule:: measurement.Id11
+.. automodule:: xrd_simulator.beam
     :members:
     :show-inheritance:
 
-regression
-======================================
-
-.. automodule:: regression.bayesian
+.. automodule:: xrd_simulator.detector
     :members:
     :show-inheritance:
 
-.. automodule:: regression.wlsq
+.. automodule:: xrd_simulator.mesh
     :members:
     :show-inheritance:
 
-utils
-======================================
-
-.. automodule:: utils.mesher
+.. automodule:: xrd_simulator.polycrystal
     :members:
     :show-inheritance:
 
-.. automodule:: utils.save
+.. automodule:: xrd_simulator.scattered_ray
     :members:
     :show-inheritance:
 
-.. automodule:: utils.compliance
+.. automodule:: xrd_simulator.utils
     :members:
     :show-inheritance:
 
