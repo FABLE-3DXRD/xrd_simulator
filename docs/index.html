@@ -33,6 +33,7 @@
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/language_data.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -170,8 +171,144 @@ cross section. The beam is then extruded in a given direction towards infinity.<
 discrete pixelated framestack.</p>
 <span class="target" id="module-xrd_simulator.mesh"></span><p>A mesh object defines a tetrahedral set of 3d elements and tracks their respective
 normals and nodes.</p>
-<span class="target" id="module-xrd_simulator.polycrystal"></span><p>A Polycrystal object links a mesh to a phase-list and hold a ubi matrix to each element
+<span class="target" id="module-xrd_simulator.polycrystal"></span><dl class="class">
+<dt id="xrd_simulator.polycrystal.Polycrystal">
+<em class="property">class </em><code class="sig-prename descclassname">xrd_simulator.polycrystal.</code><code class="sig-name descname">Polycrystal</code><span class="sig-paren">(</span><em class="sig-param">mesh</em>, <em class="sig-param">ephase</em>, <em class="sig-param">phases</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A Polycrystal object links a mesh to a phase-list and hold a ubi matrix to each element
 and can produce corresponding hkl indices and intensity factors for these crystals</p>
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.find_solutions_to_tangens_half_angle_equation">
+<code class="sig-name descname">find_solutions_to_tangens_half_angle_equation</code><span class="sig-paren">(</span><em class="sig-param">k1</em>, <em class="sig-param">k2</em>, <em class="sig-param">c_0</em>, <em class="sig-param">c_1</em>, <em class="sig-param">c_2</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.find_solutions_to_tangens_half_angle_equation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find all solutions, s, to the equation</p>
+<div class="math notranslate nohighlight">
+\[(c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \quad\quad (1)\]</div>
+<p>where</p>
+<div class="math notranslate nohighlight">
+\[t = \tan(s \alpha / 2). \quad\quad (2)\]</div>
+<p>and .. math::alpha is the angle between k1 and k2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>k1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall start of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>k2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall end of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>c_0</strong><strong>,</strong><strong>c_1</strong><strong>,</strong><strong>c_2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Equation coefficents</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>solutions (s1, s2) if any exists otehrwise returns (None, None).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_bragg_angle">
+<code class="sig-name descname">get_bragg_angle</code><span class="sig-paren">(</span><em class="sig-param">G</em>, <em class="sig-param">wavelength</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_bragg_angle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute a Bragg angle given a diffraction (scattering) vector.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_candidate_elements">
+<code class="sig-name descname">get_candidate_elements</code><span class="sig-paren">(</span><em class="sig-param">beam</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_candidate_elements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all elements that could diffract for a given illumination setting.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_crystal_beam_intersections">
+<code class="sig-name descname">get_crystal_beam_intersections</code><span class="sig-paren">(</span><em class="sig-param">beam</em>, <em class="sig-param">elements</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_crystal_beam_intersections" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute convex intersection hulls of beam and selected mesh elements.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_kprimes">
+<code class="sig-name descname">get_kprimes</code><span class="sig-paren">(</span><em class="sig-param">k1</em>, <em class="sig-param">k2</em>, <em class="sig-param">U</em>, <em class="sig-param">B</em>, <em class="sig-param">G_hkl</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_kprimes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check for difraction from a crystal for a specific hkl family and illumination intervall, [k1,k2].</p>
+<p>The intervall is defined by rotating the illuminating wave vector k1 into k2 in the plane spanned
+by k1 and k2. The crystal is defined by its U and B matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>k1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall start of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>k2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall end of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>U</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Crystal coordinates to sample coordinates mapping matrix. (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>)</p></li>
+<li><p><strong>B</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Crystal reciprocal coordinates to real coordinates mapping matrix. (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>)</p></li>
+<li><p><strong>G_hkl</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Diffraction (or scattering) Miller indices. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Solutions to diffraction equations for the given crystal and the given
+parametric intervbal of illumination. If no solutions exist <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code> is returned.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_parametric_k">
+<code class="sig-name descname">get_parametric_k</code><span class="sig-paren">(</span><em class="sig-param">k1</em>, <em class="sig-param">k2</em>, <em class="sig-param">s</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_parametric_k" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds vector <code class="xref py py-obj docutils literal notranslate"><span class="pre">k</span></code> by rotating <code class="xref py py-obj docutils literal notranslate"><span class="pre">k1</span></code> towards <code class="xref py py-obj docutils literal notranslate"><span class="pre">k2</span></code> a fraction <code class="xref py py-obj docutils literal notranslate"><span class="pre">s</span></code> in the plane spanned by <code class="xref py py-obj docutils literal notranslate"><span class="pre">k1</span></code> and <code class="xref py py-obj docutils literal notranslate"><span class="pre">k2</span></code>.</p>
+<div class="math notranslate nohighlight">
+\[\boldsymbol{k}(s) = \boldsymbol{k}_i\cos(s\alpha)+(\boldsymbol{\hat{r}}\times \boldsymbol{k}_i)\sin(s\alpha)\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>k1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall start of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>k2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall end of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>s</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Angular rotation fraction (s=0 gives k1 and s=1 gives k2 as result).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">k</span></code>, the wave vector in the intervall of <code class="xref py py-obj docutils literal notranslate"><span class="pre">k1</span></code> and <code class="xref py py-obj docutils literal notranslate"><span class="pre">k2</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_scattered_rays">
+<code class="sig-name descname">get_scattered_rays</code><span class="sig-paren">(</span><em class="sig-param">beam</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_scattered_rays" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct ScatteredRay objects for each scattering occurence and return.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="xrd_simulator.polycrystal.Polycrystal.get_tangens_half_angle_equation">
+<code class="sig-name descname">get_tangens_half_angle_equation</code><span class="sig-paren">(</span><em class="sig-param">k1</em>, <em class="sig-param">k2</em>, <em class="sig-param">theta</em>, <em class="sig-param">G</em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.get_tangens_half_angle_equation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the coefficents of the quadratic equation</p>
+<div class="math notranslate nohighlight">
+\[(c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \quad\quad (1)\]</div>
+<p>Its roots (if existing) are solutions to the Laue equations where t is</p>
+<div class="math notranslate nohighlight">
+\[t = \tan(s \alpha / 2). \quad\quad (2)\]</div>
+<p>and s is the sought parameter which parametrises all wave vectors between k1 and k2 where
+s=0 corresponds to k1 and s=1 to k2. Intermediate vectors are reached by rotating k1 in the
+plane spanned by k1 and k2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>k1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall start of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>k2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intervall end of illuminating wave vectors. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+<li><p><strong>theta</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Bragg angle in radians of sought diffraction.</p></li>
+<li><p><strong>G</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Diffraction (or scattering) vector of sought diffraction. (<code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Coefficents c_0,c_1 and c_2 of equation (1).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <span class="target" id="module-xrd_simulator.scattered_ray"></span><p>A scatterd ray object defines the convex scattering region of an element together with
 its scattering vector and intensity scaling. It is meant to be eaten by a detector and rendered
 into a pattern. The scatterd ray object is not a simmlified object but any approximations are

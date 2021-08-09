@@ -4,4 +4,4 @@
 make html
 cp -r build/html/* .
 echo "Copied all docs to path visible by github pages"
-# firefox --new-window index.html
+#firefox --new-window index.html
