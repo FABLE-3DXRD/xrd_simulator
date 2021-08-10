@@ -24,7 +24,10 @@ class Polycrystal(object):
         """Construct ScatteredRay objects for each scattering occurence and return."""
         pass
 
-    def get_kprimes( self, k1, k2, U, B, G_hkl, wavelength ):
+    def _get_G(self, U, B, G_hkl):
+        return np.dot( U, np.dot( B, G_hkl ) )
+
+    def _get_kprimes( self, k1, k2, U, B, G_hkl, wavelength ):
         """Check for difraction from a crystal for a specific hkl family and illumination intervall, [k1,k2].
 
         The intervall is defined by rotating the illuminating wave vector k1 into k2 in the plane spanned 
@@ -42,25 +45,35 @@ class Polycrystal(object):
             (:obj:`numpy array` or :obj:`None`): Solutions to diffraction equations for the given crystal and the given
             parametric intervbal of illumination. If no solutions exist :obj:`None` is returned.
         """
-        assert np.degrees( np.arccos( np.dot(k1, k2) / ( np.linalg.norm(k1) * np.linalg.norm(k2) ) ) ) > 1e-6 # Require k1 and k2 to be distinct.
-        G = np.dot( U, np.dot( B, G_hkl ) )
-        theta = self.get_bragg_angle( G, wavelength )
-        c_1,c_2,c_2 = self.get_tangens_half_angle_equation( k1, k2, theta, G )
-        s1,s2 = self.find_solutions_to_tangens_half_angle_equation( k1, k2, c_1, c_2, c_2 )
+
+        alpha = self._get_alpha(k1, k2)
+        assert np.degrees( alpha ) > 1e-6, "The illumination range seems to be fixed, k1 == k2."
+        rhat = self._get_rhat(k1, k2)
+        G = self._get_G(U, B, G_hkl)
+        theta = self._get_bragg_angle( G, wavelength )
+        c_1,c_2,c_2 = self._get_tangens_half_angle_equation( k1, theta, G, rhat )
+        s1,s2 = self._find_solutions_to_tangens_half_angle_equation( c_1, c_2, c_2, alpha )
 
         if s1 is None:
             kprime1 = None
         else:
-            kprime1 = G + self.get_parametric_k( k1, k2, s1 )
+            kprime1 = G + self._get_parametric_k( k1, k2, s1, rhat, alpha )
         
         if s2 is None:
             kprime2 = None
         else:
-            kprime2 = G + self.get_parametric_k( k1, k2, s2 )
+            kprime2 = G + self._get_parametric_k( k1, k2, s2, rhat, alpha )
 
         return kprime1, kprime2
 
-    def get_parametric_k(self, k1, k2, s):
+    def _get_alpha(self, k1, k2, wavelength):
+        return np.arccos( (np.dot( k1, k2 )*wavelength*wavelength)/(4.0*np.pi*np.pi) )
+
+    def _get_rhat(self, k1, k2 ):
+        r = np.cross( k1, k2 )
+        return r / np.linalg.norm( r )
+
+    def _get_parametric_k(self, k1, k2, s, rhat, alpha):
         """Finds vector :obj:`k` by rotating :obj:`k1` towards :obj:`k2` a fraction :obj:`s` in the plane spanned by :obj:`k1` and :obj:`k2`. 
 
         .. math:: \\boldsymbol{k}(s) = \\boldsymbol{k}_i\\cos(s\\alpha)+(\\boldsymbol{\\hat{r}}\\times \\boldsymbol{k}_i)\\sin(s\\alpha)
@@ -73,49 +86,43 @@ class Polycrystal(object):
         Returns:
             (:obj:`numpy array`): :obj:`k`, the wave vector in the intervall of :obj:`k1` and :obj:`k2`.
         """
-        r     = np.cross( k1, k2 )
-        rhat  = r / np.linalg.norm( r )
-        alpha = np.arccos( np.dot(k1, k2) / ( np.linalg.norm(k1) * np.linalg.norm(k2) ) )
         return k1*np.cos(s*alpha) + np.cross( rhat, k1 )*np.sin( s*alpha )
 
-    def get_bragg_angle(self, G, wavelength):
+    def _get_bragg_angle(self, G, wavelength):
         """Compute a Bragg angle given a diffraction (scattering) vector.
         """
         return np.arcsin( np.linalg.norm(G)*wavelength/(4*np.pi) )
 
-    def get_tangens_half_angle_equation( self, k1, k2, theta, G ):
+    def _get_tangens_half_angle_equation( self, k1, theta, G, rhat ):
         """Find the coefficents of the quadratic equation 
 
         .. math::
             (c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \\quad\\quad (1)
-            
+
         Its roots (if existing) are solutions to the Laue equations where t is
 
         .. math::
             t = \\tan(s \\alpha / 2). \\quad\\quad (2)
-        
+
         and s is the sought parameter which parametrises all wave vectors between k1 and k2 where 
         s=0 corresponds to k1 and s=1 to k2. Intermediate vectors are reached by rotating k1 in the
         plane spanned by k1 and k2.
 
         Args:
             k1 (:obj:`numpy array`): Intervall start of illuminating wave vectors. (``shape=(3,)``)
-            k2 (:obj:`numpy array`): Intervall end of illuminating wave vectors. (``shape=(3,)``)
             theta (:obj:`float`): Bragg angle in radians of sought diffraction.
             G (:obj:`numpy array`): Diffraction (or scattering) vector of sought diffraction. (``shape=(3,)``)
 
         Returns:
             (:obj:`tuple` of :obj:`float`): Coefficents c_0,c_1 and c_2 of equation (1).
         """
-        r    = np.cross( k1, k2 )
-        rhat = r / np.linalg.norm( r ) 
         c_0  = np.dot(G, k1)
         c_1  = np.dot(G, np.cross( rhat, k1 ) )
         c_2  = - np.linalg.norm( k1 ) * np.linalg.norm( G ) * np.sin( theta )
         return (c_0, c_1, c_2)
 
-    def find_solutions_to_tangens_half_angle_equation( self, k1, k2, c_0, c_1, c_2 ):
-        """Find all solutions, s, to the equation
+    def _find_solutions_to_tangens_half_angle_equation( self, c_0, c_1, c_2, alpha ):
+        """Find all solutions, :obj:`s`, to the equation
 
         .. math::
             (c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \\quad\\quad (1)
@@ -128,15 +135,11 @@ class Polycrystal(object):
         and .. math::\\alpha is the angle between k1 and k2
 
         Args:
-            k1 (:obj:`numpy array`): Intervall start of illuminating wave vectors. (``shape=(3,)``)
-            k2 (:obj:`numpy array`): Intervall end of illuminating wave vectors. (``shape=(3,)``)
             c_0,c_1,c_2 (:obj:`float`): Equation coefficents
 
         Returns:
             (:obj:`float` or :obj:`None`): solutions (s1, s2) if any exists otehrwise returns (None, None).
         """
-
-        alpha = np.arccos( np.dot(k1, k2) / ( np.linalg.norm(k1) * np.linalg.norm(k2) ) )
 
         if c_0==c_2:
             if c_1==0:
@@ -160,8 +163,8 @@ class Polycrystal(object):
 
         if t2 is not None:
             s2 = 2 * np.arctan( t2 ) / alpha
-            if s1>1 or s1<0:
-                s1 = None
+            if s2>1 or s2<0:
+                s2 = None
         else:
             s2 = None
 
