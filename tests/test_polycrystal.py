@@ -64,14 +64,22 @@ class TestPolycrystal(unittest.TestCase):
         self.assertAlmostEqual( kdotk2, k.dot(k2), msg="cosine formula mismatch in k * k2" )
 
     def test_get_kprimes(self):
+        #TODO: write this..
         pass
-    
+
     def test_get_tangens_half_angle_equation(self):
-        pass
+        #TODO: simple runa and check that the coefficents are returned as real number of reasonable sizes.
+        pc = Polycrystal(None, None, None)
+        wavelength = self.get_pseudorandom_wavelength()
+        U, B, cell, strain = self.get_pseudorandom_crystal()
+        k1, k2     = self.get_pseudorandom_k1_k2(wavelength)
+        rhat = pc._get_rhat(k1, k2)
+        G = pc._get_G(U, B, G_hkl=np.array([1, 0, 0]))
+        theta  = pc._get_bragg_angle( G, wavelength )
+        c_0, c_1, c_2 = pc._get_tangens_half_angle_equation(k1, theta, G, rhat ) 
 
     def test_find_solutions_to_tangens_half_angle_equation(self):
         pc = Polycrystal(None, None, None)
-        wavelength = self.get_pseudorandom_wavelength()
         U, B, cell, strain = self.get_pseudorandom_crystal()
         wavelength = cell[0]/18. # make sure the wavelength fits in the lattice spacing
         k1 = np.array([ 1.0, 0, 0 ]) # select a large interval of k-vectors
@@ -94,7 +102,6 @@ class TestPolycrystal(unittest.TestCase):
         if s2 is not None:
             t2 = np.tan( s2*alpha/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t2**2 + 2*c_1*t2 + (c_0 + c_2), 0, msg="Parametric solution wrong")
-
 
     def get_pseudorandom_crystal(self):
         phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
