@@ -6,7 +6,7 @@ from xrd_simulator.polycrystal import Polycrystal
 class TestPolycrystal(unittest.TestCase):
 
     def setUp(self):
-        np.random.seed(10)
+        np.random.seed(10) # changes all randomisation in the test
 
     def test_init(self):
         pc = Polycrystal(None, None, None)
