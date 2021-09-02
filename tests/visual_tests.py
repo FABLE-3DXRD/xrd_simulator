@@ -5,6 +5,7 @@ from xrd_simulator.polycrystal import Polycrystal
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from xfab import tools
+import time
 
 np.random.seed(5)
 U = np.eye(3,3)
@@ -22,7 +23,7 @@ ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],
 ks = 2*np.pi*ks/wavelength
 thetas  =[]
 pc = Polycrystal(None, None, None)
-
+alltimes =[]
 for _ in range(10): # sample of 10 crystals
 
     phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
@@ -32,7 +33,11 @@ for _ in range(10): # sample of 10 crystals
             for l in range(-5,5):
                 G_hkl = np.array( [h,k,l] )
                 for i in range(len(ks)-1):
+                    t1 = time.process_time()
                     kprime1, kprime2 = pc._get_kprimes( ks[i], ks[i+1], U, B, G_hkl, wavelength )
+                    t2 = time.process_time()
+                    alltimes.append( (t2-t1) )
+                    print(np.mean(alltimes))
                     for j,kprime in enumerate([kprime1, kprime2]):
                         if kprime is not None:
 

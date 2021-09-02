@@ -9,7 +9,8 @@ class TestPolycrystal(unittest.TestCase):
         np.random.seed(10) # changes all randomisation in the test
 
     def test_init(self):
-        pc = Polycrystal(None, None, None)
+        
+        pc = Polycrystal(None, None, None, None, None)
 
     def test_get_G_and_bragg_angle(self):
         U, B, cell, strain = self.get_pseudorandom_crystal()
@@ -79,6 +80,8 @@ class TestPolycrystal(unittest.TestCase):
         theta   = pc._get_bragg_angle(G, wavelength)
         c_0, c_1, c_2 = pc._get_tangens_half_angle_equation(k1, theta, G, rhat ) 
         s1, s2 = pc._find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha )
+
+        self.assertTrue( ( (kprime1 is not None) or (kprime1 is not None) ), msg="Bragg diffraction not occuring")
 
         for kprime,s,name in zip([kprime1,kprime2],[s1,s2],["kprime1","kprime2"]):
             if kprime is not None:

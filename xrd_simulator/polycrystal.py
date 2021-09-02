@@ -1,75 +1,57 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
+import utils
+from scatterer import Scatterer
 
 class Polycrystal(object):
 
     """A Polycrystal object links a mesh to a phase-list and hold a ubi matrix to each element
     and can produce corresponding hkl indices and intensity factors for these crystals""" 
 
-    def __init__(self, mesh, ephase, phases ):
+    def __init__(self, mesh, ephase, eU, eB, phases ):
         self.mesh   = mesh
         self.ephase = ephase
+        self.eU     = eU
+        self.eB     = eB
         self.phases = phases
-
-    def get_crystal_beam_intersections(self, beam, elements):
-        """Compute convex intersection hulls of beam and selected mesh elements."""
-        pass
 
     def get_candidate_elements(self, beam):
         """Get all elements that could diffract for a given illumination setting."""
         pass
 
-    def get_scattered_rays(self, beam):
-        """Construct ScatteredRay objects for each scattering occurence and return."""
-        # TODO implement this: we need to compute both k and kprime to get the beam geometry
-        # and the propagation direction of the diffracted rays. Next we need to compute the
-        # element intersections and store these as convex polyhedrons then we can discard the k:s.
-        # we want to have a list with "scatterers" which are convex polyhedra with difrfaction vectors
-        # in the direction of scattering. The objects also need to specify in what k1,k2 range it scattered
-        # as the user will ofcourse not rotate the synchrotron but the sample and thus need to map these things
-        # to an affine transformation of the sample stage. 
-        pass
+    def get_scatterers(self, beam, k1, k2):
+        """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
+        """
+        alpha = self._get_alpha(k1, k2)
+        # NOTE: Rotations around the beam propagation direction is no true crystal rocking! For a fixed
+        # beam in lab frame, the angles between beam and G vectors will not be changed by this! 
+        # mathematically: R_beam( v ).dot( beam ) = constant, i.e a dot product cannot change due
+        # to rotations around one of the ingoing vectors. Thus we require k1!=k2 for Bragg diffraction
+        # to occur.
+        assert np.degrees( alpha ) > 1e-6, "The illumination range seems to be fixed, k1 == k2. Rotations around the beam is no crystal rocking!"
+        assert np.degrees( alpha ) < 180,  "The illumination must be strictly smaller than 180 dgrs"
+        rhat = self._get_rhat(k1, k2)
+        rotator = utils.get_planar_rodriguez_rotator(k1, k2)
+        scatterers = []
+        for ei in range( self.mesh.number_of_elements ):
+            scatterers.append( [] )
+            # TODO: pass if element not close to beam for speed.
+            for G_hkl in self.phases[ self.ephase[ei] ].hkl:
+                G = self._get_G(self.eU[ei], self.eB[ei], G_hkl)
+                theta = self._get_bragg_angle( G, beam.wavelength )
+                c_0, c_1, c_2 = self._get_tangens_half_angle_equation( k1, theta, G, rhat )
+                for s in self._find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
+                    if s is not None:
+                        k      = rotator( k1, s )
+                        kprime = G + k
+                        beam.align( k )
+                        element_vertices = self.mesh.coord[self.mesh.enod[ei]]
+                        hs = beam.intersect( element_vertices )
+                        scatterers.append( Scatterer(hs, kprime) )        
+        return scatterers
 
     def _get_G(self, U, B, G_hkl):
         return np.dot( U, np.dot( B, G_hkl ) )
-
-    def _get_kprimes( self, k1, k2, U, B, G_hkl, wavelength ):
-        """Check for difraction from a crystal for a specific hkl family and illumination intervall, [k1,k2].
-
-        The intervall is defined by rotating the illuminating wave vector k1 into k2 in the plane spanned 
-        by k1 and k2. The crystal is defined by its U and B matrix. 
-
-        Args:
-            k1 (:obj:`numpy array`): Intervall start of illuminating wave vectors. (``shape=(3,)``)
-            k2 (:obj:`numpy array`): Intervall end of illuminating wave vectors. (``shape=(3,)``)
-            U (:obj:`numpy array`): Crystal coordinates to sample coordinates mapping matrix. (``shape=(3,3)``)
-            B (:obj:`numpy array`): Crystal reciprocal coordinates to real coordinates mapping matrix. (``shape=(3,3)``)
-            G_hkl (:obj:`numpy array`): Diffraction (or scattering) Miller indices. (``shape=(3,)``)
-            wavelength (:obj:`float`): X-ray wavelength.
-
-        Returns:
-            (:obj:`numpy array` or :obj:`None`): Solutions to diffraction equations for the given crystal and the given
-            parametric interval of illumination. If no solutions exist :obj:`None` is returned.
-        """
-
-        alpha = self._get_alpha(k1, k2, wavelength)
-        assert np.degrees( alpha ) > 1e-6, "The illumination range seems to be fixed, k1 == k2."
-        assert np.degrees( alpha ) < 180,  "The illumination must be strictly smaller than 180 dgrs"
-        rhat = self._get_rhat(k1, k2)
-        G = self._get_G(U, B, G_hkl)
-        theta = self._get_bragg_angle( G, wavelength )
-
-        c_0, c_1, c_2 = self._get_tangens_half_angle_equation( k1, theta, G, rhat )
-        s1, s2 = self._find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha )
-
-        kprime1, kprime2 = None,None
-        if s1 is not None:
-            kprime1 = G + self._get_parametric_k( k1, s1, rhat, alpha ) 
-        if s2 is not None:
-            kprime2 = G + self._get_parametric_k( k1, s2, rhat, alpha )
-    
-        return kprime1, kprime2
 
     def _get_alpha(self, k1, k2, wavelength):
         """Compute angle (in radians) between wave vectors k1 and k2.
@@ -81,22 +63,6 @@ class Polycrystal(object):
         """
         r = np.cross( k1, k2 )
         return r / np.linalg.norm( r )
-
-    def _get_parametric_k(self, k1, s, rhat, alpha):
-        """Finds vector :obj:`k` by rotating :obj:`k1` towards :obj:`k2` a fraction :obj:`s` in the plane spanned by :obj:`k1` and :obj:`k2`. 
-
-        .. math:: \\boldsymbol{k}(s) = \\boldsymbol{k}_i\\cos(s\\alpha)+(\\boldsymbol{\\hat{r}}\\times \\boldsymbol{k}_i)\\sin(s\\alpha)
-
-        Args:
-            k1 (:obj:`numpy array`): Intervall start of illuminating wave vectors. (``shape=(3,)``)
-            s (:obj:`float`): Angular rotation fraction (s=0 gives k1 and s=1 gives k2 as result).
-            rhat (:obj:`numpy array`): unit vector normal to the plane holding k1 and k2. (``shape=(3,)``)
-            alpha (:obj:`float`): Angle (in radians) between wave vectors k1 and k2.
-
-        Returns:
-            (:obj:`numpy array`): :obj:`k`, the wave vector in the intervall of :obj:`k1` and :obj:`k2`.
-        """
-        return k1*np.cos( s*alpha ) + np.cross( rhat, k1 )*np.sin( s*alpha )
 
     def _get_bragg_angle(self, G, wavelength):
         """Compute a Bragg angle given a diffraction (scattering) vector.
