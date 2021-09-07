@@ -5,7 +5,7 @@ from xrd_simulator import utils
 
 class Polycrystal(object):
 
-    """A Polycrystal object links a mesh to a phase-list and hold a ubi matrix to each element
+    """A Polycrystal object links a mesh to a phase-list and hold a U and B matrix to each element
     and can produce corresponding hkl indices and intensity factors for these crystals""" 
 
     def __init__(self, mesh, ephase, eU, eB, phases ):
@@ -19,7 +19,7 @@ class Polycrystal(object):
         """Get all elements that could diffract for a given illumination setting."""
         pass
 
-    def get_scatterers(self, beam, k1, k2):
+    def get_scatterers(self, beam, k1, k2, detector):
         """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
         """
         alpha = self._get_alpha(k1, k2)
@@ -28,6 +28,10 @@ class Polycrystal(object):
         # mathematically: R_beam( v ).dot( beam ) = constant, i.e a dot product cannot change due
         # to rotations around one of the ingoing vectors. Thus we require k1!=k2 for Bragg diffraction
         # to occur.
+
+        #TODO: use the detector to figure out what is the 
+
+
         assert np.degrees( alpha ) > 1e-6, "The illumination range seems to be fixed, k1 == k2. Rotations around the beam is no crystal rocking!"
         assert np.degrees( alpha ) < 180,  "The illumination must be strictly smaller than 180 dgrs"
         rhat = self._get_rhat(k1, k2)
