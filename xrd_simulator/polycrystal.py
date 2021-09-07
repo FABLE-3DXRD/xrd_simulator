@@ -1,7 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-import utils
-from scatterer import Scatterer
+from xrd_simulator.scatterer import Scatterer
+from xrd_simulator import utils
 
 class Polycrystal(object):
 
