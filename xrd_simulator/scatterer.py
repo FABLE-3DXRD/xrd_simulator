@@ -8,16 +8,17 @@ import matplotlib.pyplot as plt
 
 class Scatterer(object):
 
-    def __init__(self, halfspaceintersection, kprime ):
-        self.halfspaceintersection = halfspaceintersection
+    def __init__(self, convex_hull, kprime, s ):
+        self.convex_hull = convex_hull
         self.kprime = kprime
+        self.s = s
     
     def get_centroid(self):
         """Get centroid scattering region
         """
-        pass
+        return np.mean( convex_hull.vertices, axis=0 )
 
     def get_volume(self):
         """Get centroid scattering region
         """
-        pass
+        return convex_hull.volume

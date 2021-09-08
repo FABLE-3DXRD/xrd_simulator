@@ -11,6 +11,14 @@ def get_planar_rodriguez_rotator( v1, v2 ):
     def rotator(v, s): return v*np.cos( s*alpha ) + np.cross( rhat, v )*np.sin( s*alpha )
     return rotator
 
+def get_unit_vector_and_l2norm(v1, v2):
+    """Compute l2 norm distance and unit vector between vectors v2 and v1.
+    """
+    v2v1 = (v2 - v1)
+    norm = np.linalg.norm( v2v1 ) 
+    unit_vector = v2v1 / distance
+    return unit_vector, norm
+
 class HiddenPrints:
     """Simple class to enable running code without printing using python with statements.
 
