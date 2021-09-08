@@ -23,8 +23,8 @@ omega = np.linspace(0., np.pi, 9)
 ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],[0,0,1]]).dot(x) for om in omega])
 ks = 2*np.pi*ks/wavelength
 
-hklrange = 5
-for _ in range(25): # sample of 10 crystals
+hklrange = 3
+for _ in range(10): # sample of 10 crystals
 
     phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
     U = tools.euler_to_u(phi1, PHI, phi2)
@@ -46,7 +46,7 @@ for _ in range(25): # sample of 10 crystals
                             wavevector =  rotator(ks[i],s)
                             kprime = G + wavevector
 
-                            ang = alpha*s
+                            ang = rotator.alpha*s
                             sin = np.sin( -(omega[i]+ang) )
                             cos = np.cos( -(omega[i]+ang) )
                             R = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
