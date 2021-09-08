@@ -32,7 +32,6 @@ class Beam(object):
         """
         for i in range( self.vertices.shape[0] ):
             self.vertices[i,:] = self.rotator(self.original_vertices[i,:], s)
-        self.propagation_direction = new_propagation_direction
         self.halfspaces = self.ConvexHull( self.vertices ).equations
         self.k = self.rotator(self.k1, s)
 

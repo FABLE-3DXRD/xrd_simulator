@@ -6,17 +6,6 @@ import numpy as np
 def get_G( U, B, G_hkl ):
     return np.dot( U, np.dot( B, G_hkl ) )
 
-def get_alpha( k1, k2, wavelength ):
-    """Compute angle (in radians) between wave vectors k1 and k2.
-    """
-    return np.arccos( (np.dot( k1, k2 )*wavelength*wavelength)/(4.0*np.pi*np.pi) )
-
-def get_rhat( k1, k2 ):
-    """Compute unit vector normal to the plane holding k1 and k2.
-    """
-    r = np.cross( k1, k2 )
-    return r / np.linalg.norm( r )
-
 def get_bragg_angle( G, wavelength ):
     """Compute a Bragg angle given a diffraction (scattering) vector.
     """

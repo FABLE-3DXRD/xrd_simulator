@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from xfab import tools
 from xrd_simulator import laue
+from xrd_simulator import utils
 
 class TestLaue(unittest.TestCase):
 
@@ -21,33 +22,14 @@ class TestLaue(unittest.TestCase):
         self.assertGreaterEqual( theta, 0, msg="Bragg angle is negative" )
         self.assertAlmostEqual( np.sin(theta)*2*d, wavelength, msg="G and theta does not fulfill Braggs law" )
 
-    def test_get_rhat(self):
-        wavelength = self.get_pseudorandom_wavelength()
-        k1, k2 = self.get_pseudorandom_k1_k2(wavelength)
-        rhat = laue.get_rhat(k1,k2)
-
-        self.assertAlmostEqual( rhat.dot(k1), 0, msg="rhat is not orthogonal to k1" )
-        self.assertAlmostEqual( rhat.dot(k2), 0, msg="rhat is not orthogonal to k2" )
-        self.assertAlmostEqual( np.linalg.norm(rhat), 1.0, msg="rhat is not normalised" )
-
-    def test_get_alpha(self):
-        wavelength = self.get_pseudorandom_wavelength()
-        k1, k2 = self.get_pseudorandom_k1_k2(wavelength)
-        alpha = laue.get_alpha(k1 ,k2, wavelength)
-        k1dotk2 = np.cos(alpha)*4*np.pi*np.pi/(wavelength*wavelength)
-
-        self.assertLessEqual( alpha, np.pi, msg="alpha is greater than pi" )
-        self.assertGreaterEqual( alpha, 0, msg="alpha is negative" )
-        self.assertAlmostEqual( k1dotk2, k1.dot(k2), msg="alpha does not match dot product cosine formula" )
-
     def test_get_tangens_half_angle_equation(self):
         wavelength = self.get_pseudorandom_wavelength()
         U, B, cell, strain = self.get_pseudorandom_crystal()
         k1, k2     = self.get_pseudorandom_k1_k2(wavelength)
-        rhat = laue.get_rhat(k1, k2)
+        rotator    = utils.PlanarRodriguezRotator( k1, k2 )
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
-        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rhat ) 
+        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 
         self.assertTrue( np.isreal(c_0) )
         self.assertTrue( np.isreal(c_1) )
         self.assertTrue( np.isreal(c_2) )
@@ -58,24 +40,23 @@ class TestLaue(unittest.TestCase):
         k1 = np.array([ 1.0, 0, 0 ])*2*np.pi/wavelength # select a large interval of k-vectors
         k2 = np.array([ 0.0, 1.0, 0 ])*2*np.pi/wavelength
         U = np.eye(3,3) # let the crystal be aligned to assure 100 to be in its Bragg condition for the k-intervall
-        rhat = laue.get_rhat(k1, k2)
+        rotator    = utils.PlanarRodriguezRotator( k1, k2 )
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
-        alpha  = laue.get_alpha(k1 ,k2, wavelength)
-        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rhat ) 
-        s1, s2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha )
+        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 
+        s1, s2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha )
 
         # Check that at least one solution has been found and that it satisfies the half angle equation.
         self.assertTrue( ( (s1 is not None) or (s2 is not None) ), msg="Tangens half angle equation could not be solved")
         if s1 is not None:
             self.assertLessEqual( s1, 1, msg="s>1")
             self.assertGreaterEqual( s1, 0, msg="s>1")
-            t1 = np.tan( s1*alpha/2. )
+            t1 = np.tan( s1*rotator.alpha/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t1**2 + 2*c_1*t1 + (c_0 + c_2), 0, msg="Parametric solution wrong")
         if s2 is not None:
             self.assertLessEqual( s2, 1, msg="s>1")
             self.assertGreaterEqual( s2, 0, msg="s<0")
-            t2 = np.tan( s1*alpha/2. )
+            t2 = np.tan( s1*rotator.alpha/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t2**2 + 2*c_1*t2 + (c_0 + c_2), 0, msg="Parametric solution wrong")
 
     def get_pseudorandom_crystal(self):
