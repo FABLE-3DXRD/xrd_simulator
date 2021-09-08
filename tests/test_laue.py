@@ -68,9 +68,13 @@ class TestLaue(unittest.TestCase):
         # Check that at least one solution has been found and that it satisfies the half angle equation.
         self.assertTrue( ( (s1 is not None) or (s2 is not None) ), msg="Tangens half angle equation could not be solved")
         if s1 is not None:
+            self.assertLessEqual( s1, 1, msg="s>1")
+            self.assertGreaterEqual( s1, 0, msg="s>1")
             t1 = np.tan( s1*alpha/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t1**2 + 2*c_1*t1 + (c_0 + c_2), 0, msg="Parametric solution wrong")
         if s2 is not None:
+            self.assertLessEqual( s2, 1, msg="s>1")
+            self.assertGreaterEqual( s2, 0, msg="s<0")
             t2 = np.tan( s1*alpha/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t2**2 + 2*c_1*t2 + (c_0 + c_2), 0, msg="Parametric solution wrong")
 

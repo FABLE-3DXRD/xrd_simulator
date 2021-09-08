@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from xfab import tools
 import time
+from xrd_simulator import laue, utils
 
 np.random.seed(5)
 U = np.eye(3,3)
@@ -21,46 +22,43 @@ x = np.array([1.,0.,0.])
 omega = np.linspace(0., np.pi, 9)
 ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],[0,0,1]]).dot(x) for om in omega])
 ks = 2*np.pi*ks/wavelength
-thetas  =[]
-pc = Polycrystal(None, None, None)
-alltimes =[]
-for _ in range(10): # sample of 10 crystals
+
+hklrange = 5
+for _ in range(25): # sample of 10 crystals
 
     phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
     U = tools.euler_to_u(phi1, PHI, phi2)
-    for h in range(-5,5):
-        for k in range(-5,5):
-            for l in range(-5,5):
-                G_hkl = np.array( [h,k,l] )
+    for hmiller in range(-hklrange,hklrange):
+        for kmiller in range(-hklrange,hklrange):
+            for lmiller in range(-hklrange,hklrange):
+                G_hkl = np.array( [hmiller,kmiller,lmiller] )
                 for i in range(len(ks)-1):
-                    t1 = time.process_time()
-                    kprime1, kprime2 = pc._get_kprimes( ks[i], ks[i+1], U, B, G_hkl, wavelength )
-                    t2 = time.process_time()
-                    alltimes.append( (t2-t1) )
-                    print(np.mean(alltimes))
-                    for j,kprime in enumerate([kprime1, kprime2]):
-                        if kprime is not None:
+                    
+                    G             = laue.get_G(U, B, G_hkl)
+                    theta         = laue.get_bragg_angle(G, wavelength)                    
+                    rotator       = utils.get_planar_rodriguez_rotator( ks[i], ks[i+1] )
+                    alpha         = laue.get_alpha(ks[i], ks[i+1], wavelength)
+                    rhat          = laue.get_rhat(ks[i], ks[i+1])
 
-                            alpha   = pc._get_alpha(ks[i], ks[i+1], wavelength)
-                            rhat    = pc._get_rhat(ks[i], ks[i+1])
-                            G  = pc._get_G(U, B, G_hkl)
-                            theta   = pc._get_bragg_angle(G, wavelength)
-                            c_0, c_1, c_2 = pc._get_tangens_half_angle_equation(ks[i], theta, G, rhat ) 
-                            s1, s2 = pc._find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha )
-                            ss = [s1,s2][j]
-                            ang = alpha*ss
+                    c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(ks[i], theta, G, rhat ) 
+                    s1, s2        = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha )
 
-                            s = np.sin( -(omega[i]+ang) )
-                            c = np.cos( -(omega[i]+ang) )
-                            R = np.array([[c,-s,0],[s,c,0],[0,0,1]])
-                            kprime = R.dot(kprime)
+                    for j,s in enumerate([s1, s2]):
+                        if s is not None:
                             
-                            #(s * kprime/np.linalg.norm(kprime)).dot(x) = D
-                            khat = kprime/np.linalg.norm(kprime)
-                            s = D / khat[0]
+                            wavevector =  rotator(ks[i],s)
+                            kprime = G + wavevector
 
-                            yd = khat[1]*s
-                            zd = khat[2]*s
+                            ang = alpha*s
+                            sin = np.sin( -(omega[i]+ang) )
+                            cos = np.cos( -(omega[i]+ang) )
+                            R = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
+                            kprime = R.dot(kprime)
+                            khat = kprime/np.linalg.norm(kprime)
+                            sd = D / khat[0]
+
+                            yd = khat[1]*sd
+                            zd = khat[2]*sd
 
                             col = ( -(yd/pixsize) + detector.shape[1]//2 ).astype(int)
                             row = ( -(zd/pixsize) + detector.shape[0]//2 ).astype(int)
@@ -68,10 +66,6 @@ for _ in range(10): # sample of 10 crystals
                             if col>0 and col<detector.shape[1] and row>0 and row<detector.shape[0]:
                                 detector[col, row] += 1
 
-                            thetas.append(theta)
-
-plt.hist(np.degrees(thetas),180)
-plt.show()
 
 kernel = np.ones((5,5))
 detector = convolve(detector, kernel, mode='full', method='auto')
