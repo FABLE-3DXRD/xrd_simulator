@@ -5,18 +5,39 @@ cross section. The beam is then extruded in a given direction towards infinity."
 import numpy as np 
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull, HalfspaceIntersection
-import utils
+from xrd_simulator import utils
 
 class Beam(object):
+    """Represents a X-ray beam as a convex polyhedra.
+
+    The Beam object stores a state of an X-ray beam. In a parametric scan intervall
+    the beam is allowed to take on wavevectors in the fan formed 
+    by [:math:`\\boldsymbol{k}_1`, :math:`\\boldsymbol{k}_2`] such that all wavevectors
+    in the scan intervall lies within the plane defined by :math:`\\boldsymbol{k}_1` and 
+    unto :math:`\\boldsymbol{k}_2`. The geometry or profile of the beam is likewise restricted
+    to rotate by the same transformation that brings :math:`\\boldsymbol{k}_1`  unto
+    :math:`\\boldsymbol{k}_2` (rodriguez rotation). I.e all vertices of the convex beam hull will 
+    rotate according to a rodriguez rotation defined by the unit vector which is in the direction
+    of the cross product of :math:`\\boldsymbol{k}_1` and :math:`\\boldsymbol{k}_2`.
+
+    Args:
+        beam_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
+        wavelength (:obj:`floar`): Photon wavelength in units of angstrom.
+        k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
+        k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
+
+    Attributes:
+        original_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
+        wavelength (:obj:`float`): 
+        k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
+        k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
+        rotator (:obj:`utils.PlanarRodriguezRotator`): Callable object performing rodriguez 
+            rotations from k1 towards k2.
+
+    """
 
     def __init__(self, beam_vertices, wavelength, k1, k2 ):
-        """
 
-        Attributes:
-            vertices (:obj:`numpy array`): Holds the vertices of the base, convex, polyhedral beam representation.
-                The the beam is oriented in the xhat direction upon instantiation.
-
-        """
         #TODO: perhaps the it would make more senese if the beam stored and returned the k vectors as a function of
         # s in [0,1].
         #TODO: assert the beam is convex.

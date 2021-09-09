@@ -1,12 +1,13 @@
-import unittest
 import numpy as np
 from xfab import tools
-from xrd_simulator.polycrystal import Polycrystal
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
-from xfab import tools
-import time
 from xrd_simulator import laue, utils
+
+"""Simple simulation of 5 random quartz grains in powder diffraction style only using laue.py 
+and no spatial functions, i.e not considering grain shapes and the like. This is a check to
+see that we have our basic crystal equations under control.
+"""
 
 np.random.seed(5)
 U = np.eye(3,3)
@@ -15,25 +16,25 @@ unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 B = tools.epsilon_to_b( strain_tensor, unit_cell )
 wavelength = 0.285227
 D = 142938.28756189224 #microns
-detector = np.zeros((2048,2048))
+detector = np.zeros((1024,1024))
 pixsize = 75 #microns
 
 x = np.array([1.,0.,0.])
-omega = np.linspace(0., np.pi, 9)
+omega = np.linspace(0., np.pi, 3)
 ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],[0,0,1]]).dot(x) for om in omega])
 ks = 2*np.pi*ks/wavelength
 
 hklrange = 3
-for _ in range(10): # sample of 10 crystals
+for _ in range(5): # sample of 10 crystals
 
     phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
     U = tools.euler_to_u(phi1, PHI, phi2)
-    for hmiller in range(-hklrange,hklrange):
-        for kmiller in range(-hklrange,hklrange):
-            for lmiller in range(-hklrange,hklrange):
+    for hmiller in range(-hklrange,hklrange+1):
+        for kmiller in range(-hklrange,hklrange+1):
+            for lmiller in range(-hklrange,hklrange+1):
                 G_hkl = np.array( [hmiller,kmiller,lmiller] )
                 for i in range(len(ks)-1):
-                    
+
                     G             = laue.get_G(U, B, G_hkl)
                     theta         = laue.get_bragg_angle(G, wavelength)                    
                     rotator       = utils.PlanarRodriguezRotator( ks[i], ks[i+1] )
@@ -64,7 +65,7 @@ for _ in range(10): # sample of 10 crystals
                                 detector[col, row] += 1
 
 
-kernel = np.ones((5,5))
+kernel = np.ones((7,7))
 detector = convolve(detector, kernel, mode='full', method='auto')
 plt.imshow(detector, cmap='gray')
 plt.title("Hits: "+str(np.sum(detector)/np.sum(kernel) ))

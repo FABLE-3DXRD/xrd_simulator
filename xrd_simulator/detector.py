@@ -3,7 +3,7 @@ discrete pixelated framestack."""
 
 import numpy as np 
 import matplotlib.pyplot as plt
-import utils
+from xrd_simulator import utils
 
 class Detector(object):
 
@@ -60,7 +60,7 @@ class Detector(object):
         """
         #TODO: Verify that the min cone openings occur at k1 or k2 
         zd, yd = self.get_intersection(k, c=0)
-        assert self.contains(zd, yd), "You provided a wavevector, k="+str(k)"+, that will not intersect the detector."
+        assert self.contains(zd, yd), "You provided a wavevector, k="+str(k)+", that will not intersect the detector."
         cone_opening = np.arccos( np.dot(self.normalised_geometry_matrix.T, k / np.linalg.norm(k) ) ) # These are two time Bragg angles
         return np.min( cone_opening ) / 2. 
 

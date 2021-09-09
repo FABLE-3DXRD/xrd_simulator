@@ -115,6 +115,7 @@ class TetraMesh(object):
         """Generate a mesh from a level set using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
+
         Args:
             level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
                 of the mesh and positive on the interior.

@@ -6,6 +6,9 @@ from xrd_simulator import utils
 
 class TestLaue(unittest.TestCase):
 
+    """Unit test for the laue.py functions module. 
+    """
+
     def setUp(self):
         np.random.seed(10) # changes all randomisation in the test
 
