@@ -80,6 +80,7 @@ def _get_interpolation_values_1d( xs, ys, zs, ecentroids, eradius, enormals, coo
 
 class TetraMesh(object):
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
+
     Attributes:
         coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the 
             coordinates of a mesh node.

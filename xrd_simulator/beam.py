@@ -22,7 +22,7 @@ class Beam(object):
 
     Args:
         beam_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
-        wavelength (:obj:`floar`): Photon wavelength in units of angstrom.
+        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
         k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
         k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
 
@@ -37,9 +37,6 @@ class Beam(object):
     """
 
     def __init__(self, beam_vertices, wavelength, k1, k2 ):
-
-        #TODO: perhaps the it would make more senese if the beam stored and returned the k vectors as a function of
-        # s in [0,1].
         #TODO: assert the beam is convex.
         self.original_vertices = beam_vertices
         self.k1         = k1
@@ -50,6 +47,12 @@ class Beam(object):
 
     def set_geometry(self, s):
         """Align the beam into the new_propagation_direction by a performing rodriguez rotation.
+
+        Args:
+            s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
+                while s=1 to a beam with wavevector k2. The beam vertices are rotated by a rodriguez rotation 
+                parametrised by s.
+
         """
         for i in range( self.vertices.shape[0] ):
             self.vertices[i,:] = self.rotator(self.original_vertices[i,:], s)
@@ -62,9 +65,17 @@ class Beam(object):
         # the problem numerically requires a very fine grid. (The problem is nonconvex in the general case). So it makes
         # sense to restrict the beam to do uniform planar rodriguez rotations in each intervall s=[0,1].
 
-    def intersect( self, verticises ):
+    def intersect( self, vertices ):
         """Compute the beam intersection with a series of convex polyhedra, returns a list of HalfspaceIntersections.
+
+        Args:
+            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ```shape=(N,3)```.
+        
+        Returns:
+            A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
+            input vertices.
+
         """
-        poly_halfspace = ConvexHull( verticises ).equation
-        hs = HalfspaceIntersection( np.vstack( (poly_halfspace, self.halfspaces) ) , np.mean( verticises ) )
-        return ConvexHull( hs.verticises )
+        poly_halfspace = ConvexHull( vertices ).equation
+        hs = HalfspaceIntersection( np.vstack( (poly_halfspace, self.halfspaces) ) , np.mean( vertices ) )
+        return ConvexHull( hs.vertices )

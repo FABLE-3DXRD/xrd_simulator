@@ -184,7 +184,7 @@ of the cross product of <span class="math notranslate nohighlight">\(\boldsymbol
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices for s=0.</p></li>
-<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">floar</span></code>) – Photon wavelength in units of angstrom.</p></li>
+<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Photon wavelength in units of angstrom.</p></li>
 <li><p><strong>k1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Beam wavevector for s=0 with <code class="docutils literal notranslate"><span class="pre">`shape=(3,)`</span></code></p></li>
 <li><p><strong>k2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Beam wavevector for s=1 with <code class="docutils literal notranslate"><span class="pre">`shape=(3,)`</span></code></p></li>
 </ul>
@@ -247,35 +247,167 @@ rotations from k1 towards k2.</p>
 
 <dl class="py method">
 <dt id="xrd_simulator.beam.Beam.intersect">
-<code class="sig-name descname"><span class="pre">intersect</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">verticises</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.beam.Beam.intersect" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">intersect</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vertices</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.beam.Beam.intersect" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the beam intersection with a series of convex polyhedra, returns a list of HalfspaceIntersections.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vertices of a convex polyhedra with <code class="docutils literal notranslate"><span class="pre">`shape=(N,3)`</span></code>.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
+input vertices.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt id="xrd_simulator.beam.Beam.set_geometry">
 <code class="sig-name descname"><span class="pre">set_geometry</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.beam.Beam.set_geometry" title="Permalink to this definition">¶</a></dt>
 <dd><p>Align the beam into the new_propagation_direction by a performing rodriguez rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>s</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
+while s=1 to a beam with wavevector k2. The beam vertices are rotated by a rodriguez rotation
+parametrised by s.</p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
 
 <span class="target" id="module-xrd_simulator.detector"></span><p>The detector class takes a set of scattere-rays objects and produces a
 discrete pixelated framestack.</p>
+<dl class="py class">
+<dt id="xrd_simulator.detector.Detector">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></code><code class="sig-name descname"><span class="pre">Detector</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geometry_matrix</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents a rectangular X-ray scattering flat area detection device.</p>
+<p>The detector can collect scattering as abstract objects and map them to frame numbers.
+Using a render function these abstract representation can be rendered into pixelated frames.
+The detector is described by a 3 x 3 geometry matrix whic columns contain vectors that attach
+to three of the four corners of the detector. By providing a callable geometry matrix function
+the detector position at any point in the scan intervall [<span class="math notranslate nohighlight">\(\boldsymbol{k}_1, \boldsymbol{k}_2\)</span>],
+<span class="math notranslate nohighlight">\(s \in[0, 1]\)</span> may be retrieved. This means that the detector does not need to be fixed in relation
+to a global laboratory coordinate system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pixel_size</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length (square pixels) in units of microns.</p></li>
+<li><p><strong>geometry_matrix</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code>) – geometry_matrix(s) &lt;- G where G is a <code class="docutils literal notranslate"><span class="pre">`shape=(3,3)`</span></code> geometry
+matrix which columns attach to three corners of the detector array (units of microns).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="xrd_simulator.detector.Detector.pixel_size">
+<code class="sig-name descname"><span class="pre">pixel_size</span></code><a class="headerlink" href="#xrd_simulator.detector.Detector.pixel_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pixel side length (square pixels) in units of microns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="xrd_simulator.detector.Detector.geometry_matrix">
+<code class="sig-name descname"><span class="pre">geometry_matrix</span></code><a class="headerlink" href="#xrd_simulator.detector.Detector.geometry_matrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>geometry_matrix(s) &lt;- G where G is a <code class="docutils literal notranslate"><span class="pre">`shape=(3,3)`</span></code> geometry
+matrix which columns attach to three corners of the detector array (units of microns).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="xrd_simulator.detector.Detector.frames">
+<code class="sig-name descname"><span class="pre">frames</span></code><a class="headerlink" href="#xrd_simulator.detector.Detector.frames" title="Permalink to this definition">¶</a></dt>
+<dd><p>Analytical diffraction patterns which
+may be rendered into pixelated frames. Each frame is a list of scattering objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">scatterer.Scatterer</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.approximate_wrapping_cone">
+<code class="sig-name descname"><span class="pre">approximate_wrapping_cone</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">180</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.017453292519943295</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.approximate_wrapping_cone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a moving detector as well as a variable wavevector approximate an upper Bragg angle bound.</p>
+<p>NOTE: for specalized use you may override this function and provide some fixed Bragg angle bound</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.contains">
+<code class="sig-name descname"><span class="pre">contains</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yd</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.contains" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine if the detector cooridnate zd,yd lies within the detector bounds.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.get_intersection">
+<code class="sig-name descname"><span class="pre">get_intersection</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_point</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.get_intersection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute intersection in detector coordinates between ray originating from point c and propagating in along v.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.get_wrapping_cone">
+<code class="sig-name descname"><span class="pre">get_wrapping_cone</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.get_wrapping_cone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the cone around a fixed wavevector with opening such that the cone intersects at least one detector corner.</p>
+<p>Given a range of illumination direction [k1, k2] which lies on the cone of the detector, i.e we assume here
+that k1 and k2 will terminate in the detector plane. Altough diffraction is possible for other settings with
+and of beam path detector it has not been implemented here.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.render">
+<code class="sig-name descname"><span class="pre">render</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.render" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take a list of scatterers render to a pixelated pattern.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>frame_number</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>) – Index of the frame in the <a class="reference internal" href="#xrd_simulator.detector.Detector.frames" title="xrd_simulator.detector.Detector.frames"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frames</span></code></a> list to be rendered.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A pixelated frame as a (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) with shape infered form the detector geometry and
+pixel size.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="xrd_simulator.detector.Detector.set_geometry">
+<code class="sig-name descname"><span class="pre">set_geometry</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.detector.Detector.set_geometry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the geometry of the detector based on the parametric value s in [0,1]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>s</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
+while s=1 to a beam with wavevector k2. The  geometry matrix will be called for the provided s
+value and the detector geometry updated.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <span class="target" id="module-xrd_simulator.mesh"></span><dl class="py class">
 <dt id="xrd_simulator.mesh.TetraMesh">
 <em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">xrd_simulator.mesh.</span></code><code class="sig-name descname"><span class="pre">TetraMesh</span></code><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Defines a 3D tetrahedral finite element type basis by subclassing <code class="xref py py-obj docutils literal notranslate"><span class="pre">Basis</span></code>.
-.. attribute:: coord</p>
-<blockquote>
-<div><p>Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
+<p>Defines a 3D tetrahedral finite element type basis by subclassing <code class="xref py py-obj docutils literal notranslate"><span class="pre">Basis</span></code>.</p>
+<dl class="py attribute">
+<dt id="xrd_simulator.mesh.TetraMesh.coord">
+<code class="sig-name descname"><span class="pre">coord</span></code><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.coord" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
 coordinates of a mesh node.</p>
 <dl class="field-list simple">
-<dt class="field-odd">type</dt>
+<dt class="field-odd">Type</dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
-</div></blockquote>
+</dd></dl>
+
 <dl class="py attribute">
 <dt id="xrd_simulator.mesh.TetraMesh.enod">
 <code class="sig-name descname"><span class="pre">enod</span></code><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.enod" title="Permalink to this definition">¶</a></dt>

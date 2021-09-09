@@ -6,7 +6,29 @@ import matplotlib.pyplot as plt
 from xrd_simulator import utils
 
 class Detector(object):
+    """Represents a rectangular X-ray scattering flat area detection device.
 
+    The detector can collect scattering as abstract objects and map them to frame numbers.
+    Using a render function these abstract representation can be rendered into pixelated frames.
+    The detector is described by a 3 x 3 geometry matrix whic columns contain vectors that attach
+    to three of the four corners of the detector. By providing a callable geometry matrix function
+    the detector position at any point in the scan intervall [:math:`\\boldsymbol{k}_1, \\boldsymbol{k}_2`],
+    :math:`s \\in[0, 1]` may be retrieved. This means that the detector does not need to be fixed in relation 
+    to a global laboratory coordinate system.
+
+    Args:
+        pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
+        geometry_matrix (:obj:`callable`): geometry_matrix(s) <- G where G is a ```shape=(3,3)``` geometry
+            matrix which columns attach to three corners of the detector array (units of microns).
+
+    Attributes:
+        pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
+        geometry_matrix (:obj:`callable`): geometry_matrix(s) <- G where G is a ```shape=(3,3)``` geometry
+            matrix which columns attach to three corners of the detector array (units of microns).
+        frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
+            may be rendered into pixelated frames. Each frame is a list of scattering objects
+
+    """
     def __init__(self, pixel_size, geometry_matrix ):
         self.pixel_size        = pixel_size
         self.geometry_matrix   = geometry_matrix
@@ -14,7 +36,13 @@ class Detector(object):
         self.set_geometry(s=0)
 
     def set_geometry(self, s):
-        """Set the geomtry of the detector based on the parametric value s in [0,1]
+        """Set the geometry of the detector based on the parametric value s in [0,1]
+
+        Args:
+            s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
+                while s=1 to a beam with wavevector k2. The  geometry matrix will be called for the provided s 
+                value and the detector geometry updated.
+
         """
         G = self.geometry_matrix(s)
         self.normalised_geometry_matrix = G / np.linalg.norm(G, axis=0)
@@ -23,7 +51,17 @@ class Detector(object):
         self.normal = np.cross(self.zdhat, self.ydhat)
 
     def render(self, frame_number):
-        """Take a list of scatterers render and add to the frames list.
+        """Take a list of scatterers render to a pixelated pattern.
+
+        Args:
+            frame_number (:obj:`int`): Index of the frame in the :obj:`frames` list to be rendered.
+
+        Returns:
+            A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
+            pixel size.
+        
+        NOTE: This function is meant to alow for overriding when specalised intensity models are to be tested.
+
         """
         # TODO: make the renderer a bit more andvanced not just scaling intensity against 
         # scattering volume.
@@ -38,7 +76,20 @@ class Detector(object):
         return frame
 
     def get_intersection(self, ray_direction, source_point):
-        """Compute intersection in detector coordinates between ray originating from point c and propagating in along v.
+        """Get detector intersection in detector coordinates of singel ray.
+
+        The ray considered originates from a source_point and propagates in a ray_direction.
+
+        Args:
+            ray_direction (:obj:`numpy array`): Vector in direction of the Z.ray propagation 
+            source_point (:obj:`numpy array`): 
+
+        Returns:
+            A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
+            pixel size.
+        
+        NOTE: This function is meant to alow for overriding when specalised intensity models are to be tested.
+
         """
         s = ( self.zdhat.dot(self.normal) - source_point.dot(self.normal) ) / ray_direction.dot(self.normal)
         det_intersection =  source_point + ray_direction*s - self.geometry_matrix[0,:]
