@@ -23,7 +23,7 @@ xrd_simulator
     :members:
     :show-inheritance:
 
-.. automodule:: xrd_simulator.scattered_ray
+.. automodule:: xrd_simulator.scatterer
     :members:
     :show-inheritance:
 

@@ -4,14 +4,14 @@ Anaconda
 ===============================
 contomo is installable via anaconda::
 
-   conda install contomo
+   conda install xrd_simulator
 
 
 pip
 ===============================
 as well as via pip::
 
-   pip install contomo
+   pip install xrd_simulator
 
 
 source
@@ -22,7 +22,7 @@ you may also try and build form the source. In that case first::
 
 next, go to the just downloaded directory::
 
-   cd contomo
+   cd xrd_simulator
 
 and install::
 
