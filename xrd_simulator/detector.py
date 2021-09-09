@@ -85,10 +85,6 @@ class Detector(object):
             source_point (:obj:`numpy array`): 
 
         Returns:
-            A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
-            pixel size.
-        
-        NOTE: This function is meant to alow for overriding when specalised intensity models are to be tested.
 
         """
         s = ( self.zdhat.dot(self.normal) - source_point.dot(self.normal) ) / ray_direction.dot(self.normal)
