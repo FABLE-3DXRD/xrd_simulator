@@ -6,8 +6,30 @@ from xrd_simulator import laue
 
 class Polycrystal(object):
 
-    """A Polycrystal object links a mesh to a phase-list and hold a U and B matrix to each element
-    and can produce corresponding hkl indices and intensity factors for these crystals""" 
+    """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
+    
+    This object is arguably the most complex entity in the package as it links a several phase objects to a mesh
+    and lets them interact with a beam and detector object.
+
+    Args:
+        mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
+            geometry of the sample.
+        ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
+            xrd_simulator.phase.Phase object of element number i.
+        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```).
+        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
+        phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
+
+    Attributes:
+        mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
+            geometry of the sample.
+        ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
+            xrd_simulator.phase.Phase object of element number i.
+        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```).
+        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
+        phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
+
+    """ 
 
     def __init__(self, mesh, ephase, eU, eB, phases ):
         self.mesh   = mesh
@@ -17,11 +39,25 @@ class Polycrystal(object):
         self.phases = phases
 
     def get_candidate_elements(self, beam):
-        """Get all elements that could diffract for a given illumination setting."""
-        pass
+        """Get all elements that could diffract for a given illumination setting.
+
+        Args:
+            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
+            
+        Returns:
+        
+        """
+        raise NotImplementedError()
 
     def diffract(self, beam, detector):
         """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
+
+        The beam interacts with the polycrystal producing scattering captured by the detector.
+
+        Args:
+            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
+            detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
+
         """
 
         rotator = utils.PlanarRodriguezRotator(beam.k1, beam.k2)

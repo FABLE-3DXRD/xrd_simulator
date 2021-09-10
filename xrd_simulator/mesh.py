@@ -97,6 +97,7 @@ class TetraMesh(object):
         ecmat (:obj:`numpy array`): Per element interpolation matrix, shape=(nelm, 4, 4). When
             multiplied on a coordinate array, :obj:`np.array([1,x,y,z])`, the interpolated value 
             at x,y,z is found, given that x,y,z is contained by the corresponding element. 
+
     """
 
     def __init__(self):
@@ -114,7 +115,7 @@ class TetraMesh(object):
     @classmethod
     def generate_mesh_from_levelset(cls, level_set, bounding_radius, max_cell_circumradius, max_facet_distance):
         """Generate a mesh from a level set using `the pygalmesh package`_:
-        
+
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
 
         Args:
@@ -123,6 +124,7 @@ class TetraMesh(object):
             bounding_radius (:obj:`float`): Bounding radius of mesh.
             max_cell_circumradius (:obj:`float`): Bound for element radii.
             max_facet_distance (:obj:`float`): Bound for facet distance.
+
         """
 
         class LevelSet(pygalmesh.DomainBase):
@@ -148,6 +150,7 @@ class TetraMesh(object):
         """Generate a mesh from a numpy array using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
+
         Args:
             array (:obj:`numpy array`): Numpy array to generate mesh from.
             voxel_size (:obj:`float`): Dimension of array voxels.

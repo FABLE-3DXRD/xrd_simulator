@@ -1,9 +1,10 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 from xfab import tools
-from xrd_simulator.utils import HiddenPrints
+from xrd_simulator.utils import _HiddenPrints
 
 class Phase(object):
+
     """Defines properties related to a crystal class, including a genration of Miller indices.
 
     Args:
@@ -32,15 +33,22 @@ class Phase(object):
 
         Returns:
             (:obj:`numpy array`): Integer Miller indices (h,k,l) of ```shape=(N,3)```. Each row is a diffracting set of planes.
+
         """
         sintlmin = min_bragg_angle / wavelength
         sintlmax = max_bragg_angle / wavelength
-        with HiddenPrints(): #TODO: perhaps suggest xfab not to print in the first place and make a pull request.
+        with _HiddenPrints(): #TODO: perhaps suggest xfab not to print in the first place and make a pull request.
             miller_indices = tools.genhkl_all(self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
         return miller_indices
 
     def get_structure_factors(self, hkl):
         """Generate Structure factors for a list of h,k,l indices.
+
+        Args:
+            hkl (:obj:`list` of :obj:`numpy array`): 
+
+        Returns:
+            
         """
         # TODO: use xfab.structure to compute these, requires CIF files and atomlists.
-        pass
+        raise NotImplementedError()

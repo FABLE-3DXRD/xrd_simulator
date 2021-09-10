@@ -1,11 +1,9 @@
-"""The detector class takes a set of scattere-rays objects and produces a 
-discrete pixelated framestack."""
-
 import numpy as np 
 import matplotlib.pyplot as plt
 from xrd_simulator import utils
 
 class Detector(object):
+
     """Represents a rectangular X-ray scattering flat area detection device.
 
     The detector can collect scattering as abstract objects and map them to frame numbers.
@@ -29,6 +27,7 @@ class Detector(object):
             may be rendered into pixelated frames. Each frame is a list of scattering objects
 
     """
+
     def __init__(self, pixel_size, geometry_matrix ):
         self.pixel_size        = pixel_size
         self.geometry_matrix   = geometry_matrix
@@ -76,15 +75,14 @@ class Detector(object):
         return frame
 
     def get_intersection(self, ray_direction, source_point):
-        """Get detector intersection in detector coordinates of singel ray.
-
-        The ray considered originates from a source_point and propagates in a ray_direction.
+        """Get detector intersection in detector coordinates of singel a ray originating from source_point.
 
         Args:
             ray_direction (:obj:`numpy array`): Vector in direction of the Z.ray propagation 
             source_point (:obj:`numpy array`): 
 
         Returns:
+            (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
         s = ( self.zdhat.dot(self.normal) - source_point.dot(self.normal) ) / ray_direction.dot(self.normal)
@@ -94,16 +92,27 @@ class Detector(object):
         return zd, yd
 
     def contains(self, zd, yd):
-        """Determine if the detector cooridnate zd,yd lies within the detector bounds.
+        """Determine if the detector coordinate zd,yd lies within the detector bounds.
+
+        Args:
+            zd (:obj:`float`): Detector z coordinate
+            yd (:obj:`float`): Detector y coordinate
+
+        Returns:
+            (:obj:`boolean`) True if the zd,yd is within the detector bounds.
+
         """
         return zd>=0 and zd<=self.zmax and yd>=0 and yd<=self.zmax
 
     def get_wrapping_cone(self, k):
-        """Compute the cone around a fixed wavevector with opening such that the cone intersects at least one detector corner.
-        
-        Given a range of illumination direction [k1, k2] which lies on the cone of the detector, i.e we assume here
-        that k1 and k2 will terminate in the detector plane. Altough diffraction is possible for other settings with
-        and of beam path detector it has not been implemented here.
+        """Compute the cone around a wavevector such that the cone intersects one detector corner.
+
+        Args:
+            k (:obj:`numpy array`): Wavevector forming the central axis of cone.
+
+        Returns:
+            (:obj:`float`) Cone opening angle divided by two (radians).
+
         """
         #TODO: Verify that the min cone openings occur at k1 or k2 
         zd, yd = self.get_intersection(k, c=0)
@@ -114,7 +123,17 @@ class Detector(object):
     def approximate_wrapping_cone(self, beam, samples=180, margin=np.pi/180):
         """Given a moving detector as well as a variable wavevector approximate an upper Bragg angle bound.
 
+        Args:
+            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
+            samples (:obj:`float`): Number of points in s=[0,1] that should be used to approximate the 
+                cone opening angle.
+            margin (:obj:`float`): Radians added to the returned result (for safety since samples are finite).
+
+        Returns:
+            (:obj:`float`) Cone opening angle divided by two (radians).
+
         NOTE: for specalized use you may override this function and provide some fixed Bragg angle bound
+
         """
         cone_angles = []
         for s in np.linspace(0, 1, samples):
@@ -123,5 +142,5 @@ class Detector(object):
             cone_angles.append( self.get_wrapping_cone( beam.k ) )
         self.set_geometry(s=0)
         beam.set_geometry(s=0)
-        return np.min(allk) + margin
+        return np.min(cone_angles) + margin
 

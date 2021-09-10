@@ -4,28 +4,69 @@
 
 .. include:: ../../README.rst
 
-xrd_simulator
+Documentation
+======================================
+
+
+======================================
+beam
 ======================================
 
 .. automodule:: xrd_simulator.beam
     :members:
     :show-inheritance:
 
+======================================
+detector
+======================================
+
 .. automodule:: xrd_simulator.detector
     :members:
     :show-inheritance:
+
+======================================
+mesh
+======================================
 
 .. automodule:: xrd_simulator.mesh
     :members:
     :show-inheritance:
 
+======================================
+Phase
+======================================
+
+.. automodule:: xrd_simulator.phase
+    :members:
+    :show-inheritance:
+
+======================================
+polycrystal
+======================================
+
 .. automodule:: xrd_simulator.polycrystal
     :members:
     :show-inheritance:
 
+======================================
+scatterer
+======================================
+
 .. automodule:: xrd_simulator.scatterer
     :members:
     :show-inheritance:
+
+======================================
+laue
+======================================
+
+.. automodule:: xrd_simulator.laue
+    :members:
+    :show-inheritance:
+
+======================================
+utils
+======================================
 
 .. automodule:: xrd_simulator.utils
     :members:

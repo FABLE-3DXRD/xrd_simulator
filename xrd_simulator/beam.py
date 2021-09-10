@@ -1,14 +1,10 @@
-"""The beam class defines an X-ray as a 3d spatial (convex) object by 
-taking a set of points and intepreting them as the convex hull of the beam
-cross section. The beam is then extruded in a given direction towards infinity.""" 
-
 import numpy as np 
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from xrd_simulator import utils
 
 class Beam(object):
-    """Represents a X-ray beam as a convex polyhedra.
+    """Represents a monochromatic X-ray beam as a convex polyhedra.
 
     The Beam object stores a state of an X-ray beam. In a parametric scan intervall
     the beam is allowed to take on wavevectors in the fan formed 
