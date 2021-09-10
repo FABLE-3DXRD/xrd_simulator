@@ -34,10 +34,11 @@ class Beam(object):
 
     def __init__(self, beam_vertices, wavelength, k1, k2 ):
         #TODO: assert the beam is convex.
-        self.original_vertices = beam_vertices
+        self.original_vertices = beam_vertices.copy()
+        self.vertices   = beam_vertices.copy()
         self.k1         = k1
         self.k2         = k2
-        self.rotator    = utils.get_planar_rodriguez_rotator(k1, k2)
+        self.rotator    = utils.PlanarRodriguezRotator(k1, k2)
         self.wavelength = wavelength
         self.set_geometry(s=0)
 
@@ -52,7 +53,7 @@ class Beam(object):
         """
         for i in range( self.vertices.shape[0] ):
             self.vertices[i,:] = self.rotator(self.original_vertices[i,:], s)
-        self.halfspaces = self.ConvexHull( self.vertices ).equations
+        self.halfspaces = ConvexHull( self.vertices ).equations
         self.k = self.rotator(self.k1, s)
 
         # NOTE: if we allow beams with arbitrary transformations then we ar ein trouble to solve the Laue equations
@@ -72,6 +73,6 @@ class Beam(object):
             input vertices.
 
         """
-        poly_halfspace = ConvexHull( vertices ).equation
-        hs = HalfspaceIntersection( np.vstack( (poly_halfspace, self.halfspaces) ) , np.mean( vertices ) )
-        return ConvexHull( hs.vertices )
+        poly_halfspace = ConvexHull( vertices ).equations
+        hs = HalfspaceIntersection( np.vstack( (poly_halfspace, self.halfspaces) ) , np.mean( vertices, axis=0 ) )
+        return ConvexHull( hs.intersections )

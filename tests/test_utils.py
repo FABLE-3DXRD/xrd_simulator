@@ -39,5 +39,12 @@ class TestUtils(unittest.TestCase):
         halfalpha2 = np.arccos( krot.dot(k2)/(np.linalg.norm(k2)*np.linalg.norm(krot)) )
         self.assertAlmostEqual( rotator.alpha/2., halfalpha2, msg="Angle between k2 and a rotated vector is not alpha/2 fr s=0.5" )
 
+    def test_get_unit_vector_and_l2norm(self):
+        point_1 = np.random.rand(3,)
+        point_2 = np.random.rand(3,)
+        unitvector, norm = utils.get_unit_vector_and_l2norm(point_1, point_2)
+        self.assertAlmostEqual( np.linalg.norm(unitvector), 1, msg="unitvector is not unit length" )
+        self.assertLessEqual( norm, np.sqrt(3), msg="norm is too large" )
+
 if __name__ == '__main__':
     unittest.main()
