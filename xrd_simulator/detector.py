@@ -40,8 +40,8 @@ class Detector(object):
         Args:
             s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
                 while s=1 to a beam with wavevector k2. The  geometry matrix will be called for the provided s 
-                value and the detector geometry updated.
 
+                value and the detector geometry updated.
         """
         G = self.geometry_matrix(s)
         self.normalised_geometry_matrix = G / np.linalg.norm(G, axis=0)
