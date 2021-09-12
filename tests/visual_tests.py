@@ -37,7 +37,7 @@ for _ in range(5): # sample of 10 crystals
 
                     G             = laue.get_G(U, B, G_hkl)
                     theta         = laue.get_bragg_angle(G, wavelength)                    
-                    rotator       = utils.PlanarRodriguezRotator( ks[i], ks[i+1] )
+                    rotator       = utils.RodriguezRotator( ks[i], ks[i+1] )
                     c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(ks[i], theta, G, rotator.rhat ) 
                     s1, s2        = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha )
 

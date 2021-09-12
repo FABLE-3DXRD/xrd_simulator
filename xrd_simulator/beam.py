@@ -27,7 +27,7 @@ class Beam(object):
         wavelength (:obj:`float`): 
         k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
         k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
-        rotator (:obj:`utils.PlanarRodriguezRotator`): Callable object performing rodriguez 
+        rotator (:obj:`utils.RodriguezRotator`): Callable object performing rodriguez 
             rotations from k1 towards k2.
 
     """
@@ -38,7 +38,7 @@ class Beam(object):
         self.vertices   = beam_vertices.copy()
         self.k1         = k1
         self.k2         = k2
-        self.rotator    = utils.PlanarRodriguezRotator(k1, k2)
+        self.rotator    = utils.RodriguezRotator(k1, k2)
         self.wavelength = wavelength
         self.set_geometry(s=0)
 

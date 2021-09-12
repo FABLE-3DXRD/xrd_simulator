@@ -29,7 +29,7 @@ class TestLaue(unittest.TestCase):
         wavelength = self.get_pseudorandom_wavelength()
         U, B, cell, strain = self.get_pseudorandom_crystal()
         k1, k2     = self.get_pseudorandom_k1_k2(wavelength)
-        rotator    = utils.PlanarRodriguezRotator( k1, k2 )
+        rotator    = utils.RodriguezRotator( k1, k2 )
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
         c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 
@@ -43,7 +43,7 @@ class TestLaue(unittest.TestCase):
         k1 = np.array([ 1.0, 0, 0 ])*2*np.pi/wavelength # select a large interval of k-vectors
         k2 = np.array([ 0.0, 1.0, 0 ])*2*np.pi/wavelength
         U = np.eye(3,3) # let the crystal be aligned to assure 100 to be in its Bragg condition for the k-intervall
-        rotator    = utils.PlanarRodriguezRotator( k1, k2 )
+        rotator    = utils.RodriguezRotator( k1, k2 )
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
         c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 

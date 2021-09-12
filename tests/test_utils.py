@@ -7,7 +7,7 @@ class TestUtils(unittest.TestCase):
     def setUp(self):
         np.random.seed(10) # changes all randomisation in the test
 
-    def test_PlanarRodriguezRotator(self):
+    def test_RodriguezRotator(self):
 
         wavelength = np.random.rand()*0.5
         k1 = (np.random.rand(3,)-0.5)*2
@@ -15,7 +15,7 @@ class TestUtils(unittest.TestCase):
         k1 = 2*np.pi*k1/(np.linalg.norm(k1)*wavelength)
         k2 = 2*np.pi*k2/(np.linalg.norm(k2)*wavelength)
 
-        rotator    = utils.PlanarRodriguezRotator( k1, k2 )
+        rotator    = utils.RodriguezRotator( k1, k2 )
         k1dotk2 = np.cos(rotator.alpha)*4*np.pi*np.pi/(wavelength*wavelength)
 
         self.assertAlmostEqual( rotator.rhat.dot(k1), 0, msg="rhat is not orthogonal to k1" )
@@ -38,6 +38,12 @@ class TestUtils(unittest.TestCase):
         self.assertAlmostEqual( rotator.alpha/2., halfalpha1, msg="Angle between k1 and a rotated vector is not alpha/2 fr s=0.5" )
         halfalpha2 = np.arccos( krot.dot(k2)/(np.linalg.norm(k2)*np.linalg.norm(krot)) )
         self.assertAlmostEqual( rotator.alpha/2., halfalpha2, msg="Angle between k2 and a rotated vector is not alpha/2 fr s=0.5" )
+
+        rotator = utils.RodriguezRotator( np.array([1.,0.,0.]), np.array([0.,1.,0.]) )
+        c,s = np.cos(np.pi/4.), np.sin(np.pi/4.)
+        Rz = np.array([[c,-s,0.],[s,c,0.],[0.,0.,1.]])
+        R = rotator.get_rotation_matrix(s=0.5)
+        self.assertTrue(np.allclose(R,Rz), "Rotation matrix is wrong.")
 
     def test_get_unit_vector_and_l2norm(self):
         point_1 = np.random.rand(3,)

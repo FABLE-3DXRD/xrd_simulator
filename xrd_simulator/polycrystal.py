@@ -60,7 +60,7 @@ class Polycrystal(object):
 
         """
 
-        rotator = utils.PlanarRodriguezRotator(beam.k1, beam.k2)
+        rotator = utils.RodriguezRotator(beam.k1, beam.k2)
 
         scatterers = []
 

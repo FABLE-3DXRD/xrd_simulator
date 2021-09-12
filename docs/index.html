@@ -286,7 +286,7 @@ of the cross product of <span class="math notranslate nohighlight">\(\boldsymbol
 rotations from k1 towards k2.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.PlanarRodriguezRotator</span></code></p>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.RodriguezRotator</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1013,8 +1013,8 @@ plane spanned by k1 and k2.</p>
 <div class="section" id="module-xrd_simulator.utils">
 <span id="utils"></span><h2>utils<a class="headerlink" href="#module-xrd_simulator.utils" title="Permalink to this headline">¶</a></h2>
 <dl class="py class">
-<dt id="xrd_simulator.utils.PlanarRodriguezRotator">
-<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></code><code class="sig-name descname"><span class="pre">PlanarRodriguezRotator</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.utils.PlanarRodriguezRotator" title="Permalink to this definition">¶</a></dt>
+<dt id="xrd_simulator.utils.RodriguezRotator">
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></code><code class="sig-name descname"><span class="pre">RodriguezRotator</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.utils.RodriguezRotator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Object for rotating vectors in the plane described by v1 and v2 towards v2 a fraction s=[0,1].</p>
 <dl class="field-list simple">
@@ -1026,8 +1026,8 @@ plane spanned by k1 and k2.</p>
 </dd>
 </dl>
 <dl class="py attribute">
-<dt id="xrd_simulator.utils.PlanarRodriguezRotator.rhat">
-<code class="sig-name descname"><span class="pre">rhat</span></code><a class="headerlink" href="#xrd_simulator.utils.PlanarRodriguezRotator.rhat" title="Permalink to this definition">¶</a></dt>
+<dt id="xrd_simulator.utils.RodriguezRotator.rhat">
+<code class="sig-name descname"><span class="pre">rhat</span></code><a class="headerlink" href="#xrd_simulator.utils.RodriguezRotator.rhat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Unit vector orthogonal to both v1 and v2  (<code class="docutils literal notranslate"><span class="pre">`shape=(3,)`</span></code>)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
@@ -1037,8 +1037,8 @@ plane spanned by k1 and k2.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt id="xrd_simulator.utils.PlanarRodriguezRotator.alpha">
-<code class="sig-name descname"><span class="pre">alpha</span></code><a class="headerlink" href="#xrd_simulator.utils.PlanarRodriguezRotator.alpha" title="Permalink to this definition">¶</a></dt>
+<dt id="xrd_simulator.utils.RodriguezRotator.alpha">
+<code class="sig-name descname"><span class="pre">alpha</span></code><a class="headerlink" href="#xrd_simulator.utils.RodriguezRotator.alpha" title="Permalink to this definition">¶</a></dt>
 <dd><p>Angle in radians between v1 and v2.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
@@ -1048,8 +1048,8 @@ plane spanned by k1 and k2.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="xrd_simulator.utils.PlanarRodriguezRotator.__call__">
-<code class="sig-name descname"><span class="pre">__call__</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.utils.PlanarRodriguezRotator.__call__" title="Permalink to this definition">¶</a></dt>
+<dt id="xrd_simulator.utils.RodriguezRotator.__call__">
+<code class="sig-name descname"><span class="pre">__call__</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.utils.RodriguezRotator.__call__" title="Permalink to this definition">¶</a></dt>
 <dd><p>Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
