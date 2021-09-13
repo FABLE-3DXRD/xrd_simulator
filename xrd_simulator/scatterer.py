@@ -33,7 +33,7 @@ class Scatterer(object):
             centroid (:obj:`numpy array`) ```shape=(3,)```
 
         """
-        return np.mean( convex_hull.points, axis=0 )
+        return np.mean( self.convex_hull.points[self.convex_hull.vertices], axis=0 )
 
     def get_volume(self):
         """Get volume of the scattering region.
@@ -42,4 +42,4 @@ class Scatterer(object):
             volume (:obj:`float`)
 
         """
-        return convex_hull.volume
+        return self.convex_hull.volume

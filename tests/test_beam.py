@@ -47,7 +47,6 @@ class TestBeam(unittest.TestCase):
             self.assertAlmostEqual( self.beam.k[i], self.k1[i], msg="Initial wavevector not equal to input k1 wavevector" )
 
         self.assertTrue(np.allclose(self.beam.vertices, self.beam_vertices))
-
     def test_intersect(self):
         vertices = self.beam_vertices
         ch = self.beam.intersect( vertices )

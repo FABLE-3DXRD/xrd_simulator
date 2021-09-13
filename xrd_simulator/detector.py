@@ -45,8 +45,8 @@ class Detector(object):
         """
         G = self.geometry_matrix(s)
         self.normalised_geometry_matrix = G / np.linalg.norm(G, axis=0)
-        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(G[:,2], G[:,0])
-        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(G[:,1], G[:,0])
+        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(G[:,0], G[:,2])
+        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(G[:,0], G[:,1])
         self.normal = np.cross(self.zdhat, self.ydhat)
 
     def render(self, frame_number):
@@ -65,7 +65,7 @@ class Detector(object):
         # TODO: make the renderer a bit more andvanced not just scaling intensity against 
         # scattering volume.
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
-        for scatterer in frames[frame_number]:
+        for scatterer in self.frames[frame_number]:
             self.set_geometry( s = scatterer.s )
             zd, yd = self.get_intersection( scatterer.kprime, scatterer.get_centroid() )
             if self.contains(zd,yd):
@@ -86,7 +86,7 @@ class Detector(object):
 
         """
         s = ( self.zdhat.dot(self.normal) - source_point.dot(self.normal) ) / ray_direction.dot(self.normal)
-        det_intersection =  source_point + ray_direction*s - self.geometry_matrix[0,:]
+        det_intersection =  source_point + ray_direction*s - self.geometry_matrix(s=0)[0,:]
         zd = np.dot(det_intersection, self.zdhat)
         yd = np.dot(det_intersection, self.ydhat)
         return zd, yd
