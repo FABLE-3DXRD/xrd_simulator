@@ -1,6 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull, HalfspaceIntersection
+from scipy.optimize import linprog
 from xrd_simulator import utils
 
 class Beam(object):
@@ -62,6 +63,27 @@ class Beam(object):
         # the problem numerically requires a very fine grid. (The problem is nonconvex in the general case). So it makes
         # sense to restrict the beam to do uniform planar rodriguez rotations in each intervall s=[0,1].
 
+    def find_feasible_point(self, halfspaces):
+        """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
+
+        Args:
+            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficents of a halfspace (```shape=(N,4)```).
+        
+        Returns:
+            (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
+
+        """
+        norm_vector = np.reshape(np.linalg.norm(halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
+        c = np.zeros((halfspaces.shape[1],))
+        c[-1] = -1
+        A = np.hstack((halfspaces[:, :-1], norm_vector))
+        b = - halfspaces[:, -1:]
+        res = linprog(c, A_ub=A, b_ub=b, bounds=(None, None))
+        if res.success and res.x[-1]>0:
+            return res.x[:-1]
+        else:
+            return None
+
     def intersect( self, vertices ):
         """Compute the beam intersection with a series of convex polyhedra, returns a list of HalfspaceIntersections.
 
@@ -73,6 +95,15 @@ class Beam(object):
             input vertices.
 
         """
+        if np.random.rand()>0.99:
+            return ConvexHull( vertices )
+        else:
+            return None
         poly_halfspace = ConvexHull( vertices ).equations
-        hs = HalfspaceIntersection( np.vstack( (poly_halfspace, self.halfspaces) ) , np.mean( vertices, axis=0 ) )
-        return ConvexHull( hs.intersections )
+        combined_halfspaces = np.vstack( (poly_halfspace, self.halfspaces) )
+        interior_point = self.find_feasible_point(combined_halfspaces)
+        if interior_point is not None:
+            hs = HalfspaceIntersection( combined_halfspaces , interior_point )
+            return ConvexHull( hs.intersections )
+        else:
+            return None

@@ -1,5 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
+from numpy.lib.utils import source
 from xrd_simulator import utils
 
 class Detector(object):
@@ -25,6 +26,8 @@ class Detector(object):
             matrix which columns attach to three corners of the detector array (units of microns).
         frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
             may be rendered into pixelated frames. Each frame is a list of scattering objects
+        detector_origin (:obj:`numpy array`): The detector origin at s=0, i.e ```geometry_matrix(s=0)[:,0]```.
+        geometry_matrix_0 (:obj:`numpy array`): The detector geometry at s=0, i.e ```geometry_matrix(s=0)```.
 
     """
 
@@ -43,10 +46,11 @@ class Detector(object):
 
                 value and the detector geometry updated.
         """
-        G = self.geometry_matrix(s)
-        self.normalised_geometry_matrix = G / np.linalg.norm(G, axis=0)
-        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(G[:,0], G[:,2])
-        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(G[:,0], G[:,1])
+        self.geometry_matrix_0 = self.geometry_matrix(s)
+        self.detector_origin = self.geometry_matrix_0[:,0]
+        self.normalised_geometry_matrix = self.geometry_matrix_0 / np.linalg.norm(self.geometry_matrix_0, axis=0)
+        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix_0[:,2])
+        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix_0[:,1])
         self.normal = np.cross(self.zdhat, self.ydhat)
 
     def render(self, frame_number):
@@ -79,14 +83,14 @@ class Detector(object):
 
         Args:
             ray_direction (:obj:`numpy array`): Vector in direction of the Z.ray propagation 
-            source_point (:obj:`numpy array`): 
+            source_point (:obj:`numpy array`): Origin of the ray.
 
         Returns:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        s = ( self.zdhat.dot(self.normal) - source_point.dot(self.normal) ) / ray_direction.dot(self.normal)
-        det_intersection =  source_point + ray_direction*s - self.geometry_matrix(s=0)[0,:]
+        s = (self.detector_origin - source_point).dot(self.normal) / ray_direction.dot(self.normal)
+        det_intersection =  source_point + ray_direction*s - self.detector_origin
         zd = np.dot(det_intersection, self.zdhat)
         yd = np.dot(det_intersection, self.ydhat)
         return zd, yd
@@ -104,27 +108,34 @@ class Detector(object):
         """
         return zd>=0 and zd<=self.zmax and yd>=0 and yd<=self.zmax
 
-    def get_wrapping_cone(self, k):
-        """Compute the cone around a wavevector such that the cone intersects one detector corner.
+    def get_wrapping_cone(self, k, source_point):
+        """Compute the cone around a wavevector such that the cone wrapps the detector corners.
 
         Args:
             k (:obj:`numpy array`): Wavevector forming the central axis of cone.
+            source_point (:obj:`numpy array`): Origin of the wavevector.
 
         Returns:
             (:obj:`float`) Cone opening angle divided by two (radians).
 
         """
-        #TODO: Verify that the min cone openings occur at k1 or k2 
-        zd, yd = self.get_intersection(k, c=0)
-        assert self.contains(zd, yd), "You provided a wavevector, k="+str(k)+", that will not intersect the detector."
-        cone_opening = np.arccos( np.dot(self.normalised_geometry_matrix.T, k / np.linalg.norm(k) ) ) # These are two time Bragg angles
-        return np.min( cone_opening ) / 2. 
+        fourth_corner_of_detector = np.expand_dims(self.geometry_matrix_0[:,2] + (self.geometry_matrix_0[:,1] - self.detector_origin[:]),axis=1)
+        geom_mat = np.concatenate((self.geometry_matrix_0.copy(), fourth_corner_of_detector), axis=1)
+        for i in range(4):
+            geom_mat[:,i] -= source_point
+        normalised_local_coord_geom_mat = geom_mat/np.linalg.norm(geom_mat, axis=0)
+        zd, yd = self.get_intersection(k, source_point)
+        cone_opening = np.arccos( np.dot(normalised_local_coord_geom_mat.T, k / np.linalg.norm(k) ) ) # These are two time Bragg angles        
+        return np.max( cone_opening ) / 2. 
 
-    def approximate_wrapping_cone(self, beam, samples=180, margin=np.pi/180):
-        """Given a moving detector as well as a variable wavevector approximate an upper Bragg angle bound.
+    def approximate_wrapping_cone(self, beam, source_point, samples=180, margin=np.pi/180):
+        """Given a moving detector as well as a variable wavevector approximate an upper Bragg angle bound after which scattering
+            will not intersect the detector area.
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
+            source_point (:obj:`numpy array`): Source point from where the beam wavevector will originate (```shape=(3,)```).
+                Preferably this is taken as the centroid of the beam illumination region.
             samples (:obj:`float`): Number of points in s=[0,1] that should be used to approximate the 
                 cone opening angle.
             margin (:obj:`float`): Radians added to the returned result (for safety since samples are finite).
@@ -139,8 +150,8 @@ class Detector(object):
         for s in np.linspace(0, 1, samples):
             self.set_geometry(s)
             beam.set_geometry(s)
-            cone_angles.append( self.get_wrapping_cone( beam.k ) )
+            cone_angles.append( self.get_wrapping_cone( beam.k, source_point ) )
         self.set_geometry(s=0)
         beam.set_geometry(s=0)
-        return np.min(cone_angles) + margin
+        return np.max(cone_angles) + margin
 

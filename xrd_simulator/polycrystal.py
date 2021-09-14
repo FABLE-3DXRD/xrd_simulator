@@ -1,5 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
+from numpy.lib.utils import source
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils
 from xrd_simulator import laue
@@ -62,29 +63,33 @@ class Polycrystal(object):
 
         rotator = utils.RodriguezRotator(beam.k1, beam.k2)
 
-        scatterers = []
 
-        # Compute the Miller indices based on the rotational intervall.
-        max_bragg_angle = detector.approximate_wrapping_cone( beam )
+        # Only Compute the Miller indices that can give diffrraction within the detector bounds
+        max_bragg_angle = detector.approximate_wrapping_cone( beam, source_point=self.mesh.centroid )
         min_bragg_angle = 0
+
         hkls = [phase.generate_miller_indices(beam.wavelength, min_bragg_angle, max_bragg_angle) for phase in self.phases]
 
+        scatterers = []
+
         for ei in range( self.mesh.number_of_elements ):
-            scatterers.append( [] )
+            element_vertices = self.mesh.coord[self.mesh.enod[ei]]
             # TODO: pass if element not close to beam for speed.
+            print(max_bragg_angle, hkls[ self.ephase[ei] ].shape, self.mesh.number_of_elements)
             for G_hkl in hkls[ self.ephase[ei] ]:
                 G = laue.get_G(self.eU[ei], self.eB[ei], G_hkl)
                 theta = laue.get_bragg_angle( G, beam.wavelength )
                 c_0, c_1, c_2 = laue.get_tangens_half_angle_equation( beam.k1, theta, G, rotator.rhat )
-                for s in self._find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha ):
+                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha ):
                     if s is not None:
                         beam.set_geometry(s)
-                        kprime = G + beam.k
-                        element_vertices = self.mesh.coord[self.mesh.enod[ei]]
                         hs = beam.intersect( element_vertices )
-                        scatterers.append( Scatterer(hs, kprime, s) )  
+                        if hs is not None:
+                            kprime = G + beam.k
+                            scatterers.append( Scatterer(hs, kprime, s) )  
         beam.set_geometry(s=0)
         detector.frames.append( scatterers )
+
 
         # NOTE: Rotations around the beam propagation direction is no true crystal rocking! For a fixed
         # beam in lab frame, the angles between beam and G vectors will not be changed by this! 

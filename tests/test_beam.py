@@ -47,6 +47,7 @@ class TestBeam(unittest.TestCase):
             self.assertAlmostEqual( self.beam.k[i], self.k1[i], msg="Initial wavevector not equal to input k1 wavevector" )
 
         self.assertTrue(np.allclose(self.beam.vertices, self.beam_vertices))
+
     def test_intersect(self):
         vertices = self.beam_vertices
         ch = self.beam.intersect( vertices )
@@ -64,6 +65,11 @@ class TestBeam(unittest.TestCase):
         vertices = ch1.points[ch1.vertices]
         ch = self.beam.intersect( vertices )
         self.assertAlmostEqual(  ch.volume, ch1.volume )
+
+        ch1 = ConvexHull( ( np.random.rand(25,3)/2.+20.0 )  ) # polyhedra completely outside the beam.
+        vertices = ch1.points[ch1.vertices]
+        ch = self.beam.intersect( vertices )
+        self.assertTrue(  ch is None )
 
     def get_pseudorandom_wavelength(self):
         return np.random.rand()*0.5
