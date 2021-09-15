@@ -17,23 +17,23 @@ class Detector(object):
 
     Args:
         pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
-        geometry_matrix (:obj:`callable`): geometry_matrix(s) <- G where G is a ```shape=(3,3)``` geometry
+        geometry_descriptor (:obj:`callable`): geometry_descriptor(s) <- G where G is a ```shape=(3,3)``` geometry
             matrix which columns attach to three corners of the detector array (units of microns).
 
     Attributes:
         pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
-        geometry_matrix (:obj:`callable`): geometry_matrix(s) <- G where G is a ```shape=(3,3)``` geometry
+        geometry_descriptor (:obj:`callable`): geometry_descriptor(s) <- G where G is a ```shape=(3,3)``` geometry
             matrix which columns attach to three corners of the detector array (units of microns).
         frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
             may be rendered into pixelated frames. Each frame is a list of scattering objects
         detector_origin (:obj:`numpy array`): The detector origin at s=0, i.e ```geometry_matrix(s=0)[:,0]```.
-        geometry_matrix_0 (:obj:`numpy array`): The detector geometry at s=0, i.e ```geometry_matrix(s=0)```.
+        geometry_matrix (:obj:`numpy array`): The detector geometry current s, i.e ```geometry_descriptor(s)```.
 
     """
 
-    def __init__(self, pixel_size, geometry_matrix ):
+    def __init__(self, pixel_size, geometry_descriptor ):
         self.pixel_size        = pixel_size
-        self.geometry_matrix   = geometry_matrix
+        self.geometry_descriptor   = geometry_descriptor
         self.frames = []
         self.set_geometry(s=0)
 
@@ -46,11 +46,11 @@ class Detector(object):
 
                 value and the detector geometry updated.
         """
-        self.geometry_matrix_0 = self.geometry_matrix(s)
-        self.detector_origin = self.geometry_matrix_0[:,0]
-        self.normalised_geometry_matrix = self.geometry_matrix_0 / np.linalg.norm(self.geometry_matrix_0, axis=0)
-        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix_0[:,2])
-        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix_0[:,1])
+        self.geometry_matrix = self.geometry_descriptor(s)
+        self.detector_origin = self.geometry_matrix[:,0]
+        self.normalised_geometry_matrix = self.geometry_matrix / np.linalg.norm(self.geometry_matrix, axis=0)
+        self.zdhat, self.zmax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix[:,2])
+        self.ydhat, self.ymax  = utils.get_unit_vector_and_l2norm(self.detector_origin, self.geometry_matrix[:,1])
         self.normal = np.cross(self.zdhat, self.ydhat)
 
     def render(self, frame_number):
@@ -62,7 +62,7 @@ class Detector(object):
         Returns:
             A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
             pixel size.
-        
+
         NOTE: This function is meant to alow for overriding when specalised intensity models are to be tested.
 
         """
@@ -82,7 +82,7 @@ class Detector(object):
         """Get detector intersection in detector coordinates of singel a ray originating from source_point.
 
         Args:
-            ray_direction (:obj:`numpy array`): Vector in direction of the Z.ray propagation 
+            ray_direction (:obj:`numpy array`): Vector in direction of the X-ray propagation 
             source_point (:obj:`numpy array`): Origin of the ray.
 
         Returns:
@@ -90,9 +90,9 @@ class Detector(object):
 
         """
         s = (self.detector_origin - source_point).dot(self.normal) / ray_direction.dot(self.normal)
-        det_intersection =  source_point + ray_direction*s - self.detector_origin
-        zd = np.dot(det_intersection, self.zdhat)
-        yd = np.dot(det_intersection, self.ydhat)
+        intersection =  source_point + ray_direction*s
+        zd = np.dot( intersection - self.detector_origin , self.zdhat)
+        yd = np.dot( intersection - self.detector_origin , self.ydhat)
         return zd, yd
 
     def contains(self, zd, yd):
@@ -106,7 +106,7 @@ class Detector(object):
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-        return zd>=0 and zd<=self.zmax and yd>=0 and yd<=self.zmax
+        return zd>=0 and zd<=self.zmax and yd>=0 and yd<=self.ymax
 
     def get_wrapping_cone(self, k, source_point):
         """Compute the cone around a wavevector such that the cone wrapps the detector corners.
@@ -119,8 +119,8 @@ class Detector(object):
             (:obj:`float`) Cone opening angle divided by two (radians).
 
         """
-        fourth_corner_of_detector = np.expand_dims(self.geometry_matrix_0[:,2] + (self.geometry_matrix_0[:,1] - self.detector_origin[:]),axis=1)
-        geom_mat = np.concatenate((self.geometry_matrix_0.copy(), fourth_corner_of_detector), axis=1)
+        fourth_corner_of_detector = np.expand_dims(self.geometry_matrix[:,2] + (self.geometry_matrix[:,1] - self.detector_origin[:]),axis=1)
+        geom_mat = np.concatenate((self.geometry_matrix.copy(), fourth_corner_of_detector), axis=1)
         for i in range(4):
             geom_mat[:,i] -= source_point
         normalised_local_coord_geom_mat = geom_mat/np.linalg.norm(geom_mat, axis=0)

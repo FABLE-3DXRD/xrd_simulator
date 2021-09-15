@@ -20,7 +20,7 @@ detector = np.zeros((1024,1024))
 pixsize = 75 #microns
 
 x = np.array([1.,0.,0.])
-omega = np.linspace(0., np.pi, 3)
+omega = np.linspace(0., np.pi/2., 3)
 ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],[0,0,1]]).dot(x) for om in omega])
 ks = 2*np.pi*ks/wavelength
 

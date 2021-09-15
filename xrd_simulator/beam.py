@@ -30,11 +30,17 @@ class Beam(object):
         k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
         rotator (:obj:`utils.RodriguezRotator`): Callable object performing rodriguez 
             rotations from k1 towards k2.
+        centroid (:obj:`numpy array`): Beam centroid ```shape=(3,)```
 
     """
 
     def __init__(self, beam_vertices, wavelength, k1, k2 ):
-        #TODO: assert the beam is convex.
+
+        assert np.allclose( np.linalg.norm(k1), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
+        assert np.allclose( np.linalg.norm(k2), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
+        ch = ConvexHull( beam_vertices )
+        assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam veertices does not form a convex hull"
+
         self.original_vertices = beam_vertices.copy()
         self.vertices   = beam_vertices.copy()
         self.k1         = k1
@@ -56,12 +62,7 @@ class Beam(object):
             self.vertices[i,:] = self.rotator(self.original_vertices[i,:], s)
         self.halfspaces = ConvexHull( self.vertices ).equations
         self.k = self.rotator(self.k1, s)
-
-        # NOTE: if we allow beams with arbitrary transformations then we ar ein trouble to solve the Laue equations
-        # analytically. Numerical efforts are both slow and inaccurate it seems. Especially when k1 does not uniformly
-        # go into k2. Image for instance k1 close to k1 s in [0,0.9] and k1 close to k2 in s=[0.9,1.0]. Then to solve
-        # the problem numerically requires a very fine grid. (The problem is nonconvex in the general case). So it makes
-        # sense to restrict the beam to do uniform planar rodriguez rotations in each intervall s=[0,1].
+        self.centroid = np.mean(self.vertices, axis=0)
 
     def find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
@@ -73,12 +74,13 @@ class Beam(object):
             (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
 
         """
+        #NOTE: from profiling: this method is the current bottleneck with about 50 % of total CPU time is spent here.
         norm_vector = np.reshape(np.linalg.norm(halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
         c = np.zeros((halfspaces.shape[1],))
         c[-1] = -1
         A = np.hstack((halfspaces[:, :-1], norm_vector))
         b = - halfspaces[:, -1:]
-        res = linprog(c, A_ub=A, b_ub=b, bounds=(None, None))
+        res = linprog(c, A_ub=A, b_ub=b, bounds=(None, None), method='highs-ipm')
         if res.success and res.x[-1]>0:
             return res.x[:-1]
         else:
@@ -94,11 +96,7 @@ class Beam(object):
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
             input vertices.
 
-        """
-        if np.random.rand()>0.99:
-            return ConvexHull( vertices )
-        else:
-            return None
+        """        
         poly_halfspace = ConvexHull( vertices ).equations
         combined_halfspaces = np.vstack( (poly_halfspace, self.halfspaces) )
         interior_point = self.find_feasible_point(combined_halfspaces)
@@ -107,3 +105,19 @@ class Beam(object):
             return ConvexHull( hs.intersections )
         else:
             return None
+
+    def is_in_proximity_of(self, sphere_centre, sphere_radius ):
+        """Check if a given sphere could interesect the beam.
+
+        Args:
+            sphere_centre (:obj:`numpy array`): Centroid of a sphere ```shape=(3,)```.
+            sphere_radius (:obj:`numpy array`): Radius of a sphere ```shape=(3,)```.
+        
+        Returns:
+            True if the sphere has an intersection with the beam.
+
+        """ 
+        # TODO: Implement this. If the sphere centroid has a distance less than sphere_radius
+        # to any of the beam halfplanes, then we will have intersection. 
+        raise NotImplementedError()
+

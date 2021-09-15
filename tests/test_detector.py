@@ -8,17 +8,18 @@ from xrd_simulator.beam import Beam
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
+        # TODO make this thest with a detector that does not a have a zero origin!
         self.pixel_size = 50.
         self.detector_size = 10000.
         geometry_matrix_0 = np.array([[1,0,0],[1,1,0],[1,0,1]]).T*self.detector_size
-        def geometry_matrix(s):
+        def geometry_descriptor(s):
             sin = np.sin( -s*np.pi/2. )
             cos = np.cos( -s*np.pi/2. )
             Rz = np.array([ [ cos, -sin, 0 ],
                             [ sin,  cos, 0 ],
                             [  0,    0,  1 ] ])
             return Rz.dot( geometry_matrix_0 )
-        self.detector = Detector( self.pixel_size, geometry_matrix )
+        self.detector = Detector( self.pixel_size, geometry_descriptor )
 
     def test_init(self):
 
@@ -147,7 +148,10 @@ class TestDetector(unittest.TestCase):
             [ self.detector_size, 10*self.pixel_size, 0.                 ],
             [ self.detector_size, 0.,                 10*self.pixel_size ],
             [ self.detector_size, 10*self.pixel_size, 10*self.pixel_size ]]) + source_point
-        beam = Beam(beam_vertices, wavelength=1.0, k1=np.array([1,0,0]), k2=np.array([0,-1,0]))
+        wavelength = 1.0
+        k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
+        k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
+        beam = Beam(beam_vertices, wavelength=wavelength, k1=k1, k2=k2)
 
         opening_angle = self.detector.approximate_wrapping_cone( beam, source_point, samples=180, margin=margin )
         self.assertGreaterEqual(max_expected_angle, opening_angle, msg="approximated wrapping cone is too large")
