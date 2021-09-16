@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix
 from numba import njit
 import pygalmesh
+import meshio
 
 class TetraMesh(object):
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
@@ -27,7 +28,6 @@ class TetraMesh(object):
     """
 
     def __init__(self):
-        super().__init__()
         self._mesh       = None
         self.coord       = None
         self.enod        = None
@@ -39,6 +39,29 @@ class TetraMesh(object):
         self.ecmat       = None
         self.centroid    = None
         self.number_of_elements = None
+
+    def _build_tetramesh(cls, mesh):
+        tetmesh = cls()
+        tetmesh._mesh = mesh
+        tetmesh._set_fem_matrices()
+        tetmesh._expand_mesh_data()
+        return tetmesh
+
+    @classmethod
+    def generate_mesh_from_vertices(cls, coord, enod):
+        """Generate a mesh from a level set using `the pygalmesh package`_:
+        
+        .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
+
+        Args:
+            coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the 
+                coordinates of a mesh node.
+            enod (:obj:`numpy array`): Tetra element nodes shape=(nelm, nenodes).e.g enod[i,:] gives
+                the nodal indices of element i.
+
+        """
+        mesh = meshio.Mesh( coord, [("tetra", enod)] )
+        return cls._build_tetramesh(cls, mesh)
 
     @classmethod
     def generate_mesh_from_levelset(cls, level_set, bounding_radius, cell_size):
@@ -64,12 +87,7 @@ class TetraMesh(object):
                                         cell_size=cell_size, 
                                         verbose=False)
 
-        tetmesh = cls()
-        tetmesh._mesh = mesh
-        tetmesh._set_fem_matrices()
-        tetmesh._expand_mesh_data()
-
-        return tetmesh
+        return cls._build_tetramesh(cls, mesh)
 
     @classmethod
     def generate_mesh_from_numpy_array(cls, array, voxel_size, cell_size):
@@ -87,12 +105,7 @@ class TetraMesh(object):
         mesh = pygalmesh.generate_from_array( array, [voxel_size]*3,
                                             cell_size=cell_size, 
                                             verbose=False )
-        tetmesh = cls()
-        tetmesh._mesh = mesh
-        tetmesh._set_fem_matrices()
-        tetmesh._expand_mesh_data()
-
-        return tetmesh
+        return cls._build_tetramesh(cls, mesh)
 
     def _set_fem_matrices(self):
         """Extract and set mesh FEM matrices from pygalmesh object.

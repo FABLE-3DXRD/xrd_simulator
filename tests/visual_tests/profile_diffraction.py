@@ -5,6 +5,8 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xfab import tools
+import cProfile
+import pstats
 
 np.random.seed(10)
 
@@ -22,10 +24,13 @@ def geometry_descriptor(s):
     return Rz.dot( geometry_matrix_0 )
 detector = Detector( pixel_size, geometry_descriptor )
 
-mesh = TetraMesh.generate_mesh_from_levelset(
-    level_set = lambda x: np.dot( x, x ) - detector_size/10.,
-    bounding_radius = 1.1*detector_size/10., 
-    cell_size = 0.01*detector_size/10. )
+l = detector_size/10.
+coord = np.array([ [0,0,0],
+                   [0,l,0],
+                   [l,0,0],
+                   [0,0,l] ])    
+enod = np.array([[0,1,2,3]])
+mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
 
 #TODO: change this path 
 # mesh.to_xdmf("/home/axel/workspace/xrd_simulator/tests/visual_tests/quartz")
@@ -55,12 +60,15 @@ k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
 k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
 beam = Beam(beam_vertices, wavelength, k1, k2)
 
+pr = cProfile.Profile()
+pr.enable()
 polycrystal.diffract( beam, detector )
+pr.disable()
+pr.dump_stats('profile_dump')
+ps = pstats.Stats('profile_dump').sort_stats('tottime')
+ps.print_stats(20)
 
 pixim = detector.render(frame_number=0)
-
-print(np.sum(pixim))
-print(np.where(pixim!=0))
 
 import matplotlib.pyplot as plt
 from scipy.signal import convolve

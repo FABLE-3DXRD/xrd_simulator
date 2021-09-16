@@ -96,7 +96,7 @@ class Beam(object):
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
             input vertices.
 
-        """        
+        """
         poly_halfspace = ConvexHull( vertices ).equations
         combined_halfspaces = np.vstack( (poly_halfspace, self.halfspaces) )
         interior_point = self.find_feasible_point(combined_halfspaces)
