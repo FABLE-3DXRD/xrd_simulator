@@ -41,7 +41,7 @@ class TetraMesh(object):
         self.number_of_elements = None
 
     @classmethod
-    def generate_mesh_from_levelset(cls, level_set, bounding_radius, max_cell_circumradius, max_facet_distance):
+    def generate_mesh_from_levelset(cls, level_set, bounding_radius, cell_size):
         """Generate a mesh from a level set using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
@@ -50,8 +50,7 @@ class TetraMesh(object):
             level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
                 of the mesh and positive on the interior.
             bounding_radius (:obj:`float`): Bounding radius of mesh.
-            max_cell_circumradius (:obj:`float`): Bound for element radii.
-            max_facet_distance (:obj:`float`): Bound for facet distance.
+            cell_size (:obj:`float`): Bound for element radii.
 
         """
 
@@ -62,8 +61,7 @@ class TetraMesh(object):
                 self.get_bounding_sphere_squared_radius = lambda : bounding_radius**2
 
         mesh = pygalmesh.generate_mesh( LevelSet(),
-                                        max_facet_distance=max_facet_distance, 
-                                        max_cell_circumradius=max_cell_circumradius, 
+                                        cell_size=cell_size, 
                                         verbose=False)
 
         tetmesh = cls()
@@ -74,7 +72,7 @@ class TetraMesh(object):
         return tetmesh
 
     @classmethod
-    def generate_mesh_from_numpy_array(cls, array, voxel_size, max_cell_circumradius, max_facet_distance):
+    def generate_mesh_from_numpy_array(cls, array, voxel_size, cell_size):
         """Generate a mesh from a numpy array using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
@@ -82,14 +80,12 @@ class TetraMesh(object):
         Args:
             array (:obj:`numpy array`): Numpy array to generate mesh from.
             voxel_size (:obj:`float`): Dimension of array voxels.
-            max_cell_circumradius (:obj:`float`): Bound for element radii.
-            max_facet_distance (:obj:`float`): Bound for facet distance.
+            cell_size (:obj:`float`): Bound for element radii.
 
         """
 
         mesh = pygalmesh.generate_from_array( array, [voxel_size]*3,
-                                            max_facet_distance=max_facet_distance, 
-                                            max_cell_circumradius=max_cell_circumradius, 
+                                            cell_size=cell_size, 
                                             verbose=False )
         tetmesh = cls()
         tetmesh._mesh = mesh

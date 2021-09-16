@@ -25,9 +25,9 @@ detector = Detector( pixel_size, geometry_descriptor )
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: np.dot( x, x ) - detector_size/10.,
     bounding_radius = 1.1*detector_size/10., 
-    max_cell_circumradius = 0.01*detector_size/10., 
-    max_facet_distance = 0.01*detector_size/10. )
-
+    cell_size = 0.01*detector_size/10. )
+print(mesh.number_of_elements)
+raise
 #TODO: change this path 
 # mesh.to_xdmf("/home/axel/workspace/xrd_simulator/tests/visual_tests/quartz")
 

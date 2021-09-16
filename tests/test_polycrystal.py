@@ -30,9 +30,8 @@ class TestPolycrystal(unittest.TestCase):
         mesh = TetraMesh.generate_mesh_from_levelset(
             level_set = lambda x: np.dot( x, x ) - self.detector_size/10.,
             bounding_radius = 1.1*self.detector_size/10., 
-            max_cell_circumradius = 0.05*self.detector_size/10., 
-            max_facet_distance = 0.05*self.detector_size/10. )
-
+            cell_size = 0.05*self.detector_size/10.)
+    
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
         phases = [Phase(unit_cell, sgname)]

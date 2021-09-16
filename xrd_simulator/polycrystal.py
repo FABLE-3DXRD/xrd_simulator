@@ -76,7 +76,7 @@ class Polycrystal(object):
 
         for ei in range( self.mesh.number_of_elements ):
             #TODO: Make printing optional and nicer.
-            #print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
+            print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
             element_vertices = self.mesh.coord[self.mesh.enod[ei]]
             # TODO: pass if element not close to beam for speed.
             for G_hkl in hkls[ self.ephase[ei] ]:
