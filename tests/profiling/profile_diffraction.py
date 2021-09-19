@@ -65,7 +65,7 @@ pr.enable()
 polycrystal.diffract( beam, detector )
 pr.disable()
 pr.dump_stats('profile_dump')
-ps = pstats.Stats('profile_dump').sort_stats('tottime')
+ps = pstats.Stats('profile_dump').sort_stats('cumtime')
 ps.print_stats(20)
 
 pixim = detector.render(frame_number=0)

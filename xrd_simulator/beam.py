@@ -42,11 +42,14 @@ class Beam(object):
         assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam veertices does not form a convex hull"
 
         self.original_vertices = beam_vertices.copy()
-        self.vertices   = beam_vertices.copy()
+        self.original_centroid = np.mean(self.original_vertices, axis=0)
+        self.vertices   = self.original_vertices.copy()
+        self.centroid   = self.original_centroid.copy()
         self.k1         = k1
         self.k2         = k2
         self.rotator    = utils.RodriguezRotator(k1, k2)
         self.wavelength = wavelength
+
         self.set_geometry(s=0)
 
     def set_geometry(self, s):
@@ -58,18 +61,17 @@ class Beam(object):
                 parametrised by s.
 
         """
-        for i in range( self.vertices.shape[0] ):
-            self.vertices[i,:] = self.rotator(self.original_vertices[i,:], s)
+        self.vertices = self.rotator(self.original_vertices.T, s).T
         self.halfspaces = ConvexHull( self.vertices ).equations
         self.k = self.rotator(self.k1, s)
-        self.centroid = np.mean(self.vertices, axis=0)
+        self.centroid = self.rotator(self.original_centroid, s)
 
     def find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
 
         Args:
             halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficents of a halfspace (```shape=(N,4)```).
-        
+
         Returns:
             (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
 
@@ -106,15 +108,19 @@ class Beam(object):
         else:
             return None
 
-    def is_in_proximity_of(self, sphere_centre, sphere_radius ):
-        """Check if a given sphere could interesect the beam.
+    def get_proximity_interval(self, sphere_centre, sphere_radius):
+        """Compute the parametric interval s=[s_1,s_2] in which sphere could is interesecting the beam.
+
+        This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
+        set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
 
         Args:
             sphere_centre (:obj:`numpy array`): Centroid of a sphere ```shape=(3,)```.
             sphere_radius (:obj:`numpy array`): Radius of a sphere ```shape=(3,)```.
-        
+
         Returns:
-            True if the sphere has an intersection with the beam.
+            (:obj:`tuple` of :obj:`float`): s_1, s_2, i.e the parametric range in which the sphere
+            has an intersection with the beam. (:obj:`None`) if no intersection exist in s=[0,1]
 
         """ 
         # TODO: Implement this. If the sphere centroid has a distance less than sphere_radius
