@@ -26,5 +26,6 @@ setuptools.setup(
                         "scipy",
                         "matplotlib",
                         "xfab>=0.0.4",
+                        "pygalmesh==0.7.2",
                         ]
 )

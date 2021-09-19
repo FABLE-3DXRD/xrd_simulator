@@ -171,7 +171,7 @@ class TetraMesh(object):
     def _compute_mesh_faces(self, enod):
         """Compute all element faces nodal numbers.
         """
-        efaces = np.zeros( (enod.shape[0], 4, 3), dtype=np.int )
+        efaces = np.zeros( (enod.shape[0], 4, 3), dtype=int )
         for i in range( enod.shape[0] ):
             # nodal combinations defining 4 unique planes in a tet.
             permutations = [ [0,1,2], [0,1,3], [0,2,3], [1,2,3] ]
