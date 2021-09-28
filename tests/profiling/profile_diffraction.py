@@ -29,6 +29,7 @@ def geometry_descriptor(s):
     return Rz.dot( geometry_matrix_0 )
 detector = Detector( pixel_size, geometry_descriptor )
 
+
 # l = detector_size/10.
 # coord = np.array([ [0,0,0],
 #                    [0,l,0],
@@ -81,7 +82,7 @@ pr.enable()
 polycrystal.diffract( beam, detector )
 pr.disable()
 pr.dump_stats('profile_dump')
-ps = pstats.Stats('profile_dump').sort_stats('cumtime')
+ps = pstats.Stats('profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(20)
 
 pixim = detector.render(frame_number=0)

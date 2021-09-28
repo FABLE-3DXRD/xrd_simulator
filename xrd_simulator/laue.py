@@ -56,6 +56,9 @@ def get_tangens_half_angle_equation( k1, theta, G, rhat ):
         (:obj:`tuple` of :obj:`float`): Coefficents c_0,c_1 and c_2 of equation (1).
 
     """
+    # TODO: Optimize this function, np.cross( rhat, k1 ) is slow and should be precomputed and passed
+    # in as it is not a function of th scattering but of the beam selection. Also make this function
+    # support arrays of G and theta.
     c_0  = np.dot(G, k1)
     c_1  = np.dot(G, np.cross( rhat, k1 ) )
     c_2  = np.linalg.norm( k1 ) * np.linalg.norm( G ) * np.sin( theta )
