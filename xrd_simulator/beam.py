@@ -15,13 +15,16 @@ class Beam(object):
     to rotate by the same transformation that brings :math:`\\boldsymbol{k}_1`  unto
     :math:`\\boldsymbol{k}_2` (rodriguez rotation). I.e all vertices of the convex beam hull will 
     rotate according to a rodriguez rotation defined by the unit vector which is in the direction
-    of the cross product of :math:`\\boldsymbol{k}_1` and :math:`\\boldsymbol{k}_2`.
+    of the cross product of :math:`\\boldsymbol{k}_1` and :math:`\\boldsymbol{k}_2`. Before rotation
+    is executed, and optional linear translation may be performed.
 
     Args:
         beam_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
         wavelength (:obj:`float`): Photon wavelength in units of angstrom.
         k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
         k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
+        translation (:obj:`numpy array`): Beam linear translation on s=[0,1], ```shape=(3,)```.
+            The beam moves s*translation before each rotation.
 
     Attributes:
         original_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
@@ -31,24 +34,28 @@ class Beam(object):
         rotator (:obj:`utils.RodriguezRotator`): Callable object performing rodriguez 
             rotations from k1 towards k2.
         centroid (:obj:`numpy array`): Beam centroid ```shape=(3,)```
-
+        translation (:obj:`numpy array`): Beam linear translation on s=[0,1], ```shape=(3,)```.
+            The beam moves s*translation before each rotation.
     """
 
-    def __init__(self, beam_vertices, wavelength, k1, k2 ):
+    def __init__(self, beam_vertices, wavelength, k1, k2, translation ):
 
         assert np.allclose( np.linalg.norm(k1), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
         assert np.allclose( np.linalg.norm(k2), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
         ch = ConvexHull( beam_vertices )
         assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam veertices does not form a convex hull"
 
-        self.original_vertices = beam_vertices.copy()
-        self.original_centroid = np.mean(self.original_vertices, axis=0)
+        self.original_vertices   = beam_vertices.copy()
+        self.original_centroid   = np.mean(self.original_vertices, axis=0)
+        self.original_halfspaces = ConvexHull( self.original_vertices ).equations
+        self.halfspaces = self.original_halfspaces.copy()
         self.vertices   = self.original_vertices.copy()
         self.centroid   = self.original_centroid.copy()
         self.k1         = k1
         self.k2         = k2
         self.rotator    = utils.RodriguezRotator(k1, k2)
         self.wavelength = wavelength
+        self.translation = translation
 
         self.set_geometry(s=0)
 
@@ -61,7 +68,7 @@ class Beam(object):
                 parametrised by s.
 
         """
-        self.vertices = self.rotator(self.original_vertices.T, s).T
+        self.vertices = self.rotator( (self.original_vertices + self.translation*s).T, s).T
         self.halfspaces = ConvexHull( self.vertices ).equations
         self.k = self.rotator(self.k1, s)
         self.centroid = self.rotator(self.original_centroid, s)
@@ -93,7 +100,7 @@ class Beam(object):
 
         Args:
             vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ```shape=(N,3)```.
-        
+
         Returns:
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
             input vertices.
@@ -108,8 +115,8 @@ class Beam(object):
         else:
             return None
 
-    def get_proximity_interval(self, sphere_centre, sphere_radius):
-        """Compute the parametric interval s=[s_1,s_2] in which sphere could is interesecting the beam.
+    def get_proximity_intervals(self, sphere_centre, sphere_radius):
+        """Compute the parametric intervals s=[s_1,s_2,_3,..] in which sphere could is interesecting the beam.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
         set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
@@ -123,7 +130,53 @@ class Beam(object):
             has an intersection with the beam. (:obj:`None`) if no intersection exist in s=[0,1]
 
         """ 
-        # TODO: Implement this. If the sphere centroid has a distance less than sphere_radius
-        # to any of the beam halfplanes, then we will have intersection. 
-        raise NotImplementedError()
+        max_rotation_increment    = np.linalg.norm( sphere_centre - self.rotator(sphere_centre, s=1) )
+        max_translation_increment = np.linalg.norm( sphere_radius )
+        
+        # TODO: Think on this.
+        # number_of_interval_points = np.ceil( np.max( [max_rotation_increment + max_translation_increment, 10] ) ).astype(int)
+        number_of_interval_points = 10
+        
+        evaluation_points = np.linspace( 0, 1, number_of_interval_points )
+
+        intersection_map = np.ones( ( number_of_interval_points, ) )
+        for p, beam_halfplane in enumerate(self.original_halfspaces):
+                for n,s in enumerate(evaluation_points):
+                    if intersection_map[n]==1:
+                        normal = beam_halfplane[0:3]
+                        d0     = -beam_halfplane[3]
+                        term1  = sphere_centre.dot( self.rotator(normal, s) )
+                        term2  = normal.dot( self.translation )*s
+                        term3  = sphere_radius + d0
+                        intersection_map[n] *= (term1 - term2 - term3 <= 0)
+                if np.sum(intersection_map)==0:
+                    return None
+
+        indx = np.where( intersection_map==1 )[0]
+        
+        intervals = []
+        previ = 0
+        for i in indx:
+
+            if i-previ==1:
+                # forward update
+                if i==len(evaluation_points)-1:
+                    pass
+                else:
+                    intervals[-1][1] = evaluation_points[i+1]
+            else:
+                # forward & backward add
+                if i==0:
+                    intervals.append( [evaluation_points[i], evaluation_points[i+1]] )
+                elif i==len(evaluation_points)-1:
+                    intervals.append( [evaluation_points[i-1], evaluation_points[i]] )
+                else:
+                    intervals.append( [evaluation_points[i-1], evaluation_points[i+1]] )
+
+            previ = i
+
+        return np.array(intervals)
+
+
+    
 

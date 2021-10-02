@@ -111,5 +111,4 @@ def find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
         if s2>1 or s2<0:
             s2 = None
 
-
     return s1, s2
