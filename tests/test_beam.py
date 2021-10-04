@@ -84,9 +84,9 @@ class TestBeam(unittest.TestCase):
         self.assertTrue(  ch is None )
 
     def test_get_proximity_intervals(self):
-        sphere_centre = np.array([20.0, 0.0, 0.0])
-        sphere_radius = 1.0
-        angle1 = np.arctan(sphere_radius/sphere_centre[0])
+        sphere_centre = np.array([[20.0, 0.0, 0.0]])
+        sphere_radius = np.array([[1.0]])
+        angle1 = np.arctan(sphere_radius[0]/sphere_centre[0,0])
         self.beam_vertices = np.array([
             [-50., -1., -1. ],
             [-50., -1.,  1. ],
@@ -105,14 +105,13 @@ class TestBeam(unittest.TestCase):
         self.beam = Beam(self.beam_vertices, self.wavelength, self.k1, self.k2, self.translation)
         intervals = self.beam.get_proximity_intervals(sphere_centre, sphere_radius)
 
-        self.assertEqual( intervals.shape[0], 2, msg="Wrong number of proximity intervals" )
+        self.assertEqual( intervals[0].shape[0], 2, msg="Wrong number of proximity intervals" )
 
         # needs change of points on interval is not exactly 10
-        points_on_interval = 10.
-        self.assertAlmostEqual( intervals[0,0], 0/(points_on_interval-1) , msg="Proximity interval wrong" )
-        self.assertAlmostEqual( intervals[0,1], 1/(points_on_interval-1) , msg="Proximity interval wrong" )
-        self.assertAlmostEqual( intervals[1,0], 8/(points_on_interval-1) , msg="Proximity interval wrong" )
-        self.assertAlmostEqual( intervals[1,1], 9/(points_on_interval-1) , msg="Proximity interval wrong" )
+        self.assertGreaterEqual( intervals[0][0,0], 0 , msg="Proximity interval wrong" )
+        self.assertLessEqual( intervals[0][0,1], 0.05 , msg="Proximity interval wrong" )
+        self.assertGreaterEqual( intervals[0][1,0], 0.95  , msg="Proximity interval wrong" )
+        self.assertLessEqual( intervals[0][1,1], 1.0 , msg="Proximity interval wrong" )
 
     def get_pseudorandom_wavelength(self):
         return np.random.rand()*0.5

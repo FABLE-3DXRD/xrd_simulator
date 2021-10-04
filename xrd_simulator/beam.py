@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator import utils
+from xrd_simulator import utils, laue
+from scipy.optimize import root_scalar
 
 class Beam(object):
     """Represents a monochromatic X-ray beam as a convex polyhedra.
@@ -115,7 +116,7 @@ class Beam(object):
         else:
             return None
 
-    def get_proximity_intervals(self, sphere_centre, sphere_radius):
+    def get_proximity_intervals_old(self, sphere_centre, sphere_radius):
         """Compute the parametric intervals s=[s_1,s_2,_3,..] in which sphere could is interesecting the beam.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
@@ -178,5 +179,114 @@ class Beam(object):
         return np.array(intervals)
 
 
-    
+    def get_proximity_intervals(self, sphere_centres, sphere_radius):
+        """Compute the parametric intervals s=[s_1,s_2,_3,..] in which sphere could is interesecting the beam.
 
+        This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
+        set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
+
+        Args:
+            sphere_centres (:obj:`numpy array`): Centroid of a sphere ```shape=(3,)```.
+            sphere_radius (:obj:`numpy array`): Radius of a sphere ```shape=(3,)```.
+
+        Returns:
+            (:obj:`tuple` of :obj:`float`): s_1, s_2, i.e the parametric range in which the sphere
+            has an intersection with the beam. (:obj:`None`) if no intersection exist in s=[0,1]
+
+        """ 
+        bhat_p_0 = self.original_halfspaces[:,0:3]
+        d_p_0    = -self.original_halfspaces[:,3]
+        a0 = self.rotator.K.dot( bhat_p_0.T )
+        a1 = self.rotator.K2.dot( bhat_p_0.T )
+        a2 = -bhat_p_0.dot( self.translation )
+        all_intersections = []
+
+        for i in range(sphere_centres.shape[0]):
+
+            c,r = sphere_centres[i], sphere_radius[i]
+            merged_intersections = [[0., 1.]]
+
+            for p in range( self.original_halfspaces.shape[0] ):
+                
+                new_intersections = []
+
+                q_0 = c.dot( a0[:,p] )
+                q_1 = -c.dot( a1[:,p] )
+                q_2 = a2[p]
+                q_3 = c.dot( bhat_p_0[p,:] ) - q_1 - r - d_p_0[p]
+
+                def function(s): return q_0 * np.sin( s*self.rotator.alpha ) + q_1 * np.cos(s*self.rotator.alpha) + s*q_2 + q_3
+
+                brackets = self._find_brackets_of_roots(q_0, q_1, q_2, q_3, function)
+                roots = [self._find_root(bracket, function) for bracket in brackets ]
+                roots.extend([0.,1.])
+                interval_ends = np.sort( np.array( roots ) )
+                fvals = function( (interval_ends[0:-1] + interval_ends[1:] ) /2.)
+            
+                if np.sum( fvals > 0 ) == len(fvals): 
+                    merged_intersections = [None] # Always on the exterior of the beam halfplane
+                    break
+
+                if np.sum( fvals < 0 ) == len(fvals): 
+                    new_intersections.append( [0.,1.] )
+                    continue # Always on the interior of the beam halfplane
+
+                for k in range(len(interval_ends)-1):
+                    if fvals[k]<0:
+                       new_intersections.append([interval_ends[k], interval_ends[k+1]])
+                    else:
+                        pass
+                
+                merged_intersections = self._merge_intersections( merged_intersections, new_intersections )
+
+                if len(merged_intersections)==0:
+                    break
+
+            all_intersections.append( merged_intersections )
+
+        return np.array( all_intersections )
+
+    def _find_brackets_of_roots(self, q_0, q_1, q_2, q_3, function):
+        c_0 = self.rotator.alpha*q_0
+        c_1 = -self.rotator.alpha*q_1
+        c_2 = q_2
+        s_1, s_2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, self.rotator.alpha )
+        search_intervals = np.array( [s for s in [0, s_1, s_2, 1] if s is not None] )
+        f = function( search_intervals )
+        indx = 0
+        brackets = []
+        for i in range(len(search_intervals)-1):
+            if np.sign( f[indx] )!=np.sign( f[i+1] ):
+                brackets.append( [search_intervals[indx],search_intervals[i+1]] )
+                indx = i+1
+        return brackets
+
+    def _find_root(self, bracket, function):
+        return root_scalar(function, method='bisect', bracket=bracket, maxiter=50).root
+
+    def _merge_intersections(self, merged_intersections, new_intersections):
+        """Return intersection of merged_intersections and new_intersections
+
+        NOTE: Assumes no overlaps inside the brackets of merged_intersections
+        and new_intersections. I.e they are minimal descriptions of their
+        respective point sets.
+        """
+        new_intervals = []
+        for mi in merged_intersections:
+            for ni in new_intersections:
+                intersection = self._intersection(mi, ni)
+                if intersection is not None:
+                    new_intervals.append( intersection )
+        return new_intervals
+
+    def _intersection(self, bracket1, bracket2):
+        """ Find the intersection between to simple bracket intervals of form [start1,end1] and [start2,end2].
+        """
+        if (bracket2[0] <= bracket1[0] <= bracket2[1]) or (bracket2[0] <= bracket1[1] <= bracket2[1]):
+            points = np.sort([ bracket2[0],bracket1[0],bracket2[1],bracket1[1] ])
+            return [points[1],points[2]]
+        else:
+            return None
+
+
+            

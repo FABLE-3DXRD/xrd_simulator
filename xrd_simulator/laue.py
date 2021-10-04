@@ -68,12 +68,17 @@ def find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
     """Find all solutions, :obj:`s`, to the equation (maximum 2 solutions exists)
 
     .. math::
-        (c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \\quad\\quad (1)
+        c_0 \cos(s \\alpha) + c_1 \sin(s \\alpha) + c_2 = 0. \\quad\\quad (1)
+
+    by rewriting as
+
+    .. math::
+        (c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \\quad\\quad (2)
 
     where
 
     .. math::
-        t = \\tan(s \\alpha / 2). \\quad\\quad (2)
+        t = \\tan(s \\alpha / 2). \\quad\\quad (3)
     
     and .. math::\\alpha is the angle between k1 and k2
 
@@ -90,6 +95,7 @@ def find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
             t1 = t2 = None
         else:
             t1 = -c_0/c_1
+            t2 = None
     else:
         rootval = (c_1/(c_2 - c_0))**2 -  (c_0 + c_2)/(c_2 - c_0)
         leadingterm = ( -c_1/(c_2 - c_0) ) 
