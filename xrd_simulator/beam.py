@@ -133,36 +133,42 @@ class Beam(object):
             intersection interval of sphere number i with the beam.
 
         """ 
-        self.i=0
-        bhat_p_0 = self.original_halfspaces[:,0:3]
-        d_p_0    = -self.original_halfspaces[:,3]
-        a0 = self.rotator.K.dot( bhat_p_0.T )
-        a1 = self.rotator.K2.dot( bhat_p_0.T )
-        a2 = -bhat_p_0.dot( self.translation )
-        all_intersections = []
+
+        beam_halfplane_normals =  self.original_halfspaces[:,0:3]
+        beam_halfplane_offsets = -self.original_halfspaces[:,3]
+
+        # Precomputable factors for root equations independent of sphere data.
+        a0 = self.rotator.K.dot( beam_halfplane_normals.T )
+        a1 = self.rotator.K2.dot( beam_halfplane_normals.T )
+        a2 = -beam_halfplane_normals.dot( self.translation )
+
+        all_intersections = [] # Here we will store all intersections for all spheres.
 
         for i in range(sphere_centres.shape[0]):
 
-            c,r = sphere_centres[i], sphere_radius[i]
-            merged_intersections = [[0., 1.]]
+            merged_intersections = [[0., 1.]] # Here we will store all intersections for the current sphere.
 
             for p in range( self.original_halfspaces.shape[0] ):
                 
-                new_intersections = []
+                new_intersections = [] # Intersections for the sphere attached to halfplane number p.
 
-                q_0 = c.dot( a0[:,p] )
-                q_1 = -c.dot( a1[:,p] )
-                q_2 = a2[p]
-                q_3 = c.dot( bhat_p_0[p,:] ) - q_1 - r - d_p_0[p]
+                # Define the function we seek to have intervals in s fulfilling : intersection_function(s) < 0
+                q_0  =  sphere_centres[i].dot( a0[:,p] )
+                q_1  = -sphere_centres[i].dot( a1[:,p] )
+                q_2  =  a2[p]
+                q_3  =  sphere_centres[i].dot( beam_halfplane_normals[p,:] ) - q_1 - sphere_radius[i] - beam_halfplane_offsets[p]
+                def intersection_function(s): 
+                    return q_0 * np.sin( s*self.rotator.alpha ) + q_1 * np.cos(s*self.rotator.alpha) + s*q_2 + q_3
 
-                def function(s): return q_0 * np.sin( s*self.rotator.alpha ) + q_1 * np.cos(s*self.rotator.alpha) + s*q_2 + q_3
-
-                brackets = self._find_brackets_of_roots(q_0, q_1, q_2, q_3, function)
-                roots = [ root_scalar(function, method='bisect', bracket=bracket, maxiter=50).root for bracket in brackets ]
+                # Find roots of intersection_function(s) by first finding its extreemal points
+                brackets = self._find_brackets_of_roots(q_0, q_1, q_2, q_3, intersection_function)
+                
+                # Find roots numerically on the intervals 
+                roots = [ root_scalar(intersection_function, method='bisect', bracket=bracket, maxiter=50).root for bracket in brackets ]
                 roots.extend([0.,1.])
                 interval_ends = np.sort( np.array( roots ) )
-                fvals = function( (interval_ends[0:-1] + interval_ends[1:] ) /2.)
-                
+                fvals = intersection_function( (interval_ends[0:-1] + interval_ends[1:] ) /2.)
+
                 if np.sum( fvals > 0 ) == len(fvals): 
                     merged_intersections = [None] # Always on the exterior of the beam halfplane
                     break
@@ -170,15 +176,18 @@ class Beam(object):
                 if np.sum( fvals < 0 ) == len(fvals): 
                     new_intersections.append( [0.,1.] )
                     continue # Always on the interior of the beam halfplane
-
+                
+                # Add in all intervals where intersection_function(s) < 0
                 for k in range(len(interval_ends)-1):
                     if fvals[k]<0:
                        new_intersections.append([interval_ends[k], interval_ends[k+1]])
                     else:
                         pass
-                
+
+                # Clean up the interval set, the sphere must intersect all halfplanes for a shared interval in s.
                 merged_intersections = self._merge_intersections( merged_intersections, new_intersections )
 
+                # The sphere will never intersect if no shared intervals are found.
                 if len(merged_intersections)==0:
                     break
 
