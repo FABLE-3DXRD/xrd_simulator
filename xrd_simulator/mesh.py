@@ -4,6 +4,7 @@ from scipy.sparse import csr_matrix
 from numba import njit
 import pygalmesh
 import meshio
+import miniball
 
 class TetraMesh(object):
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
@@ -217,18 +218,12 @@ class TetraMesh(object):
         espherecentroids = np.zeros((enod.shape[0],3))
         for i in range( enod.shape[0] ):
             ec = coord[enod[i,:], :]
-            segments = np.zeros((ec.shape[0],ec.shape[0]))
-            for j in range(ec.shape[0]):
-                for k in range(j+1, ec.shape[0]):
-                    segments[j,k] = np.linalg.norm(ec[j]-ec[k])
-            maxseg = np.unravel_index( np.argmax(segments), segments.shape )
-            
-            eradius[i] = segments[maxseg[0],maxseg[1]]
-            espherecentroids[i] = ec[maxseg[1]] + (ec[maxseg[0]] - ec[maxseg[1]])/2.
-
+            c, r = miniball.get_bounding_ball(ec, epsilon=1e-8)
+            espherecentroids[i] = c
+            eradius[i] = np.sqrt( r )
+            # Whats this .. no trust ...
             for c in ec:
-                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2
-
+                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2 + 1e-8
         return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):
