@@ -98,7 +98,7 @@ class Polycrystal(object):
                             scattering_region = beam.intersect( element_vertices )
                             if scattering_region is not None:
                                 kprime = G[:,k] + beam.k
-                                scatterers.append( Scatterer(scattering_region, kprime, s) )  
+                                scatterers.append( Scatterer(scattering_region, kprime, s, hkl=None) )  
         beam.set_geometry(s=0)
         detector.frames.append( scatterers )
 

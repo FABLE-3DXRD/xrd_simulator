@@ -11,6 +11,7 @@ class Scatterer(object):
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
             while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
             position is applicable during diffraction.
+        hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```.
 
     Attributes:
         convex_hull (:obj:`scipy.spatial.ConvexHull`): Object describing the convex hull of the scatterer.
@@ -18,13 +19,15 @@ class Scatterer(object):
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
             while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
             position is applicable during diffraction.
+        hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```.
 
     """ 
 
-    def __init__(self, convex_hull, kprime, s ):
+    def __init__(self, convex_hull, kprime, s, hkl ):
         self.convex_hull = convex_hull
         self.kprime = kprime
         self.s = s
+        self.hkl = hkl
 
     def get_centroid(self):
         """Get centroid of the scattering region.
