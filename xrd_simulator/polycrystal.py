@@ -72,26 +72,33 @@ class Polycrystal(object):
 
         hkls = [phase.generate_miller_indices(beam.wavelength, min_bragg_angle, max_bragg_angle) for phase in self.phases]
 
+        c_1_factor = np.cross( beam.rotator.rhat , beam.k1 )
+
         scatterers = []
 
+        proximity_intervals = beam.get_proximity_intervals(self.mesh.espherecentroids, self.mesh.eradius)
+
         for ei in range( self.mesh.number_of_elements ):
-            #TODO: Make printing optional and nicer.
+            if proximity_intervals[ei][0] is None: continue
+
             print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
             element_vertices = self.mesh.coord[self.mesh.enod[ei]]
-            # TODO: pass if element not close to beam for speed.<
 
-            for G_hkl in hkls[ self.ephase[ei] ]:
-                G = laue.get_G(self.eU[ei], self.eB[ei], G_hkl)
-                theta = laue.get_bragg_angle( G, beam.wavelength )
-                c_0, c_1, c_2 = laue.get_tangens_half_angle_equation( beam.k1, theta, G, beam.rotator.rhat )
-                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, beam.rotator.alpha ):
+            G = laue.get_G(self.eU[ei], self.eB[ei], hkls[ self.ephase[ei] ].T )
+            sinth, normG = laue.get_sin_theta_and_norm_G(G, beam.wavelength)
+            c_0s  = np.dot( beam.k1, G)
+            c_1s  = np.dot( c_1_factor, G )
+            c_2s  = (2 * np.pi / beam.wavelength) * normG * sinth
+
+            for k in range(len(c_0s)):
+                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0s[k], c_1s[k], c_2s[k], beam.rotator.alpha ):
                     if s is not None:
-                        beam.set_geometry(s)
-                        #if beam.is_in_proximity_of( mesh.ecentroids[ei], mesh.eradius[ei] ):
-                        scattering_region = beam.intersect( element_vertices )
-                        if scattering_region is not None:
-                            kprime = G + beam.k
-                            scatterers.append( Scatterer(scattering_region, kprime, s) )  
+                        if utils.contained_by_intervals( s, proximity_intervals[ei] ):
+                            beam.set_geometry(s)
+                            scattering_region = beam.intersect( element_vertices )
+                            if scattering_region is not None:
+                                kprime = G[:,k] + beam.k
+                                scatterers.append( Scatterer(scattering_region, kprime, s) )  
         beam.set_geometry(s=0)
         detector.frames.append( scatterers )
 

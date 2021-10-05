@@ -84,34 +84,35 @@ class TestBeam(unittest.TestCase):
         self.assertTrue(  ch is None )
 
     def test_get_proximity_intervals(self):
-        sphere_centre = np.array([[20.0, 0.0, 0.0]])
-        sphere_radius = np.array([[1.0]])
-        angle1 = np.arctan(sphere_radius[0]/sphere_centre[0,0])
+        sphere_centres = np.array([[200.0, 0.0, 0.0], [100.0, 0.0, 0.0]])
+        sphere_radius = np.array([[1.0], [0.5]])
         self.beam_vertices = np.array([
-            [-50., -1., -1. ],
-            [-50., -1.,  1. ],
-            [-50.,  1.,  1. ],
-            [-50.,  1., -1. ],
-            [50.,  -1., -1. ],
-            [50.,  -1.,  1. ],
-            [50.,   1.,  1. ],
-            [50.,   1., -1. ]  ])
-        self.beam_vertices[:,1:] = self.beam_vertices[:,1:]/1000. # tiny beam cross section
+            [-500., -1., -1. ],
+            [-500., -1.,  1. ],
+            [-500.,  1.,  1. ],
+            [-500.,  1., -1. ],
+            [500.,  -1., -1. ],
+            [500.,  -1.,  1. ],
+            [500.,   1.,  1. ],
+            [500.,   1., -1. ]  ])
+        self.beam_vertices[:,1:] = self.beam_vertices[:,1:]/1000000. # tiny beam cross section
         self.k1 = np.array([  1,  0,     0 ])
-        self.k2 = np.array([ -1,  0.001, 0 ])
+        self.k2 = np.array([ -1,  0.0000001, 0 ])
         self.k1 = (np.pi*2/self.wavelength)*self.k1/np.linalg.norm(self.k1)
         self.k2 = (np.pi*2/self.wavelength)*self.k2/np.linalg.norm(self.k2)
         self.translation = np.array([ 0, 0, 0 ])
         self.beam = Beam(self.beam_vertices, self.wavelength, self.k1, self.k2, self.translation)
-        intervals = self.beam.get_proximity_intervals(sphere_centre, sphere_radius)
+        intervals = self.beam.get_proximity_intervals(sphere_centres, sphere_radius)
+        
+        self.assertEqual( len(intervals[0]), 2, msg="Wrong number of proximity intervals" )
+        self.assertEqual( len(intervals[1]), 2, msg="Wrong number of proximity intervals" )
 
-        self.assertEqual( intervals[0].shape[0], 2, msg="Wrong number of proximity intervals" )
-
-        # needs change of points on interval is not exactly 10
-        self.assertGreaterEqual( intervals[0][0,0], 0 , msg="Proximity interval wrong" )
-        self.assertLessEqual( intervals[0][0,1], 0.05 , msg="Proximity interval wrong" )
-        self.assertGreaterEqual( intervals[0][1,0], 0.95  , msg="Proximity interval wrong" )
-        self.assertLessEqual( intervals[0][1,1], 1.0 , msg="Proximity interval wrong" )
+        for i in range(sphere_centres.shape[0]):
+            fraction_before_beam_leaves_sphere = np.arctan( sphere_radius[i] /  np.linalg.norm(sphere_centres[i]) ) / np.pi
+            self.assertAlmostEqual( intervals[i][0][0], 0 , msg="Proximity interval wrong" )
+            self.assertAlmostEqual( intervals[i][0][1], fraction_before_beam_leaves_sphere[0] , msg="Proximity interval wrong" )
+            self.assertAlmostEqual( intervals[i][1][0], 1.-fraction_before_beam_leaves_sphere[0]  , msg="Proximity interval wrong" )
+            self.assertAlmostEqual( intervals[i][1][1], 1.0 , msg="Proximity interval wrong" )
 
     def get_pseudorandom_wavelength(self):
         return np.random.rand()*0.5

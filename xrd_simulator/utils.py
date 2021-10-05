@@ -77,3 +77,9 @@ def get_unit_vector_and_l2norm(point_1, point_2):
     unit_vector = p2p1 / norm
     return unit_vector, norm
 
+def contained_by_intervals(s, intervals):
+    for bracket in intervals:
+        if s >= bracket[0] and s <= bracket[1]:
+            return True
+    return False
+

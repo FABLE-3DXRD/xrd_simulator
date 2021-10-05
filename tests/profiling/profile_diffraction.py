@@ -13,7 +13,7 @@ import pstats
 
 np.random.seed(10)
 
-totrot = np.pi/90
+totrot = np.pi/180
 
 pixel_size = 75.
 detector_size = pixel_size*1024
@@ -41,7 +41,7 @@ detector = Detector( pixel_size, geometry_descriptor )
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: np.dot( x, x ) - detector_size/10.,
     bounding_radius = 1.1*detector_size/10., 
-    cell_size = 0.01*detector_size/10. )
+    cell_size = 0.0065*detector_size/10. )
 
 
 #TODO: change this path 
@@ -75,7 +75,7 @@ Rz = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
 
 k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
 k2 = Rz.dot(k1)
-beam = Beam(beam_vertices, wavelength, k1, k2)
+beam = Beam(beam_vertices, wavelength, k1, k2, translation=np.array([0., 0., 0.]))
 
 pr = cProfile.Profile()
 pr.enable()

@@ -36,6 +36,7 @@ class TetraMesh(object):
         self.enormals    = None
         self.ecentroids  = None
         self.eradius     = None
+        self.espherecentroids = None
         self.ecmat       = None
         self.centroid    = None
         self.number_of_elements = None
@@ -122,7 +123,7 @@ class TetraMesh(object):
         self.efaces          = self._compute_mesh_faces( self.enod )
         self.enormals        = self._compute_mesh_normals( self.coord, self.enod, self.efaces )
         self.ecentroids      = self._compute_mesh_centroids( self.coord, self.enod ) 
-        self.eradius         = self._compute_mesh_radius( self.coord, self.enod, self.ecentroids )
+        self.eradius,self.espherecentroids = self._compute_mesh_spheres( self.coord, self.enod )
         self.ecmat           = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
         self.centroid        = np.mean(self.ecentroids, axis=0)
 
@@ -135,7 +136,7 @@ class TetraMesh(object):
         self.coord             = np.array(self._mesh.points)
         self.enormals          = self._compute_mesh_normals( self.coord, self.enod, self.efaces )
         self.ecentroids        = self._compute_mesh_centroids( self.coord, self.enod ) 
-        self.eradius           = self._compute_mesh_radius( self.coord, self.enod, self.ecentroids )
+        self.eradius,self.espherecentroids  = self._compute_mesh_spheres( self.coord, self.enod )
         self.ecmat             = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
         self.centroid        = np.mean(self.ecentroids, axis=0)
 
@@ -209,15 +210,26 @@ class TetraMesh(object):
             ecentroids[i,:] = np.sum( ec, axis=0 )/ec.shape[0]
         return ecentroids
 
-    def _compute_mesh_radius(self, coord, enod, ecentroids):
-        """Compute per element bounding radius.
+    def _compute_mesh_spheres(self, coord, enod):
+        """Compute per element minimal bounding spheres.
         """
         eradius = np.zeros((enod.shape[0],))
+        espherecentroids = np.zeros((enod.shape[0],3))
         for i in range( enod.shape[0] ):
             ec = coord[enod[i,:], :]
-            r  = np.linalg.norm( ec - ecentroids[i,:], axis=1)
-            eradius[i] = np.max( r )
-        return eradius
+            segments = np.zeros((ec.shape[0],ec.shape[0]))
+            for j in range(ec.shape[0]):
+                for k in range(j+1, ec.shape[0]):
+                    segments[j,k] = np.linalg.norm(ec[j]-ec[k])
+            maxseg = np.unravel_index( np.argmax(segments), segments.shape )
+            
+            eradius[i] = segments[maxseg[0],maxseg[1]]
+            espherecentroids[i] = ec[maxseg[1]] + (ec[maxseg[0]] - ec[maxseg[1]])/2.
+
+            for c in ec:
+                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2
+
+        return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):
         """This method overrides :meth:`Basis.__call__`.

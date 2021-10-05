@@ -116,84 +116,24 @@ class Beam(object):
         else:
             return None
 
-    def get_proximity_intervals_old(self, sphere_centre, sphere_radius):
-        """Compute the parametric intervals s=[s_1,s_2,_3,..] in which sphere could is interesecting the beam.
-
-        This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
-        set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
-
-        Args:
-            sphere_centre (:obj:`numpy array`): Centroid of a sphere ```shape=(3,)```.
-            sphere_radius (:obj:`numpy array`): Radius of a sphere ```shape=(3,)```.
-
-        Returns:
-            (:obj:`tuple` of :obj:`float`): s_1, s_2, i.e the parametric range in which the sphere
-            has an intersection with the beam. (:obj:`None`) if no intersection exist in s=[0,1]
-
-        """ 
-        max_rotation_increment    = np.linalg.norm( sphere_centre - self.rotator(sphere_centre, s=1) )
-        max_translation_increment = np.linalg.norm( sphere_radius )
-        
-        # TODO: Think on this.
-        # number_of_interval_points = np.ceil( np.max( [max_rotation_increment + max_translation_increment, 10] ) ).astype(int)
-        number_of_interval_points = 10
-        
-        evaluation_points = np.linspace( 0, 1, number_of_interval_points )
-
-        intersection_map = np.ones( ( number_of_interval_points, ) )
-        for p, beam_halfplane in enumerate(self.original_halfspaces):
-                for n,s in enumerate(evaluation_points):
-                    if intersection_map[n]==1:
-                        normal = beam_halfplane[0:3]
-                        d0     = -beam_halfplane[3]
-                        term1  = sphere_centre.dot( self.rotator(normal, s) )
-                        term2  = normal.dot( self.translation )*s
-                        term3  = sphere_radius + d0
-                        intersection_map[n] *= (term1 - term2 - term3 <= 0)
-                if np.sum(intersection_map)==0:
-                    return None
-
-        indx = np.where( intersection_map==1 )[0]
-        
-        intervals = []
-        previ = 0
-        for i in indx:
-
-            if i-previ==1:
-                # forward update
-                if i==len(evaluation_points)-1:
-                    pass
-                else:
-                    intervals[-1][1] = evaluation_points[i+1]
-            else:
-                # forward & backward add
-                if i==0:
-                    intervals.append( [evaluation_points[i], evaluation_points[i+1]] )
-                elif i==len(evaluation_points)-1:
-                    intervals.append( [evaluation_points[i-1], evaluation_points[i]] )
-                else:
-                    intervals.append( [evaluation_points[i-1], evaluation_points[i+1]] )
-
-            previ = i
-
-        return np.array(intervals)
-
-
     def get_proximity_intervals(self, sphere_centres, sphere_radius):
-        """Compute the parametric intervals s=[s_1,s_2,_3,..] in which sphere could is interesecting the beam.
+        """Compute the parametric intervals s=[[s_1,s_2],[s_3,s_4],..] in which spheres are interesecting beam.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
         set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
 
         Args:
-            sphere_centres (:obj:`numpy array`): Centroid of a sphere ```shape=(3,)```.
-            sphere_radius (:obj:`numpy array`): Radius of a sphere ```shape=(3,)```.
+            sphere_centres (:obj:`numpy array`): Centroids of a spheres ```shape=(3,n)```.
+            sphere_radius (:obj:`numpy array`): Radius of a spheres ```shape=(n,)```.
 
         Returns:
-            (:obj:`tuple` of :obj:`float`): s_1, s_2, i.e the parametric range in which the sphere
-            has an intersection with the beam. (:obj:`None`) if no intersection exist in s=[0,1]
+            (:obj:`list` of :obj:`list` of :obj:`list`): Parametric ranges in which the spheres
+            has an intersection with the beam. [(:obj:`None`)] if no intersection exist in ```s=[0,1]```.
+            the entry at ```[i][j]``` is a list with two floats ```[s_1,s_2]``` and gives the j:th 
+            intersection interval of sphere number i with the beam.
 
         """ 
+        self.i=0
         bhat_p_0 = self.original_halfspaces[:,0:3]
         d_p_0    = -self.original_halfspaces[:,3]
         a0 = self.rotator.K.dot( bhat_p_0.T )
@@ -218,11 +158,11 @@ class Beam(object):
                 def function(s): return q_0 * np.sin( s*self.rotator.alpha ) + q_1 * np.cos(s*self.rotator.alpha) + s*q_2 + q_3
 
                 brackets = self._find_brackets_of_roots(q_0, q_1, q_2, q_3, function)
-                roots = [self._find_root(bracket, function) for bracket in brackets ]
+                roots = [ root_scalar(function, method='bisect', bracket=bracket, maxiter=50).root for bracket in brackets ]
                 roots.extend([0.,1.])
                 interval_ends = np.sort( np.array( roots ) )
                 fvals = function( (interval_ends[0:-1] + interval_ends[1:] ) /2.)
-            
+                
                 if np.sum( fvals > 0 ) == len(fvals): 
                     merged_intersections = [None] # Always on the exterior of the beam halfplane
                     break
@@ -244,9 +184,11 @@ class Beam(object):
 
             all_intersections.append( merged_intersections )
 
-        return np.array( all_intersections )
+        return all_intersections
 
     def _find_brackets_of_roots(self, q_0, q_1, q_2, q_3, function):
+        """Find all sub domains on s=[0,1] which are guaranteed to hold a root of function.
+        """
         c_0 = self.rotator.alpha*q_0
         c_1 = -self.rotator.alpha*q_1
         c_2 = q_2
@@ -260,9 +202,6 @@ class Beam(object):
                 brackets.append( [search_intervals[indx],search_intervals[i+1]] )
                 indx = i+1
         return brackets
-
-    def _find_root(self, bracket, function):
-        return root_scalar(function, method='bisect', bracket=bracket, maxiter=50).root
 
     def _merge_intersections(self, merged_intersections, new_intersections):
         """Return intersection of merged_intersections and new_intersections
@@ -280,7 +219,7 @@ class Beam(object):
         return new_intervals
 
     def _intersection(self, bracket1, bracket2):
-        """ Find the intersection between to simple bracket intervals of form [start1,end1] and [start2,end2].
+        """Find the intersection between two simple bracket intervals of form [start1,end1] and [start2,end2].
         """
         if (bracket2[0] <= bracket1[0] <= bracket2[1]) or (bracket2[0] <= bracket1[1] <= bracket2[1]):
             points = np.sort([ bracket2[0],bracket1[0],bracket2[1],bracket1[1] ])
