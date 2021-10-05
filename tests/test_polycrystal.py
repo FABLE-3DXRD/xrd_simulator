@@ -55,7 +55,7 @@ class TestPolycrystal(unittest.TestCase):
         wavelength = 0.285227
         k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
         k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
-        self.beam = Beam(beam_vertices, wavelength, k1, k2)
+        self.beam = Beam(beam_vertices, wavelength, k1, k2, translation=np.array([0.,0.,0.]))
 
     def test_get_candidate_elements(self):
         pass

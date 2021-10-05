@@ -16,14 +16,27 @@ class TestLaue(unittest.TestCase):
         U, B, cell, strain = self.get_pseudorandom_crystal()
         wavelength = self.get_pseudorandom_wavelength()
         
-        G = laue.get_G(U, B, G_hkl=np.array([1, 2, -1]))
+        G = laue.get_G(U, B, G_hkl=np.array([[1, 2, -1], [1, 3, -1]]).T)
         theta = laue.get_bragg_angle(G, wavelength)
-        d = 2*np.pi / np.linalg.norm(G)
+        d = 2*np.pi / np.linalg.norm(G, axis=0)
 
-        self.assertLessEqual( np.linalg.norm(G), 4*np.pi / wavelength, msg="Length of G is wrong" )
-        self.assertLessEqual( theta, np.pi, msg="Bragg angle too large" )
-        self.assertGreaterEqual( theta, 0, msg="Bragg angle is negative" )
-        self.assertAlmostEqual( np.sin(theta)*2*d, wavelength, msg="G and theta does not fulfill Braggs law" )
+        for i in range(len(theta)):        
+            self.assertLessEqual( np.linalg.norm(G[:,i]), 4*np.pi / wavelength, msg="Length of G is wrong" )
+            self.assertLessEqual( theta[i], np.pi, msg="Bragg angle too large" )
+            self.assertGreaterEqual( theta[i], 0, msg="Bragg angle is negative" )
+            self.assertAlmostEqual( np.sin(theta[i])*2*d[i], wavelength, msg="G and theta does not fulfill Braggs law" )
+
+    def test_get_sin_theta_and_norm_G(self):
+        U, B, cell, strain = self.get_pseudorandom_crystal()
+        wavelength = self.get_pseudorandom_wavelength()
+        G = laue.get_G(U, B, G_hkl=np.array([[1, 2, -1], [1, 3, -1]]).T)
+        theta = laue.get_bragg_angle(G, wavelength)
+
+        sinth, Gnorm = laue.get_sin_theta_and_norm_G( G, wavelength )
+
+        for i in range(len(theta)):
+            self.assertAlmostEqual(sinth[i], np.sin(theta[i]), msg="error theta")
+            self.assertAlmostEqual(Gnorm[i], np.linalg.norm(G[:,i]), msg="error in norm of G")
 
     def test_get_tangens_half_angle_equation(self):
         wavelength = self.get_pseudorandom_wavelength()
