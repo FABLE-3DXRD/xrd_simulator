@@ -16,6 +16,8 @@ class Phase(object):
         unit_cell (:obj:`list`): Crystal unit cell representation of the form [a,b,c,alpha,beta,gamma], where 
             alpha,beta and gamma are in units of degrees while a,b and c are in units of anstrom.
         sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
+        path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
+            factors are computed, i.e `structure_factors=None`.
 
     Attributes:
         unit_cell (:obj:`list`): Crystal unit cell representation of the form [a,b,c,alpha,beta,gamma], where 
@@ -28,14 +30,17 @@ class Phase(object):
 
     """
 
-    def __init__( self, unit_cell, sgname ):
+    def __init__( self, unit_cell, sgname, path_to_cif_file=None ):
         self.unit_cell = unit_cell
         self.sgname = sgname
-        miller_indices    = None
-        structure_factors = None
+        self.miller_indices    = None
+        self.structure_factors = None
+        self.path_to_cif_file  = path_to_cif_file
 
-    def set_miller_indices(self, wavelength, min_bragg_angle, max_bragg_angle):
-        """Generate all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.
+    def setup_diffracting_planes(self, wavelength, min_bragg_angle, max_bragg_angle):
+        """Generates all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.
+
+        If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.
 
         Args:
             wavelength (:obj:`float`): X-ray wavelenght in units of anstrom.
@@ -49,22 +54,16 @@ class Phase(object):
         sintlmax = max_bragg_angle / wavelength
         with _HiddenPrints(): #TODO: perhaps suggest xfab not to print in the first place and make a pull request.
             self.miller_indices = tools.genhkl_all(self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
+        if self.path_to_cif_file is not None:
+            self._set_structure_factors(self.miller_indices)
 
-    def set_structure_factors(self, path_to_cif_file):
+    def _set_structure_factors(self, miller_indices):
         """Generate unit cell structure factors for all miller indices.
-
-        Args:
-            path_to_cif_file (:obj:`string`): Path to Crystallographic Information File (CIF).
-
         """
-
-        if self.miller_indices is None:
-            raise ValueError("The Phase object have no Miller indices, use set_miller_indices() to generate hkls.")
-
         atom_factory = structure.build_atomlist()
-        atom_factory.CIFread(ciffile = path_to_cif_file, cifblkname = None, cifblk = None)
+        atom_factory.CIFread(ciffile = self.path_to_cif_file, cifblkname = None, cifblk = None)
         atoms = atom_factory.atomlist.atom
-
-        self.structure_factors = np.zeros((self.miller_indices.shape[0], 2))
-        for i,hkl in enumerate(self.miller_indices):
+        print(miller_indices.shape)
+        self.structure_factors = np.zeros((miller_indices.shape[0], 2))
+        for i,hkl in enumerate(miller_indices):
             self.structure_factors[i,:] = structure.StructureFactor(hkl, self.unit_cell, self.sgname, atoms, disper=None)

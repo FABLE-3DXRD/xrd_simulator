@@ -71,9 +71,9 @@ class Detector(object):
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for scatterer in self.frames[frame_number]:
             self.set_geometry( s = scatterer.s )
-            zd, yd = self.get_intersection( scatterer.kprime, scatterer.get_centroid() )
+            zd, yd = self.get_intersection( scatterer.kprime, scatterer.centroid )
             if self.contains(zd,yd):
-                intensity = scatterer.get_volume()
+                intensity = scatterer.volume * scatterer.structure_factor[0]**2
                 frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
         self.set_geometry( s = 0 )
         return frame

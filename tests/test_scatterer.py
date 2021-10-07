@@ -2,6 +2,8 @@ import unittest
 import numpy as np
 from xrd_simulator.scatterer import Scatterer
 from scipy.spatial import ConvexHull
+import pkg_resources
+from xrd_simulator.phase import Phase
 
 class TestScatterer(unittest.TestCase):
 
@@ -17,16 +19,32 @@ class TestScatterer(unittest.TestCase):
         kprime = np.random.rand(3,)
         self.kprime = 2*np.pi*kprime/(wavelength * np.linalg.norm(kprime) )
         self.s = np.random.rand()
-        self.scatterer = Scatterer(self.ch, self.kprime, self.s)
 
-    def test_get_centroid(self):
-        centroid2 = self.scatterer.get_centroid()
+        data = pkg_resources.resource_filename(__name__, "data/Fe_mp-150_conventional_standard.cif")
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m' # Iron
+        self.ph   = Phase(unit_cell, sgname, path_to_cif_file=data)
+        self.ph.setup_diffracting_planes(wavelength, 0, 20*np.pi/180)
+
+        self.scatterer = Scatterer(self.ch, self.kprime, self.s, self.ph, 0)
+
+    def test_hkl(self):
+        hkl = self.scatterer.hkl
+        for i in range(3):
+            self.assertAlmostEqual( hkl[i], -1, msg="hkl is wrong" )
+
+    def test_structure_factor(self):
+        structure_factor = self.scatterer.structure_factor
+        self.assertGreaterEqual( structure_factor[0], 0, msg="structure factor is wrong" )
+
+    def test_centroid(self):
+        centroid2 = self.scatterer.centroid
         for c1,c2 in zip(np.array([0.25, 0.25, 0.25]), centroid2):
-            self.assertAlmostEqual( c1, c2, msg="Centroid is wrong" )
+            self.assertAlmostEqual( c1, c2, msg="centroid is wrong" )
 
-    def test_get_volume(self):
-        vol = self.scatterer.get_volume()
-        self.assertAlmostEqual( vol, 1/6., msg="Centroid is wrong" )
+    def test_volume(self):
+        vol = self.scatterer.volume
+        self.assertAlmostEqual( vol, 1/6., msg="volume is wrong" )
 
 if __name__ == '__main__':
     unittest.main()

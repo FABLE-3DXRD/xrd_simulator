@@ -7,13 +7,14 @@ from xrd_simulator.beam import Beam
 from xfab import tools
 import cProfile
 import pstats
+import pkg_resources
 
 """ Profile the 
 """
 
 np.random.seed(10)
 
-totrot = np.pi/180
+totrot = 10*np.pi/180
 
 pixel_size = 75.
 detector_size = pixel_size*1024
@@ -42,13 +43,13 @@ mesh = TetraMesh.generate_mesh_from_levelset(
     bounding_radius = 1.1*detector_size/10., 
     cell_size = 0.0065*detector_size/10. )
 
-
 #TODO: change this path 
 # mesh.to_xdmf("/home/axel/workspace/xrd_simulator/tests/visual_tests/quartz")
 
-unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
-sgname = 'P3221' # Quartz
-phases = [Phase(unit_cell, sgname)]
+data = pkg_resources.resource_filename(__name__, "../data/Fe_mp-150_conventional_standard.cif")
+unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+sgname = 'Fm-3m' # Iron
+phases = [Phase(unit_cell, sgname, path_to_cif_file=data)]
 B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
 eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
 euler_angles = np.random.rand(mesh.number_of_elements, 3) * 2 * np.pi
@@ -66,7 +67,7 @@ beam_vertices = np.array([
     [ detector_distance,  w, -w  ],
     [ detector_distance,  w,  w  ],
     [ detector_distance, -w,  w  ]])
-wavelength = 0.285227
+wavelength = 0.2
 
 sin = np.sin( -totrot/2. )
 cos = np.cos( -totrot/2. )

@@ -71,7 +71,7 @@ class Polycrystal(object):
         assert max_bragg_angle < 25*np.pi/180, "Maximum Bragg angle is very large, this will result in many hkls..."
 
         for phase in self.phases:
-            phase.set_miller_indices(beam.wavelength, min_bragg_angle, max_bragg_angle) 
+            phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
 
         c_1_factor = np.cross( beam.rotator.rhat , beam.k1 )
 
@@ -91,15 +91,15 @@ class Polycrystal(object):
             c_1s  = np.dot( c_1_factor, G )
             c_2s  = (2 * np.pi / beam.wavelength) * normG * sinth
 
-            for k in range(len(c_0s)):
-                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0s[k], c_1s[k], c_2s[k], beam.rotator.alpha ):
+            for hkl_indx in range(G.shape[1]):
+                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], beam.rotator.alpha ):
                     if s is not None:
                         if utils.contained_by_intervals( s, proximity_intervals[ei] ):
                             beam.set_geometry(s)
                             scattering_region = beam.intersect( element_vertices )
                             if scattering_region is not None:
-                                kprime = G[:,k] + beam.k
-                                scatterers.append( Scatterer(scattering_region, kprime, s, hkl=None) )  
+                                kprime = G[:,hkl_indx] + beam.k
+                                scatterers.append( Scatterer(scattering_region, kprime, s, self.phases[ self.ephase[ei] ], hkl_indx) )  
         beam.set_geometry(s=0)
         detector.frames.append( scatterers )
 

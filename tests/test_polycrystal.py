@@ -12,7 +12,7 @@ class TestPolycrystal(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(10)
-
+        totrot = 2*np.pi/180
         self.pixel_size = 75.
         self.detector_size = self.pixel_size*1024
         self.detector_distance = 142938.28756189224
@@ -21,8 +21,8 @@ class TestPolycrystal(unittest.TestCase):
             [self.detector_distance,    self.detector_size/2.,  -self.detector_size/2.],
             [self.detector_distance,   -self.detector_size/2.,   self.detector_size/2.]]).T
         def geometry_descriptor(s):
-            sin = np.sin( -s*np.pi/2. )
-            cos = np.cos( -s*np.pi/2. )
+            sin = np.sin( -s*totrot )
+            cos = np.cos( -s*totrot )
             Rz = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
             return Rz.dot( geometry_matrix_0 )
         self.detector = Detector( self.pixel_size, geometry_descriptor )
@@ -30,7 +30,7 @@ class TestPolycrystal(unittest.TestCase):
         mesh = TetraMesh.generate_mesh_from_levelset(
             level_set = lambda x: np.dot( x, x ) - self.detector_size/10.,
             bounding_radius = 1.1*self.detector_size/10., 
-            cell_size = 0.05*self.detector_size/10.)
+            cell_size = 0.0075*self.detector_size/10)
     
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
@@ -42,7 +42,7 @@ class TestPolycrystal(unittest.TestCase):
         ephase = np.zeros((mesh.number_of_elements,)).astype(int)
         self.polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
 
-        w = self.detector_size/20. # partial illumination with pencil beam
+        w = self.detector_size/2. # full field illumination
         beam_vertices = np.array([
             [-self.detector_distance, -w, -w ],
             [-self.detector_distance,  w, -w ],
@@ -53,12 +53,15 @@ class TestPolycrystal(unittest.TestCase):
             [ self.detector_distance,  w,  w  ],
             [ self.detector_distance, -w,  w  ]])
         wavelength = 0.285227
-        k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
-        k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
-        self.beam = Beam(beam_vertices, wavelength, k1, k2, translation=np.array([0.,0.,0.]))
 
-    def test_get_candidate_elements(self):
-        pass
+        sin = np.sin( -totrot )
+        cos = np.cos( -totrot )
+        Rz = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
+
+        k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
+        k2 = Rz.dot(k1)
+        self.beam = Beam(beam_vertices, wavelength, k1, k2, translation=np.array([0., 0., 0.]))
+
 
     def test_diffract(self):
 
@@ -69,7 +72,7 @@ class TestPolycrystal(unittest.TestCase):
         self.assertGreater(np.sum(pixim), 0)
 
         # .. and the intensity should be scattered over the image
-        kernel = np.ones((200,200))
+        kernel = np.ones((300,300))
         pixim = convolve(pixim, kernel, mode='same', method='auto')
         self.assertGreaterEqual(np.sum(pixim>0), pixim.shape[0]*pixim.shape[1])
 

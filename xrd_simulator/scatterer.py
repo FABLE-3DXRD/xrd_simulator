@@ -11,7 +11,8 @@ class Scatterer(object):
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
             while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
             position is applicable during diffraction.
-        hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```.
+        phase (:obj:`Phase`): The Phase object representing the material of the scatterer.
+        hkl_indx (:obj:`int`): Index of Miller index in the `phase.miller_indices` list.
 
     Attributes:
         convex_hull (:obj:`scipy.spatial.ConvexHull`): Object describing the convex hull of the scatterer.
@@ -19,30 +20,35 @@ class Scatterer(object):
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
             while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
             position is applicable during diffraction.
-        hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```.
 
     """ 
 
-    def __init__(self, convex_hull, kprime, s, hkl ):
+    def __init__(self, convex_hull, kprime, s, phase, hkl_indx ):
         self.convex_hull = convex_hull
         self.kprime = kprime
         self.s = s
-        self.hkl = hkl
 
-    def get_centroid(self):
-        """Get centroid of the scattering region.
+        self._phase = phase
+        self._hkl_indx = hkl_indx
 
-        Returns:
-            centroid (:obj:`numpy array`) ```shape=(3,)```
+    @property
+    def hkl(self):
+        """hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```."""
+        return self._phase.miller_indices[ self._hkl_indx ]
 
+    @property
+    def structure_factor(self):
+        """hkl (:obj:`numpy array`): Unit cell structure factors; Freal and Fimag, ```shape=(2,)```"""
+        return self._phase.structure_factors[ self._hkl_indx, : ]
+  
+    @property
+    def centroid(self):
+        """centroid (:obj:`numpy array`): centroid of the scattering region. ```shape=(3,)```
         """
         return np.mean( self.convex_hull.points[self.convex_hull.vertices], axis=0 )
 
-    def get_volume(self):
-        """Get volume of the scattering region.
-
-        Returns:
-            volume (:obj:`float`)
-
+    @property
+    def volume(self):
+        """volume (:obj:`float`): volume of the scattering region volume 
         """
         return self.convex_hull.volume

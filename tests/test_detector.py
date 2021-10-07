@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from xrd_simulator.detector import Detector
+from xrd_simulator.phase import Phase
 from xrd_simulator.scatterer import Scatterer
 from scipy.spatial import ConvexHull
 from xrd_simulator.beam import Beam
@@ -79,8 +80,13 @@ class TestDetector(unittest.TestCase):
         ch2 = ConvexHull( verts2 )
         wavelength = 1.0
         kprime = 2*np.pi*np.array([1,0,0])/(wavelength)
-        scatterer1 = Scatterer(ch1, kprime, s=0, hkl=[np.array([1,0,0])] )
-        scatterer2 = Scatterer(ch2, kprime, s=0, hkl=[np.array([1,0,0])] )
+
+        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
+        sgname = 'P3221' # Quartz
+        phase = Phase(unit_cell, sgname)
+
+        scatterer1 = Scatterer(ch1, kprime, s=0, phase=phase, hkl_indx=0)
+        scatterer2 = Scatterer(ch2, kprime, s=0, phase=phase, hkl_indx=0)
         self.detector.frames.append([scatterer1, scatterer2])
         piximage = self.detector.render(frame_number=0)
         ic = int( (self.detector_size/self.pixel_size) / 2 )
