@@ -1,7 +1,9 @@
 
+import os
 import unittest
 import numpy as np
 from xrd_simulator.phase import Phase
+import pkg_resources
 
 class TestPhase(unittest.TestCase):
 
@@ -10,7 +12,7 @@ class TestPhase(unittest.TestCase):
         sgname = "P3221"
         ph  = Phase(unit_cell, sgname)
 
-    def test_generate_miller_indices(self):
+    def test_set_miller_indices(self):
             
         unit_cell = [5.028, 5.028, 5.519, 90., 90., 120.]
         sgname = "P3221"
@@ -20,10 +22,35 @@ class TestPhase(unittest.TestCase):
         min_bragg_angle = 1  * np.pi/180
         max_bragg_angle = 25 * np.pi/180
 
-        hkl = ph.generate_miller_indices( wavelength, min_bragg_angle, max_bragg_angle )
+        ph.set_miller_indices( wavelength, min_bragg_angle, max_bragg_angle )
 
-        self.assertEqual(  hkl.shape[1], 3 )
-        self.assertTrue(   hkl.shape[0] > 10 )
+        self.assertEqual(  ph.miller_indices.shape[1], 3 )
+        self.assertTrue(   ph.miller_indices.shape[0] > 10 )
+
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m' # Iron
+        ph  = Phase(unit_cell, sgname)
+        ph.set_miller_indices( wavelength, min_bragg_angle, max_bragg_angle )
+        for i in range(ph.miller_indices.shape[0]):
+            h,k,l = ph.miller_indices[i,:]
+            # Only all even or all odd gives diffraction for a cubic crystal
+            self.assertTrue( (h%2==0 and k%2==0 and l%2==0) or (h%2==1 and k%2==1 and l%2==1) )
+
+    def test_set_structure_factors(self):
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m' # Iron
+        ph   = Phase(unit_cell, sgname)
+        wavelength = 1.0
+        min_bragg_angle = 1  * np.pi/180
+        max_bragg_angle = 25 * np.pi/180
+        ph.set_miller_indices( wavelength, min_bragg_angle, max_bragg_angle )
+
+        data = pkg_resources.resource_filename(__name__, "data/Fe_mp-150_conventional_standard.cif")
+        ph.set_structure_factors( path_to_cif_file=data )
+
+        for i in range(ph.structure_factors.shape[0]):
+            self.assertGreaterEqual(ph.structure_factors[i,0], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

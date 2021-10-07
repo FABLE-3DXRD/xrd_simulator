@@ -128,14 +128,12 @@ class Detector(object):
         cone_opening = np.arccos( np.dot(normalised_local_coord_geom_mat.T, k / np.linalg.norm(k) ) ) # These are two time Bragg angles        
         return np.max( cone_opening ) / 2. 
 
-    def approximate_wrapping_cone(self, beam, source_point, samples=180, margin=np.pi/180):
+    def approximate_wrapping_cone(self, beam, samples=180, margin=np.pi/180):
         """Given a moving detector as well as a variable wavevector approximate an upper Bragg angle bound after which scattering
             will not intersect the detector area.
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
-            source_point (:obj:`numpy array`): Source point from where the beam wavevector will originate (```shape=(3,)```).
-                Preferably this is taken as the centroid of the beam illumination region.
             samples (:obj:`float`): Number of points in s=[0,1] that should be used to approximate the 
                 cone opening angle.
             margin (:obj:`float`): Radians added to the returned result (for safety since samples are finite).
@@ -150,7 +148,7 @@ class Detector(object):
         for s in np.linspace(0, 1, samples):
             self.set_geometry(s)
             beam.set_geometry(s)
-            cone_angles.append( self.get_wrapping_cone( beam.k, source_point ) )
+            cone_angles.append( self.get_wrapping_cone( beam.k, beam.centroid ) )
         self.set_geometry(s=0)
         beam.set_geometry(s=0)
         return np.max(cone_angles) + margin

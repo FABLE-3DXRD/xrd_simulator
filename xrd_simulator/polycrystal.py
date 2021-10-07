@@ -64,13 +64,14 @@ class Polycrystal(object):
         """
 
         # Only Compute the Miller indices that can give diffrraction within the detector bounds
-        max_bragg_angle = detector.approximate_wrapping_cone( beam, source_point=self.mesh.centroid )
+        max_bragg_angle = detector.approximate_wrapping_cone( beam )
         min_bragg_angle = 0
 
         # TODO: remove this assert and replace by a warning.
         assert max_bragg_angle < 25*np.pi/180, "Maximum Bragg angle is very large, this will result in many hkls..."
 
-        hkls = [phase.generate_miller_indices(beam.wavelength, min_bragg_angle, max_bragg_angle) for phase in self.phases]
+        for phase in self.phases:
+            phase.set_miller_indices(beam.wavelength, min_bragg_angle, max_bragg_angle) 
 
         c_1_factor = np.cross( beam.rotator.rhat , beam.k1 )
 
@@ -84,7 +85,7 @@ class Polycrystal(object):
             print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
             element_vertices = self.mesh.coord[self.mesh.enod[ei]]
 
-            G = laue.get_G(self.eU[ei], self.eB[ei], hkls[ self.ephase[ei] ].T )
+            G = laue.get_G(self.eU[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
             sinth, normG = laue.get_sin_theta_and_norm_G(G, beam.wavelength)
             c_0s  = np.dot( beam.k1, G)
             c_1s  = np.dot( c_1_factor, G )

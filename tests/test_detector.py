@@ -79,8 +79,8 @@ class TestDetector(unittest.TestCase):
         ch2 = ConvexHull( verts2 )
         wavelength = 1.0
         kprime = 2*np.pi*np.array([1,0,0])/(wavelength)
-        scatterer1 = Scatterer(ch1, kprime, s=0)
-        scatterer2 = Scatterer(ch2, kprime, s=0)
+        scatterer1 = Scatterer(ch1, kprime, s=0, hkl=[np.array([1,0,0])] )
+        scatterer2 = Scatterer(ch2, kprime, s=0, hkl=[np.array([1,0,0])] )
         self.detector.frames.append([scatterer1, scatterer2])
         piximage = self.detector.render(frame_number=0)
         ic = int( (self.detector_size/self.pixel_size) / 2 )
@@ -151,11 +151,10 @@ class TestDetector(unittest.TestCase):
         wavelength = 1.0
         k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
         k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
-        beam = Beam(beam_vertices, wavelength=wavelength, k1=k1, k2=k2)
+        beam = Beam(beam_vertices, wavelength=wavelength, k1=k1, k2=k2, translation=np.array([0,0,0]))
 
-        opening_angle = self.detector.approximate_wrapping_cone( beam, source_point, samples=180, margin=margin )
+        opening_angle = self.detector.approximate_wrapping_cone( beam, samples=180, margin=margin )
         self.assertGreaterEqual(max_expected_angle, opening_angle, msg="approximated wrapping cone is too large")
-
 
 if __name__ == '__main__':
     unittest.main()

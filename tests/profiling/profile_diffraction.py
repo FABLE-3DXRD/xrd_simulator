@@ -29,7 +29,6 @@ def geometry_descriptor(s):
     return Rz.dot( geometry_matrix_0 )
 detector = Detector( pixel_size, geometry_descriptor )
 
-
 # l = detector_size/10.
 # coord = np.array([ [0,0,0],
 #                    [0,l,0],
