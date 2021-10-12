@@ -26,7 +26,8 @@ class TestScatterer(unittest.TestCase):
         self.ph   = Phase(unit_cell, sgname, path_to_cif_file=data)
         self.ph.setup_diffracting_planes(wavelength, 0, 20*np.pi/180)
 
-        self.scatterer = Scatterer(self.ch, self.kprime, self.s, self.ph, 0)
+        bragg_angle = None
+        self.scatterer = Scatterer(self.ch, self.kprime, bragg_angle, self.s, self.ph, 0)
 
     def test_hkl(self):
         hkl = self.scatterer.hkl

@@ -66,14 +66,16 @@ class Detector(object):
         NOTE: This function is meant to alow for overriding when specalised intensity models are to be tested.
 
         """
-        # TODO: make the renderer a bit more andvanced not just scaling intensity against 
-        # scattering volume.
+        # TODO: Think about how to derive a lorentz factor....
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for scatterer in self.frames[frame_number]:
             self.set_geometry( s = scatterer.s )
             zd, yd = self.get_intersection( scatterer.kprime, scatterer.centroid )
             if self.contains(zd,yd):
-                intensity = scatterer.volume * scatterer.structure_factor[0]**2
+                if scatterer.structure_factor is not None:
+                    intensity = scatterer.volume * scatterer.structure_factor[0]**2
+                else:
+                    intensity = scatterer.volume
                 frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
         self.set_geometry( s = 0 )
         return frame

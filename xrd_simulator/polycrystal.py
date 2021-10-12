@@ -99,7 +99,8 @@ class Polycrystal(object):
                             scattering_region = beam.intersect( element_vertices )
                             if scattering_region is not None:
                                 kprime = G[:,hkl_indx] + beam.k
-                                scatterers.append( Scatterer(scattering_region, kprime, s, self.phases[ self.ephase[ei] ], hkl_indx) )  
+                                bragg_angle = np.arcsin( sinth )
+                                scatterers.append( Scatterer(scattering_region, kprime, bragg_angle, s, self.phases[ self.ephase[ei] ], hkl_indx) )  
         beam.set_geometry(s=0)
         detector.frames.append( scatterers )
 

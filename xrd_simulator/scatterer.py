@@ -23,23 +23,27 @@ class Scatterer(object):
 
     """ 
 
-    def __init__(self, convex_hull, kprime, s, phase, hkl_indx ):
+    def __init__(self, convex_hull, kprime, bragg_angle, s, phase, hkl_indx ):
         self.convex_hull = convex_hull
         self.kprime = kprime
+        self.bragg_angle = bragg_angle
         self.s = s
 
-        self._phase = phase
-        self._hkl_indx = hkl_indx
+        self.phase = phase
+        self.hkl_indx = hkl_indx
 
     @property
     def hkl(self):
         """hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```."""
-        return self._phase.miller_indices[ self._hkl_indx ]
+        return self.phase.miller_indices[ self.hkl_indx ]
 
     @property
     def structure_factor(self):
         """hkl (:obj:`numpy array`): Unit cell structure factors; Freal and Fimag, ```shape=(2,)```"""
-        return self._phase.structure_factors[ self._hkl_indx, : ]
+        if self.phase.structure_factors is not None:
+            return self.phase.structure_factors[ self.hkl_indx, : ]
+        else:
+            return None
   
     @property
     def centroid(self):
