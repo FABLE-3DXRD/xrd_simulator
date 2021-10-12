@@ -1,7 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 from xfab import tools, structure
-from xrd_simulator.utils import _HiddenPrints
+from xrd_simulator.utils import _HiddenPrints, CIFopen
 
 class Phase(object):
 
@@ -61,9 +61,9 @@ class Phase(object):
         """Generate unit cell structure factors for all miller indices.
         """
         atom_factory = structure.build_atomlist()
-        atom_factory.CIFread(ciffile = self.path_to_cif_file, cifblkname = None, cifblk = None)
+        cifblk = CIFopen( self.path_to_cif_file )
+        atom_factory.CIFread(ciffile = None, cifblkname = None, cifblk = cifblk)
         atoms = atom_factory.atomlist.atom
-        print(miller_indices.shape)
         self.structure_factors = np.zeros((miller_indices.shape[0], 2))
         for i,hkl in enumerate(miller_indices):
             self.structure_factors[i,:] = structure.StructureFactor(hkl, self.unit_cell, self.sgname, atoms, disper=None)

@@ -85,8 +85,9 @@ class TestDetector(unittest.TestCase):
         sgname = 'P3221' # Quartz
         phase = Phase(unit_cell, sgname)
 
-        scatterer1 = Scatterer(ch1, kprime, s=0, phase=phase, hkl_indx=0)
-        scatterer2 = Scatterer(ch2, kprime, s=0, phase=phase, hkl_indx=0)
+        bragg_angle = np.random.rand()*np.pi
+        scatterer1 = Scatterer(ch1, kprime, bragg_angle, s=0, phase=phase, hkl_indx=0)
+        scatterer2 = Scatterer(ch2, kprime, bragg_angle, s=0, phase=phase, hkl_indx=0)
         self.detector.frames.append([scatterer1, scatterer2])
         piximage = self.detector.render(frame_number=0)
         ic = int( (self.detector_size/self.pixel_size) / 2 )

@@ -83,3 +83,7 @@ def contained_by_intervals(s, intervals):
             return True
     return False
 
+def CIFopen( ciffile ):
+    from CifFile import ReadCif
+    cf = ReadCif(ciffile)
+    return cf[ list(cf.keys())[0] ]

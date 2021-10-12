@@ -38,7 +38,9 @@ class TestPhase(unittest.TestCase):
             self.assertTrue( (h%2==0 and k%2==0 and l%2==0) or (h%2==1 and k%2==1 and l%2==1) )
 
     def test_set_structure_factors(self):
-        data = pkg_resources.resource_filename(__name__, "data/Fe_mp-150_conventional_standard.cif")
+        data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
+        #data = pkg_resources.resource_filename(__name__,  "data/Fe_mp-150_conventional_standard.cif")
+        print('data', data, __file__ )
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = 'Fm-3m' # Iron
         ph   = Phase(unit_cell, sgname, path_to_cif_file=data)

@@ -4,6 +4,7 @@ from xrd_simulator.scatterer import Scatterer
 from scipy.spatial import ConvexHull
 import pkg_resources
 from xrd_simulator.phase import Phase
+import os
 
 class TestScatterer(unittest.TestCase):
 
@@ -20,7 +21,7 @@ class TestScatterer(unittest.TestCase):
         self.kprime = 2*np.pi*kprime/(wavelength * np.linalg.norm(kprime) )
         self.s = np.random.rand()
 
-        data = pkg_resources.resource_filename(__name__, "data/Fe_mp-150_conventional_standard.cif")
+        data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = 'Fm-3m' # Iron
         self.ph   = Phase(unit_cell, sgname, path_to_cif_file=data)
