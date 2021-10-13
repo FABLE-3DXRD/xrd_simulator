@@ -39,7 +39,7 @@ class Beam(object):
             The beam moves s*translation before each rotation.
     """
 
-    def __init__(self, beam_vertices, wavelength, k1, k2, translation ):
+    def __init__(self, beam_vertices, wavelength, k1, k2, translation, polarization=np.array([1,0,0]) ):
 
         assert np.allclose( np.linalg.norm(k1), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
         assert np.allclose( np.linalg.norm(k2), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
@@ -57,6 +57,8 @@ class Beam(object):
         self.rotator    = utils.RodriguezRotator(k1, k2)
         self.wavelength = wavelength
         self.translation = translation
+
+        self.polarization = polarization
 
         self.set_geometry(s=0)
 

@@ -44,9 +44,9 @@ class Polycrystal(object):
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
-            
+
         Returns:
-        
+
         """
         #np.linspace(0, 1, np.degrees( beam.rotator.alpha ).astype(int) )
         #for beam.rotator.alpha
@@ -86,6 +86,7 @@ class Polycrystal(object):
             element_vertices = self.mesh.coord[self.mesh.enod[ei]]
 
             G = laue.get_G(self.eU[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
+            # TODO: Go to lab at time=0? Then G needs t go to G_l
             sinth, normG = laue.get_sin_theta_and_norm_G(G, beam.wavelength)
             c_0s  = np.dot( beam.k1, G)
             c_1s  = np.dot( c_1_factor, G )

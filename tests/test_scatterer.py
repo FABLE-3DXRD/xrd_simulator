@@ -36,8 +36,8 @@ class TestScatterer(unittest.TestCase):
             self.assertAlmostEqual( hkl[i], -1, msg="hkl is wrong" )
 
     def test_structure_factor(self):
-        structure_factor = self.scatterer.structure_factor
-        self.assertGreaterEqual( structure_factor[0], 0, msg="structure factor is wrong" )
+        structure_factor = self.scatterer.real_structure_factor
+        self.assertGreaterEqual( structure_factor, 0, msg="structure factor is wrong" )
 
     def test_centroid(self):
         centroid2 = self.scatterer.centroid
