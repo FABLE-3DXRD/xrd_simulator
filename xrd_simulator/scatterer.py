@@ -54,19 +54,22 @@ class Scatterer(object):
             return self.phase.structure_factors
 
     @property
-    def lorentz_factor( self, scatterer ):
+    def lorentz_factor( self ):
         """Compute the Lorentz intensity factor for a scatterer.
         """
+        #TODO: finish
         theta       = np.arccos( self.k.dot( self.kprime ) / (np.linalg.norm(self.k)**2) ) / 2.
         korthogonal = self.kprime - self.k * self.kprime.dot( self.k ) / np.linalg.norm(self.k**2)
         eta         = np.arccos( self.rhat.dot( korthogonal ) / np.linalg.norm( korthogonal ) )
-        return 1. / ( np.sin(2 * theta) * np.abs( np.sin(eta) ) )
+        #return 1. / ( np.sin(2 * theta) * np.abs( np.sin(eta) ) )
+        raise NotImplementedError()
 
     @property
-    def polarization_factor( self, scatterer ):
+    def polarization_factor( self ):
         """Compute the Polarization intensity factor for a scatterer.
         """
-        return np.abs( self.incident_polarization_vector.dot( self.scattered_polarization_vector ) )**2
+        #return np.abs( self.incident_polarization_vector.dot( self.scattered_polarization_vector ) )**2
+        raise NotImplementedError()
 
     @property
     def incident_polarization_vector(self):
