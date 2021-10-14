@@ -54,6 +54,5 @@ class TestPhase(unittest.TestCase):
 
         self.assertAlmostEqual( np.linalg.norm(v - np.array([1,0,1])), 0, msg='Error in rigid body transformation' )
 
-
 if __name__ == '__main__':
     unittest.main()

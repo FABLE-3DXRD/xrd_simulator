@@ -39,7 +39,7 @@ class Polycrystal(object):
         self.eB     = eB
         self.phases = phases
 
-    def diffract(self, beam, detector, rigid_body_motion):
+    def diffract(self, beam, detector, rigid_body_motion, min_bragg_angle=0, max_bragg_angle=None):
         """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
 
         The beam interacts with the polycrystal producing scattering captured by the detector.
@@ -51,8 +51,8 @@ class Polycrystal(object):
         """
 
         # Only Compute the Miller indices that can give diffrraction within the detector bounds
-        max_bragg_angle = detector.approximate_wrapping_cone( beam ) #TODO: fix this 
-        min_bragg_angle = 0
+        if max_bragg_angle is None:
+            max_bragg_angle = detector.get_wrapping_cone( beam.wavevector, beam.centroid )
 
         # TODO: remove this assert and replace by a warning.
         assert max_bragg_angle < 25*np.pi/180, "Maximum Bragg angle is very large, this will result in many hkls..."
@@ -97,7 +97,5 @@ class Polycrystal(object):
                                                         hkl_indx  )
                                 scatterers.append( scatterer )  
         detector.frames.append( scatterers )
-
-
 
         
