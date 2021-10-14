@@ -96,7 +96,7 @@ class RodriguezRotator(object):
         self.I  = np.eye(3,3)
 
     def get_rotation_matrix(self, rotation_angle):
-        return self._I + np.sin( rotation_angle )*self._K + ( 1 - np.cos( rotation_angle ) )*self._K2
+        return self.I + np.sin( rotation_angle )*self.K + ( 1 - np.cos( rotation_angle ) )*self.K2
 
     def __call__( self, vectors, rotation_angle ):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
