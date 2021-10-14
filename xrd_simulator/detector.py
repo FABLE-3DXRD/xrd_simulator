@@ -73,7 +73,7 @@ class Detector(object):
             if self.contains(zd,yd):
                 # TODO: add lorentz etc
                 intensity = scatterer.volume #* scatterer.lorentz_factor * scatterer.polarization_factor
-                if scatterer.structure_factor is not None:
+                if scatterer.real_structure_factor is not None:
                     intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
                 frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
         self.set_geometry( s = 0 )

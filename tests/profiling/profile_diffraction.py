@@ -8,6 +8,7 @@ from xfab import tools
 import cProfile
 import pstats
 import pkg_resources
+import os
 
 """ Profile the 
 """
@@ -81,9 +82,13 @@ pr = cProfile.Profile()
 pr.enable()
 polycrystal.diffract( beam, detector )
 pr.disable()
-pr.dump_stats('profile_dump')
-ps = pstats.Stats('profile_dump').strip_dirs().sort_stats('cumtime')
+pr.dump_stats('tmp_profile_dump')
+ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(20)
+try:
+    os.remove("tmp_profile_dump")
+except:
+    pass
 
 pixim = detector.render(frame_number=0)
 

@@ -39,20 +39,7 @@ class Polycrystal(object):
         self.eB     = eB
         self.phases = phases
 
-    def get_candidate_elements(self, beam):
-        """Get all elements that could diffract for a given illumination setting.
-
-        Args:
-            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
-
-        Returns:
-
-        """
-        #np.linspace(0, 1, np.degrees( beam.rotator.alpha ).astype(int) )
-        #for beam.rotator.alpha
-        raise NotImplementedError()
-
-    def diffract(self, beam, detector):
+    def diffract(self, beam, detector, rigid_body_motion):
         """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
 
         The beam interacts with the polycrystal producing scattering captured by the detector.
@@ -64,7 +51,7 @@ class Polycrystal(object):
         """
 
         # Only Compute the Miller indices that can give diffrraction within the detector bounds
-        max_bragg_angle = detector.approximate_wrapping_cone( beam )
+        max_bragg_angle = detector.approximate_wrapping_cone( beam ) #TODO: fix this 
         min_bragg_angle = 0
 
         # TODO: remove this assert and replace by a warning.
@@ -73,44 +60,43 @@ class Polycrystal(object):
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
 
-        c_1_factor = np.cross( beam.rotator.rhat , beam.k1 )
+        c_0_factor   = -beam.wavevector.T.dot( rigid_body_motion.rotator.K2 )
+        c_1_factor   =  beam.wavevector.T.dot( rigid_body_motion.rotator.K )
+        c_2_factor   =  beam.wavevector.T.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
 
         scatterers = []
 
-        proximity_intervals = beam.get_proximity_intervals(self.mesh.espherecentroids, self.mesh.eradius)
+        proximity_intervals = beam.get_proximity_intervals(self.mesh.espherecentroids, self.mesh.eradius, rigid_body_motion) #TODO: fix this 
 
         for ei in range( self.mesh.number_of_elements ):
             if proximity_intervals[ei][0] is None: continue
 
             print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
-            element_vertices = self.mesh.coord[self.mesh.enod[ei]]
+            element_vertices_0 = self.mesh.coord[self.mesh.enod[ei]] 
+            G_0 = laue.get_G(self.eU[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
 
-            G = laue.get_G(self.eU[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
-            # TODO: Go to lab at time=0? Then G needs t go to G_l
-            sinth, normG = laue.get_sin_theta_and_norm_G(G, beam.wavelength)
-            c_0s  = np.dot( beam.k1, G)
-            c_1s  = np.dot( c_1_factor, G )
-            c_2s  = (2 * np.pi / beam.wavelength) * normG * sinth
+            c_0s  = c_0_factor.dot(G_0)
+            c_1s  = c_1_factor.dot(G_0)
+            sinth, normG = laue.get_sin_theta_and_norm_G(G_0, beam.wavelength)
+            c_2s  = c_2_factor.dot(G_0) + (2 * np.pi / beam.wavelength) * normG * sinth
 
-            for hkl_indx in range(G.shape[1]):
-                for s in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], beam.rotator.alpha ):
-                    if s is not None:
-                        if utils.contained_by_intervals( s, proximity_intervals[ei] ):
-                            beam.set_geometry(s)
+            for hkl_indx in range(G_0.shape[1]):
+                for time in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], beam.rotator.alpha ):
+                    if time is not None:
+                        if utils.contained_by_intervals( time, proximity_intervals[ei] ):
+                            element_vertices = rigid_body_motion( element_vertices_0, time )
                             scattering_region = beam.intersect( element_vertices )
                             if scattering_region is not None:
-                                kprime = G[:,hkl_indx] + beam.k
-                                bragg_angle = np.arcsin( sinth )
-                                scatterers.append( Scatterer(scattering_region, kprime, bragg_angle, s, self.phases[ self.ephase[ei] ], hkl_indx) )  
-        beam.set_geometry(s=0)
+                                G = rigid_body_motion( G_0[:,hkl_indx], time )
+                                scattered_wavevector = G_0[:,hkl_indx] + beam.wavevector
+                                scatterer = Scatterer(  beam
+                                                        scattering_region, 
+                                                        scattered_wavevector, 
+                                                        time, 
+                                                        self.phases[ self.ephase[ei] ], 
+                                                        hkl_indx  )
+                                scatterers.append( scatterer )  
         detector.frames.append( scatterers )
-
-
-        # NOTE: Rotations around the beam propagation direction is no true crystal rocking! For a fixed
-        # beam in lab frame, the angles between beam and G vectors will not be changed by this! 
-        # mathematically: R_beam( v ).dot( beam ) = constant, i.e a dot product cannot change due
-        # to rotations around one of the ingoing vectors. Thus we require k1!=k2 for Bragg diffraction
-        # to occur.
 
 
 

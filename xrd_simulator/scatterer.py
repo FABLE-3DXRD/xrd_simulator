@@ -40,7 +40,7 @@ class Scatterer(object):
     @property
     def real_structure_factor(self):
         """hkl (:obj:`numpy array`): Real part of unit cell structure factor"""
-        if self.phase.structure_factors:
+        if self.phase.structure_factors is not None:
             return self.phase.structure_factors[ self.hkl_indx, 0 ]
         else:
             return self.phase.structure_factors
@@ -48,7 +48,7 @@ class Scatterer(object):
     @property
     def imaginary_structure_factor(self):
         """hkl (:obj:`numpy array`): Imaginary part of unit cell structure factor"""
-        if self.phase.structure_factors:
+        if self.phase.structure_factors is not None:
             return self.phase.structure_factors[ self.hkl_indx, 1 ]
         else:
             return self.phase.structure_factors
