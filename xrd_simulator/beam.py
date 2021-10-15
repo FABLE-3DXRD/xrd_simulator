@@ -8,73 +8,27 @@ from scipy.optimize import root_scalar
 class Beam(object):
     """Represents a monochromatic X-ray beam as a convex polyhedra.
 
-    The Beam object stores a state of an X-ray beam. In a parametric scan intervall
-    the beam is allowed to take on wavevectors in the fan formed 
-    by [:math:`\\boldsymbol{k}_1`, :math:`\\boldsymbol{k}_2`] such that all wavevectors
-    in the scan intervall lies within the plane defined by :math:`\\boldsymbol{k}_1` and 
-    unto :math:`\\boldsymbol{k}_2`. The geometry or profile of the beam is likewise restricted
-    to rotate by the same transformation that brings :math:`\\boldsymbol{k}_1`  unto
-    :math:`\\boldsymbol{k}_2` (rodriguez rotation). I.e all vertices of the convex beam hull will 
-    rotate according to a rodriguez rotation defined by the unit vector which is in the direction
-    of the cross product of :math:`\\boldsymbol{k}_1` and :math:`\\boldsymbol{k}_2`. Before rotation
-    is executed, and optional linear translation may be performed.
-
     Args:
-        beam_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
-        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
-        k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
-        k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
-        translation (:obj:`numpy array`): Beam linear translation on s=[0,1], ```shape=(3,)```.
-            The beam moves s*translation before each rotation.
+        vertices (:obj:`numpy array`): Xray-beam vertices.
+        wavelength (:obj:`float`): 
 
     Attributes:
-        original_vertices (:obj:`numpy array`): Xray-beam vertices for s=0.
+        vertices (:obj:`numpy array`): Xray-beam vertices.
         wavelength (:obj:`float`): 
-        k1 (:obj:`numpy array`): Beam wavevector for s=0 with ```shape=(3,)```
-        k2 (:obj:`numpy array`): Beam wavevector for s=1 with ```shape=(3,)```
-        rotator (:obj:`utils.RodriguezRotator`): Callable object performing rodriguez 
-            rotations from k1 towards k2.
+        wave_vector (:obj:`numpy array`): Beam wavevector ```shape=(3,)```
         centroid (:obj:`numpy array`): Beam centroid ```shape=(3,)```
-        translation (:obj:`numpy array`): Beam linear translation on s=[0,1], ```shape=(3,)```.
-            The beam moves s*translation before each rotation.
+
     """
 
-    def __init__(self, beam_vertices, wavelength, k1, k2, translation, polarization=np.array([1,0,0]) ):
-
-        assert np.allclose( np.linalg.norm(k1), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
-        assert np.allclose( np.linalg.norm(k2), 2 * np.pi / wavelength ), "Wavevector k1 is not of length 2*pi/wavelength."
+    def __init__(self, beam_vertices, xray_propagation_direction, wavelength, polarization_vector):
+        self.wave_vector = ( 2* np.pi / wavelength ) * xray_propagation_direction/np.linalg.norm( xray_propagation_direction )
+        self.wavelength = wavelength
         ch = ConvexHull( beam_vertices )
         assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam veertices does not form a convex hull"
-
-        self.original_vertices   = beam_vertices.copy()
-        self.original_centroid   = np.mean(self.original_vertices, axis=0)
-        self.original_halfspaces = ConvexHull( self.original_vertices ).equations
-        self.halfspaces = self.original_halfspaces.copy()
-        self.vertices   = self.original_vertices.copy()
-        self.centroid   = self.original_centroid.copy()
-        self.k1         = k1
-        self.k2         = k2
-        self.rotator    = utils.RodriguezRotator(k1, k2)
-        self.wavelength = wavelength
-        self.translation = translation
-
-        self.polarization = polarization
-
-        self.set_geometry(s=0)
-
-    def set_geometry(self, s):
-        """Align the beam into the new_propagation_direction by a performing rodriguez rotation.
-
-        Args:
-            s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
-                while s=1 to a beam with wavevector k2. The beam vertices are rotated by a rodriguez rotation 
-                parametrised by s.
-
-        """
-        self.vertices = self.rotator( (self.original_vertices + self.translation*s).T, s).T
+        self.vertices   = beam_vertices.copy()
+        self.centroid   = np.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull( self.vertices ).equations
-        self.k = self.rotator(self.k1, s)
-        self.centroid = self.rotator(self.original_centroid, s)
+        self.polarization_vector = polarization
 
     def find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
@@ -86,7 +40,7 @@ class Beam(object):
             (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
 
         """
-        #NOTE: from profiling: this method is the current bottleneck with about 50 % of total CPU time is spent here.
+        #NOTE: from profiling: this method is slow, beware of using it uneccesarrily.
         norm_vector = np.reshape(np.linalg.norm(halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
         c = np.zeros((halfspaces.shape[1],))
         c[-1] = -1
@@ -118,8 +72,8 @@ class Beam(object):
         else:
             return None
 
-    def get_proximity_intervals(self, sphere_centres, sphere_radius):
-        """Compute the parametric intervals s=[[s_1,s_2],[s_3,s_4],..] in which spheres are interesecting beam.
+    def get_proximity_intervals(self, sphere_centres, sphere_radius, rigid_body_motion):
+        """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are interesecting beam.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
         set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
@@ -127,17 +81,21 @@ class Beam(object):
         Args:
             sphere_centres (:obj:`numpy array`): Centroids of a spheres ```shape=(3,n)```.
             sphere_radius (:obj:`numpy array`): Radius of a spheres ```shape=(n,)```.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a funciton of time on the domain time=[0,1].
 
         Returns:
             (:obj:`list` of :obj:`list` of :obj:`list`): Parametric ranges in which the spheres
-            has an intersection with the beam. [(:obj:`None`)] if no intersection exist in ```s=[0,1]```.
-            the entry at ```[i][j]``` is a list with two floats ```[s_1,s_2]``` and gives the j:th 
+            has an intersection with the beam. [(:obj:`None`)] if no intersection exist in ```time=[0,1]```.
+            the entry at ```[i][j]``` is a list with two floats ```[t_1,t_2]``` and gives the j:th 
             intersection interval of sphere number i with the beam.
 
         """ 
 
-        beam_halfplane_normals =  self.original_halfspaces[:,0:3]
-        beam_halfplane_offsets = -self.original_halfspaces[:,3]
+        beam_halfplane_normals =  self.halfspaces[:,0:3]
+        beam_halfplane_offsets =  self.halfspaces[:,3]
+
+        # TODO: continue moving to lab form here...
 
         # Precomputable factors for root equations independent of sphere data.
         a0 = self.rotator.K.dot( beam_halfplane_normals.T )

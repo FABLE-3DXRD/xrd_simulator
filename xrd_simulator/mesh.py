@@ -128,18 +128,12 @@ class TetraMesh(object):
         self.ecmat           = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
         self.centroid        = np.mean(self.ecentroids, axis=0)
 
-    def move( self, displacement ):
-        """Update the mesh coordinates and any dependent quanteties by nodal displacements.
-        Args:
-            displacement (:obj:`numpy array`): Nodal displacements, ``shape=coefficents.shape``.
+    def update( self, new_nodal_coordinates ):
+        """Update the mesh coordinates and any dependent quanteties by changing the node coordinates.
         """
-        self._mesh.points      += displacement
-        self.coord             = np.array(self._mesh.points)
-        self.enormals          = self._compute_mesh_normals( self.coord, self.enod, self.efaces )
-        self.ecentroids        = self._compute_mesh_centroids( self.coord, self.enod ) 
-        self.eradius,self.espherecentroids  = self._compute_mesh_spheres( self.coord, self.enod )
-        self.ecmat             = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
-        self.centroid        = np.mean(self.ecentroids, axis=0)
+        self._mesh.points = new_nodal_coordinates
+        self._set_fem_matrices()
+        self._expand_mesh_data()
 
     def get_bounding_sphere_radius(self, node):
         """This method overrides :meth:`Basis.get_bounding_sphere_radius`.

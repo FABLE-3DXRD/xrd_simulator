@@ -21,8 +21,7 @@ class RigidBodyMotion(object):
     """
 
     def __init__(self, rotation_axis, rotation_angle, translation):
-        assert rotation_angle < np.pi, "The rotation angle must be in [0 pi]"
-        assert rotation_angle > 0,     "The rotation angle must be in [0 pi]"
+        assert rotation_angle < np.pi and  rotation_angle > 0, "The rotation angle must be in [0 pi]"
         self.rotator = RodriguezRotator(rotation_axis)
         self.rotation_axis = rotation_axis
         self.rotation_angle = rotation_angle
@@ -41,6 +40,7 @@ class RigidBodyMotion(object):
             Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
 
         """
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
         return self.rotator( vectors, self.rotation_angle * time )
 
     def translate( self, vectors, time ):
@@ -56,6 +56,7 @@ class RigidBodyMotion(object):
             Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
 
         """
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
         return vectors + self.translation * time
 
     def __call__( self, vectors, time ):
@@ -69,6 +70,7 @@ class RigidBodyMotion(object):
             Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
 
         """ 
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
         return self.rotator( vectors, self.rotation_angle * time ) + self.translation * time
 
 class RodriguezRotator(object):

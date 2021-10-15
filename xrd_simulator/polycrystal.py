@@ -4,6 +4,7 @@ from numpy.lib.utils import source
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils
 from xrd_simulator import laue
+import copy
 
 class Polycrystal(object):
 
@@ -33,47 +34,52 @@ class Polycrystal(object):
     """ 
 
     def __init__(self, mesh, ephase, eU, eB, phases ):
-        self.mesh   = mesh
-        self.ephase = ephase
-        self.eU     = eU
-        self.eB     = eB
+        
+        # Assuming sample and lab frames to be aligned at instantiation.
+        self.mesh_lab = copy.deepcopy(mesh)
+        self.eU_lab = eU.copy()
+        self.mesh_sample = copy.deepcopy(mesh)
+        self.eU_sample = eU.copy()
+
         self.phases = phases
+        self.ephase = ephase
+        self.eB     = eB
 
     def diffract(self, beam, detector, rigid_body_motion, min_bragg_angle=0, max_bragg_angle=None):
-        """Construct the scattering regions in the wavevector range [k1,k2] given a beam profile.
+        """Construct the scattering regions in the wave vector range [k1,k2] given a beam profile.
 
         The beam interacts with the polycrystal producing scattering captured by the detector.
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a funciton of time on the domain time=[0,1].
+            min_bragg_angle (:obj:`float`): Time between [0,1] at which to call the rigid body motion. Defaults to 0.
+            max_bragg_angle (:obj:`float`): Time between [0,1] at which to call the rigid body motion. Defaults to a 
+                guess value approximated by wrapping the detector corners in a cone with apex in the sample.
 
         """
 
-        # Only Compute the Miller indices that can give diffrraction within the detector bounds
-        if max_bragg_angle is None:
-            max_bragg_angle = detector.get_wrapping_cone( beam.wavevector, beam.centroid )
-
-        # TODO: remove this assert and replace by a warning.
-        assert max_bragg_angle < 25*np.pi/180, "Maximum Bragg angle is very large, this will result in many hkls..."
+        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
 
-        c_0_factor   = -beam.wavevector.T.dot( rigid_body_motion.rotator.K2 )
-        c_1_factor   =  beam.wavevector.T.dot( rigid_body_motion.rotator.K )
-        c_2_factor   =  beam.wavevector.T.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
+        c_0_factor   = -beam.wave_vector.T.dot( rigid_body_motion.rotator.K2 )
+        c_1_factor   =  beam.wave_vector.T.dot( rigid_body_motion.rotator.K )
+        c_2_factor   =  beam.wave_vector.T.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
 
         scatterers = []
 
-        proximity_intervals = beam.get_proximity_intervals(self.mesh.espherecentroids, self.mesh.eradius, rigid_body_motion) #TODO: fix this 
+        proximity_intervals = beam.get_proximity_intervals(self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion) #TODO: fix this 
 
-        for ei in range( self.mesh.number_of_elements ):
+        for ei in range( self.mesh_lab.number_of_elements ):
             if proximity_intervals[ei][0] is None: continue
 
-            print("Computing for element {} of total elements {}".format(ei,self.mesh.number_of_elements))
-            element_vertices_0 = self.mesh.coord[self.mesh.enod[ei]] 
-            G_0 = laue.get_G(self.eU[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
+            print("Computing for element {} of total elements {}".format(ei,self.mesh_lab.number_of_elements))
+            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei]] 
+            G_0 = laue.get_G(self.eU_lab[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
 
             c_0s  = c_0_factor.dot(G_0)
             c_1s  = c_1_factor.dot(G_0)
@@ -88,14 +94,47 @@ class Polycrystal(object):
                             scattering_region = beam.intersect( element_vertices )
                             if scattering_region is not None:
                                 G = rigid_body_motion( G_0[:,hkl_indx], time )
-                                scattered_wavevector = G_0[:,hkl_indx] + beam.wavevector
-                                scatterer = Scatterer(  beam
+                                scattered_wave_vector = G_0[:,hkl_indx] + beam.wave_vector
+                                scatterer = Scatterer(  beam,
                                                         scattering_region, 
-                                                        scattered_wavevector, 
+                                                        scattered_wave_vector, 
                                                         time, 
                                                         self.phases[ self.ephase[ei] ], 
                                                         hkl_indx  )
-                                scatterers.append( scatterer )  
+                                scatterers.append( scatterer )
         detector.frames.append( scatterers )
 
+    def _get_bragg_angle_bounds(self, beam, min_bragg_angle, max_bragg_angle):
+
+        if max_bragg_angle is None:
+            # TODO: make a smarter selection of source point for get_wrapping_cone()
+            max_bragg_angle = detector.get_wrapping_cone( beam.wave_vector, self.mesh_lab.centroid )
+
+        assert min_bragg_angle>0, "min_bragg_angle must be greater than zero"
+        assert max_bragg_angle>min_bragg_angle, "max_bragg_angle must be greater than min_bragg_angle"
+
+        if max_bragg_angle > 25*np.pi/180: 
+            angle = str(np.round(np.degrees(max_bragg_angle),1))
+            print( "WARNING: Maximum Bragg-angle is large ("+angle+" dgrs), computations may be slow due to abundant scattering." )
         
+        return min_bragg_angle, max_bragg_angle
+
+    def transform(self, rigid_body_motion, time):
+        """Transform the polycrystal by performing a rigid body motion (translation + rotation)
+
+        This function will update the polycrystal mesh (update in lab frame) with any dependent quanteties, 
+        such as face normals etc. Likewise, it will update the per element crystallite orientation 
+        matrices (U) such that the updated matrix will
+
+
+        Args:
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a funciton of time on the domain time=[0,1].
+            time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
+
+        
+        """
+        new_nodal_coordinates = rigid_body_motion( self.mesh_lab.coord.T, time=time )
+        self.mesh_lab.update( new_nodal_coordinates )
+        for ei in range(self.mesh_lab.coord.shape[0]):
+            self.eU_lab[ei] = rigid_body_motion.rotate( self.eU_lab[ei], time=time )
