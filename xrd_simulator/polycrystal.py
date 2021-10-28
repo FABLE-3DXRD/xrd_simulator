@@ -61,7 +61,7 @@ class Polycrystal(object):
 
         """
 
-        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
+        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(detector, beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
@@ -72,7 +72,7 @@ class Polycrystal(object):
 
         scatterers = []
 
-        proximity_intervals = beam.get_proximity_intervals(self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion) #TODO: fix this 
+        proximity_intervals = beam.get_proximity_intervals(self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion) 
 
         for ei in range( self.mesh_lab.number_of_elements ):
             if proximity_intervals[ei][0] is None: continue
@@ -87,7 +87,7 @@ class Polycrystal(object):
             c_2s  = c_2_factor.dot(G_0) + (2 * np.pi / beam.wavelength) * normG * sinth
 
             for hkl_indx in range(G_0.shape[1]):
-                for time in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], beam.rotator.alpha ):
+                for time in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], rigid_body_motion.rotation_angle ):
                     if time is not None:
                         if utils.contained_by_intervals( time, proximity_intervals[ei] ):
                             element_vertices = rigid_body_motion( element_vertices_0, time )
@@ -104,7 +104,7 @@ class Polycrystal(object):
                                 scatterers.append( scatterer )
         detector.frames.append( scatterers )
 
-    def _get_bragg_angle_bounds(self, beam, min_bragg_angle, max_bragg_angle):
+    def _get_bragg_angle_bounds(self, detector, beam, min_bragg_angle, max_bragg_angle):
 
         if max_bragg_angle is None:
             # TODO: make a smarter selection of source point for get_wrapping_cone()

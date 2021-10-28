@@ -60,7 +60,7 @@ class RigidBodyMotion(object):
         return vectors + self.translation * time
 
     def __call__( self, vectors, time ):
-        """Find the transformation of a set of poitns at a prescribed time.
+        """Find the transformation of a set of points at a prescribed time.
         
         Args:
             vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (```shape=(3,N)```)

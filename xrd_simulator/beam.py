@@ -13,10 +13,14 @@ class Beam(object):
         wavelength (:obj:`float`): 
 
     Attributes:
-        vertices (:obj:`numpy array`): Xray-beam vertices.
-        wavelength (:obj:`float`): 
+        vertices (:obj:`numpy array`): Xray-beam vertices ```shape=(N,3)```.
+        wavelength (:obj:`float`): Xray wavelength.
         wave_vector (:obj:`numpy array`): Beam wavevector ```shape=(3,)```
         centroid (:obj:`numpy array`): Beam centroid ```shape=(3,)```
+        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficents ```shape=(N,3)```. 
+            A point x is on the interior of the halfsplace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
+        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ```shape=(3,)```.
+            Must be orthogonal to the xray propagation direction.
 
     """
 
@@ -24,11 +28,12 @@ class Beam(object):
         self.wave_vector = ( 2* np.pi / wavelength ) * xray_propagation_direction/np.linalg.norm( xray_propagation_direction )
         self.wavelength = wavelength
         ch = ConvexHull( beam_vertices )
-        assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam veertices does not form a convex hull"
+        assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam vertices does not form a convex hull"
         self.vertices   = beam_vertices.copy()
         self.centroid   = np.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull( self.vertices ).equations
-        self.polarization_vector = polarization
+        self.polarization_vector = polarization_vector / np.linalg.norm( polarization_vector )
+        assert np.allclose( np.dot( self.polarization_vector, self.wave_vector ), 0 ), "The x-ray polarisation vector is not orthogonal to the wavevector."
 
     def find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
@@ -98,9 +103,9 @@ class Beam(object):
         # TODO: continue moving to lab form here...
 
         # Precomputable factors for root equations independent of sphere data.
-        a0 = self.rotator.K.dot( beam_halfplane_normals.T )
-        a1 = self.rotator.K2.dot( beam_halfplane_normals.T )
-        a2 = -beam_halfplane_normals.dot( self.translation )
+        a0 = rigid_body_motion.rotator.K.dot( beam_halfplane_normals.T )
+        a1 = rigid_body_motion.rotator.K2.dot( beam_halfplane_normals.T )
+        a2 = -beam_halfplane_normals.dot( rigid_body_motion.translation )
 
         all_intersections = [] # Here we will store all intersections for all spheres.
 
@@ -108,7 +113,7 @@ class Beam(object):
 
             merged_intersections = [[0., 1.]] # Here we will store all intersections for the current sphere.
 
-            for p in range( self.original_halfspaces.shape[0] ):
+            for p in range( self.halfspaces.shape[0] ):
                 
                 new_intersections = [] # Intersections for the sphere attached to halfplane number p.
 
@@ -116,12 +121,12 @@ class Beam(object):
                 q_0  =  sphere_centres[i].dot( a0[:,p] )
                 q_1  = -sphere_centres[i].dot( a1[:,p] )
                 q_2  =  a2[p]
-                q_3  =  sphere_centres[i].dot( beam_halfplane_normals[p,:] ) - q_1 - sphere_radius[i] - beam_halfplane_offsets[p]
-                def intersection_function(s): 
-                    return q_0 * np.sin( s*self.rotator.alpha ) + q_1 * np.cos(s*self.rotator.alpha) + s*q_2 + q_3
+                q_3  =  sphere_centres[i].dot( beam_halfplane_normals[p,:] ) - q_1 - sphere_radius[i] + beam_halfplane_offsets[p]
+                def intersection_function(time): 
+                    return q_0 * np.sin( time*rigid_body_motion.rotation_angle ) + q_1 * np.cos(time*rigid_body_motion.rotation_angle) + time*q_2 + q_3
 
                 # Find roots of intersection_function(s) by first finding its extreemal points
-                brackets = self._find_brackets_of_roots(q_0, q_1, q_2, q_3, intersection_function)
+                brackets = self._find_brackets_of_roots(q_0, q_1, q_2, rigid_body_motion.rotation_angle, intersection_function)
                 
                 # Find roots numerically on the intervals 
                 roots = [ root_scalar(intersection_function, method='bisect', bracket=bracket, maxiter=50).root for bracket in brackets ]
@@ -155,14 +160,14 @@ class Beam(object):
 
         return all_intersections
 
-    def _find_brackets_of_roots(self, q_0, q_1, q_2, q_3, function):
-        """Find all sub domains on s=[0,1] which are guaranteed to hold a root of function.
+    def _find_brackets_of_roots(self, q_0, q_1, q_2, rotation_angle, function):
+        """Find all sub domains on time=[0,1] which are guaranteed to hold a root of function.
         """
-        c_0 = self.rotator.alpha*q_0
-        c_1 = -self.rotator.alpha*q_1
+        c_0 =  rotation_angle * q_0
+        c_1 = -rotation_angle * q_1
         c_2 = q_2
-        s_1, s_2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, self.rotator.alpha )
-        search_intervals = np.array( [s for s in [0, s_1, s_2, 1] if s is not None] )
+        time_1, time_2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotation_angle )
+        search_intervals = np.array( [s for s in [0, time_1, time_2, 1] if s is not None] )
         f = function( search_intervals )
         indx = 0
         brackets = []
