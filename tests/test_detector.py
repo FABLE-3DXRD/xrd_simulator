@@ -9,7 +9,7 @@ from xrd_simulator.beam import Beam
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
-        # TODO make this thest with a detector that does not a have a zero origin!
+        # TODO Updat the tests to work in the new labframe
         self.pixel_size = 50.
         self.detector_size = 10000.
         geometry_matrix_0 = np.array([[1,0,0],[1,1,0],[1,0,1]]).T*self.detector_size

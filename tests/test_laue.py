@@ -3,6 +3,7 @@ import numpy as np
 from xfab import tools
 from xrd_simulator import laue
 from xrd_simulator import utils
+from xrd_simulator.motion import RigidBodyMotion
 
 class TestLaue(unittest.TestCase):
 
@@ -41,11 +42,13 @@ class TestLaue(unittest.TestCase):
     def test_get_tangens_half_angle_equation(self):
         wavelength = self.get_pseudorandom_wavelength()
         U, B, cell, strain = self.get_pseudorandom_crystal()
-        k1, k2     = self.get_pseudorandom_k1_k2(wavelength)
-        rotator    = utils.RodriguezRotator( k1, k2 )
+        k     = self.get_pseudorandom_wave_vector(wavelength)
+        rotation_axis = np.random.rand(3,)
+        rotation_axis = rotation_axis / np.linalg.norm( rotation_axis )
+        rotation_angle = np.pi/2.
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
-        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 
+        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k, theta, G, rotation_axis ) 
         self.assertTrue( np.isreal(c_0) )
         self.assertTrue( np.isreal(c_1) )
         self.assertTrue( np.isreal(c_2) )
@@ -53,26 +56,27 @@ class TestLaue(unittest.TestCase):
     def test_find_solutions_to_tangens_half_angle_equation(self):
         U, B, cell, strain = self.get_pseudorandom_crystal()
         wavelength = cell[0]/18. # make sure the wavelength fits in the lattice spacing
-        k1 = np.array([ 1.0, 0, 0 ])*2*np.pi/wavelength # select a large interval of k-vectors
-        k2 = np.array([ 0.0, 1.0, 0 ])*2*np.pi/wavelength
+        k = np.array([ 1.0, 0, 0 ])*2*np.pi/wavelength # select a large interval of k-vectors
+        rotation_axis = np.random.rand(3,)
+        rotation_axis = rotation_axis / np.linalg.norm( rotation_axis )
+        rotation_angle = np.pi/2.
         U = np.eye(3,3) # let the crystal be aligned to assure 100 to be in its Bragg condition for the k-intervall
-        rotator    = utils.RodriguezRotator( k1, k2 )
         G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
         theta  = laue.get_bragg_angle( G, wavelength )
-        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k1, theta, G, rotator.rhat ) 
-        s1, s2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha )
+        c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(k, theta, G, rotation_axis ) 
+        t1, t2 = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotation_angle )
 
         # Check that at least one solution has been found and that it satisfies the half angle equation.
-        self.assertTrue( ( (s1 is not None) or (s2 is not None) ), msg="Tangens half angle equation could not be solved")
-        if s1 is not None:
-            self.assertLessEqual( s1, 1, msg="s>1")
-            self.assertGreaterEqual( s1, 0, msg="s>1")
-            t1 = np.tan( s1*rotator.alpha/2. )
+        self.assertTrue( ( (t1 is not None) or (t2 is not None) ), msg="Tangens half angle equation could not be solved")
+        if t1 is not None:
+            self.assertLessEqual( t1, 1, msg="s>1")
+            self.assertGreaterEqual( t1, 0, msg="s>1")
+            t1 = np.tan( t1*rotation_angle/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t1**2 + 2*c_1*t1 + (c_0 + c_2), 0, msg="Parametric solution wrong")
-        if s2 is not None:
-            self.assertLessEqual( s2, 1, msg="s>1")
-            self.assertGreaterEqual( s2, 0, msg="s<0")
-            t2 = np.tan( s1*rotator.alpha/2. )
+        if t2 is not None:
+            self.assertLessEqual( t2, 1, msg="s>1")
+            self.assertGreaterEqual( t2, 0, msg="s<0")
+            t2 = np.tan( t1*rotation_angle/2. )
             self.assertAlmostEqual( (c_2 - c_0)*t2**2 + 2*c_1*t2 + (c_0 + c_2), 0, msg="Parametric solution wrong")
 
     def get_pseudorandom_crystal(self):
@@ -86,12 +90,10 @@ class TestLaue(unittest.TestCase):
     def get_pseudorandom_wavelength(self):
         return np.random.rand()*0.5
 
-    def get_pseudorandom_k1_k2(self, wavelength):
-        k1 = (np.random.rand(3,)-0.5)*2
-        k2 = (np.random.rand(3,)-0.5)*2
-        k1 = 2*np.pi*k1/(np.linalg.norm(k1)*wavelength)
-        k2 = 2*np.pi*k2/(np.linalg.norm(k2)*wavelength)
-        return k1, k2
+    def get_pseudorandom_wave_vector(self, wavelength):
+        k = (np.random.rand(3,)-0.5)*2
+        k = 2*np.pi*k/(np.linalg.norm(k)*wavelength)
+        return k
 
 if __name__ == '__main__':
     unittest.main()
