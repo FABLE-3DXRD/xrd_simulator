@@ -95,12 +95,15 @@ class Polycrystal(object):
                             if scattering_region is not None:
                                 G = rigid_body_motion( G_0[:,hkl_indx], time )
                                 scattered_wave_vector = G_0[:,hkl_indx] + beam.wave_vector
-                                scatterer = Scatterer(  beam,
-                                                        scattering_region, 
-                                                        scattered_wave_vector, 
+                                scatterer = Scatterer(  scattering_region, 
+                                                        scattered_wave_vector,
+                                                        beam.wave_vector,
+                                                        beam.wavelength,
+                                                        beam.polarization_vector,
+                                                        rigid_body_motion.rotation_axis,
                                                         time, 
                                                         self.phases[ self.ephase[ei] ], 
-                                                        hkl_indx  )
+                                                        hkl_indx )
                                 scatterers.append( scatterer )
         detector.frames.append( scatterers )
 
@@ -125,7 +128,6 @@ class Polycrystal(object):
         This function will update the polycrystal mesh (update in lab frame) with any dependent quanteties, 
         such as face normals etc. Likewise, it will update the per element crystallite orientation 
         matrices (U) such that the updated matrix will
-
 
         Args:
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the

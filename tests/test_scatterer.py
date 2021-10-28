@@ -10,25 +10,57 @@ class TestScatterer(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(10)
-        wavelength = 1.0
+        self.wavelength = 1.0
         verts = np.array([[0,0,0],
                           [0,0,1],
                           [0,1,0],
                           [1,0,0],
                           [0.1 ,0.1, 0.1]])
         self.ch = ConvexHull( verts )
-        kprime = np.random.rand(3,)
-        self.kprime = 2*np.pi*kprime/(wavelength * np.linalg.norm(kprime) )
-        self.s = np.random.rand()
+        scattered_wave_vector = np.random.rand(3,)
+        self.scattered_wave_vector = 2*np.pi*scattered_wave_vector/(self.wavelength * np.linalg.norm(scattered_wave_vector) )
+        self.time = np.random.rand()
 
         data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = 'Fm-3m' # Iron
-        self.ph   = Phase(unit_cell, sgname, path_to_cif_file=data)
-        self.ph.setup_diffracting_planes(wavelength, 0, 20*np.pi/180)
+        self.phase   = Phase(unit_cell, sgname, path_to_cif_file=data)
+        self.phase.setup_diffracting_planes(self.wavelength, 0, 20*np.pi/180)
 
-        bragg_angle = None
-        self.scatterer = Scatterer(self.ch, self.kprime, bragg_angle, self.s, self.ph, 0)
+        self.incident_wave_vector = np.array([1,0.,0])
+        self.incident_wave_vector = 2*np.pi*self.incident_wave_vector/(self.wavelength * np.linalg.norm(self.incident_wave_vector) )
+        self.incident_polarization_vector = np.array([0.,1.,0]) 
+        self.rotation_axis = np.array([0.,0, 1.])
+
+        self.scatterer = Scatterer( self.ch, 
+                                    self.scattered_wave_vector, 
+                                    self.incident_wave_vector, 
+                                    self.wavelength,
+                                    self.incident_polarization_vector, 
+                                    self.rotation_axis,
+                                    self.time, 
+                                    self.phase, 
+                                    hkl_indx=0 )
+
+    def test_lorentz(self):
+        z = np.array([0,1,1.])
+        self.scatterer.scattered_wave_vector = 2*np.pi*z/(np.linalg.norm(z)*self.wavelength)
+        L = self.scatterer.lorentz_factor
+        self.assertAlmostEqual( L, np.sqrt(2.) )  
+
+        z = np.array([0,0,1.])
+        self.scatterer.scattered_wave_vector = 2*np.pi*z/(self.wavelength)
+        L = self.scatterer.lorentz_factor
+        self.assertTrue( L is np.inf )
+
+    def test_polarization(self):
+        self.scatterer.scattered_wave_vector = np.array([0, 1.0, 0])
+        P = self.scatterer.polarization_factor
+        self.assertAlmostEqual( P, 0 )  
+
+        self.scatterer.scattered_wave_vector = np.array([1./np.sqrt(2), 0, -1./np.sqrt(2)])
+        P = self.scatterer.polarization_factor
+        self.assertAlmostEqual( P, 1.0 ) 
 
     def test_hkl(self):
         hkl = self.scatterer.hkl

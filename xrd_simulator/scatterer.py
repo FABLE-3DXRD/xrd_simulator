@@ -23,14 +23,16 @@ class Scatterer(object):
 
     """ 
 
-    def __init__(self, convex_hull, kprime, bragg_angle, s, phase, hkl_indx ):
-        self.convex_hull = convex_hull
-        self.kprime = kprime
-        self.bragg_angle = bragg_angle
-        self.s = s
-
-        self.phase = phase
-        self.hkl_indx = hkl_indx
+    def __init__(self, convex_hull, scattered_wave_vector, incident_wave_vector, wavelength, incident_polarization_vector, rotation_axis, time, phase, hkl_indx ):
+        self.convex_hull           = convex_hull
+        self.scattered_wave_vector = scattered_wave_vector
+        self.incident_wave_vector  = incident_wave_vector
+        self.wavelength            = wavelength
+        self.incident_polarization_vector = incident_polarization_vector
+        self.rotation_axis         = rotation_axis
+        self.time                  = time
+        self.phase                 = phase
+        self.hkl_indx              = hkl_indx
 
     @property
     def hkl(self):
@@ -57,27 +59,22 @@ class Scatterer(object):
     def lorentz_factor( self ):
         """Compute the Lorentz intensity factor for a scatterer.
         """
-        #TODO: finish
-        theta       = np.arccos( self.k.dot( self.kprime ) / (np.linalg.norm(self.k)**2) ) / 2.
-        korthogonal = self.kprime - self.k * self.kprime.dot( self.k ) / np.linalg.norm(self.k**2)
-        eta         = np.arccos( self.rhat.dot( korthogonal ) / np.linalg.norm( korthogonal ) )
-        #return 1. / ( np.sin(2 * theta) * np.abs( np.sin(eta) ) )
-        raise NotImplementedError()
+        k           = self.incident_wave_vector 
+        kp          = self.scattered_wave_vector
+        theta       = np.arccos( k.dot( kp ) / (np.linalg.norm(k)**2) ) / 2.
+        korthogonal = kp - k * kp.dot( k ) / np.linalg.norm(k**2)
+        eta         = np.arccos( self.rotation_axis.dot( korthogonal ) / np.linalg.norm( korthogonal ) )
+        if eta<1e-8 or theta<1e-8:
+            return np.inf
+        else:
+            return 1. / ( np.sin(2 * theta) * np.abs( np.sin(eta) ) )
 
     @property
     def polarization_factor( self ):
         """Compute the Polarization intensity factor for a scatterer.
         """
-        #return np.abs( self.incident_polarization_vector.dot( self.scattered_polarization_vector ) )**2
-        raise NotImplementedError()
-
-    @property
-    def incident_polarization_vector(self):
-        pass
-    
-    @property
-    def scattered_polarization_vector(self):
-        pass
+        khatp = self.scattered_wave_vector  / np.linalg.norm( self.scattered_wave_vector  )
+        return 1 - np.dot( self.incident_polarization_vector, khatp )**2
 
     @property
     def centroid(self):

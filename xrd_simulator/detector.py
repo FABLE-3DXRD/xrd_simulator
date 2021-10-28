@@ -49,7 +49,7 @@ class Detector(object):
             zd, yd = self.get_intersection( scatterer.kprime, scatterer.centroid )
             if self.contains(zd,yd):
                 # TODO: add lorentz etc
-                intensity = scatterer.volume #* scatterer.lorentz_factor * scatterer.polarization_factor
+                intensity = scatterer.volume * scatterer.lorentz_factor * scatterer.polarization_factor
                 if scatterer.real_structure_factor is not None:
                     intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
                 frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
