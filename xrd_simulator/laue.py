@@ -52,7 +52,7 @@ def get_tangens_half_angle_equation(k1, theta, G, rhat ):
         c_0 \cos(s \\alpha) + c_1 \sin(s \\alpha) + c_2 = 0. \\quad\\quad (1)
 
     """
-    c_0  = np.dot( k1, G)
+    c_0  = np.dot( k1, G )
     c_1  = np.dot( np.cross( rhat , k1 ), G )
     c_2  = np.linalg.norm(k1) * np.linalg.norm(G) * np.sin(theta)
     return c_0, c_1, c_2
@@ -109,4 +109,5 @@ def find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
         s2 = 2 * np.arctan( t2 ) / alpha
         if s2>1 or s2<0:
             s2 = None
+    
     return s1, s2

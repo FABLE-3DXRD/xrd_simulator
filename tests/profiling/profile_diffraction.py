@@ -4,53 +4,29 @@ from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
+from xrd_simulator.motion import RigidBodyMotion
 from xfab import tools
+from scipy.signal import convolve
 import cProfile
 import pstats
-import pkg_resources
-import os
-
-""" Profile the 
-"""
-
-np.random.seed(10)
-
-totrot = 10*np.pi/180
 
 pixel_size = 75.
 detector_size = pixel_size*1024
 detector_distance = 142938.28756189224
-geometry_matrix_0 = np.array([
-    [detector_distance,   -detector_size/2.,  -detector_size/2.],
-    [detector_distance,    detector_size/2.,  -detector_size/2.],
-    [detector_distance,   -detector_size/2.,   detector_size/2.]]).T
-def geometry_descriptor(s):
-    sin = np.sin( -s*totrot/2. )
-    cos = np.cos( -s*totrot/2. )
-    Rz = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
-    return Rz.dot( geometry_matrix_0 )
-detector = Detector( pixel_size, geometry_descriptor )
+d0 = np.array([detector_distance,   -detector_size/2.,  -detector_size/2.])
+d1 = np.array([detector_distance,    detector_size/2.,  -detector_size/2.])
+d2 = np.array([detector_distance,   -detector_size/2.,   detector_size/2.])
 
-# l = detector_size/10.
-# coord = np.array([ [0,0,0],
-#                    [0,l,0],
-#                    [l,0,0],
-#                    [0,0,l] ])    
-# enod = np.array([[0,1,2,3]])
-# mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
+detector = Detector( pixel_size, d0, d1, d2 )
 
 mesh = TetraMesh.generate_mesh_from_levelset(
-    level_set = lambda x: np.dot( x, x ) - detector_size/10.,
+    level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
     bounding_radius = 1.1*detector_size/10., 
-    cell_size = 0.0065*detector_size/10. )
+    cell_size = 0.005*detector_size/10. )
 
-#TODO: change this path 
-# mesh.to_xdmf("/home/axel/workspace/xrd_simulator/tests/visual_tests/quartz")
-
-data = pkg_resources.resource_filename(__name__, "../data/Fe_mp-150_conventional_standard.cif")
-unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
-sgname = 'Fm-3m' # Iron
-phases = [Phase(unit_cell, sgname, path_to_cif_file=data)]
+unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
+sgname = 'P3221' # Quartz
+phases = [Phase(unit_cell, sgname)]
 B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
 eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
 euler_angles = np.random.rand(mesh.number_of_elements, 3) * 2 * np.pi
@@ -58,7 +34,7 @@ eU = np.array( [tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles] )
 ephase = np.zeros((mesh.number_of_elements,)).astype(int)
 polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
 
-w = detector_size/40. # partial illumination with pencil beam
+w = detector_size/2. # full field beam
 beam_vertices = np.array([
     [-detector_distance, -w, -w ],
     [-detector_distance,  w, -w ],
@@ -68,19 +44,19 @@ beam_vertices = np.array([
     [ detector_distance,  w, -w  ],
     [ detector_distance,  w,  w  ],
     [ detector_distance, -w,  w  ]])
-wavelength = 0.2
+wavelength = 0.285227
+xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
+polarization_vector = np.array([0,1,0])
+beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
 
-sin = np.sin( -totrot/2. )
-cos = np.cos( -totrot/2. )
-Rz = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
-
-k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
-k2 = Rz.dot(k1)
-beam = Beam(beam_vertices, wavelength, k1, k2, translation=np.array([0., 0., 0.]))
+rotation_angle = 2*np.pi/180.
+rotation_axis = np.array([0,0,1])
+translation = np.array([0,0,0])
+motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 pr = cProfile.Profile()
 pr.enable()
-polycrystal.diffract( beam, detector )
+polycrystal.diffract( beam, detector, motion )
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')

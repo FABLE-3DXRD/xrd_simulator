@@ -58,10 +58,11 @@ class Beam(object):
             return None
 
     def intersect( self, vertices ):
-        """Compute the beam intersection with a series of convex polyhedra, returns a list of HalfspaceIntersections.
+        """Compute the beam intersection with a convex polyhedra, returns a list of HalfspaceIntersections.
 
         Args:
             vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ```shape=(N,3)```.
+            fully_contained (:obj:`boolean`): True if the convex polyhedra is completely contained within the beam.
 
         Returns:
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
@@ -70,12 +71,32 @@ class Beam(object):
         """
         poly_halfspace = ConvexHull( vertices ).equations
         combined_halfspaces = np.vstack( (poly_halfspace, self.halfspaces) )
-        interior_point = self.find_feasible_point(combined_halfspaces)
+
+        # Since find_feasible_point() is expensive it is worth checking for if the polyhedra
+        # centroid is contained by the beam, being a potential cheaply computed interior_point.
+        centroid = np.mean( vertices, axis=0 )
+        if self.contains( centroid ):
+            interior_point = centroid
+        else:
+            interior_point = self.find_feasible_point(combined_halfspaces)
+
         if interior_point is not None:
             hs = HalfspaceIntersection( combined_halfspaces , interior_point )
             return ConvexHull( hs.intersections )
         else:
             return None
+
+    def contains( self, point ):
+        """ Check if the beam contains a series of points.
+
+        Args:
+            points (:obj:`numpy array`): N points to evaluate ```shape=(N,3)```.
+
+        Returns:
+            Boolean True if the beam contains all points.
+
+        """
+        return np.all( self.halfspaces[:,0:3].dot( point ) + self.halfspaces[:,3] < 0 )
 
     def get_proximity_intervals(self, sphere_centres, sphere_radius, rigid_body_motion):
         """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are interesecting beam.

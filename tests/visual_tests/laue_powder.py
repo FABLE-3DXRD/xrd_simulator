@@ -3,8 +3,9 @@ from xfab import tools
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from xrd_simulator import laue, utils
+from xrd_simulator.motion import RodriguezRotator
 
-"""Simple simulation of 5 random quartz grains in powder diffraction style only using laue.py 
+"""Simple simulation of 50 random quartz grains in powder diffraction style only using laue.py 
 and no spatial functions, i.e not considering grain shapes and the like. This is a check to
 see that we have our basic crystal equations under control.
 """
@@ -25,8 +26,8 @@ ks = np.array( [ np.array([[np.cos(om),-np.sin(om),0],[np.sin(om),np.cos(om),0],
 ks = 2*np.pi*ks/wavelength
 
 hklrange = 3
-for _ in range(5): # sample of 10 crystals
-
+for ii in range(50): # sample of 10 crystals
+    print('Crystal no ', ii, 'of total ', 50)
     phi1, PHI, phi2 = np.random.rand(3,)*2*np.pi
     U = tools.euler_to_u(phi1, PHI, phi2)
     for hmiller in range(-hklrange,hklrange+1):
@@ -37,17 +38,20 @@ for _ in range(5): # sample of 10 crystals
 
                     G             = laue.get_G(U, B, G_hkl)
                     theta         = laue.get_bragg_angle(G, wavelength)                    
-                    rotator       = utils.RodriguezRotator( ks[i], ks[i+1] )
-                    c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(ks[i], theta, G, rotator.rhat ) 
-                    s1, s2        = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotator.alpha )
+                    
+                    rotation_axis  = np.array([0,0,1])
+                    rotator        = RodriguezRotator( rotation_axis )
+                    rotation_angle = omega[i+1]-omega[i]
+                    c_0, c_1, c_2  = laue.get_tangens_half_angle_equation(ks[i], theta, G, rotation_axis ) 
+                    s1, s2         = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotation_angle )
 
                     for j,s in enumerate([s1, s2]):
                         if s is not None:
                             
-                            wavevector =  rotator(ks[i],s)
+                            wavevector =  rotator(ks[i], s*rotation_angle)
                             kprime = G + wavevector
 
-                            ang = rotator.alpha*s
+                            ang = rotation_angle*s
                             sin = np.sin( -(omega[i]+ang) )
                             cos = np.cos( -(omega[i]+ang) )
                             R = np.array([[cos,-sin,0],[sin,cos,0],[0,0,1]])
@@ -65,7 +69,7 @@ for _ in range(5): # sample of 10 crystals
                                 detector[col, row] += 1
 
 
-kernel = np.ones((7,7))
+kernel = np.ones((4,4))
 detector = convolve(detector, kernel, mode='full', method='auto')
 plt.imshow(detector, cmap='gray')
 plt.title("Hits: "+str(np.sum(detector)/np.sum(kernel) ))

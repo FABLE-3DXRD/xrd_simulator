@@ -5,6 +5,7 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.scatterer import Scatterer
 from scipy.spatial import ConvexHull
 from xrd_simulator.beam import Beam
+import os
 
 class TestDetector(unittest.TestCase):
 
@@ -12,24 +13,15 @@ class TestDetector(unittest.TestCase):
         # TODO Updat the tests to work in the new labframe
         self.pixel_size = 50.
         self.detector_size = 10000.
-        geometry_matrix_0 = np.array([[1,0,0],[1,1,0],[1,0,1]]).T*self.detector_size
-        def geometry_descriptor(s):
-            sin = np.sin( -s*np.pi/2. )
-            cos = np.cos( -s*np.pi/2. )
-            Rz = np.array([ [ cos, -sin, 0 ],
-                            [ sin,  cos, 0 ],
-                            [  0,    0,  1 ] ])
-            return Rz.dot( geometry_matrix_0 )
-        self.detector = Detector( self.pixel_size, geometry_descriptor )
+        self.d0 = np.array([1,0,0])*self.detector_size
+        self.d1 = np.array([1,1,0])*self.detector_size
+        self.d2 = np.array([1,0,1])*self.detector_size
+        self.detector = Detector( self.pixel_size, self.d0, self.d1, self.d2 )
 
     def test_init(self):
 
-        for o,otrue in zip(self.detector.detector_origin, np.array([1,0,0])*self.detector_size):
+        for o,otrue in zip(self.detector.d0, np.array([1,0,0])*self.detector_size):
             self.assertAlmostEqual(o,otrue ,msg="detector origin is incorrect")
-
-        for i in range(3):
-            n = self.detector.normalised_geometry_matrix[:,i]
-            self.assertAlmostEqual(np.linalg.norm(n), 1 ,msg="normalised_geometry_matrix is not normalised")
 
         for z,ztrue in zip(self.detector.zdhat, np.array([0,0,1])):
             self.assertAlmostEqual(z, ztrue ,msg="zdhat is incorrect")
@@ -41,28 +33,6 @@ class TestDetector(unittest.TestCase):
         self.assertAlmostEqual(self.detector.ymax, self.detector_size, msg="Bad detector dimensions in ymax")
 
         for n,ntrue in zip(self.detector.normal, np.array([-1,0,0])):
-            self.assertAlmostEqual(n, ntrue ,msg="Bad detector normal")
-
-    def test_set_geometry(self):
-        self.detector.set_geometry(s=1)
-
-        for o,otrue in zip(self.detector.detector_origin, np.array([0,-1,0])*self.detector_size):
-            self.assertAlmostEqual(o,otrue ,msg="detector origin is incorrect")
-
-        for i in range(3):
-            n = self.detector.normalised_geometry_matrix[:,i]
-            self.assertAlmostEqual(np.linalg.norm(n), 1 ,msg="normalised_geometry_matrix is not normalised")
-
-        for z,ztrue in zip(self.detector.zdhat, np.array([0,0,1])):
-            self.assertAlmostEqual(z, ztrue ,msg="zdhat is incorrect")
-
-        for y,ytrue in zip(self.detector.ydhat, np.array([1,0,0])):
-            self.assertAlmostEqual(y, ytrue ,msg="ydhat is incorrect")
-
-        self.assertAlmostEqual(self.detector.zmax, self.detector_size, msg="Bad detector dimensions in zmax")
-        self.assertAlmostEqual(self.detector.ymax, self.detector_size, msg="Bad detector dimensions in ymax")
-
-        for n,ntrue in zip(self.detector.normal, np.array([0,1,0])):
             self.assertAlmostEqual(n, ntrue ,msg="Bad detector normal")
 
     def test_render(self):
@@ -79,20 +49,49 @@ class TestDetector(unittest.TestCase):
                           [1,0,0]]) + 2*v*np.sqrt(2)*self.detector_size # cube out of detector bounds
         ch2 = ConvexHull( verts2 )
         wavelength = 1.0
-        kprime = 2*np.pi*np.array([1,0,0])/(wavelength)
 
-        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
-        sgname = 'P3221' # Quartz
-        phase = Phase(unit_cell, sgname)
+        incident_wave_vector = 2*np.pi* np.array([1,0,0])/(wavelength)
+        scattered_wave_vector = self.d0 + self.pixel_size*3*self.detector.ydhat + self.pixel_size*2*self.detector.zdhat
+        scattered_wave_vector = 2*np.pi*scattered_wave_vector/(np.linalg.norm(scattered_wave_vector)*wavelength)
 
-        bragg_angle = np.random.rand()*np.pi
-        scatterer1 = Scatterer(ch1, kprime, bragg_angle, s=0, phase=phase, hkl_indx=0)
-        scatterer2 = Scatterer(ch2, kprime, bragg_angle, s=0, phase=phase, hkl_indx=0)
+        data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m' # Iron
+        phase   = Phase(unit_cell, sgname, path_to_cif_file=data)
+        phase.setup_diffracting_planes(wavelength, 0, 20*np.pi/180)
+
+        scatterer1 = Scatterer( ch1, 
+                                scattered_wave_vector=scattered_wave_vector, 
+                                incident_wave_vector=incident_wave_vector, 
+                                wavelength=wavelength,
+                                incident_polarization_vector=np.array([0,1,0]), 
+                                rotation_axis=np.array([0,0,1]),
+                                time=0, 
+                                phase=phase, 
+                                hkl_indx=0 )
+        scatterer2 = Scatterer( ch2, 
+                                scattered_wave_vector=scattered_wave_vector, 
+                                incident_wave_vector=incident_wave_vector, 
+                                wavelength=wavelength,
+                                incident_polarization_vector=np.array([0,1,0]), 
+                                rotation_axis=np.array([0,0,1]),
+                                time=0, 
+                                phase=phase, 
+                                hkl_indx=0 )
+
         self.detector.frames.append([scatterer1, scatterer2])
-        piximage = self.detector.render(frame_number=0)
-        ic = int( (self.detector_size/self.pixel_size) / 2 )
-        self.assertAlmostEqual(piximage[ic,ic], ch1.volume, msg="detector rendering did not capture scatterer")
+        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False)
+        npix = int( self.detector_size / (2*self.pixel_size) )
+        self.assertAlmostEqual(piximage[npix+2,npix+3], ch1.volume, msg="detector rendering did not capture scatterer")
         self.assertAlmostEqual(np.sum(piximage), ch1.volume, msg="detector rendering captured out of bounds scatterer")
+
+        # Try rendering with advanced intensity model
+        piximage = self.detector.render(frame_number=0, lorentz=True, polarization=False, structure_factor=False)
+        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use lorentz factor")
+        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=True, structure_factor=False)
+        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use polarization factor")
+        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=True)
+        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
 
     def test_get_intersection(self):
 
@@ -139,29 +138,6 @@ class TestDetector(unittest.TestCase):
         source_point -= self.detector.ydhat*10*self.pixel_size
         opening_angle = self.detector.get_wrapping_cone(k, source_point)
         self.assertGreaterEqual(opening_angle, expected_angle, msg="detector off centered wrapping cone has opening angle")
-
-    def test_approximate_wrapping_cone(self):
-        
-        source_point  = (10*self.detector.zdhat + 10*self.detector.ydhat) * self.pixel_size
-        margin=np.pi/180
-        max_expected_angle = margin + np.arctan( ((np.sqrt(2)*self.detector_size)-10.*self.pixel_size) / self.detector_size ) / 2.
-
-        beam_vertices = np.array([
-            [-self.detector_size, 0.,                 0.                 ],
-            [-self.detector_size, 10*self.pixel_size, 0.                 ],
-            [-self.detector_size, 0.,                 10*self.pixel_size ],
-            [-self.detector_size, 10*self.pixel_size, 10*self.pixel_size ],
-            [ self.detector_size, 0.,                 0.                 ],
-            [ self.detector_size, 10*self.pixel_size, 0.                 ],
-            [ self.detector_size, 0.,                 10*self.pixel_size ],
-            [ self.detector_size, 10*self.pixel_size, 10*self.pixel_size ]]) + source_point
-        wavelength = 1.0
-        k1 = np.array([1,0,0]) * 2 * np.pi / wavelength
-        k2 = np.array([0,-1,0]) * 2 * np.pi / wavelength
-        beam = Beam(beam_vertices, wavelength=wavelength, k1=k1, k2=k2, translation=np.array([0,0,0]))
-
-        opening_angle = self.detector.approximate_wrapping_cone( beam, samples=180, margin=margin )
-        self.assertGreaterEqual(max_expected_angle, opening_angle, msg="approximated wrapping cone is too large")
 
 if __name__ == '__main__':
     unittest.main()

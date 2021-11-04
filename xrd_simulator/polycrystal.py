@@ -65,36 +65,42 @@ class Polycrystal(object):
 
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
-
-        c_0_factor   = -beam.wave_vector.T.dot( rigid_body_motion.rotator.K2 )
-        c_1_factor   =  beam.wave_vector.T.dot( rigid_body_motion.rotator.K )
-        c_2_factor   =  beam.wave_vector.T.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
+        
+        c_0_factor   = -beam.wave_vector.dot( rigid_body_motion.rotator.K2 )
+        c_1_factor   =  beam.wave_vector.dot( rigid_body_motion.rotator.K  )
+        c_2_factor   =  beam.wave_vector.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
 
         scatterers = []
 
         proximity_intervals = beam.get_proximity_intervals(self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion) 
 
         for ei in range( self.mesh_lab.number_of_elements ):
-            if proximity_intervals[ei][0] is None: continue
+
+            # skipp elements not illuminated
+            if proximity_intervals[ei][0] is None: 
+                continue
+            
 
             print("Computing for element {} of total elements {}".format(ei,self.mesh_lab.number_of_elements))
-            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei]] 
+            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei],:] 
             G_0 = laue.get_G(self.eU_lab[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
 
             c_0s  = c_0_factor.dot(G_0)
             c_1s  = c_1_factor.dot(G_0)
-            sinth, normG = laue.get_sin_theta_and_norm_G(G_0, beam.wavelength)
-            c_2s  = c_2_factor.dot(G_0) + (2 * np.pi / beam.wavelength) * normG * sinth
+            c_2s  = c_2_factor.dot(G_0) + np.sum((G_0*G_0),axis=0)/2.
 
             for hkl_indx in range(G_0.shape[1]):
                 for time in laue.find_solutions_to_tangens_half_angle_equation( c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], rigid_body_motion.rotation_angle ):
                     if time is not None:
                         if utils.contained_by_intervals( time, proximity_intervals[ei] ):
-                            element_vertices = rigid_body_motion( element_vertices_0, time )
+                            element_vertices = rigid_body_motion( element_vertices_0.T, time ).T
+
+                            # mark elements that neaver leave the beam before computing intersection
                             scattering_region = beam.intersect( element_vertices )
+
                             if scattering_region is not None:
-                                G = rigid_body_motion( G_0[:,hkl_indx], time )
-                                scattered_wave_vector = G_0[:,hkl_indx] + beam.wave_vector
+                                G = rigid_body_motion.rotate( G_0[:,hkl_indx], time )
+                                scattered_wave_vector = G + beam.wave_vector                                
                                 scatterer = Scatterer(  scattering_region, 
                                                         scattered_wave_vector,
                                                         beam.wave_vector,
@@ -113,7 +119,7 @@ class Polycrystal(object):
             # TODO: make a smarter selection of source point for get_wrapping_cone()
             max_bragg_angle = detector.get_wrapping_cone( beam.wave_vector, self.mesh_lab.centroid )
 
-        assert min_bragg_angle>0, "min_bragg_angle must be greater than zero"
+        assert min_bragg_angle>=0, "min_bragg_angle must be greater or equal than zero"
         assert max_bragg_angle>min_bragg_angle, "max_bragg_angle must be greater than min_bragg_angle"
 
         if max_bragg_angle > 25*np.pi/180: 

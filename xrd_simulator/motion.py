@@ -57,7 +57,11 @@ class RigidBodyMotion(object):
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
-        return vectors + self.translation * time
+        if len( vectors.shape )>1:
+            translation = self.translation.reshape( 3, 1 )
+        else:
+            translation = self.translation
+        return vectors + translation * time
 
     def __call__( self, vectors, time ):
         """Find the transformation of a set of points at a prescribed time.
@@ -71,7 +75,11 @@ class RigidBodyMotion(object):
 
         """ 
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
-        return self.rotator( vectors, self.rotation_angle * time ) + self.translation * time
+        if len( vectors.shape )>1:
+            translation = self.translation.reshape( 3, 1 )
+        else:
+            translation = self.translation
+        return self.rotator( vectors, self.rotation_angle * time ) + translation * time
 
 class RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
