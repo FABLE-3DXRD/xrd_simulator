@@ -23,7 +23,7 @@ r = (detector_size/10.)
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: x[0]*x[0] + x[1]*x[1] + x[2]*x[2] - r**2,
     bounding_radius = 1.1*r, 
-    cell_size = 0.35*r )#0.27*r )
+    cell_size = 0.27*r )
 
 print('nelm:', mesh.number_of_elements)
 
@@ -34,12 +34,12 @@ B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
 eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
 
 grain_avg_rot = np.max( [np.radians(1.0), np.random.rand() * 2 * np.pi] )
-euler_angles  = grain_avg_rot  + np.random.normal(loc=0.0, scale=np.radians(0.05), size=(mesh.number_of_elements, 3) ) 
+euler_angles  = grain_avg_rot  + np.random.normal(loc=0.0, scale=np.radians(0.1), size=(mesh.number_of_elements, 3) ) 
 eU = np.array( [tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles] )
 ephase = np.zeros((mesh.number_of_elements,)).astype(int)
 polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
 
-w = detector_size/2. # full field beam
+w = detector_size # full field beam
 beam_vertices = np.array([
     [-detector_distance, -w, -w ],
     [-detector_distance,  w, -w ],
@@ -54,18 +54,17 @@ xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
 polarization_vector = np.array([0,1,0])
 beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
 
-rotation_angle = 0.25*np.pi/180.
+rotation_angle = 0.5*np.pi/180.
 rotation_axis = np.array([0,0,1])
 translation = np.array([0,0,0])
 motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 polycrystal.diffract( beam, detector, motion )
-pixim = detector.render(frame_number=0)
+pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False)
 
 import matplotlib.pyplot as plt
-from scipy.signal import convolve
-pixim[ pixim<=0 ] = 1
-pixim = np.log(pixim)
-plt.imshow(pixim , cmap='gray')
+#pixim[ pixim<=0 ] = 1
+#pixim = np.log(pixim)
+plt.imshow(pixim , cmap='jet')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()
