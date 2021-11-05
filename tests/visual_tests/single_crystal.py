@@ -33,7 +33,7 @@ B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
 eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
 
 grain_avg_rot = np.max( [np.radians(1.0), np.random.rand() * 2 * np.pi] )
-euler_angles  = grain_avg_rot  + np.random.normal(loc=0.0, scale=np.radians(0.1), size=(mesh.number_of_elements, 3) ) 
+euler_angles  = grain_avg_rot  + np.random.normal(loc=0.0, scale=np.radians(0.05), size=(mesh.number_of_elements, 3) ) 
 eU = np.array( [tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles] )
 ephase = np.zeros((mesh.number_of_elements,)).astype(int)
 polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
@@ -52,7 +52,7 @@ wavelength = 0.285227
 xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
 polarization_vector = np.array([0,1,0])
 beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
-
+d
 rotation_angle = 0.5*np.pi/180.
 rotation_axis = np.array([0,0,1])
 translation = np.array([0,0,0])
@@ -65,6 +65,6 @@ import matplotlib.pyplot as plt
 from scipy.signal import convolve
 pixim[ pixim<=0 ] = 1
 pixim = np.log(pixim)
-plt.imshow(pixim , cmap='jet')
+plt.imshow(pixim , cmap='gray')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

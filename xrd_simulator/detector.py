@@ -64,6 +64,43 @@ class Detector(object):
                 frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
         return frame
 
+    def project( self, scatterer ):
+        """Compute parametric projection of scattering region unto detector.
+
+            NOTE: Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
+            (based on orthogonal equations: (p - e - t*r) . n = 0 )
+        """
+
+        vertices      = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
+        ray_direction = scatterer.scattered_wave_vector / np.linalg.norm( scatterer.scattered_wave_vector )
+        plane_ofsets  = scatterer.convex_hull.equations[:,0:3]
+        plane_normals = scatterer.convex_hull.equations[:,3]
+
+        detector_intersection = np.zeros((vertices.shape[0],2))
+        clip_length           = np.zeros((vertices.shape[0],))
+
+        # for each vertex
+        for i,e in enumerate( vertices ):  
+            plane_points = -np.multiply( plane_ofsets, plane_normals ) 
+
+            pe = plane_points-e
+            n  = plane_normals 
+
+            # find ine-plane intersect 
+            t1 = np.sum( np.multiply(pe,n), axis=1 )
+            t2 = np.dot( n, ray_direction ) 
+            ti = t1/t2
+            
+            # Sort intersections as potential entry and exit points
+            te = np.max( ti[t2<0] )
+            tl = np.min( ti[t2>0] )
+
+            zd, yd = get_intersection( ray_direction, source_point=e )
+            clip_length[i] =  tl-te
+            detector_intersection[i,:] = [ zd, yd ]
+
+        return detector_intersection, clip_length
+
     def get_intersection(self, ray_direction, source_point):
         """Get detector intersection in detector coordinates of singel a ray originating from source_point.
 
