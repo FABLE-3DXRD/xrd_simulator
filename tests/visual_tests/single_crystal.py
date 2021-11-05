@@ -23,7 +23,8 @@ r = (detector_size/10.)
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: x[0]*x[0] + x[1]*x[1] + x[2]*x[2] - r**2,
     bounding_radius = 1.1*r, 
-    cell_size = 0.27*r )
+    cell_size = 0.35*r )#0.27*r )
+
 print('nelm:', mesh.number_of_elements)
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
@@ -52,8 +53,8 @@ wavelength = 0.285227
 xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
 polarization_vector = np.array([0,1,0])
 beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
-d
-rotation_angle = 0.5*np.pi/180.
+
+rotation_angle = 0.25*np.pi/180.
 rotation_axis = np.array([0,0,1])
 translation = np.array([0,0,0])
 motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)

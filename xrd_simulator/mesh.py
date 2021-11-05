@@ -217,7 +217,7 @@ class TetraMesh(object):
             eradius[i] = np.sqrt( r )
             # Whats this .. no trust ...
             for c in ec:
-                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2 + 1e-8
+                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2 + 1e-8, "error = "+str( (c-espherecentroids[i]).dot(c-espherecentroids[i]) - eradius[i]**2 )
         return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.lib.utils import source
 from xrd_simulator import utils
+from scipy.interpolate import griddata
 
 class Detector(object):
 
@@ -52,37 +53,75 @@ class Detector(object):
         """
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for scatterer in self.frames[frame_number]:
-            zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
-            if self.contains(zd,yd):
-                intensity = scatterer.volume
-                if lorentz:
-                    intensity = intensity * scatterer.lorentz_factor 
-                if polarization:
-                    intensity = intensity * scatterer.polarization_factor
-                if structure_factor and scatterer.real_structure_factor is not None:
-                    intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
-                frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
+            z0, z1, y0, y1, intensity = self.project( scatterer, full=True )
+            #zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
+            #if self.contains(zd,yd):
+            #intensity = scatterer.volume
+            if lorentz:
+                intensity = intensity * scatterer.lorentz_factor 
+            if polarization:
+                intensity = intensity * scatterer.polarization_factor
+            if structure_factor and scatterer.real_structure_factor is not None:
+                intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
+            #frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
+            print(intensity.shape, z0, z1, y0, y1)
+            frame[z0:z1, y0:y1] += intensity
         return frame
 
-    def project( self, scatterer ):
+    def project( self, scatterer, full=False ):
+        if not full:
+            zd, yd      = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
+            z0,z1,y0,y1 = zd, zd+1, yd, yd+1
+            volume_intensity_weight = scatterer.volume
+        else:
+            detector_intersection, clip_length = self.project_convex_hull(scatterer)
+
+            zd = detector_intersection[:,0]
+            yd = detector_intersection[:,1]
+            points = np.array( [ zd, yd ] ).T/self.pixel_size
+            values = clip_length
+
+            minpix_zd = int(np.min(zd)/self.pixel_size)
+            maxpix_zd = int(np.max(zd)/self.pixel_size)
+            minpix_yd = int(np.min(yd)/self.pixel_size)
+            maxpix_yd = int(np.max(yd)/self.pixel_size)
+
+            zz = np.linspace(minpix_zd, maxpix_zd, maxpix_zd-minpix_zd+1 )
+            yy = np.linspace(minpix_yd, maxpix_yd, maxpix_yd-minpix_yd+1 )
+            Z,Y = np.meshgrid(zz, yy, indexing='ij')
+            xi = np.array( [Z.flatten(), Y.flatten()] ).T
+
+            volume_intensity_weight = griddata(points, values, xi, method='linear', fill_value=0, rescale=False)
+            volume_intensity_weight = volume_intensity_weight.reshape(Z.shape)
+            z0,z1,y0,y1 = minpix_zd, maxpix_zd+1, minpix_yd, maxpix_yd+1
+
+            import matplotlib.pyplot as plt
+            plt.imshow(volume_intensity_weight)
+            plt.title( "z0=" +str(z0)+"   z1="+str(z1)+"   y0="+str(y0)+"   y1="+str(y1) )
+            plt.show()
+            
+        return z0, z1, y0, y1, volume_intensity_weight
+
+    def project_convex_hull( self, scatterer ):
         """Compute parametric projection of scattering region unto detector.
 
             NOTE: Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
             (based on orthogonal equations: (p - e - t*r) . n = 0 )
         """
-
+        #TODO: Consider moving bulk of this to utils.py
         vertices      = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
         ray_direction = scatterer.scattered_wave_vector / np.linalg.norm( scatterer.scattered_wave_vector )
-        plane_ofsets  = scatterer.convex_hull.equations[:,0:3]
-        plane_normals = scatterer.convex_hull.equations[:,3]
+        plane_normals = scatterer.convex_hull.equations[:,0:3]
+        plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
 
         detector_intersection = np.zeros((vertices.shape[0],2))
         clip_length           = np.zeros((vertices.shape[0],))
 
         # for each vertex
         for i,e in enumerate( vertices ):  
-            plane_points = -np.multiply( plane_ofsets, plane_normals ) 
 
+            plane_points = -np.multiply( plane_ofsets, plane_normals ) 
+            
             pe = plane_points-e
             n  = plane_normals 
 
@@ -95,7 +134,7 @@ class Detector(object):
             te = np.max( ti[t2<0] )
             tl = np.min( ti[t2>0] )
 
-            zd, yd = get_intersection( ray_direction, source_point=e )
+            zd, yd = self.get_intersection( ray_direction, source_point=e )
             clip_length[i] =  tl-te
             detector_intersection[i,:] = [ zd, yd ]
 
@@ -112,6 +151,7 @@ class Detector(object):
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
+        #TODO: Consider moving this to utils.py and generalise for line and plane
         s = (self.d0 - source_point).dot(self.normal) / ray_direction.dot(self.normal)
         intersection =  source_point + ray_direction*s
         zd = np.dot( intersection - self.d0 , self.zdhat)
