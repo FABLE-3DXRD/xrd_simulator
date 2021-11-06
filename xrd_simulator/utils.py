@@ -41,3 +41,37 @@ def CIFopen( ciffile ):
     from CifFile import ReadCif
     cf = ReadCif(ciffile)
     return cf[ list(cf.keys())[0] ]
+
+def clip_line_with_convex_polyhedron( ray_points, ray_direction, plane_points, plane_normals ):
+    """Compute clip-lengths of line-segments clipped by a convex polyhedron defined by a series of 2d planes.
+
+        For algorihtm description see:
+            Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
+
+        Args:
+            ray_points (:obj:`numpy array`): base points of rays (exterior to polyhedron), ```shape=(n,3)```
+            ray_direction  (:obj:`numpy array`): normalised ray directions,  ```shape=(n,3)```
+            plane_points (:obj:`numpy array`): point on each polyhedron face of, ```shape=(m,3)```
+            plane_normals (:obj:`numpy array`): outwards element face normals, shape: nbr elements x nbr faces x 3
+
+        Returns:
+            clip_lengths (:obj:`numpy array`) : intersection lengths.
+
+    """
+    clip_lengths = np.zeros((ray_points.shape[0],))
+
+    # for each line segment
+    for i,e in enumerate( ray_points ): 
+
+        # find paramteric line-plane intersect based on orthogonal equations: (p - e - t*r) . n = 0 
+        t1 = np.sum( np.multiply( plane_points-e, plane_normals ), axis=1 )
+        t2 = np.dot( plane_normals, ray_direction ) 
+        ti = t1/t2
+        
+        # Sort intersections as potential entry and exit points
+        te = np.max( ti[t2<0] )
+        tl = np.min( ti[t2>0] )
+
+        clip_lengths[i] = np.max( [0, tl-te] )
+
+    return clip_lengths

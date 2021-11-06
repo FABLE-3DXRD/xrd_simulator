@@ -38,6 +38,11 @@ class Detector(object):
         self.normal = np.cross(self.zdhat, self.ydhat)
         self.frames = []
 
+        zz = np.arange(0, self.zmax, self.pixel_size)
+        yy = np.arange(0, self.ymax, self.pixel_size)
+        Z,Y = np.meshgrid(zz, yy, indexing='ij')
+        self.pixel_coordinates = np.array([self.d0 + y*self.ydhat + z*self.zdhat for y,z in zip(Y.flatten(),Z.flatten()) ])
+
     def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True):
         """Take a list of scatterers render to a pixelated pattern.
 
@@ -53,7 +58,7 @@ class Detector(object):
         """
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for scatterer in self.frames[frame_number]:
-            z0, z1, y0, y1, intensity = self.project( scatterer, full=True ) #TODO: move keyword full to controllable place
+            mask, intensity = self.project( scatterer, full=True ) #TODO: move keyword full to controllable place
             if intensity is not None:
                 #zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
                 #if self.contains(zd,yd):
@@ -65,8 +70,8 @@ class Detector(object):
                 if structure_factor and scatterer.real_structure_factor is not None:
                     intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
                 #frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
-                print(z0, z1, y0, y1)
-                frame[z0:z1, y0:y1] += intensity
+    
+                frame[ mask.reshape(frame.shape) ] += intensity
         return frame
 
     def project( self, scatterer, full=False ):
@@ -74,56 +79,18 @@ class Detector(object):
         #TODO: Fix weird prjections...
         if not full:
             zd, yd      = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
-            z0,z1,y0,y1 = int(zd/self.pixel_size), int(zd/self.pixel_size)+1, int(yd/self.pixel_size), int(yd/self.pixel_size)+1
+            zd, yd = int(zd/self.pixel_size), int(yd/self.pixel_size)
+            mask = (self.pixel_coordinates[:,1]==zd)*(self.pixel_coordinates[:,2]==yd)
             if self.contains(zd, yd):
                 volume_intensity_weight = scatterer.volume
             else:
                 volume_intensity_weight = None
         else:
-            detector_intersection, clip_length = self.project_convex_hull(scatterer)
+            mask, clip_lengths = self.project_convex_hull(scatterer)
 
-            zd = detector_intersection[:,0]
-            yd = detector_intersection[:,1]
-            points = np.array( [ zd, yd ] ).T/self.pixel_size
-            values = clip_length
+            volume_intensity_weight = clip_lengths
 
-            minpix_zd = int(np.min(zd)/self.pixel_size)
-            maxpix_zd = int(np.max(zd)/self.pixel_size)
-            minpix_yd = int(np.min(yd)/self.pixel_size)
-            maxpix_yd = int(np.max(yd)/self.pixel_size)
-            
-            if minpix_yd<0: minpix_yd=0
-            elif minpix_yd>=int(self.ymax/self.pixel_size): minpix_yd = int(self.ymax/self.pixel_size)-1
-
-            if maxpix_yd<0: maxpix_yd=0
-            elif maxpix_yd>=int(self.ymax/self.pixel_size): maxpix_yd = int(self.ymax/self.pixel_size)-1
-
-            if minpix_zd<0: minpix_zd=0
-            elif minpix_zd>=int(self.zmax/self.pixel_size): minpix_zd = int(self.zmax/self.pixel_size)-1
-
-            if maxpix_zd<0: maxpix_zd=0
-            elif maxpix_zd>=int(self.zmax/self.pixel_size): maxpix_zd = int(self.zmax/self.pixel_size)-1
-
-            steps = 3
-            zz = np.linspace(minpix_zd, maxpix_zd, steps*(maxpix_zd-minpix_zd+1) )
-            yy = np.linspace(minpix_yd, maxpix_yd, steps*(maxpix_yd-minpix_yd+1) )
-            Z,Y = np.meshgrid(zz, yy, indexing='ij')
-            xi = np.array( [Z.flatten(), Y.flatten()] ).T
-
-            high_res_volume_intensity_weight = griddata(points, values, xi, method='linear', fill_value=0, rescale=False).reshape(Z.shape)
-
-            volume_intensity_weight = np.zeros((high_res_volume_intensity_weight.shape[0]//steps, high_res_volume_intensity_weight.shape[1]//steps))
-            for i in range(steps):
-                volume_intensity_weight += high_res_volume_intensity_weight[i::steps, i::steps]
-            volume_intensity_weight = volume_intensity_weight/ (steps**2)
-
-            z0,z1,y0,y1 = minpix_zd, maxpix_zd+1, minpix_yd, maxpix_yd+1
-            # import matplotlib.pyplot as plt
-            # plt.imshow(volume_intensity_weight)
-            # plt.title( "z0=" +str(z0)+"   z1="+str(z1)+"   y0="+str(y0)+"   y1="+str(y1) )
-            # plt.show()
-
-        return z0, z1, y0, y1, volume_intensity_weight
+        return mask, volume_intensity_weight
 
     def project_convex_hull( self, scatterer ):
         """Compute parametric projection of scattering region unto detector.
@@ -131,38 +98,20 @@ class Detector(object):
             NOTE: Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
             (based on orthogonal equations: (p - e - t*r) . n = 0 )
         """
-        #TODO: Consider moving bulk of this to utils.py
-        vertices      = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
         ray_direction = scatterer.scattered_wave_vector / np.linalg.norm( scatterer.scattered_wave_vector )
+
+        vertices = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
+        vp = np.array( [self.get_intersection( ray_direction, v) for v in vertices] )
+        minzd,maxzd = np.min(vp[:,0]), np.max(vp[:,0])
+        minyd,maxyd = np.min(vp[:,1]), np.max(vp[:,1])
+        mask = (self.pixel_coordinates[:,1]<maxyd)*(self.pixel_coordinates[:,1]>minyd)*(self.pixel_coordinates[:,2]<maxzd)*(self.pixel_coordinates[:,2]>minzd)
+        ray_points = self.pixel_coordinates[mask]
+
         plane_normals = scatterer.convex_hull.equations[:,0:3]
         plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
-
-        detector_intersection = np.zeros((vertices.shape[0],2))
-        clip_length           = np.zeros((vertices.shape[0],))
-
-        # for each vertex
-        for i,e in enumerate( vertices ):  
-
-            plane_points = -np.multiply( plane_ofsets, plane_normals ) 
-            
-            pe = plane_points-e
-            n  = plane_normals 
-
-            # find ine-plane intersect 
-            t1 = np.sum( np.multiply(pe,n), axis=1 )
-            t2 = np.dot( n, ray_direction ) 
-            ti = t1/t2
-            
-            # Sort intersections as potential entry and exit points
-            te = np.max( ti[t2<0] )
-            tl = np.min( ti[t2>0] )
-
-            zd, yd = self.get_intersection( ray_direction, source_point=e )
-            clip_length[i] =  np.max([0, tl-te]) # safeguard against bad precision to avoid negative lengths
-            assert tl-te>=-1e-7, str(tl-te)+"  "+str(t2)+"  "+str(ti)+"  "+str(te)+"  "+str(tl)
-            detector_intersection[i,:] = [ zd, yd ]
-
-        return detector_intersection, clip_length
+        plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
+        clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
+        return mask, clip_lengths
 
     def get_intersection(self, ray_direction, source_point):
         """Get detector intersection in detector coordinates of singel a ray originating from source_point.
@@ -177,7 +126,7 @@ class Detector(object):
         """
         #TODO: Consider moving this to utils.py and generalise for line and plane
         s = (self.d0 - source_point).dot(self.normal) / ray_direction.dot(self.normal)
-        intersection =  source_point + ray_direction*s
+        intersection = source_point + ray_direction*s
         zd = np.dot( intersection - self.d0 , self.zdhat)
         yd = np.dot( intersection - self.d0 , self.ydhat)
         return zd, yd

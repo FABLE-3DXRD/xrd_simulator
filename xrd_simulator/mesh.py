@@ -38,6 +38,7 @@ class TetraMesh(object):
         self.ecentroids  = None
         self.eradius     = None
         self.espherecentroids = None
+        self.evolumes    = None
         self.ecmat       = None
         self.centroid    = None
         self.number_of_elements = None
@@ -127,6 +128,7 @@ class TetraMesh(object):
         self.eradius,self.espherecentroids = self._compute_mesh_spheres( self.coord, self.enod )
         self.ecmat           = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
         self.centroid        = np.mean(self.ecentroids, axis=0)
+        self.evolumes        = self._compute_mesh_volumes( self.enod, self.coord )
 
     def update( self, new_nodal_coordinates ):
         """Update the mesh coordinates and any dependent quanteties by changing the node coordinates.
@@ -205,6 +207,18 @@ class TetraMesh(object):
             ecentroids[i,:] = np.sum( ec, axis=0 )/ec.shape[0]
         return ecentroids
 
+    def _compute_mesh_volumes( self, enod, coord ):
+        """Compute per element enclosed volume.
+        """
+        evolumes = np.zeros((enod.shape[0],))
+        for i in range( enod.shape[0] ):
+            ec = coord[enod[i,:], :]
+            a = ec[1] - ec[0]
+            b = ec[2] - ec[0]
+            c = ec[3] - ec[0]
+            evolumes[i] = (1/6.)*np.dot( np.cross( a, b ), c)
+        return evolumes
+
     def _compute_mesh_spheres(self, coord, enod):
         """Compute per element minimal bounding spheres.
         """
@@ -217,7 +231,7 @@ class TetraMesh(object):
             eradius[i] = np.sqrt( r )
             # Whats this .. no trust ...
             for c in ec:
-                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= eradius[i]**2 + 1e-8, "error = "+str( (c-espherecentroids[i]).dot(c-espherecentroids[i]) - eradius[i]**2 )
+                assert (c-espherecentroids[i]).dot(c-espherecentroids[i]) <= (eradius[i]*1.001)**2, "error = "+str( (c-espherecentroids[i]).dot(c-espherecentroids[i]) - eradius[i]**2 )
         return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):
