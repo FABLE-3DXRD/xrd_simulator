@@ -41,7 +41,8 @@ class Detector(object):
         zz = np.arange(0, self.zmax, self.pixel_size)
         yy = np.arange(0, self.ymax, self.pixel_size)
         Z,Y = np.meshgrid(zz, yy, indexing='ij')
-        self.pixel_coordinates = np.array([self.d0 + y*self.ydhat + z*self.zdhat for y,z in zip(Y.flatten(),Z.flatten()) ])
+        self.pixel_real_coordinates = np.array([self.d0 + y*self.ydhat + z*self.zdhat for y,z in zip(Y.flatten(),Z.flatten()) ])
+        self.pixel_det_coordinates = np.array([ [z, y] for y,z in zip(Y.flatten(),Z.flatten()) ])
 
     def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True):
         """Take a list of scatterers render to a pixelated pattern.
@@ -87,7 +88,7 @@ class Detector(object):
                 volume_intensity_weight = None
         else:
             mask, clip_lengths = self.project_convex_hull(scatterer)
-
+            
             volume_intensity_weight = clip_lengths
 
         return mask, volume_intensity_weight
@@ -102,15 +103,22 @@ class Detector(object):
 
         vertices = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
         vp = np.array( [self.get_intersection( ray_direction, v) for v in vertices] )
-        minzd,maxzd = np.min(vp[:,0]), np.max(vp[:,0])
-        minyd,maxyd = np.min(vp[:,1]), np.max(vp[:,1])
-        mask = (self.pixel_coordinates[:,1]<maxyd)*(self.pixel_coordinates[:,1]>minyd)*(self.pixel_coordinates[:,2]<maxzd)*(self.pixel_coordinates[:,2]>minzd)
-        ray_points = self.pixel_coordinates[mask]
+
+        minzd, maxzd = np.min(vp[:,0]), np.max(vp[:,0])
+        minyd, maxyd = np.min(vp[:,1]), np.max(vp[:,1])
+        mask = (self.pixel_det_coordinates[:,1]<=maxyd)*(self.pixel_det_coordinates[:,1]>=minyd)*(self.pixel_det_coordinates[:,0]<=maxzd)*(self.pixel_det_coordinates[:,0]>=minzd)
+        ray_points = self.pixel_real_coordinates[mask,:]
+        print(ray_points.shape)
+        print( np.sum(np.array( [self.contains(v[0],v[1]) for v in vp] )) )
+        #print( "mask sum: ", np.sum(mask) )
+        #print( minzd, maxzd, self.zmax )
+        #print( minyd, maxyd, self.zmax )
 
         plane_normals = scatterer.convex_hull.equations[:,0:3]
         plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
         plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
         clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
+
         return mask, clip_lengths
 
     def get_intersection(self, ray_direction, source_point):

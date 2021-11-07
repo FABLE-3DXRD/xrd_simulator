@@ -25,6 +25,12 @@ mesh = TetraMesh.generate_mesh_from_levelset(
     bounding_radius = 1.1*r, 
     cell_size = 0.39*r )
 
+# coord = np.array([[0,0,0],
+#                   [0,1,0],
+#                   [0,0,1],
+#                   [1,0,0]])*(detector_size/10.)
+# enod = np.array([[0,1,2,3]])
+# mesh = TetraMesh.generate_mesh_from_vertices( coord, enod)
 print('nelm:', mesh.number_of_elements)
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
