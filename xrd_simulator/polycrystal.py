@@ -125,7 +125,7 @@ class Polycrystal(object):
         if max_bragg_angle > 25*np.pi/180: 
             angle = str(np.round(np.degrees(max_bragg_angle),1))
             print( "WARNING: Maximum Bragg-angle is large ("+angle+" dgrs), computations may be slow due to abundant scattering." )
-        
+
         return min_bragg_angle, max_bragg_angle
 
     def transform(self, rigid_body_motion, time):
@@ -142,7 +142,7 @@ class Polycrystal(object):
 
         
         """
-        new_nodal_coordinates = rigid_body_motion( self.mesh_lab.coord.T, time=time )
+        new_nodal_coordinates = rigid_body_motion( self.mesh_lab.coord.T, time=time ).T
         self.mesh_lab.update( new_nodal_coordinates )
         for ei in range(self.mesh_lab.coord.shape[0]):
             self.eU_lab[ei] = rigid_body_motion.rotate( self.eU_lab[ei], time=time )

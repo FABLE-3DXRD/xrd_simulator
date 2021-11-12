@@ -108,11 +108,6 @@ class Detector(object):
         minyd, maxyd = np.min(vp[:,1]), np.max(vp[:,1])
         mask = (self.pixel_det_coordinates[:,1]<=maxyd)*(self.pixel_det_coordinates[:,1]>=minyd)*(self.pixel_det_coordinates[:,0]<=maxzd)*(self.pixel_det_coordinates[:,0]>=minzd)
         ray_points = self.pixel_real_coordinates[mask,:]
-        print(ray_points.shape)
-        print( np.sum(np.array( [self.contains(v[0],v[1]) for v in vp] )) )
-        #print( "mask sum: ", np.sum(mask) )
-        #print( minzd, maxzd, self.zmax )
-        #print( minyd, maxyd, self.zmax )
 
         plane_normals = scatterer.convex_hull.equations[:,0:3]
         plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
