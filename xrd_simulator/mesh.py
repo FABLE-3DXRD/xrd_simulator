@@ -51,10 +51,23 @@ class TetraMesh(object):
         return tetmesh
 
     @classmethod
+    def load_mesh_from_file(cls, path):
+        """Load a mesh from a saved mesh file set using `the meshio package`_:
+
+        .. _the meshio package: https://github.com/nschloe/meshio
+
+        Args:
+            file (:obj:`str`): Absolute path to save the mesh at (without .xdmf extension)
+
+        """
+        mesh = meshio.read( path )
+        return cls._build_tetramesh(cls, mesh)
+
+    @classmethod
     def generate_mesh_from_vertices(cls, coord, enod):
-        """Generate a mesh from a level set using `the pygalmesh package`_:
+        """Generate a mesh from vertices using `the meshio package`_:
         
-        .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
+        .. _the meshio package: https://github.com/nschloe/meshio
 
         Args:
             coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the 

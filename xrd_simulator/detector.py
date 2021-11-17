@@ -58,8 +58,9 @@ class Detector(object):
 
         """
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
-        for scatterer in self.frames[frame_number]:
-            mask, intensity = self.project( scatterer, full=True ) #TODO: move keyword full to controllable place
+        for si,scatterer in enumerate(self.frames[frame_number]):
+            print("Rendering scatterer {} of total scatterers {}".format(si,len(self.frames[frame_number])))
+            mask, intensity = self.project( scatterer, full=False ) #TODO: move keyword full to controllable place
             if intensity is not None:
                 #zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
                 #if self.contains(zd,yd):
@@ -112,6 +113,12 @@ class Detector(object):
         plane_normals = scatterer.convex_hull.equations[:,0:3]
         plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
         plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
+
+        ray_points    = np.ascontiguousarray(ray_points)
+        ray_direction = np.ascontiguousarray(ray_direction)
+        plane_points  = np.ascontiguousarray(plane_points)
+        plane_normals = np.ascontiguousarray(plane_normals)
+
         clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
 
         return mask, clip_lengths
