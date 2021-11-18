@@ -44,62 +44,75 @@ class Detector(object):
         self.pixel_real_coordinates = np.array([self.d0 + y*self.ydhat + z*self.zdhat for y,z in zip(Y.flatten(),Z.flatten()) ])
         self.pixel_det_coordinates = np.array([ [z, y] for y,z in zip(Y.flatten(),Z.flatten()) ])
 
-    def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True):
-        """Take a list of scatterers render to a pixelated pattern.
+    def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True, full_projection=False):
+        """Render a pixelated diffraction pattern onto the detector plane .
+
+        This renderer function defaults to a simple deposit of intensity for each scatterer onto the detector by
+        tracing a line from the sample scattering region centroid to the detector plane. The intensity is
+        deposited into a single detector pixel regardless of the geometrical shape of the scatterer. If 
+        instead ```full_projection=True``` the scattering regions are projected onto the detector depositing
+        a intensity over possibly several pixels as weighted by the optical path lengths of the rays
+        diffracting from the scattering region.
 
         Args:
             frame_number (:obj:`int`): Index of the frame in the :obj:`frames` list to be rendered.
+            lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
+            polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
+            structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
+            full_projection (:obj:`bool`): Defaults to False.
 
         Returns:
             A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
             pixel size.
 
-        NOTE: This function is meant to allow for overriding when specalised intensity models are to be tested.
-
+        NOTE: This function can be overwitten to do more advanced models for intensity.
         """
+        # TODO: Add tests for full_projection=True
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for si,scatterer in enumerate(self.frames[frame_number]):
             print("Rendering scatterer {} of total scatterers {}".format(si,len(self.frames[frame_number])))
-            mask, intensity = self.project( scatterer, full=False ) #TODO: move keyword full to controllable place
-            if intensity is not None:
-                #zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
-                #if self.contains(zd,yd):
-                #intensity = scatterer.volume
-                if lorentz:
-                    intensity = intensity * scatterer.lorentz_factor 
-                if polarization:
-                    intensity = intensity * scatterer.polarization_factor
-                if structure_factor and scatterer.real_structure_factor is not None:
-                    intensity = intensity * ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
-                #frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += intensity
-    
-                frame[ mask.reshape(frame.shape) ] += intensity
+            if full_projection:
+                self._projection_render(scatterer, frame, lorentz, polarization, structure_factor)
+            else:
+                self._centroid_render(scatterer, frame, lorentz, polarization, structure_factor)
         return frame
 
-    def project( self, scatterer, full=False ):
-        #TODO: Consider moving bulk of this to utils.py
-        #TODO: Fix weird prjections...
-        if not full:
-            zd, yd      = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
-            zd, yd = int(zd/self.pixel_size), int(yd/self.pixel_size)
-            mask = (self.pixel_coordinates[:,1]==zd)*(self.pixel_coordinates[:,2]==yd)
-            if self.contains(zd, yd):
-                volume_intensity_weight = scatterer.volume
-            else:
-                volume_intensity_weight = None
-        else:
-            mask, clip_lengths = self.project_convex_hull(scatterer)
-            
-            volume_intensity_weight = clip_lengths
+    def _centroid_render(self, scatterer, frame, lorentz, polarization, structure_factor):
+        """Simple deposit of intensity for each scatterer onto the detector by tracing a line from the
+        sample scattering region centroid to the detector plane. The intensity is deposited into a single
+        detector pixel regardless of the geometrical shape of the scatterer.
+        """
+        zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
+        if self.contains(zd,yd): 
+            intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
+            frame[int(zd/self.pixel_size), int(yd/self.pixel_size)] += scatterer.volume * intensity_scaling_factor
 
-        return mask, volume_intensity_weight
+    def _projection_render(self, scatterer, frame, lorentz, polarization, structure_factor):
+        """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
+        This is generally very computationally expensive compared to the simpler (:obj:`function`):render function.
+        """
+        mask, projection = self._project( scatterer )
+        if projection is not None:
+            intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
+            frame[ mask.reshape(frame.shape) ] += projection * intensity_scaling_factor
 
-    def project_convex_hull( self, scatterer ):
+    def _get_intensity_factor(self, scatterer, lorentz, polarization, structure_factor):
+        intensity_factor = 1.0
+        if lorentz:
+            intensity_factor *= scatterer.lorentz_factor 
+        if polarization:
+            intensity_factor *= scatterer.polarization_factor
+        if structure_factor and scatterer.real_structure_factor is not None:
+            intensity_factor *= ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
+        return intensity_factor
+
+    def _project( self, scatterer ):
         """Compute parametric projection of scattering region unto detector.
 
             NOTE: Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
             (based on orthogonal equations: (p - e - t*r) . n = 0 )
         """
+        # TODO: document and cleanup, can the code be shorter, something moved to utils?
         ray_direction = scatterer.scattered_wave_vector / np.linalg.norm( scatterer.scattered_wave_vector )
 
         vertices = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
@@ -108,18 +121,22 @@ class Detector(object):
         minzd, maxzd = np.min(vp[:,0]), np.max(vp[:,0])
         minyd, maxyd = np.min(vp[:,1]), np.max(vp[:,1])
         mask = (self.pixel_det_coordinates[:,1]<=maxyd)*(self.pixel_det_coordinates[:,1]>=minyd)*(self.pixel_det_coordinates[:,0]<=maxzd)*(self.pixel_det_coordinates[:,0]>=minzd)
-        ray_points = self.pixel_real_coordinates[mask,:]
+        
+        if np.sum(mask)==0: 
+            return None,None
+        else:
+            ray_points = self.pixel_real_coordinates[mask,:]
 
-        plane_normals = scatterer.convex_hull.equations[:,0:3]
-        plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
-        plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
+            plane_normals = scatterer.convex_hull.equations[:,0:3]
+            plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
+            plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
 
-        ray_points    = np.ascontiguousarray(ray_points)
-        ray_direction = np.ascontiguousarray(ray_direction)
-        plane_points  = np.ascontiguousarray(plane_points)
-        plane_normals = np.ascontiguousarray(plane_normals)
+            ray_points    = np.ascontiguousarray(ray_points)
+            ray_direction = np.ascontiguousarray(ray_direction)
+            plane_points  = np.ascontiguousarray(plane_points)
+            plane_normals = np.ascontiguousarray(plane_normals)
 
-        clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
+            clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
 
         return mask, clip_lengths
 

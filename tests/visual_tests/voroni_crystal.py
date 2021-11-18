@@ -7,19 +7,22 @@ from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
 from xfab import tools
 from scipy.signal import convolve
+import os
+import cProfile
+import pstats
 
 np.random.seed(23)
 
-#mesh = TetraMesh.load_mesh_from_file( r"C:\Users\Henningsson\workspace\sandbox\grain_no10.xdmf" ) # nelm 300
-mesh = TetraMesh.load_mesh_from_file( r"C:\Users\Henningsson\workspace\sandbox\grain_no9.xdmf" ) # nelm +1000
+grainmeshfile = os.path.join( os.path.join(os.path.dirname(__file__), '../data' ), 'grain0056.xdmf' )
+mesh = TetraMesh.load_mesh_from_file( grainmeshfile )
 
-sample_diameter = 128.
+sample_diameter = 1.0
 
 print("")
 print('nelm:', mesh.number_of_elements)
 print("")
 
-pixel_size = sample_diameter/128.
+pixel_size = sample_diameter/256.
 detector_size = pixel_size*1024
 detector_distance = 10 * sample_diameter
 d0 = np.array([detector_distance,   -detector_size/2.,  -detector_size/2.])
@@ -63,11 +66,17 @@ motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 polycrystal.diffract( beam, detector, motion )
 
-import cProfile
-import pstats
 pr = cProfile.Profile()
 pr.enable()
-pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False)
+pixim1 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, full_projection=False)
+pr.disable()
+pr.dump_stats('tmp_profile_dump')
+ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
+ps.print_stats(20)
+
+pr = cProfile.Profile()
+pr.enable()
+pixim2 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, full_projection=True)
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
@@ -76,6 +85,11 @@ ps.print_stats(20)
 import matplotlib.pyplot as plt
 #pixim[ pixim<=0 ] = 1
 #pixim = np.log(pixim)
-plt.imshow(pixim , cmap='gray')
-plt.title("Hits: "+str(len(detector.frames[0]) ))
+fig,ax=plt.subplots(1,2)
+ax[0].imshow(pixim1 , cmap='gray')
+ax[1].imshow(pixim2 , cmap='gray')
+ax[0].set_title("Fast delta peak rendering")
+ax[1].set_title("Full projection rendering")
+ax[0].set_xlabel("Hits: "+str(len(detector.frames[0]) ))
+ax[1].set_xlabel("Hits: "+str(len(detector.frames[0]) ))
 plt.show()
