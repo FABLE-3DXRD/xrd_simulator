@@ -22,7 +22,7 @@ r = (detector_size/10.)
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: x[0]*x[0] + x[1]*x[1] + x[2]*x[2] - r**2,
     bounding_radius = 1.1*r,  
-    cell_size = 0.58*r )
+    max_cell_circumradius = 0.58*r )
 
 #coord = np.array([[0,0.1,0],
 #                  [0,0,0.1],

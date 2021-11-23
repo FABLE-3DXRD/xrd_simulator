@@ -5,6 +5,7 @@ from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils
 from xrd_simulator import laue
 import copy
+import sys
 
 class Polycrystal(object):
 
@@ -45,7 +46,7 @@ class Polycrystal(object):
         self.ephase = ephase
         self.eB     = eB
 
-    def diffract(self, beam, detector, rigid_body_motion, min_bragg_angle=0, max_bragg_angle=None):
+    def diffract(self, beam, detector, rigid_body_motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True):
         """Construct the scattering regions in the wave vector range [k1,k2] given a beam profile.
 
         The beam interacts with the polycrystal producing scattering captured by the detector.
@@ -76,12 +77,15 @@ class Polycrystal(object):
 
         for ei in range( self.mesh_lab.number_of_elements ):
 
+            if verbose:
+                progress_bar_message = "Computing scattering from a total of "+str(self.mesh_lab.number_of_elements)+" elements"
+                progress_fraction    = float(ei+1)/self.mesh_lab.number_of_elements
+                utils.print_progress(progress_fraction, message=progress_bar_message)
+
             # skipp elements not illuminated
             if proximity_intervals[ei][0] is None: 
                 continue
-            
 
-            print("Computing for element {} of total elements {}".format(ei,self.mesh_lab.number_of_elements))
             element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei],:] 
             G_0 = laue.get_G(self.eU_lab[ei], self.eB[ei], self.phases[ self.ephase[ei] ].miller_indices.T )
 

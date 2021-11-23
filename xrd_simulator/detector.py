@@ -44,22 +44,21 @@ class Detector(object):
         self.pixel_real_coordinates = np.array([self.d0 + y*self.ydhat + z*self.zdhat for y,z in zip(Y.flatten(),Z.flatten()) ])
         self.pixel_det_coordinates = np.array([ [z, y] for y,z in zip(Y.flatten(),Z.flatten()) ])
 
-    def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True, full_projection=False):
+    def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True, method="centroid", verbose=True):
         """Render a pixelated diffraction pattern onto the detector plane .
-
-        This renderer function defaults to a simple deposit of intensity for each scatterer onto the detector by
-        tracing a line from the sample scattering region centroid to the detector plane. The intensity is
-        deposited into a single detector pixel regardless of the geometrical shape of the scatterer. If 
-        instead ```full_projection=True``` the scattering regions are projected onto the detector depositing
-        a intensity over possibly several pixels as weighted by the optical path lengths of the rays
-        diffracting from the scattering region.
 
         Args:
             frame_number (:obj:`int`): Index of the frame in the :obj:`frames` list to be rendered.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
             structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
-            full_projection (:obj:`bool`): Defaults to False.
+            method (:obj:`str`): Rendering method, must be one of ```project``` or ```centroid```. Defaults to ```centroid```.
+                The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
+                tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
+                into a single detector pixel regardless of the geometrical shape of the scatterer. If instead ```method=project```
+                the scattering regions are projected onto the detector depositing a intensity over possibly several pixels as 
+                weighted by the optical path lengths of the rays diffracting from the scattering region.
+            verbose (:obj:`bool`): Prints progress. Defaults to True.
 
         Returns:
             A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
@@ -67,14 +66,19 @@ class Detector(object):
 
         NOTE: This function can be overwitten to do more advanced models for intensity.
         """
-        # TODO: Add tests for full_projection=True
         frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
         for si,scatterer in enumerate(self.frames[frame_number]):
-            print("Rendering scatterer {} of total scatterers {}".format(si,len(self.frames[frame_number])))
-            if full_projection:
+
+            if verbose:
+                progress_bar_message = "Rendering "+str(len(self.frames[frame_number]))+" scattering volumes unto the detector"
+                progress_fraction    = float(si+1)/len(self.frames[frame_number])
+                utils.print_progress(progress_fraction, message=progress_bar_message)
+
+            if method=='project':
                 self._projection_render(scatterer, frame, lorentz, polarization, structure_factor)
-            else:
+            elif  method=='centroid':
                 self._centroid_render(scatterer, frame, lorentz, polarization, structure_factor)
+
         return frame
 
     def _centroid_render(self, scatterer, frame, lorentz, polarization, structure_factor):

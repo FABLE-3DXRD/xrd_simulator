@@ -1,5 +1,5 @@
 import numpy as np
-import os, sys
+import os, sys, time
 from numba import njit
 from scipy import optimize
 
@@ -16,23 +16,6 @@ class _HiddenPrints:
         sys.stdout.close()
         sys.stdout = self._original_stdout
 
-def get_unit_vector_and_l2norm(point_1, point_2):
-    """Compute l2 norm distance and unit vector between vectors v2 and v1.
-
-    Args:
-        point_1 (:obj:`numpy array`): A point in 3d euclidean space (```shape=(3,)```)
-        point_2 (:obj:`numpy array`): A point in 3d euclidean space (```shape=(3,)```)
-
-    Returns:
-        (:obj:`tuple` of :obj:`numpy array` and :obj:`float`) Unit vector  of ```shape=(3,)```
-            from point_1 to point_2 and the distance between point_1 and point_2
-
-    """ 
-    p2p1 = (point_2 - point_1)
-    norm = np.linalg.norm( p2p1 ) 
-    unit_vector = p2p1 / norm
-    return unit_vector, norm
-
 def contained_by_intervals(s, intervals):
     for bracket in intervals:
         if s >= bracket[0] and s <= bracket[1]:
@@ -44,7 +27,22 @@ def CIFopen( ciffile ):
     cf = ReadCif(ciffile)
     return cf[ list(cf.keys())[0] ]
 
+def print_progress(progress_fraction, message):
+    """Print a progress bar in the executing shell terminal.
 
+    Args:
+        progress_fraction (:obj:`float`): progress between 0 and 1.
+        message (:obj:`str`): Optional message prepend the loading bar with. (max 55 characters)
+
+    """
+    assert len(message) <= 55., "The provided message to print is too long, max 55 characters allowed."
+    progress_in_precent = np.round(100*progress_fraction,1)
+    progress_bar_length = int( progress_fraction*40 )
+    sys.stdout.write( "\r{0}{1} | {2}>{3} |".format(message, " "*(55-len(message)),"="*progress_bar_length, " "*(40-progress_bar_length))+" "+str(progress_in_precent)+"%" )
+    if progress_fraction!=1.0: 
+        sys.stdout.flush()
+    else:
+        sys.stdout.write( "\n" )
 
 @njit
 def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points, plane_normals ):

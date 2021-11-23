@@ -22,7 +22,7 @@ detector = Detector( pixel_size, d0, d1, d2 )
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
     bounding_radius = 1.1*detector_size/10., 
-    cell_size = 0.005*detector_size/10. )
+    max_cell_circumradius = 0.005*detector_size/10. )
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221' # Quartz

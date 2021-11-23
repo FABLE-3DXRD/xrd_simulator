@@ -121,8 +121,6 @@ class Beam(object):
         beam_halfplane_normals =  self.halfspaces[:,0:3]
         beam_halfplane_offsets =  self.halfspaces[:,3]
 
-        # TODO: continue moving to lab form here...
-
         # Precomputable factors for root equations independent of sphere data.
         a0 = rigid_body_motion.rotator.K.dot( beam_halfplane_normals.T )
         a1 = rigid_body_motion.rotator.K2.dot( beam_halfplane_normals.T )

@@ -80,7 +80,7 @@ class TetraMesh(object):
         return cls._build_tetramesh(cls, mesh)
 
     @classmethod
-    def generate_mesh_from_levelset(cls, level_set, bounding_radius, cell_size):
+    def generate_mesh_from_levelset(cls, level_set, bounding_radius, max_cell_circumradius):
         """Generate a mesh from a level set using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
@@ -89,7 +89,7 @@ class TetraMesh(object):
             level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
                 of the mesh and positive on the interior.
             bounding_radius (:obj:`float`): Bounding radius of mesh.
-            cell_size (:obj:`float`): Bound for element radii.
+            max_cell_circumradius (:obj:`float`): Bound for element radii.
 
         """
 
@@ -100,13 +100,13 @@ class TetraMesh(object):
                 self.get_bounding_sphere_squared_radius = lambda : bounding_radius**2
 
         mesh = pygalmesh.generate_mesh( LevelSet(),
-                                        cell_size=cell_size, 
+                                        max_cell_circumradius=max_cell_circumradius, 
                                         verbose=False)
 
         return cls._build_tetramesh(cls, mesh)
 
     @classmethod
-    def generate_mesh_from_numpy_array(cls, array, voxel_size, cell_size):
+    def generate_mesh_from_numpy_array(cls, array, voxel_size, max_cell_circumradius):
         """Generate a mesh from a numpy array using `the pygalmesh package`_:
         
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
@@ -114,12 +114,12 @@ class TetraMesh(object):
         Args:
             array (:obj:`numpy array`): Numpy array to generate mesh from.
             voxel_size (:obj:`float`): Dimension of array voxels.
-            cell_size (:obj:`float`): Bound for element radii.
+            max_cell_circumradius (:obj:`float`): Bound for element radii.
 
         """
 
         mesh = pygalmesh.generate_from_array( array, [voxel_size]*3,
-                                            cell_size=cell_size, 
+                                            max_cell_circumradius=max_cell_circumradius, 
                                             verbose=False )
         return cls._build_tetramesh(cls, mesh)
 
