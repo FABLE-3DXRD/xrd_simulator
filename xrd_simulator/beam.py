@@ -62,13 +62,17 @@ class Beam(object):
 
         Args:
             vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ```shape=(N,3)```.
-            fully_contained (:obj:`boolean`): True if the convex polyhedra is completely contained within the beam.
 
         Returns:
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
             input vertices.
 
         """
+
+        vertices_contained_by_beam = [self.contains(vertex) for vertex in vertices]
+        if np.all( vertices_contained_by_beam ):
+            return ConvexHull( vertices ) # The beam completely contains the input convex polyhedra
+
         poly_halfspace = ConvexHull( vertices ).equations
         combined_halfspaces = np.vstack( (poly_halfspace, self.halfspaces) )
 
@@ -87,13 +91,13 @@ class Beam(object):
             return None
 
     def contains( self, point ):
-        """ Check if the beam contains a series of points.
+        """ Check if the beam contains a point.
 
         Args:
-            points (:obj:`numpy array`): N points to evaluate ```shape=(N,3)```.
+            point (:obj:`numpy array`): Point to evaluate ```shape=(3,)```.
 
         Returns:
-            Boolean True if the beam contains all points.
+            Boolean True if the beam contains the point.
 
         """
         return np.all( self.halfspaces[:,0:3].dot( point ) + self.halfspaces[:,3] < 0 )

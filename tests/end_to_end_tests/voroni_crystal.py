@@ -59,28 +59,39 @@ xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
 polarization_vector = np.array([0,1,0])
 beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
 
-rotation_angle = 10.0*np.pi/180.
+rotation_angle = 5.0*np.pi/180.
 rotation_axis = np.array([0,0,1])
 translation = np.array([0,0,0])
 motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
+print("Diffraction computations:")
+pr = cProfile.Profile()
+pr.enable()
 polycrystal.diffract( beam, detector, motion )
-
-pr = cProfile.Profile()
-pr.enable()
-pixim1 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, full_projection=False)
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(20)
+ps.print_stats(15)
+print("")
 
+print("Detector centroid rendering:")
 pr = cProfile.Profile()
 pr.enable()
-pixim2 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, full_projection=True)
+pixim1 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(20)
+ps.print_stats(15)
+print("")
+
+print("Detector project rendering:")
+pr = cProfile.Profile()
+pr.enable()
+pixim2 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
+pr.disable()
+pr.dump_stats('tmp_profile_dump')
+ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
+ps.print_stats(15)
 
 import matplotlib.pyplot as plt
 #pixim[ pixim<=0 ] = 1

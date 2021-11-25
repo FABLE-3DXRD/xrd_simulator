@@ -50,6 +50,8 @@ def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points,
 
         For algorihtm description see:
             Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
+        The algorithms is based on solving orthogonal equations and sorting the resutling plane line interestion 
+        points to find which are entry and which are exit points through the convex polyhedron.
 
         Args:
             line_points (:obj:`numpy array`): base points of rays (exterior to polyhedron), ```shape=(n,3)```
@@ -61,18 +63,17 @@ def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points,
             clip_lengths (:obj:`numpy array`) : intersection lengths.  ```shape=(n,)```
 
     """
-    #TODO: Add test
     clip_lengths = np.zeros((line_points.shape[0],))
     t2 = np.dot( plane_normals, line_direction ) 
     te_mask = t2<0
     tl_mask = t2>0
     for i,line_point in enumerate( line_points ): 
 
-        # find paramteric line-plane intersect based on orthogonal equations
-        t1 = np.sum( np.multiply( plane_points-line_point, plane_normals ), axis=1 ) # 
-        ti = t1/t2
-        
-        # Sort intersections as potential entry and exit points
+        # find parametric line-plane intersection based on orthogonal equations
+        t1 = np.sum( np.multiply( plane_points-line_point, plane_normals ), axis=1 )
+        ti = t1/t2 # Divide by zero means the ray is parallel to plane, numpy gives np.inf so it is ok!
+
+        # Sort intersections points as potential entry and exit points
         te = np.max( ti[te_mask] )
         tl = np.min( ti[tl_mask] )
 

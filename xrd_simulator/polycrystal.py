@@ -10,25 +10,27 @@ import sys
 class Polycrystal(object):
 
     """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
-    
-    This object is arguably the most complex entity in the package as it links a several phase objects to a mesh
-    and lets them interact with a beam and detector object.
 
     Args:
         mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
-            geometry of the sample.
+            geometry of the sample. At instantiation it is assumed that the sample and lab coordinate systems
+            are aligned.
         ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
             xrd_simulator.phase.Phase object of element number i.
-        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```).
+        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```). At instantiation it
+            is assumed that the sample and lab coordinate systems are aligned.
         eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
 
     Attributes:
-        mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
-            geometry of the sample.
+        mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
+            geometry of the sample in a fixed lab frame coordinate system.
+        mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the 
+            geometry of the sample in a sample coordinate system.
         ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
             xrd_simulator.phase.Phase object of element number i.
-        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```).
+        eU_lab (:obj:`numpy array`): Per element U (orientation) matrices in a fixed lab frame coordinate system, (```shape=(N,3,3)```).
+        eU_sample (:obj:`numpy array`): Per element U (orientation) matrices in a sample coordinate system., (```shape=(N,3,3)```).
         eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
 
@@ -47,18 +49,21 @@ class Polycrystal(object):
         self.eB     = eB
 
     def diffract(self, beam, detector, rigid_body_motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True):
-        """Construct the scattering regions in the wave vector range [k1,k2] given a beam profile.
+        """Compute diffraction from the rotating and translating polycrystal sample while illuminated by an xray beam. 
 
-        The beam interacts with the polycrystal producing scattering captured by the detector.
+        The xray beam interacts with the polycrystal producing scattering regions which are stored in a detector frame.
+        The scattering regions may be rendered as pixelated patterns on the detector by using a detector rendering
+        option.
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a funciton of time on the domain time=[0,1].
-            min_bragg_angle (:obj:`float`): Time between [0,1] at which to call the rigid body motion. Defaults to 0.
-            max_bragg_angle (:obj:`float`): Time between [0,1] at which to call the rigid body motion. Defaults to a 
-                guess value approximated by wrapping the detector corners in a cone with apex in the sample.
+            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below wich to not compute diffraction. Defaults to 0.
+            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after wich to not compute diffraction. By default the
+                max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample centroid.
+            verbose (:obj:`bool`): Prints progress. Defaults to True.
 
         """
 
@@ -66,7 +71,7 @@ class Polycrystal(object):
 
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
-        
+
         c_0_factor   = -beam.wave_vector.dot( rigid_body_motion.rotator.K2 )
         c_1_factor   =  beam.wave_vector.dot( rigid_body_motion.rotator.K  )
         c_2_factor   =  beam.wave_vector.dot( rigid_body_motion.rotator.I + rigid_body_motion.rotator.K2 )
@@ -99,7 +104,7 @@ class Polycrystal(object):
                         if utils.contained_by_intervals( time, proximity_intervals[ei] ):
                             element_vertices = rigid_body_motion( element_vertices_0.T, time ).T
 
-                            # mark elements that neaver leave the beam before computing intersection
+                            #TODO: Consider plane equations representation of elements avoiding ConvexHull calls in beam.intersect()
                             scattering_region = beam.intersect( element_vertices )
 
                             if scattering_region is not None:
@@ -118,18 +123,19 @@ class Polycrystal(object):
         detector.frames.append( scatterers )
 
     def _get_bragg_angle_bounds(self, detector, beam, min_bragg_angle, max_bragg_angle):
+        """Compute a maximum Bragg angle cutof based on the beam sample interection region centroid and detector corners.
 
+        If the beam graces or misses the sample, the sample centroid is used.
+        """
         if max_bragg_angle is None:
-            # TODO: make a smarter selection of source point for get_wrapping_cone()
-            max_bragg_angle = detector.get_wrapping_cone( beam.wave_vector, self.mesh_lab.centroid )
-
+            mesh_nodes_contained_by_beam = np.array( [c for c in self.mesh_lab.coord if beam.contains(c)] )
+            if len(mesh_nodes_contained_by_beam)!=0:
+                source_point = np.mean(np.array( [c for c in self.mesh_lab.coord if beam.contains(c)]), axis=0)
+            else:
+                source_point = self.mesh_lab.centroid
+            max_bragg_angle = detector.get_wrapping_cone( beam.wave_vector, source_point )
         assert min_bragg_angle>=0, "min_bragg_angle must be greater or equal than zero"
         assert max_bragg_angle>min_bragg_angle, "max_bragg_angle must be greater than min_bragg_angle"
-
-        if max_bragg_angle > 25*np.pi/180: 
-            angle = str(np.round(np.degrees(max_bragg_angle),1))
-            print( "WARNING: Maximum Bragg-angle is large ("+angle+" dgrs), computations may be slow due to abundant scattering." )
-
         return min_bragg_angle, max_bragg_angle
 
     def transform(self, rigid_body_motion, time):
@@ -148,5 +154,5 @@ class Polycrystal(object):
         """
         new_nodal_coordinates = rigid_body_motion( self.mesh_lab.coord.T, time=time ).T
         self.mesh_lab.update( new_nodal_coordinates )
-        for ei in range(self.mesh_lab.coord.shape[0]):
+        for ei in range(self.mesh_lab.number_of_elements):
             self.eU_lab[ei] = rigid_body_motion.rotate( self.eU_lab[ei], time=time )

@@ -11,8 +11,7 @@ def run_tests():
 
     test_suite = test_loader.discover(test_directory, pattern='test_*.py')
 
-    with _HiddenPrints(): # Hide progress bars
-        test_suite.run(result=test_result)
+    test_suite.run(result=test_result)
 
     print("\n")
     if test_result.wasSuccessful():

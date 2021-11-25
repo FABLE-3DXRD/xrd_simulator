@@ -17,36 +17,22 @@ d2 = np.array([detector_distance,   -detector_size/2.,   detector_size/2.])
 
 detector = Detector( pixel_size, d0, d1, d2 )
 
-np.random.seed(1)
-r = (detector_size/10.)
 mesh = TetraMesh.generate_mesh_from_levelset(
-    level_set = lambda x: x[0]*x[0] + x[1]*x[1] + x[2]*x[2] - r**2,
-    bounding_radius = 1.1*r,  
-    max_cell_circumradius = 0.58*r )
-
-#coord = np.array([[0,0.1,0],
-#                  [0,0,0.1],
-#                  [0,-0.1,0],
-#                  [0.1,0,0.3]])*(detector_size/10.)
-
-#enod = np.array([[0,1,2,3]])
-#mesh = TetraMesh.generate_mesh_from_vertices( coord, enod)
-print('nelm:', mesh.number_of_elements)
+    level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
+    bounding_radius = 1.1*detector_size/10., 
+    max_cell_circumradius = 0.0011*detector_size/10. )
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221' # Quartz
 phases = [Phase(unit_cell, sgname)]
 B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
 eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
-
-np.random.seed(2)
-grain_avg_rot = np.max( [np.radians(1.0), np.random.rand() * 2 * np.pi] )
-euler_angles  = grain_avg_rot  + np.random.normal(loc=0.0, scale=np.radians(0.01), size=(mesh.number_of_elements, 3) ) 
+euler_angles = np.random.rand(mesh.number_of_elements, 3) * 2 * np.pi
 eU = np.array( [tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles] )
 ephase = np.zeros((mesh.number_of_elements,)).astype(int)
 polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
 
-w = detector_size # full field beam
+w = detector_size/1000. # pencil beam
 beam_vertices = np.array([
     [-detector_distance, -w, -w ],
     [-detector_distance,  w, -w ],
@@ -61,32 +47,18 @@ xray_propagation_direction = np.array([1,0,0]) * 2 * np.pi / wavelength
 polarization_vector = np.array([0,1,0])
 beam = Beam(beam_vertices, xray_propagation_direction, wavelength, polarization_vector)
 
-rotation_angle = 0.1*np.pi/180.
-rotation_axis = -np.array([0,0,1])
-translation = np.array([0,0,0])
-motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
-polycrystal.transform(motion, time=1.0)
-
-rotation_angle = 0.5*np.pi/180.
+rotation_angle = 20*np.pi/180.
 rotation_axis = np.array([0,0,1])
 translation = np.array([0,0,0])
 motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 polycrystal.diffract( beam, detector, motion )
-
-import cProfile
-import pstats
-pr = cProfile.Profile()
-pr.enable()
-pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False)
-pr.disable()
-pr.dump_stats('tmp_profile_dump')
-ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(20)
+pixim = detector.render(frame_number=0, method='centroid')
 
 import matplotlib.pyplot as plt
-#pixim[ pixim<=0 ] = 1
-#pixim = np.log(pixim)
-plt.imshow(pixim , cmap='jet')
+from scipy.signal import convolve
+pixim[ pixim<=0 ] = 1
+pixim = np.log(pixim)
+plt.imshow(pixim , cmap='gray')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

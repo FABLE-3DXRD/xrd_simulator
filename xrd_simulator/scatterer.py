@@ -24,7 +24,6 @@ class Scatterer(object):
     """ 
 
     def __init__(self, convex_hull, scattered_wave_vector, incident_wave_vector, wavelength, incident_polarization_vector, rotation_axis, time, phase, hkl_indx ):
-        # TODO: Document this class a bit more.
         self.convex_hull           = convex_hull
         self.scattered_wave_vector = scattered_wave_vector
         self.incident_wave_vector  = incident_wave_vector
