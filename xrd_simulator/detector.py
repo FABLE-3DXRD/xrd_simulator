@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from numpy.lib.utils import source
 from xrd_simulator import utils
 from scipy.interpolate import griddata
+from xrd_simulator._pickleable_object import PickleableObject
 
-class Detector(object):
+class Detector(PickleableObject):
 
     """Represents a rectangular X-ray scattering flat area detection device.
 
@@ -147,8 +148,7 @@ class Detector(object):
         if self.contains(zd,yd): 
             intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
             row, col = self._detector_coordinate_to_pixel_index( zd, yd )
-            #TODO: Consider volume rescaling by division of pixel area.
-            frame[row, col] += scatterer.volume * intensity_scaling_factor
+            frame[row, col] += scatterer.volume * intensity_scaling_factor / (self.pixel_size**2)
 
     def _projection_render(self, scatterer, frame, lorentz, polarization, structure_factor):
         """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
@@ -195,6 +195,9 @@ class Detector(object):
         # intensity such that the summed intensity is equal to the scattered volume. (Hence the +1)
         clip_lengths = (clip_lengths + 1) * (scatterer.volume * np.sum(clip_lengths + 1))
 
+        # The intensity is equal to the scattered volume if we integrate over the pixels.
+        clip_lengths = clip_lengths / (self.pixel_size**2)
+    
         return clip_lengths
 
     def _detector_coordinate_to_pixel_index(self, zd, yd):

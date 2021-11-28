@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.lib.utils import source
 from xrd_simulator.scatterer import Scatterer
-from xrd_simulator import utils
-from xrd_simulator import laue
+from xrd_simulator import utils, laue
+from xrd_simulator._pickleable_object import PickleableObject
 import copy
 import sys
 
-class Polycrystal(object):
+class Polycrystal(PickleableObject):
 
     """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
 

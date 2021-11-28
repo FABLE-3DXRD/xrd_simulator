@@ -20,7 +20,7 @@ detector = Detector( pixel_size, d0, d1, d2 )
 mesh = TetraMesh.generate_mesh_from_levelset(
     level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
     bounding_radius = 1.1*detector_size/10., 
-    max_cell_circumradius = 0.0008*detector_size/10. )
+    max_cell_circumradius = 0.001*detector_size/10. )
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221' # Quartz
@@ -57,8 +57,7 @@ pixim = detector.render(frame_number=0, method='project')
 
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
-pixim[ pixim<=0 ] = 1
-pixim = np.log(pixim)
-plt.imshow(pixim , cmap='gray')
+pixim[pixim>0]  = 1
+plt.imshow( pixim , cmap='gray')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

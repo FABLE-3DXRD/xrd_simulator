@@ -2,6 +2,7 @@ import numpy as np
 import os, sys, time
 from numba import njit
 from scipy import optimize
+import pickle
 
 class _HiddenPrints:
     """Simple class to enable running code without printing using python with statements.
@@ -81,3 +82,26 @@ def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points,
             clip_lengths[i] = tl-te
 
     return clip_lengths
+
+def _save_object( path, object_to_save ):
+    """Save a python object to disc by pickling.
+
+    Args:
+        path (:obj:`string`): Asolute path ending with filename of file to save.
+
+    """
+    with open(path, "wb") as f:
+        pickle.dump(object_to_save, f, pickle.HIGHEST_PROTOCOL)
+
+def _load_object(path):
+    """Load a python object from disc by unpickling.
+
+    Args:
+        path (:obj:`string`): Asolute path ending with filename of file to load.
+
+    Returns:
+        The unpickled object.
+
+    """
+    with open(path, 'rb') as f:
+        return pickle.load(f)

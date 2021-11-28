@@ -4,8 +4,9 @@ from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 from xrd_simulator import utils, laue
 from scipy.optimize import root_scalar
+from xrd_simulator._pickleable_object import PickleableObject
 
-class Beam(object):
+class Beam(PickleableObject):
     """Represents a monochromatic X-ray beam as a convex polyhedra.
 
     Args:

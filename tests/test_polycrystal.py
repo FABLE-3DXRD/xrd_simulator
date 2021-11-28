@@ -8,6 +8,7 @@ from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
 from xfab import tools
 from scipy.signal import convolve
+import os
 
 class TestPolycrystal(unittest.TestCase):
 
@@ -95,6 +96,13 @@ class TestPolycrystal(unittest.TestCase):
                     csequence = 0
         self.assertGreaterEqual(nosequences, 20, msg="Few or no rings appeared from diffraction.")
 
+    def test_save_and_load(self):
+        eB = self.polycrystal.eB.copy()
+        path = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'my_polycrystal' )
+        self.polycrystal.save( path )
+        self.polycrystal  = Polycrystal.load( path )
+        self.assertTrue( np.allclose( eB, self.polycrystal.eB ), msg='Data corrupted on save and load' )
+        os.remove( path )
 
 if __name__ == '__main__':
     unittest.main()

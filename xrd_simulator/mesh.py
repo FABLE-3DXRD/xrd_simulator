@@ -277,7 +277,7 @@ class TetraMesh(object):
                                             dim )
             return values.reshape(shape)           
 
-    def to_xdmf(self, file):
+    def save(self, file):
         """Save the tetra mesh to .xdmf paraview readable format for visualisation.
         Args:
             file (:obj:`str`): Absolute path to save the mesh at (without .xdmf extension)
