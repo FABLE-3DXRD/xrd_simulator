@@ -158,7 +158,6 @@ class Detector(object):
         box = self._get_projected_bounding_box( scatterer )
         if box is not None:
             projection = self._project( scatterer, box )
-            #TODO: Consider volume rescaling.
             intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
             frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor
 
@@ -188,10 +187,13 @@ class Detector(object):
         plane_points  = np.ascontiguousarray( plane_points )
         plane_normals = np.ascontiguousarray( plane_normals )
 
-        #TODO: Consider special handling of scatterers being completely contained by a detector pixel. i.e when there is but a single ray point.
-
         clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
         clip_lengths  = clip_lengths.reshape( box[1]-box[0], box[3]-box[2] )
+
+        # We make sure to rescale the summed intensity to the scattering volume. If the projection 
+        # of the scatterer did not hit any pixel centres, we assign all close by pixes the same 
+        # intensity such that the summed intensity is equal to the scattered volume. (Hence the +1)
+        clip_lengths = (clip_lengths + 1) * (scatterer.volume * np.sum(clip_lengths + 1))
 
         return clip_lengths
 
@@ -201,7 +203,15 @@ class Detector(object):
         return row_index, col_index
 
     def _get_projected_bounding_box( self, scatterer ):
-        """Compute in detector plane coordinates the bounding rectangle of the projection of a scatterer.
+        """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
+
+        Args:
+            scatterer (:obj:`xrd_simulator.Scatterer`): The scattering region.
+
+        Returns:
+            (:obj:`float`) indices that can be used to slice the detector frame array and get the pixels that
+                are within the bounding box.
+
         """
         vertices = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
         projected_vertices = np.array( [self.get_intersection( scatterer.scattered_wave_vector, v) for v in vertices] )
@@ -214,7 +224,7 @@ class Detector(object):
 
         if min_zd>max_zd or min_yd>max_yd:
             return None
-    
+
         min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index( min_zd, min_yd )
         max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index( max_zd, max_yd )
 
