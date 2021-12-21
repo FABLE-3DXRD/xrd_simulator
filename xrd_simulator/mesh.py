@@ -101,7 +101,7 @@ class TetraMesh(object):
 
         mesh = pygalmesh.generate_mesh( LevelSet(),
                                         max_cell_circumradius=max_cell_circumradius, 
-                                        verbose=False)
+                                        verbose=True)
 
         return cls._build_tetramesh(cls, mesh)
 

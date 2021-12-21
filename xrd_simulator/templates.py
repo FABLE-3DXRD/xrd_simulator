@@ -1,92 +1,158 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
+from xrd_simulator.detector import Detector
+from xrd_simulator.beam import Beam
+from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.mesh import TetraMesh
 
-IMAGE_D11_PARAM_KEYS=[
-"cell__a",
-"cell__b",
-"cell__c",
-"cell_alpha",
-"cell_beta",
-"cell_gamma",
-"cell_lattice_[P,A,B,C,I,F,R],
-"chi",
-"distance",
-"fit_tol",
-"fit_tolerance",
-"min_bin_prob",
-"no_bins",
-"o11",
-"o12",
-"o21",
-"o22",
-"omegasign",
-"t_x",
-"t_y",
-"t_z",
-"tilt_x",
-"tilt_y",
-"tilt_z",
+PARAMETER_KEYS = [
+"detector_distance",
+"number_of_detector_pixels_y",
+"number_of_detector_pixels_y",
+"detector_center_pixel_z",
+"detector_center_pixel_y",
+"pixel_side_length_z",
+"pixel_side_length_y",
 "wavelength",
-"wedge",
-"y_center",
-"y_size",
-"z_center",
-"z_size"
+"beam_side_length_z",
+"beam_side_length_y",
+"rotation_step",
+"rotation_axis"
 ]
 
-def s3dxrd( detector_distance, detector_size_y, detector_size_z, pixel_size_z, pixel_size_y, beam_size ):
+def s3dxrd( parameters ):
     """Construct a scaning-three-dimensional-xray diffraction experiment.
 
     This is a helper/utility function for quickly creating an experiment. For full controll
     over the diffraction geometry consider custom creation of the primitive quanteties: 
-    (:obj:`xrd_simulator.beam.Beam`), (:obj:`xrd_simulator.polycrystal.Polycrystal`), 
-    (:obj:`xrd_simulator.phase.Phase`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
+    (:obj:`xrd_simulator.beam.Beam`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
 
     Args:
-        detector_distance (:obj:`float`): Sample origin to detector distance in units of microns.
-        detector_size_z (:obj:`float`): Detector side length along rotation axis in units of microns.
-        detector_size_y (:obj:`float`): Detector side length perpendicular to rotation axis in units of microns.
-        pixel_size_z (:obj:`float`): Pixel side length along rotation axis in units of microns.
-        pixel_size_y (:obj:`float`): Pixel side length perpendicular to rotation axis in units of microns.
-        beam_size (:obj:`float`): Side length of beam (square cross-section) in units of microns.
+        parameters (:obj:`dict`):
 
     Returns:
         (:obj:`xrd_simulator`) objects defining an experiment:
         (:obj:`xrd_simulator.beam.Beam`),
-        (:obj:`xrd_simulator.polycrystal.Polycrystal`), 
-        (:obj:`xrd_simulator.phase.Phase`) and 
-        (:obj:`xrd_simulator.detector.Detector`).
-
-    """powder_3dxrd
-    raise NotImplementedError()
-
-def powder_3dxrd( parameter_file_path, ODF ):
-    """Construct a simplified full field illumination three-dimensional-xray diffraction experiment with a powder sample.
-
-    This is a helper/utility function for quickly creating an experiment. For full controll
-    over the diffraction geometry consider custom creation of the primitive quanteties: 
-    (:obj:`xrd_simulator.beam.Beam`), (:obj:`xrd_simulator.polycrystal.Polycrystal`), 
-    (:obj:`xrd_simulator.phase.Phase`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
-
-    Args:
-        parameter_file_path (:obj:`string`): Sample origin to detector distance in units of microns.
-        ODF (:obj:`float`): 
-
-    Returns:
-        (:obj:`xrd_simulator`) objects defining an experiment:
-        (:obj:`xrd_simulator.beam.Beam`),
-        (:obj:`xrd_simulator.polycrystal.Polycrystal`), 
-        (:obj:`xrd_simulator.phase.Phase`) and 
         (:obj:`xrd_simulator.detector.Detector`).
 
     """
-    raise NotImplementedError()
 
+    for key in PARAMETER_KEYS:
+        if key not in list(parameters):
+            raise ValueError("No keyword "+key+" found in the input parameters dictionary")
 
-def sample_orientation_density( orientation_density_function, 
-                                number_of_crystals, 
-                                sample_bounding_cylinder_height, 
-                                sample_bounding_cylinder_radius  ):
+    detector = _get_detector_from_params( parameters )
+    beam     = _get_detector_from_params( parameters )
+    motion   = _get_motion_from_params( parameters )
+
+    return beam, detector, motion
+
+def _get_motion_from_params( parameters ):
+    translation = np.array([0., 0., 0.])
+    return RigidBodyMotion(parameters["rotation_axis"], parameters["rotation_step"],translation)
+
+def _get_beam_from_params( parameters ):
+
+    dz = parameters['beam_side_length_z']/2.
+    dy = parameters['beam_side_length_y']/2. 
+    beam_vertices = np.array([
+        [-parameters['detector_distance'], -dy, -dz ],
+        [-parameters['detector_distance'],  dy, -dz ],
+        [-parameters['detector_distance'], -dy,  dz ],
+        [ parameters['detector_distance'], -dy, -dz ],
+        [ parameters['detector_distance'],  dy, -dz ],
+        [ parameters['detector_distance'], -dy,  dz ],
+        [ parameters['detector_distance'],  dy,  dz ]
+    ])
+
+    beam_direction      = np.array([1.0, 0.0, 0.0])
+    polarization_vector = np.array([1.0, 0.0, 0.0])
+
+    return Beam(beam_vertices, beam_direction, parameters['wavelength'], polarization_vector)
+
+def _get_detector_from_params( parameters ):
+
+    d0 = np.array( [  parameters['detector_distance'], 
+                     -parameters['detector_center_pixel_y']  * parameters['pixel_side_length_y'], 
+                     -parameters['detector_center_pixel_z']  * parameters['pixel_side_length_z']
+                    ] )
+
+    d1 = np.array( [ parameters['detector_distance'],  
+                     (parameters['number_of_detector_pixels_y'] - parameters['detector_center_pixel_y']) * parameters['pixel_side_length_y'], 
+                    -parameters['detector_center_pixel_z']  * parameters['pixel_side_length_z']
+                    ] ) 
+
+    d2 = np.array( [ parameters['detector_distance'], 
+                    -parameters['detector_center_pixel_y']  * parameters['pixel_side_length_y'],  
+                     (parameters['number_of_detector_pixels_z'] - parameters['detector_center_pixel_z']) * parameters['pixel_side_length_z']
+                     ] )
+
+    return Detector( parameters['pixel_side_length_z'], parameters['pixel_side_length_y'], d0, d1, d2 )
+
+def polycrystal_from_orientation_density( orientation_density_function,
+                                          number_of_crystals,
+                                          sample_bounding_cylinder_height,
+                                          sample_bounding_cylinder_radius,                                          
+                                          unit_cell,
+                                          sgname  ):
     """Fill a cylinder with crystals from a given orientation density function. 
     """
-    raise NotImplementedError()
+
+    def level_set(x):
+        return np.min( [x[0]**2 + x[1]**2 - sample_bounding_cylinder_radius**2, (sample_bounding_cylinder_height/2.) - np.abs(x[2])] )
+    bounding_radius       = np.max([sample_bounding_cylinder_radius, (sample_bounding_cylinder_height/2.)])
+    volume_per_crystal    = np.pi*(sample_bounding_cylinder_radius**2)*sample_bounding_cylinder_height / number_of_crystals
+    max_cell_circumradius = 100*( 3 * volume_per_crystal / (np.pi*4.) )**(1/3.)
+    print(max_cell_circumradius)
+
+    import pygalmesh
+
+    cylinder = pygalmesh.generate_mesh(
+        pygalmesh.Cylinder( -1.0, 1.0, 1.0, 0.1 ),#pygalmesh.Cylinder( 0.0, sample_bounding_cylinder_radius, sample_bounding_cylinder_height, 0.01 ),
+        max_cell_circumradius=0.2,
+    )
+    mesh = TetraMesh()._build_tetramesh(cylinder)
+    mesh.save("/home/axel/Downloads/cylinder.xdmf")
+
+    raise
+    mesh = TetraMesh.generate_mesh_from_levelset( level_set, bounding_radius, max_cell_circumradius)
+
+    eU = _sample_ODF( orientation_density_function, np.pi/90.0, mesh.ecentroids )
+    phases = [Phase(unit_cell, sgname)]
+    B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
+    eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
+    ephase = np.zeros((mesh.number_of_elements,)).astype(int)
+    polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
+
+def _sample_ODF( ODF, dalpha, coordinates ):
+    """
+    """
+
+    alpha_1 = np.arange(  0,   np.pi,   dalpha )
+    alpha_2 = np.arange(  0,   np.pi,   dalpha )
+    alpha_3 = np.arange(  0, 2*np.pi,   dalpha )
+
+    A1,A2,A3 = np.meshgrid( alpha_1, alpha_2, alpha_3, indexing='ij' )
+    A1,A2,A3 = A1.flatten(), A2.flatten(), A3.flatten()
+
+    q              = _alpha_to_quarternion(A1, A2, A3)
+    volume_element = (np.sin(A1)**2) * np.sin(A2) * (dalpha**3)
+
+    rotations = []
+    for x in coordinates:
+        probability = jac * function( x, q ) * (dalpha**3)
+        indices = np.linspace(0, len(probability)).astype(int)
+        draw = np.random.choice(indices, size=1, replace=True, p=probability)
+        rotations.append( Rotation.as_rotmat( q[draw,:] ) )
+
+    return np.array(rotations)
+
+def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
+    """Generate a unit quarternion by providing spherical angle coordinates on the S3 ball.
+    """
+    sa1,sa2 = np.sin(alpha_1),np.sin(alpha_2)
+    x = np.cos(alpha_1) 
+    y = sa1*sa2*np.cos(alpha_3)
+    z = sa1*sa2*np.sin(alpha_3)
+    w = sa1*np.cos(alpha_2)
+    return np.array([x,y,z,w]).T
