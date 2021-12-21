@@ -130,7 +130,7 @@ class TestDetector(unittest.TestCase):
         self.detector.frames.append([scatterer])
         piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="project")
 
-        projected_summed_intensity = np.sum(piximage)*(self.pixel_size**2)
+        projected_summed_intensity = np.sum(piximage)
         relative_error             = np.abs( scatterer.volume - projected_summed_intensity ) / scatterer.volume
         self.assertLessEqual( relative_error, 1e-4, msg="Projected mass does not match the hull volume" )
 

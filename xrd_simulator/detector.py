@@ -46,6 +46,9 @@ class Detector(PickleableObject):
     def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True, method="centroid", verbose=True):
         """Render a pixelated diffraction pattern onto the detector plane .
 
+        NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
+        the pixel area.
+
         Args:
             frame_number (:obj:`int`): Index of the frame in the :obj:`frames` list to be rendered.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
@@ -148,18 +151,26 @@ class Detector(PickleableObject):
         if self.contains(zd,yd): 
             intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
             row, col = self._detector_coordinate_to_pixel_index( zd, yd )
-            frame[row, col] += scatterer.volume * intensity_scaling_factor / (self.pixel_size**2)
+            frame[row, col] += scatterer.volume * intensity_scaling_factor
 
     def _projection_render(self, scatterer, frame, lorentz, polarization, structure_factor):
         """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
         This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
         function.
+
+        NOTE: If the projection of the scatterer does not hit any pixel controids of the detector fallback to 
+        the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
         """
         box = self._get_projected_bounding_box( scatterer )
         if box is not None:
             projection = self._project( scatterer, box )
-            intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
-            frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor
+            if np.sum(projection)==0: 
+                # The projection of the scatterer did not hit any pixel controids of the detector.
+                # i.e the scatterer is small in comparison to the detector pixels.
+                self._centroid_render( scatterer, frame, lorentz, polarization, structure_factor)
+            else:
+                intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
+                frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor
 
     def _get_intensity_factor(self, scatterer, lorentz, polarization, structure_factor):
         intensity_factor = 1.0
@@ -190,14 +201,9 @@ class Detector(PickleableObject):
         clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
         clip_lengths  = clip_lengths.reshape( box[1]-box[0], box[3]-box[2] )
 
-        # We make sure to rescale the summed intensity to the scattering volume. If the projection 
-        # of the scatterer did not hit any pixel centres, we assign all close by pixes the same 
-        # intensity such that the summed intensity is equal to the scattered volume. (Hence the +1)
-        clip_lengths = (clip_lengths + 1) * (scatterer.volume * np.sum(clip_lengths + 1))
+        # We make sure to rescale the summed intensity to the scattering volume.
+        clip_lengths = clip_lengths * scatterer.volume / np.sum(clip_lengths) 
 
-        # The intensity is equal to the scattered volume if we integrate over the pixels.
-        clip_lengths = clip_lengths / (self.pixel_size**2)
-    
         return clip_lengths
 
     def _detector_coordinate_to_pixel_index(self, zd, yd):

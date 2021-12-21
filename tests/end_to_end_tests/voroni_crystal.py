@@ -14,7 +14,7 @@ import pstats
 np.random.seed(23)
 
 grainmeshfile = os.path.join( os.path.join(os.path.dirname(__file__), '../data' ), 'grain0056.xdmf' )
-mesh = TetraMesh.load_mesh_from_file( grainmeshfile )
+mesh = TetraMesh.load( grainmeshfile )
 
 sample_diameter = 1.0
 

@@ -51,7 +51,7 @@ class TetraMesh(object):
         return tetmesh
 
     @classmethod
-    def load_mesh_from_file(cls, path):
+    def load(cls, path):
         """Load a mesh from a saved mesh file set using `the meshio package`_:
 
         .. _the meshio package: https://github.com/nschloe/meshio
