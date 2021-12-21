@@ -1,9 +1,12 @@
 import numpy as np
+import pygalmesh
 from scipy.spatial.transform import Rotation
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.mesh import TetraMesh
+from xrd_simulator.phase import Phase
+from xfab import tools
 
 PARAMETER_KEYS = [
 "detector_distance",
@@ -42,7 +45,7 @@ def s3dxrd( parameters ):
             raise ValueError("No keyword "+key+" found in the input parameters dictionary")
 
     detector = _get_detector_from_params( parameters )
-    beam     = _get_detector_from_params( parameters )
+    beam     = _get_beam_from_params( parameters )
     motion   = _get_motion_from_params( parameters )
 
     return beam, detector, motion
@@ -66,7 +69,7 @@ def _get_beam_from_params( parameters ):
     ])
 
     beam_direction      = np.array([1.0, 0.0, 0.0])
-    polarization_vector = np.array([1.0, 0.0, 0.0])
+    polarization_vector = np.array([0.0, 1.0, 0.0])
 
     return Beam(beam_vertices, beam_direction, parameters['wavelength'], polarization_vector)
 
@@ -102,20 +105,24 @@ def polycrystal_from_orientation_density( orientation_density_function,
         return np.min( [x[0]**2 + x[1]**2 - sample_bounding_cylinder_radius**2, (sample_bounding_cylinder_height/2.) - np.abs(x[2])] )
     bounding_radius       = np.max([sample_bounding_cylinder_radius, (sample_bounding_cylinder_height/2.)])
     volume_per_crystal    = np.pi*(sample_bounding_cylinder_radius**2)*sample_bounding_cylinder_height / number_of_crystals
-    max_cell_circumradius = 100*( 3 * volume_per_crystal / (np.pi*4.) )**(1/3.)
-    print(max_cell_circumradius)
+    
+    max_cell_circumradius = ( 3 * volume_per_crystal / (np.pi*4.) )**(1/3.)
 
-    import pygalmesh
+    # Fudge factor 2.6 gives approximately number_of_crystals elements in the mesh
+    max_cell_circumradius = 2.65 * max_cell_circumradius 
 
-    c = pygalmesh.Cylinder(-1.0, 1.0, 0.7, 0.4)
+    dz = sample_bounding_cylinder_height/2.
+    R = float(sample_bounding_cylinder_radius)
+
     cylinder = pygalmesh.generate_mesh(
-        c, max_cell_circumradius=0.4, max_edge_size_at_feature_edges=0.4, verbose=False
+        pygalmesh.Cylinder(-dz, dz, R, max_cell_circumradius), 
+        max_cell_circumradius=max_cell_circumradius, 
+        max_edge_size_at_feature_edges=max_cell_circumradius, 
+        verbose=False
     )
-    mesh = TetraMesh._build_tetramesh(cylinder)
-    mesh.save("/home/axel/Downloads/cylinder.xdmf")
-
-    raise
-    mesh = TetraMesh.generate_mesh_from_levelset( level_set, bounding_radius, max_cell_circumradius)
+    mesh = TetraMesh._build_tetramesh( cylinder )
+    
+    mesh.save("C:\\Users\\Henningsson\\Downloads\\cylinder.xdmf")
 
     eU = _sample_ODF( orientation_density_function, np.pi/90.0, mesh.ecentroids )
     phases = [Phase(unit_cell, sgname)]
@@ -140,7 +147,7 @@ def _sample_ODF( ODF, dalpha, coordinates ):
 
     rotations = []
     for x in coordinates:
-        probability = jac * function( x, q ) * (dalpha**3)
+        probability = volume_element * ODF( x, q )
         indices = np.linspace(0, len(probability)).astype(int)
         draw = np.random.choice(indices, size=1, replace=True, p=probability)
         rotations.append( Rotation.as_rotmat( q[draw,:] ) )

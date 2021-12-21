@@ -34,8 +34,8 @@ class TestUtils(unittest.TestCase):
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
-        orientation_density_function = lambda q: q[0]/10.
-        number_of_crystals = 50
+        orientation_density_function = lambda x,q: q[:,0]/10.
+        number_of_crystals = 20
         sample_bounding_cylinder_height = 100
         sample_bounding_cylinder_radius = 25
 

@@ -42,7 +42,8 @@ class TetraMesh(object):
         self.ecmat       = None
         self.centroid    = None
         self.number_of_elements = None
-
+    
+    @classmethod
     def _build_tetramesh(cls, mesh):
         tetmesh = cls()
         tetmesh._mesh = mesh
@@ -61,7 +62,7 @@ class TetraMesh(object):
 
         """
         mesh = meshio.read( path )
-        return cls._build_tetramesh(cls, mesh)
+        return cls._build_tetramesh( mesh)
 
     @classmethod
     def generate_mesh_from_vertices(cls, coord, enod):
@@ -77,7 +78,7 @@ class TetraMesh(object):
 
         """
         mesh = meshio.Mesh( coord, [("tetra", enod)] )
-        return cls._build_tetramesh(cls, mesh)
+        return cls._build_tetramesh( mesh)
 
     @classmethod
     def generate_mesh_from_levelset(cls, level_set, bounding_radius, max_cell_circumradius):
@@ -101,9 +102,9 @@ class TetraMesh(object):
 
         mesh = pygalmesh.generate_mesh( LevelSet(),
                                         max_cell_circumradius=max_cell_circumradius, 
-                                        verbose=True)
+                                        verbose=False)
 
-        return cls._build_tetramesh(cls, mesh)
+        return cls._build_tetramesh( mesh)
 
     @classmethod
     def generate_mesh_from_numpy_array(cls, array, voxel_size, max_cell_circumradius):
@@ -121,7 +122,7 @@ class TetraMesh(object):
         mesh = pygalmesh.generate_from_array( array, [voxel_size]*3,
                                             max_cell_circumradius=max_cell_circumradius, 
                                             verbose=False )
-        return cls._build_tetramesh(cls, mesh)
+        return cls._build_tetramesh( mesh)
 
     def _set_fem_matrices(self):
         """Extract and set mesh FEM matrices from pygalmesh object.
