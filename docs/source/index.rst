@@ -72,6 +72,14 @@ utils
     :members:
     :show-inheritance:
 
+======================================
+templates
+======================================
+
+.. automodule:: xrd_simulator.templates
+    :members:
+    :show-inheritance:
+
 Indices and tables
 ==================
 

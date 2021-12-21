@@ -49,8 +49,7 @@ def print_progress(progress_fraction, message):
 def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points, plane_normals ):
     """Compute clip-lengths of a set of parallel lines clipped by a convex polyhedron defined by a series of 2d planes.
 
-        For algorihtm description see:
-            Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
+        For algorihtm description see: Mike Cyrus and Jay Beck. “Generalized two- and three-dimensional clipping”. (1978)
         The algorithms is based on solving orthogonal equations and sorting the resutling plane line interestion 
         points to find which are entry and which are exit points through the convex polyhedron.
 

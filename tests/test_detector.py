@@ -11,12 +11,13 @@ import matplotlib.pyplot as plt
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
-        self.pixel_size = 50.
+        self.pixel_size_z = 50.
+        self.pixel_size_y = 40.
         self.detector_size = 10000.
         self.d0 = np.array([1,0,0])*self.detector_size
         self.d1 = np.array([1,1,0])*self.detector_size
         self.d2 = np.array([1,0,1])*self.detector_size
-        self.detector = Detector( self.pixel_size, self.d0, self.d1, self.d2 )
+        self.detector = Detector( self.pixel_size_z, self.pixel_size_y, self.d0, self.d1, self.d2 )
 
     def test_init(self):
 
@@ -51,7 +52,7 @@ class TestDetector(unittest.TestCase):
         wavelength = 1.0
 
         incident_wave_vector = 2*np.pi* np.array([1,0,0])/(wavelength)
-        scattered_wave_vector = self.d0 + self.pixel_size*3*self.detector.ydhat + self.pixel_size*2*self.detector.zdhat
+        scattered_wave_vector = self.d0 + self.pixel_size_y*3*self.detector.ydhat + self.pixel_size_z*2*self.detector.zdhat
         scattered_wave_vector = 2*np.pi*scattered_wave_vector/(np.linalg.norm(scattered_wave_vector)*wavelength)
 
         data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
@@ -81,17 +82,23 @@ class TestDetector(unittest.TestCase):
 
         self.detector.frames.append([scatterer1, scatterer2])
         piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
-        npix = int( self.detector_size / (2*self.pixel_size) )
-        self.assertAlmostEqual(piximage[npix+2,npix+3], ch1.volume, msg="detector rendering did not capture scatterer")
+        
+        # the sample sits at the centre of the detector.
+        expected_z_pixel = int( self.detector_size / (2*self.pixel_size_z) ) + 2
+        expected_y_pixel = int( self.detector_size / (2*self.pixel_size_y) ) + 3
+
+        self.assertAlmostEqual(piximage[expected_z_pixel,expected_y_pixel], ch1.volume, msg="detector rendering did not capture scatterer")
         self.assertAlmostEqual(np.sum(piximage), ch1.volume, msg="detector rendering captured out of bounds scatterer")
 
         # Try rendering with advanced intensity model
         piximage = self.detector.render(frame_number=0, lorentz=True, polarization=False, structure_factor=False)
-        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use lorentz factor")
+        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use lorentz factor")
+        
         piximage = self.detector.render(frame_number=0, lorentz=False, polarization=True, structure_factor=False)
-        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use polarization factor")
+        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use polarization factor")
+        
         piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=True)
-        self.assertTrue(piximage[npix+2,npix+3]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
+        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
 
     def test_projection_render(self):
         
@@ -135,16 +142,20 @@ class TestDetector(unittest.TestCase):
         self.assertLessEqual( relative_error, 1e-4, msg="Projected mass does not match the hull volume" )
 
         index = np.where(piximage==np.max(piximage))
-        self.assertEqual( index[0][0], self.detector_size//(2*self.pixel_size), msg="Projected mass does not match the hull volume" )
-        self.assertEqual( index[1][0], self.detector_size//(2*self.pixel_size), msg="Projected mass does not match the hull volume" )
+        self.assertEqual( index[0][0], self.detector_size//(2*self.pixel_size_z), msg="Projected mass does not match the hull volume" )
+        self.assertEqual( index[1][0], self.detector_size//(2*self.pixel_size_y), msg="Projected mass does not match the hull volume" )
 
-        no_pixels = int( self.detector_size//self.pixel_size )
-        print("no_pixels", no_pixels)
-        for i in range(no_pixels):
-            for j in range(no_pixels):
-                if (i - no_pixels/2.)**2 + (j - no_pixels/2.)**2 > (1.01*r/self.pixel_size)**2:
+        no_pixels_z = int( self.detector_size//self.pixel_size_z )
+        no_pixels_y = int( self.detector_size//self.pixel_size_y )
+
+
+        for i in range(no_pixels_z):
+            for j in range(no_pixels_y):
+                zd = i*self.pixel_size_z
+                yd = j*self.pixel_size_y
+                if (zd - self.detector_size/2.)**2 + (yd - self.detector_size/2.)**2 > (1.01*r)**2:
                     self.assertAlmostEqual( piximage[i,j], 0 )
-                elif (i - no_pixels/2.)**2 + (j - no_pixels/2.)**2 < (0.99*r/self.pixel_size)**2:
+                elif (zd - self.detector_size/2.)**2 + (yd - self.detector_size/2.)**2 < (0.99*r)**2:
                     self.assertGreater( piximage[i,j], 0 )
 
     def test_get_intersection(self):
@@ -157,26 +168,26 @@ class TestDetector(unittest.TestCase):
         self.assertAlmostEqual(y,0,msg="central detector-normal algined ray does not intersect at 0")
 
         # translate the ray
-        source_point  += self.detector.ydhat * self.pixel_size
-        source_point  -= self.detector.zdhat * 2 * self.pixel_size
+        source_point  += self.detector.ydhat * self.pixel_size_y
+        source_point  -= self.detector.zdhat * 2 * self.pixel_size_z
         z, y  = self.detector.get_intersection(ray_direction, source_point)
-        self.assertAlmostEqual(z, -2*self.pixel_size, msg="translated detector-normal algined ray does not intersect properly")
-        self.assertAlmostEqual(y, self.pixel_size, msg="translated detector-normal algined ray does not intersect properly")
+        self.assertAlmostEqual(z, -2*self.pixel_size_z, msg="translated detector-normal algined ray does not intersect properly")
+        self.assertAlmostEqual(y, self.pixel_size_y, msg="translated detector-normal algined ray does not intersect properly")
 
         # tilt the ray
-        ang = np.arctan(self.pixel_size/self.detector_size)
+        ang = np.arctan(self.pixel_size_y/self.detector_size)
         frac = np.tan(ang)*np.linalg.norm(ray_direction)
         ray_direction += self.detector.ydhat * frac * 3
         z, y  = self.detector.get_intersection(ray_direction, source_point)
-        self.assertAlmostEqual(z, -2*self.pixel_size, msg="translated and tilted ray does not intersect properly")
-        self.assertAlmostEqual(y, 4*self.pixel_size, msg="translated and tilted ray does not intersect properly")
+        self.assertAlmostEqual(z, -2*self.pixel_size_z, msg="translated and tilted ray does not intersect properly")
+        self.assertAlmostEqual(y, 4*self.pixel_size_y, msg="translated and tilted ray does not intersect properly")
 
     def test_contains(self):
         c1 = self.detector.contains(self.detector_size/10., self.detector_size/5.)
         self.assertTrue(c1, msg="detector does no contain included point")
         c2= self.detector.contains(-self.detector_size/8., self.detector_size/3.)
         self.assertTrue(not c2, msg="detector contain negative points")
-        c4= self.detector.contains(self.detector_size*2*self.pixel_size, self.detector_size/374.)
+        c4= self.detector.contains(self.detector_size*2*self.pixel_size_z, self.detector_size/374.)
         self.assertTrue(not c4, msg="detector contain out of bounds points")
 
     def test_get_wrapping_cone(self):
@@ -184,12 +195,16 @@ class TestDetector(unittest.TestCase):
         k = 2 * np.pi * np.array([1,0,0]) / wavelength
         source_point  = (self.detector.zdhat + self.detector.ydhat) * self.detector_size/2.
         opening_angle = self.detector.get_wrapping_cone(k, source_point)
-        expected_angle = np.arctan( np.sqrt(2)*100.*self.pixel_size / self.detector_size ) / 2.
+
+        normed_det_center = (source_point + self.d0)/np.linalg.norm(source_point + self.d0)
+        normed_det_origin = self.d0/np.linalg.norm(self.d0)
+        expected_angle = np.arccos( np.dot( normed_det_center, normed_det_origin ) ) / 2.
+
         self.assertAlmostEqual(opening_angle, expected_angle, msg="detector centered wrapping cone has faulty opening angle")
 
         source_point  = (self.detector.zdhat + self.detector.ydhat) * self.detector_size/2.
-        source_point -= self.detector.zdhat*10*self.pixel_size
-        source_point -= self.detector.ydhat*10*self.pixel_size
+        source_point -= self.detector.zdhat*10*self.pixel_size_z
+        source_point -= self.detector.ydhat*10*self.pixel_size_y
         opening_angle = self.detector.get_wrapping_cone(k, source_point)
         self.assertGreaterEqual(opening_angle, expected_angle, msg="detector off centered wrapping cone has opening angle")
 

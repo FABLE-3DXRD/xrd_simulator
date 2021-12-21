@@ -15,7 +15,7 @@ d0 = np.array([detector_distance,   -detector_size/2.,  -detector_size/2.])
 d1 = np.array([detector_distance,    detector_size/2.,  -detector_size/2.])
 d2 = np.array([detector_distance,   -detector_size/2.,   detector_size/2.])
 
-detector = Detector( pixel_size, d0, d1, d2 )
+detector = Detector( pixel_size, pixel_size, d0, d1, d2 )
 
 np.random.seed(1)
 r = (detector_size/10.)
@@ -66,15 +66,15 @@ import cProfile
 import pstats
 pr = cProfile.Profile()
 pr.enable()
-pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='centroid')
+pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(20)
 
 import matplotlib.pyplot as plt
-#pixim[ pixim<=0 ] = 1
-#pixim = np.log(pixim)
+# pixim[ pixim<=0 ] = 1
+# pixim = np.log(pixim)
 plt.imshow(pixim , cmap='jet')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

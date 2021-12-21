@@ -16,13 +16,13 @@ np.random.seed(23)
 import meshio
 centroids = []
 for i in range(2, 66):
-    path = 'C:\\Users\\Henningsson\\workspace\\sandbox\\'
-    grainmeshfile = os.path.join( path, 'grain_no'+str(i)+'.xdmf' )
+    path = os.path.join(os.path.dirname(__file__), '../../extras/voroni_sample/grain_meshes' ) 
+    path = os.path.normpath( path )
+    grainmeshfile = os.path.join( path, 'grain'+str(i).zfill(4)+'.xdmf' )
     mesh = meshio.read( grainmeshfile )
     centroids.append(list((1/256.)*np.mean( mesh.points, axis=0 )))
 centroids = np.array(centroids)
 sample_diameter = 1.0
-
 coord, enod = [],[]
 k=0
 for c in centroids:
@@ -48,7 +48,7 @@ d0 = np.array([detector_distance,   -detector_size/2.,  -detector_size/2.])
 d1 = np.array([detector_distance,    detector_size/2.,  -detector_size/2.])
 d2 = np.array([detector_distance,   -detector_size/2.,   detector_size/2.])
 
-detector = Detector( pixel_size, d0, d1, d2 )
+detector = Detector( pixel_size, pixel_size, d0, d1, d2 )
 
 #data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
 unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
@@ -90,7 +90,7 @@ polycrystal.diffract( beam, detector, motion )
 pr.disable()
 pr.dump_stats('tmp_profile_dump')   
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(15)
+ps.print_stats(10)
 print("")
 
 print("Detector centroid rendering:")
@@ -100,7 +100,7 @@ pixim1 = detector.render(frame_number=0, lorentz=False, polarization=False, stru
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(15)
+ps.print_stats(10)
 print("")
 
 print("Detector project rendering:")
@@ -110,16 +110,16 @@ pixim2 = detector.render(frame_number=0, lorentz=False, polarization=False, stru
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
-ps.print_stats(15)
+ps.print_stats(10)
 
 import matplotlib.pyplot as plt
 #pixim[ pixim<=0 ] = 1
 #pixim = np.log(pixim)
 
-from scipy.signal import convolve
+#from scipy.signal import convolve
 
-kernel = np.ones((4,4))
-pixim1 = convolve(pixim1, kernel, mode='full', method='auto')
+#kernel = np.ones((4,4))
+#pixim1 = convolve(pixim1, kernel, mode='full', method='auto')
 
 fig,ax=plt.subplots(1,2)
 ax[0].imshow(pixim1 , cmap='gray')

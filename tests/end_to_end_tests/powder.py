@@ -15,12 +15,27 @@ d0 = np.array([detector_distance,   -detector_size/2.,  -detector_size/2.])
 d1 = np.array([detector_distance,    detector_size/2.,  -detector_size/2.])
 d2 = np.array([detector_distance,   -detector_size/2.,   detector_size/2.])
 
-detector = Detector( pixel_size, d0, d1, d2 )
+detector = Detector( pixel_size, pixel_size, d0, d1, d2 )
 
-mesh = TetraMesh.generate_mesh_from_levelset(
-    level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
-    bounding_radius = 1.1*detector_size/10., 
-    max_cell_circumradius = 0.001*detector_size/10. )
+# mesh = TetraMesh.generate_mesh_from_levelset(
+#     level_set = lambda x: pixel_size*x[0]*x[0] + pixel_size*x[1]*x[1] + x[2]*x[2] - detector_size/10.,
+#     bounding_radius = 1.1*detector_size/10., 
+#     max_cell_circumradius = 0.001*detector_size/10. )
+
+coord, enod = [],[]
+k=0
+dx = 0.001*detector_size/10.
+c = np.array([0,0,0])
+for _ in range(500):
+    coord.append( [c[0],   c[1],   c[2]] ) 
+    coord.append( [c[0]+dx,   c[1],   c[2]] ) 
+    coord.append( [c[0],   c[1]+dx,   c[2]] ) 
+    coord.append( [c[0],   c[1],   c[2]+dx] )
+    enod.append( [k,k+1,k+2,k+3] )
+    k+=3
+coord = np.array(coord)
+enod = np.array(enod)
+mesh = TetraMesh.generate_mesh_from_vertices(coord,enod)
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221' # Quartz
@@ -56,8 +71,6 @@ polycrystal.diffract( beam, detector, motion )
 pixim = detector.render(frame_number=0, method='project')
 
 import matplotlib.pyplot as plt
-from scipy.signal import convolve
-pixim[pixim>0]  = 1
-plt.imshow( pixim , cmap='gray')
+plt.imshow( pixim>0 , cmap='gray')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

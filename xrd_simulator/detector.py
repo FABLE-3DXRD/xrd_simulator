@@ -16,12 +16,14 @@ class Detector(PickleableObject):
     to three of the four corners of the detector.
 
     Args:
-        pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
+        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
         d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ```shape=(3,)```. The origin of the detector
             is at d0.
 
     Attributes:
-        pixel_size (:obj:`float`): Pixel side length (square pixels) in units of microns.
+        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
         d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ```shape=(3,)```. The origin of the detector
             is at d0.
         frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
@@ -32,9 +34,10 @@ class Detector(PickleableObject):
 
     """
 
-    def __init__(self, pixel_size, d0, d1, d2 ):
+    def __init__(self, pixel_size_z, pixel_size_y, d0, d1, d2 ):
         self.d0, self.d1, self.d2 = d0, d1, d2
-        self.pixel_size = pixel_size
+        self.pixel_size_z = pixel_size_z
+        self.pixel_size_y = pixel_size_y
         self.zmax   = np.linalg.norm(self.d2-self.d0)
         self.ymax   = np.linalg.norm(self.d1-self.d0)
         self.zdhat  = (self.d2-self.d0 ) / self.zmax
@@ -68,7 +71,7 @@ class Detector(PickleableObject):
 
         NOTE: This function can be overwitten to do more advanced models for intensity.
         """
-        frame = np.zeros( (int(self.zmax/self.pixel_size), int(self.ymax/self.pixel_size)) )
+        frame = np.zeros( (int(self.zmax/self.pixel_size_z), int(self.ymax/self.pixel_size_y)) )
         for si,scatterer in enumerate(self.frames[frame_number]):
 
             if verbose:
@@ -134,8 +137,8 @@ class Detector(PickleableObject):
         return np.max( cone_opening ) / 2.
 
     def _get_pixel_coordinates(self):
-        zds = np.arange(0, self.zmax, self.pixel_size)
-        yds = np.arange(0, self.ymax, self.pixel_size)
+        zds = np.arange(0, self.zmax, self.pixel_size_z)
+        yds = np.arange(0, self.ymax, self.pixel_size_y)
         pixel_coordinates = np.zeros( (len(zds),len(yds),3) )
         for i,z in enumerate(zds):
             for j,y in enumerate(yds):
@@ -167,10 +170,10 @@ class Detector(PickleableObject):
             if np.sum(projection)==0: 
                 # The projection of the scatterer did not hit any pixel controids of the detector.
                 # i.e the scatterer is small in comparison to the detector pixels.
-                self._centroid_render( scatterer, frame, lorentz, polarization, structure_factor)
+                self._centroid_render( scatterer, frame, lorentz, polarization, structure_factor )
             else:
                 intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
-                frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor
+                frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
 
     def _get_intensity_factor(self, scatterer, lorentz, polarization, structure_factor):
         intensity_factor = 1.0
@@ -201,14 +204,12 @@ class Detector(PickleableObject):
         clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
         clip_lengths  = clip_lengths.reshape( box[1]-box[0], box[3]-box[2] )
 
-        # We make sure to rescale the summed intensity to the scattering volume.
-        clip_lengths = clip_lengths * scatterer.volume / np.sum(clip_lengths) 
+        return clip_lengths 
 
-        return clip_lengths
 
     def _detector_coordinate_to_pixel_index(self, zd, yd):
-        row_index = int(zd/self.pixel_size)
-        col_index = int(yd/self.pixel_size)
+        row_index = int(zd/self.pixel_size_z)
+        col_index = int(yd/self.pixel_size_y)
         return row_index, col_index
 
     def _get_projected_bounding_box( self, scatterer ):
@@ -237,8 +238,8 @@ class Detector(PickleableObject):
         min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index( min_zd, min_yd )
         max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index( max_zd, max_yd )
 
-        max_row_indx = np.min([max_row_indx+1, int(self.zmax/self.pixel_size) ])
-        max_col_indx = np.min([max_col_indx+1, int(self.ymax/self.pixel_size) ])
+        max_row_indx = np.min([max_row_indx+1, int(self.zmax/self.pixel_size_z) ])
+        max_col_indx = np.min([max_col_indx+1, int(self.ymax/self.pixel_size_y) ])
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
 
