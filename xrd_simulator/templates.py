@@ -107,11 +107,11 @@ def polycrystal_from_orientation_density( orientation_density_function,
 
     import pygalmesh
 
+    c = pygalmesh.Cylinder(-1.0, 1.0, 0.7, 0.4)
     cylinder = pygalmesh.generate_mesh(
-        pygalmesh.Cylinder( -1.0, 1.0, 1.0, 0.1 ),#pygalmesh.Cylinder( 0.0, sample_bounding_cylinder_radius, sample_bounding_cylinder_height, 0.01 ),
-        max_cell_circumradius=0.2,
+        c, max_cell_circumradius=0.4, max_edge_size_at_feature_edges=0.4, verbose=False
     )
-    mesh = TetraMesh()._build_tetramesh(cylinder)
+    mesh = TetraMesh._build_tetramesh(cylinder)
     mesh.save("/home/axel/Downloads/cylinder.xdmf")
 
     raise
