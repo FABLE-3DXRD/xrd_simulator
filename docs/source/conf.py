@@ -31,7 +31,11 @@ release = '0.0.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.napoleon', 'sphinx.ext.autodoc', 'sphinx_rtd_theme', 'sphinx.ext.autosummary']
+extensions = [ 'sphinx.ext.napoleon', 
+               'sphinx.ext.autodoc', 
+               'sphinx_rtd_theme', 
+               'sphinx.ext.autosummary', 
+               'sphinx.ext.linkcode' ]
 
 # include documentation of __special__() functions.
 napoleon_include_special_with_doc = True
@@ -61,3 +65,12 @@ html_theme_options = {
     'logo_only': True,
     'display_version': False,
 }
+
+
+def linkcode_resolve(domain, info):
+    if domain != 'py':
+        return None
+    if not info['module']:
+        return None
+    filename = info['module'].replace('.', '/')
+    return "https://github.com/AxelHenningsson/xrd_simulator/blob/main/%s.py/" % filename

@@ -5,6 +5,7 @@ import os
 from scipy.spatial.transform import Rotation
 from xfab import tools
 from xrd_simulator import templates
+import matplotlib.pyplot as plt
 
 class TestUtils(unittest.TestCase):
 
@@ -12,7 +13,7 @@ class TestUtils(unittest.TestCase):
         np.random.seed(5) # changes all randomisation in the test
 
     def test_s3dxrd(self):
-
+        
         parameters = {
             "detector_distance"             : 191023.9164,
             "detector_center_pixel_z"       : 501.2345,
@@ -22,18 +23,45 @@ class TestUtils(unittest.TestCase):
             "number_of_detector_pixels_z"   : 512,
             "number_of_detector_pixels_y"   : 512,
             "wavelength"                    : 0.285227,
-            "beam_side_length_z"            : 400.3455,
-            "beam_side_length_y"            : 500.4545,
+            "beam_side_length_z"            : 512 * 200.,
+            "beam_side_length_y"            : 512 * 200.,
             "rotation_step"                 : 1.0,
             "rotation_axis"                 : np.array([0., 0., 1.0])
         }
 
         beam, detector, motion = templates.s3dxrd( parameters )
-        #sample = ...
-        #sample.diffract( beam, detector, motion )
-        #detector.render()
 
-    def test_polycrystal_from_orientation_density(self):
+        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
+        sgname = 'P3221' # Quartz
+        orientation_density_function = lambda x,q: 1./(np.pi**2) # uniform ODF
+        number_of_crystals = 50
+        sample_bounding_cylinder_height = 512 * 200 / 10.
+        sample_bounding_cylinder_radius = 512 * 200 / 10.
+        maximum_sampling_bin_seperation = np.radians(10.0)
+
+        polycrystal = templates.get_uniform_powder_sample( 
+                        sample_bounding_radius = 1.0, 
+                        number_of_grains = 15, 
+                        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.],
+                        sgname = 'P3221'
+                        )
+        print(detector.d0, detector.ymax)
+        # polycrystal = templates.polycrystal_from_odf( orientation_density_function,
+        #                                               number_of_crystals,
+        #                                               sample_bounding_cylinder_height,
+        #                                               sample_bounding_cylinder_radius,                                          
+        #                                               unit_cell,
+        #                                               sgname,
+        #                                               maximum_sampling_bin_seperation )
+
+        # TODO: make this look reasonable and put in end to end tests.
+        polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
+        pixim = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
+        pixim[pixim>0]=1
+        plt.imshow(pixim)
+        plt.show()
+
+    def test_polycrystal_from_odf(self):
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
@@ -43,7 +71,7 @@ class TestUtils(unittest.TestCase):
         sample_bounding_cylinder_radius = 25
         maximum_sampling_bin_seperation = np.radians(10.0)
 
-        polycrystal = templates.polycrystal_from_orientation_density(  orientation_density_function,
+        polycrystal = templates.polycrystal_from_odf(  orientation_density_function,
                                                                        number_of_crystals,
                                                                        sample_bounding_cylinder_height,
                                                                        sample_bounding_cylinder_radius,                                          

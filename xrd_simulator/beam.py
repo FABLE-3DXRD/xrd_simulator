@@ -8,7 +8,7 @@ from xrd_simulator._pickleable_object import PickleableObject
 
 class Beam(PickleableObject):
     """Represents a monochromatic X-ray beam as a convex polyhedra.
-
+    
     Args:
         vertices (:obj:`numpy array`): Xray-beam vertices.
         wavelength (:obj:`float`): 

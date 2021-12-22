@@ -11,7 +11,7 @@ from xfab import tools
 
 PARAMETER_KEYS = [
 "detector_distance",
-"number_of_detector_pixels_y",
+"number_of_detector_pixels_z",
 "number_of_detector_pixels_y",
 "detector_center_pixel_z",
 "detector_center_pixel_y",
@@ -32,12 +32,23 @@ def s3dxrd( parameters ):
     (:obj:`xrd_simulator.beam.Beam`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
 
     Args:
-        parameters (:obj:`dict`):
+        parameters (:obj:`dict`): Dictionary with fields as \n
+            ``"detector_distance"``           : (:obj:`float`) Distance form sample origin to detector centre in units of microns. \n
+            ``"number_of_detector_pixels_z"`` : (:obj:`int`) Number of detector pixels along z-axis. \n
+            ``"number_of_detector_pixels_y"`` : (:obj:`int`) Number of detector pixels along y-axis. \n
+            ``"detector_center_pixel_z"``     : (:obj:`float`) Intersection pixel coordinate between beam centroid line and detector along z-axis. \n
+            ``"detector_center_pixel_y"``     : (:obj:`float`) Intersection pixel coordinate between beam centroid line and detector along y-axis. \n
+            ``"pixel_side_length_z"``         : (:obj:`float`) Detector pixel side length in units of microns along z-axis. \n
+            ``"pixel_side_length_y"``         : (:obj:`float`) Detector pixel side length in units of microns along y-axis. \n
+            ``"wavelength"``                  : (:obj:`float`) Wavelength in units of Angstrom. \n
+            ``"beam_side_length_z"``          : (:obj:`float`) Beam side length in units of microns. \n
+            ``"beam_side_length_y"``          : (:obj:`float`) Beam side length in units of microns. \n
+            ``"rotation_step"``               : (:obj:`float`) Angular frame integration step in units of radians. \n
+            ``"rotation_axis"``               : (:obj:`numpy array`)  Axis around which to positively rotate the sample by ``rotation_step`` radians. \n
 
     Returns:
         (:obj:`xrd_simulator`) objects defining an experiment:
-        (:obj:`xrd_simulator.beam.Beam`),
-        (:obj:`xrd_simulator.detector.Detector`).
+        (:obj:`xrd_simulator.beam.Beam`), (:obj:`xrd_simulator.detector.Detector`), (:obj:`xrd_simulator.motion.RigidBodyMotion`).
 
     """
 
@@ -93,20 +104,23 @@ def _get_detector_from_params( parameters ):
 
     return Detector( parameters['pixel_side_length_z'], parameters['pixel_side_length_y'], d0, d1, d2 )
 
-def polycrystal_from_orientation_density( orientation_density_function,
-                                          number_of_crystals,
-                                          sample_bounding_cylinder_height,
-                                          sample_bounding_cylinder_radius,                                          
-                                          unit_cell,
-                                          sgname,
-                                          maximum_sampling_bin_seperation=np.radians(5.0)  ):
+def polycrystal_from_odf( orientation_density_function,
+                          number_of_crystals,
+                          sample_bounding_cylinder_height,
+                          sample_bounding_cylinder_radius,                                          
+                          unit_cell,
+                          sgname,
+                          maximum_sampling_bin_seperation=np.radians(5.0)  ):
     """Fill a cylinder with crystals from a given orientation density function. 
 
     The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
     quarternions. Each bin is assigned its aproiate probability, assuming the ``orientation_density_function``
     is approximately constant over a single bin. Each sampled orientation then corresponds is first drawing a
     random bin and next drawing unifromly from within that bin, again assuming that ``orientation_density_function``
-    is approximately constant over a bin.
+    is approximately constant over a bin.s
+
+    Examples:
+        .. literalinclude:: examples/polycrystal_from_odf.py
 
     """
 
