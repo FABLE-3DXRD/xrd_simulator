@@ -7,13 +7,13 @@ def get_G( U, B, G_hkl ):
     """Compute the diffraction vector G=UBG_HKL
 
     Args:
-        U (:obj:`numpy array`) Orientation matrix of ```shape=(3,3)``` (unitary).
-        B (:obj:`numpy array`): Reciprocal to grain coordinate mapping matrix of ```shape=(3,3)```.
-        G_hkl (:obj:`numpy array`): Miller indices, i.e the h,k,l integers (```shape=(3,n)```).
+        U (:obj:`numpy array`) Orientation matrix of ``shape=(3,3)`` (unitary).
+        B (:obj:`numpy array`): Reciprocal to grain coordinate mapping matrix of ``shape=(3,3)``.
+        G_hkl (:obj:`numpy array`): Miller indices, i.e the h,k,l integers (``shape=(3,n)``).
 
 
     Returns:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (```shape=(3,n)```)
+        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
 
     """
     return np.dot( np.dot(U, B), G_hkl  )
@@ -22,11 +22,11 @@ def get_bragg_angle( G, wavelength ):
     """Compute a Bragg angle given a diffraction (scattering) vector.
 
     Args:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (```shape=(3,n)```)
+        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
         wavelength (:obj:`float`): Photon wavelength in units of angstrom.
 
     Returns:
-        Bragg angles (:obj:`float`): in units of radians. (```shape=(n,)```)
+        Bragg angles (:obj:`float`): in units of radians. (``shape=(n,)``)
         
     """
     return np.arcsin( np.linalg.norm(G,axis=0)*wavelength/(4*np.pi) )

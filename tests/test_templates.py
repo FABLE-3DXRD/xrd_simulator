@@ -1,12 +1,15 @@
+from math import degrees
 import unittest
 import numpy as np
 import os
+from scipy.spatial.transform import Rotation
+from xfab import tools
 from xrd_simulator import templates
 
 class TestUtils(unittest.TestCase):
 
     def setUp(self):
-        np.random.seed(10) # changes all randomisation in the test
+        np.random.seed(5) # changes all randomisation in the test
 
     def test_s3dxrd(self):
 
@@ -34,17 +37,46 @@ class TestUtils(unittest.TestCase):
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
-        orientation_density_function = lambda x,q: q[:,0]/10.
-        number_of_crystals = 20
-        sample_bounding_cylinder_height = 100
+        orientation_density_function = lambda x,q: 1./(np.pi**2) # uniform ODF
+        number_of_crystals = 500
+        sample_bounding_cylinder_height = 50
         sample_bounding_cylinder_radius = 25
+        maximum_sampling_bin_seperation = np.radians(10.0)
 
         polycrystal = templates.polycrystal_from_orientation_density(  orientation_density_function,
-                                                                        number_of_crystals,
-                                                                        sample_bounding_cylinder_height,
-                                                                        sample_bounding_cylinder_radius,                                          
-                                                                        unit_cell,
-                                                                        sgname )
+                                                                       number_of_crystals,
+                                                                       sample_bounding_cylinder_height,
+                                                                       sample_bounding_cylinder_radius,                                          
+                                                                       unit_cell,
+                                                                       sgname,
+                                                                       maximum_sampling_bin_seperation )
 
+        # Compare Euler angle distributions to scipy random uniform orientation sampler 
+        euler1 = np.array([ Rotation.from_matrix( U ).as_euler( 'xyz', degrees=True ) for U in polycrystal.eU_lab])
+        euler2 = Rotation.random( 10 * euler1.shape[0] ).as_euler('xyz')
+
+        for i in range(3):
+            hist1, bins = np.histogram(euler1[:,i])
+            hist2, bins = np.histogram(euler2[:,i])
+            hist2 = hist2 / 10.
+            # These histograms should look roughly the same
+            self.assertLessEqual( np.max(np.abs(hist1 - hist2)), number_of_crystals*0.05, "ODF not sampled correctly." )            
+
+        #path = "C:\\Users\\Henningsson\\Downloads\\cylinder.xdmf"
+        #element_data = { "ex" : euler1[:,0], "ey" : euler1[:,1], "ez" : euler1[:,2] }
+        #polycrystal.mesh_lab.save(path, element_data)
+
+    def test_get_uniform_powder_sample(self):
+        sample_bounding_radius = 1.203
+        polycrystal = templates.get_uniform_powder_sample( 
+                        sample_bounding_radius = sample_bounding_radius, 
+                        number_of_grains = 15, 
+                        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.],
+                        sgname = 'P3221'
+                        )
+        for c in polycrystal.mesh_lab.coord:
+            self.assertLessEqual( np.linalg.norm(c), sample_bounding_radius+1e-8, msg='Powder sample not contained by bounding sphere.' )
+
+    
 if __name__ == '__main__':
     unittest.main()

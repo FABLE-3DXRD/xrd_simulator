@@ -14,13 +14,13 @@ class Beam(PickleableObject):
         wavelength (:obj:`float`): 
 
     Attributes:
-        vertices (:obj:`numpy array`): Xray-beam vertices ```shape=(N,3)```.
+        vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
         wavelength (:obj:`float`): Xray wavelength.
-        wave_vector (:obj:`numpy array`): Beam wavevector ```shape=(3,)```
-        centroid (:obj:`numpy array`): Beam centroid ```shape=(3,)```
-        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficents ```shape=(N,3)```. 
+        wave_vector (:obj:`numpy array`): Beam wavevector ``shape=(3,)``
+        centroid (:obj:`numpy array`): Beam centroid ``shape=(3,)``
+        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficents ``shape=(N,3)``. 
             A point x is on the interior of the halfsplace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
-        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ```shape=(3,)```.
+        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
             Must be orthogonal to the xray propagation direction.
 
     """
@@ -40,7 +40,7 @@ class Beam(PickleableObject):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
 
         Args:
-            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficents of a halfspace (```shape=(N,4)```).
+            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficents of a halfspace (``shape=(N,4)``).
 
         Returns:
             (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
@@ -62,7 +62,7 @@ class Beam(PickleableObject):
         """Compute the beam intersection with a convex polyhedra, returns a list of HalfspaceIntersections.
 
         Args:
-            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ```shape=(N,3)```.
+            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ``shape=(N,3)``.
 
         Returns:
             A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
@@ -95,7 +95,7 @@ class Beam(PickleableObject):
         """ Check if the beam contains a point.
 
         Args:
-            point (:obj:`numpy array`): Point to evaluate ```shape=(3,)```.
+            point (:obj:`numpy array`): Point to evaluate ``shape=(3,)``.
 
         Returns:
             Boolean True if the beam contains the point.
@@ -110,8 +110,8 @@ class Beam(PickleableObject):
         set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
 
         Args:
-            sphere_centres (:obj:`numpy array`): Centroids of a spheres ```shape=(3,n)```.
-            sphere_radius (:obj:`numpy array`): Radius of a spheres ```shape=(n,)```.
+            sphere_centres (:obj:`numpy array`): Centroids of a spheres ``shape=(3,n)``.
+            sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a funciton of time on the domain time=[0,1].
 

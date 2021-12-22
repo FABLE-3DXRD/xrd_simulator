@@ -9,14 +9,14 @@ class RigidBodyMotion(object):
     translate an amount t * translation.
     
     Args:
-        rotation_axis (:obj:`numpy array`): Rotation axis ```shape=(3,)```
+        rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
         rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
-        translation (:obj:`numpy array`):  Translation vector ```shape=(3,)```
+        translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
 
     Attributes:
-        rotation_axis (:obj:`numpy array`): Rotation axis ```shape=(3,)```
+        rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
         rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
-        translation (:obj:`numpy array`):  Translation vector ```shape=(3,)```
+        translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
 
     """
 
@@ -33,11 +33,11 @@ class RigidBodyMotion(object):
         NOTE: This function only applies the rigid body rotation
 
         Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (```shape=(3,N)```)
+            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
             time (:obj:`float`): Time to compute for.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
+            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
@@ -49,11 +49,11 @@ class RigidBodyMotion(object):
         NOTE: This function only applies the rigid body translation
 
         Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (```shape=(3,N)```)
+            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
             time (:obj:`float`): Time to compute for.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
+            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
@@ -67,11 +67,11 @@ class RigidBodyMotion(object):
         """Find the transformation of a set of points at a prescribed time.
         
         Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (```shape=(3,N)```)
+            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
             time (:obj:`float`): Time to compute for.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ```shape=(3,N)```.
+            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """ 
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
@@ -85,13 +85,13 @@ class RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
     
     Args:
-        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (```shape=(3,)```)
+        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (``shape=(3,)``)
 
     Attributes:
-        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (```shape=(3,)```)
-        K (:obj:`numpy array`): (```shape=(3,3)```)
-        K2 (:obj:`numpy array`): (```shape=(3,3)```)
-        I (:obj:`numpy array`): (```shape=(3,3)```)
+        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (``shape=(3,)``)
+        K (:obj:`numpy array`): (``shape=(3,3)``)
+        K2 (:obj:`numpy array`): (``shape=(3,3)``)
+        I (:obj:`numpy array`): (``shape=(3,3)``)
 
     """
 
@@ -112,11 +112,11 @@ class RodriguezRotator(object):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
         
         Args:
-            vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (```shape=(3,N)```)
+            vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (``shape=(3,N)``)
             rotation_angle (:obj:`float`): Radians to rotate vectors around the rotation_axis (positive rotation).
 
         Returns:
-            Rotated vectors (:obj:`numpy array`) of ```shape=(3,N)```.
+            Rotated vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """ 
         R = self.get_rotation_matrix( rotation_angle )

@@ -36,7 +36,7 @@ class Scatterer(object):
 
     @property
     def hkl(self):
-        """hkl (:obj:`numpy array`): Miller indices [h,k,l] ```shape=(3,)```."""
+        """hkl (:obj:`numpy array`): Miller indices [h,k,l] ``shape=(3,)``."""
         return self.phase.miller_indices[ self.hkl_indx ]
 
     @property
@@ -78,7 +78,7 @@ class Scatterer(object):
 
     @property
     def centroid(self):
-        """centroid (:obj:`numpy array`): centroid of the scattering region. ```shape=(3,)```
+        """centroid (:obj:`numpy array`): centroid of the scattering region. ``shape=(3,)``
         """
         return np.mean( self.convex_hull.points[self.convex_hull.vertices], axis=0 )
 

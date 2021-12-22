@@ -18,19 +18,19 @@ class Detector(PickleableObject):
     Args:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ```shape=(3,)```. The origin of the detector
+        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``. The origin of the detector
             is at d0.
 
     Attributes:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ```shape=(3,)```. The origin of the detector
+        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``. The origin of the detector
             is at d0.
         frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
         zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
         normal (:obj:`numpy array`): Detector normal.
         zmax,ymax (:obj:`numpy array`): Detector width and height.
-        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ```shape=(n,3)```
+        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
 
     """
 

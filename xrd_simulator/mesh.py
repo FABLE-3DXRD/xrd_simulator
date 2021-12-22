@@ -278,12 +278,20 @@ class TetraMesh(object):
                                             dim )
             return values.reshape(shape)           
 
-    def save(self, file):
+    def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualisation.
+
         Args:
-            file (:obj:`str`): Absolute path to save the mesh at (without .xdmf extension)
+            file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
         """
-        self._mesh.write(file+".xdmf")
+        if element_data is not None:
+            for key in element_data:
+                self._mesh.cell_data[key] = np.array([element_data[key]])
+
+        if file.endswith(".xdmf"):
+            self._mesh.write(file)
+        else:
+            self._mesh.write(file+".xdmf")
 
 @njit
 def _get_candidate_elements( point, ecentroids, eradius ):

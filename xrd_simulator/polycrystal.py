@@ -17,9 +17,9 @@ class Polycrystal(PickleableObject):
             are aligned.
         ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
             xrd_simulator.phase.Phase object of element number i.
-        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (```shape=(N,3,3)```). At instantiation it
+        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (``shape=(N,3,3)``). At instantiation it
             is assumed that the sample and lab coordinate systems are aligned.
-        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
+        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
 
     Attributes:
@@ -29,15 +29,24 @@ class Polycrystal(PickleableObject):
             geometry of the sample in a sample coordinate system.
         ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
             xrd_simulator.phase.Phase object of element number i.
-        eU_lab (:obj:`numpy array`): Per element U (orientation) matrices in a fixed lab frame coordinate system, (```shape=(N,3,3)```).
-        eU_sample (:obj:`numpy array`): Per element U (orientation) matrices in a sample coordinate system., (```shape=(N,3,3)```).
-        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (```shape=(N,3,3)```).
+        eU_lab (:obj:`numpy array`): Per element U (orientation) matrices in a fixed lab frame coordinate system, (``shape=(N,3,3)``).
+        eU_sample (:obj:`numpy array`): Per element U (orientation) matrices in a sample coordinate system., (``shape=(N,3,3)``).
+        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
 
     """ 
 
     def __init__(self, mesh, ephase, eU, eB, phases ):
-        
+
+        assert eU.shape[0]==mesh.enod.shape[0], "Every crystal element must have an orientation."
+        assert eB.shape[0]==mesh.enod.shape[0], "Every crystal element must have a deformation state."
+        for i in range(1,3):
+            assert eU.shape[i]==3
+            assert eB.shape[i]==3
+
+        # TODO: Allow specifying strain rather than eB as eB is much more 
+        # non intuitive quantity.
+
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
         self.eU_lab = eU.copy()

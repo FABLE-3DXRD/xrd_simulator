@@ -51,7 +51,7 @@
 <li><a class="reference internal" href="#module-xrd_simulator.scatterer">scatterer</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.laue">laue</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.utils">utils</a></li>
-<li><a class="reference internal" href="#module-xrd_simulator.templates">templates</a></li>
+<li><a class="reference internal" href="#templates">templates</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
@@ -1178,39 +1178,8 @@ points to find which are entry and which are exit points through the convex poly
 </dd></dl>
 
 </div>
-<div class="section" id="module-xrd_simulator.templates">
-<span id="templates"></span><h2>templates<a class="headerlink" href="#module-xrd_simulator.templates" title="Permalink to this headline"></a></h2>
-<dl class="py function">
-<dt class="sig sig-object py" id="xrd_simulator.templates.s3dxrd">
-<span class="sig-prename descclassname"><span class="pre">xrd_simulator.templates.</span></span><span class="sig-name descname"><span class="pre">s3dxrd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detector_distance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixelsize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#xrd_simulator.templates.s3dxrd" title="Permalink to this definition"></a></dt>
-<dd><p>Construct a classical scaning-three-dimensional-xray diffraction experiment.</p>
-<p>This is a helper/utility function for quickly creating an experiment. For full controll
-over the diffraction geometry consider custom creation of the primitive quanteties:
-(<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>), (<a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal" title="xrd_simulator.polycrystal.Polycrystal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal</span></code></a>),
-(<a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a>), and (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) seperately.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>detector_distance</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Sample origin to detector distance in units of microns.</p></li>
-<li><p><strong>detector_size_z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Detector side length along rotation axis in units of microns.</p></li>
-<li><p><strong>detector_size_y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Detector side length perpendicular to rotation axis in units of microns.</p></li>
-<li><p><strong>pixel_size_z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length along rotation axis in units of microns.</p></li>
-<li><p><strong>pixel_size_y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length perpendicular to rotation axis in units of microns.</p></li>
-<li><p><strong>beam_size</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Side length of beam (square cross-section) in units of microns.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>(<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>),
-(<a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal" title="xrd_simulator.polycrystal.Polycrystal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal</span></code></a>),
-(<a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a>) and
-(<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>).</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator</span></code>) objects defining an experiment</p>
-</dd>
-</dl>
-</dd></dl>
-
+<div class="section" id="templates">
+<h2>templates<a class="headerlink" href="#templates" title="Permalink to this headline"></a></h2>
 </div>
 </div>
 <div class="section" id="indices-and-tables">

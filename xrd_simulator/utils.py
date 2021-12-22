@@ -54,13 +54,13 @@ def clip_line_with_convex_polyhedron( line_points, line_direction, plane_points,
         points to find which are entry and which are exit points through the convex polyhedron.
 
         Args:
-            line_points (:obj:`numpy array`): base points of rays (exterior to polyhedron), ```shape=(n,3)```
-            line_direction  (:obj:`numpy array`): normalised ray direction (all rays have the same direction),  ```shape=(3,)```
-            plane_points (:obj:`numpy array`): point in each polyhedron face plane, ```shape=(m,3)```
-            plane_normals (:obj:`numpy array`): outwards element face normals, shape: ```shape=(m,3)```
+            line_points (:obj:`numpy array`): base points of rays (exterior to polyhedron), ``shape=(n,3)``
+            line_direction  (:obj:`numpy array`): normalised ray direction (all rays have the same direction),  ``shape=(3,)``
+            plane_points (:obj:`numpy array`): point in each polyhedron face plane, ``shape=(m,3)``
+            plane_normals (:obj:`numpy array`): outwards element face normals, shape: ``shape=(m,3)``
 
         Returns:
-            clip_lengths (:obj:`numpy array`) : intersection lengths.  ```shape=(n,)```
+            clip_lengths (:obj:`numpy array`) : intersection lengths.  ``shape=(n,)``
 
     """
     clip_lengths = np.zeros((line_points.shape[0],))

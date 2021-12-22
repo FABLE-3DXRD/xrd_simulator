@@ -13,19 +13,21 @@ class Phase(object):
     This will however require a CIF file.
 
     Args:
-        unit_cell (:obj:`list`): Crystal unit cell representation of the form [a,b,c,alpha,beta,gamma], where 
-            alpha,beta and gamma are in units of degrees while a,b and c are in units of anstrom.
+        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form 
+            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
+            a,b and c are in units of anstrom.
         sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
         path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
             factors are computed, i.e `structure_factors=None`.
 
     Attributes:
-        unit_cell (:obj:`list`): Crystal unit cell representation of the form [a,b,c,alpha,beta,gamma], where 
-            alpha,beta and gamma are in units of degrees while a,b and c are in units of anstrom.
+        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form 
+            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
+            a,b and c are in units of anstrom.
         sgname (:obj:`string`):  Name of space group , e.g 'P3221' for quartz, SiO2, for instance
-        miller_indices (:obj:`numpy array`): Allowable integer Miller indices (h,k,l) of ```shape=(n,3)```. 
+        miller_indices (:obj:`numpy array`): Allowable integer Miller indices (h,k,l) of ``shape=(n,3)``. 
         structure_factors (:obj:`numpy array`): Structure factors of allowable Miller indices (```miller_indices```)
-            of ```shape=(n,2)```. `structure_factors[i,0]` gives the real structure factor of `hkl=miller_indices[i,:]` 
+            of ``shape=(n,2)``. `structure_factors[i,0]` gives the real structure factor of `hkl=miller_indices[i,:]` 
             while `structure_factors[i,0]` gives the corresponding imaginary part of the structure factor.
 
     """
