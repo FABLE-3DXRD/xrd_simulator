@@ -2,6 +2,7 @@ from math import degrees
 import unittest
 import numpy as np
 import os
+from numpy.linalg import det
 from scipy.spatial.transform import Rotation
 from xfab import tools
 from xrd_simulator import templates
@@ -13,11 +14,11 @@ class TestUtils(unittest.TestCase):
         np.random.seed(5) # changes all randomisation in the test
 
     def test_s3dxrd(self):
-        
+
         parameters = {
             "detector_distance"             : 191023.9164,
-            "detector_center_pixel_z"       : 501.2345,
-            "detector_center_pixel_y"       : 505.1129,
+            "detector_center_pixel_z"       : 256.2345,
+            "detector_center_pixel_y"       : 255.1129,
             "pixel_side_length_z"           : 181.4234,
             "pixel_side_length_y"           : 180.2343,
             "number_of_detector_pixels_z"   : 512,
@@ -30,6 +31,11 @@ class TestUtils(unittest.TestCase):
         }
 
         beam, detector, motion = templates.s3dxrd( parameters )
+        for ci in beam.centroid:
+            self.assertAlmostEqual(ci, 0, msg="beam not at origin.")
+        
+        print( detector.d0 + detector.d1/2. + detector.d2/2. )
+        print(detector.d0)
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
@@ -45,7 +51,7 @@ class TestUtils(unittest.TestCase):
                         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.],
                         sgname = 'P3221'
                         )
-        print(detector.d0, detector.ymax)
+
         # polycrystal = templates.polycrystal_from_odf( orientation_density_function,
         #                                               number_of_crystals,
         #                                               sample_bounding_cylinder_height,

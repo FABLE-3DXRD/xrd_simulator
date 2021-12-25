@@ -74,6 +74,7 @@ def _get_beam_from_params( parameters ):
         [-parameters['detector_distance'], -dy, -dz ],
         [-parameters['detector_distance'],  dy, -dz ],
         [-parameters['detector_distance'], -dy,  dz ],
+        [-parameters['detector_distance'],  dy,  dz ],
         [ parameters['detector_distance'], -dy, -dz ],
         [ parameters['detector_distance'],  dy, -dz ],
         [ parameters['detector_distance'], -dy,  dz ],
