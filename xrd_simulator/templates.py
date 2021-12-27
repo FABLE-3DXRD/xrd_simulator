@@ -63,11 +63,14 @@ def s3dxrd( parameters ):
     return beam, detector, motion
 
 def _get_motion_from_params( parameters ):
+    """Produce a ``xrd_simulator.motion.RigidBodyMotion`` from the s3dxrd params dictionary.
+    """
     translation = np.array([0., 0., 0.])
     return RigidBodyMotion(parameters["rotation_axis"], parameters["rotation_step"],translation)
 
 def _get_beam_from_params( parameters ):
-
+    """Produce a ``xrd_simulator.beam.Beam`` from the s3dxrd params dictionary.
+    """
     dz = parameters['beam_side_length_z']/2.
     dy = parameters['beam_side_length_y']/2. 
     beam_vertices = np.array([
@@ -87,7 +90,8 @@ def _get_beam_from_params( parameters ):
     return Beam(beam_vertices, beam_direction, parameters['wavelength'], polarization_vector)
 
 def _get_detector_from_params( parameters ):
-
+    """Produce a ``xrd_simulator.detector.Detector`` from the s3dxrd params dictionary.
+    """
     d0 = np.array( [  parameters['detector_distance'], 
                      -parameters['detector_center_pixel_y']  * parameters['pixel_side_length_y'], 
                      -parameters['detector_center_pixel_z']  * parameters['pixel_side_length_z']
@@ -111,7 +115,8 @@ def polycrystal_from_odf( orientation_density_function,
                           sample_bounding_cylinder_radius,                                          
                           unit_cell,
                           sgname,
-                          maximum_sampling_bin_seperation=np.radians(5.0)  ):
+                          maximum_sampling_bin_seperation=np.radians(5.0),
+                          strain_tensor=np.zeros((3,3))):
     """Fill a cylinder with crystals from a given orientation density function. 
 
     The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
@@ -120,11 +125,32 @@ def polycrystal_from_odf( orientation_density_function,
     random bin and next drawing unifromly from within that bin, again assuming that ``orientation_density_function``
     is approximately constant over a bin.s
 
+    Args:
+        orientation_density_function (:obj:`callable`): orientation_density_function(x, q) -> :obj:`float` where input
+            variable ``x`` is a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the cylinder
+            (x,y,z) and ``q`` is a :obj:`numpy array` of shape ``(4,)`` representing a orientaiton in so3 by a unit 
+            quarternion. The format of the quarternion is "scalar last" (same as in scipy.spatial.transform.Rotation).
+        number_of_crystals (:obj:`int`): Approximate number of crystal elements to compose the cylinder volume.
+        sample_bounding_cylinder_height (:obj:`float`): Height of sample cylinder in units of microns.
+        sample_bounding_cylinder_radius (:obj:`float`): Radius of sample cylinder in units of microns.
+        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form 
+            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
+            a,b and c are in units of anstrom.
+        sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
+        maximum_sampling_bin_seperation (:obj:`float`): Discretization steplenght of orientaiton space using spherical coordinates
+            over the unit quarternions in units of radians. A smaller steplenght gives more accurate sampling of the input
+            ``orientation_density_function`` but is computationally slower.
+        strain_tensor (:obj:`callable`): Strain tensor field over sample cylinder. strain_tensor(x) -> :obj:`numpy array` of shape ``(3,3)``
+            where input variable ``x`` is a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the cylinder (x,y,z).
+
+    Returns:
+        (:obj:`xrd_simulator.polycrystal.Polycrystal`)
+
     Examples:
         .. literalinclude:: examples/polycrystal_from_odf.py
 
     """
-
+    # Sample topology
     volume_per_crystal    = np.pi*(sample_bounding_cylinder_radius**2)*sample_bounding_cylinder_height / number_of_crystals
 
     max_cell_circumradius = ( 3 * volume_per_crystal / (np.pi*4.) )**(1/3.)
@@ -143,15 +169,24 @@ def polycrystal_from_odf( orientation_density_function,
     )
     mesh = TetraMesh._build_tetramesh( cylinder )
 
-    eU = _sample_ODF( orientation_density_function, maximum_sampling_bin_seperation, mesh.ecentroids )
+    # Sample is uniformly single phase
     phases = [Phase(unit_cell, sgname)]
-    B0 = tools.epsilon_to_b( np.zeros((6,)), unit_cell )
-    eB = np.array( [ B0 for _ in range(mesh.number_of_elements)] )
     ephase = np.zeros((mesh.number_of_elements,)).astype(int)
+
+    # Sample spatial texture
+    eU = _sample_ODF( orientation_density_function, maximum_sampling_bin_seperation, mesh.ecentroids )
+
+    # Sample spatial strain
+    eB = []
+    for ei in range(mesh.number_of_elements):
+        s = strain_tensor( mesh.ecentroids[ei] )
+        strain = [ s[0,0], s[0,1], s[0,2], s[1,1], s[1,2], s[2,2] ]
+        eB.append(  tools.epsilon_to_b( strain, unit_cell ) )
+
     return Polycrystal(mesh, ephase, eU, eB, phases)
 
 def _sample_ODF( ODF, maximum_sampling_bin_seperation, coordinates ):
-    """
+    """Draw orientation matrices form an ODF at spatial locations ``coordinates``.
     """
 
     dalpha  = maximum_sampling_bin_seperation / 2. #TODO: verify this analytically.

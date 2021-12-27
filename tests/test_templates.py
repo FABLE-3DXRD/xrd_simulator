@@ -33,9 +33,15 @@ class TestUtils(unittest.TestCase):
         beam, detector, motion = templates.s3dxrd( parameters )
         for ci in beam.centroid:
             self.assertAlmostEqual(ci, 0, msg="beam not at origin.")
-        
-        print( detector.d0 + detector.d1/2. + detector.d2/2. )
-        print(detector.d0)
+
+        det_approx_centroid = detector.d0.copy()
+        det_approx_centroid[1] += detector.d1[1]
+        det_approx_centroid[2] += detector.d2[2]
+
+        self.assertAlmostEqual(det_approx_centroid[0], parameters["detector_distance"], msg="Detector distance wrong.")
+        self.assertLessEqual(np.abs(det_approx_centroid[1]), 5*parameters["pixel_side_length_y"], msg="Detector not centered.")
+        self.assertLessEqual(np.abs(det_approx_centroid[2]), 5*parameters["pixel_side_length_z"], msg="Detector not centered.")
+
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221' # Quartz
@@ -45,20 +51,13 @@ class TestUtils(unittest.TestCase):
         sample_bounding_cylinder_radius = 512 * 200 / 10.
         maximum_sampling_bin_seperation = np.radians(10.0)
 
-        polycrystal = templates.get_uniform_powder_sample( 
-                        sample_bounding_radius = 1.0, 
-                        number_of_grains = 15, 
-                        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.],
-                        sgname = 'P3221'
-                        )
-
-        # polycrystal = templates.polycrystal_from_odf( orientation_density_function,
-        #                                               number_of_crystals,
-        #                                               sample_bounding_cylinder_height,
-        #                                               sample_bounding_cylinder_radius,                                          
-        #                                               unit_cell,
-        #                                               sgname,
-        #                                               maximum_sampling_bin_seperation )
+        polycrystal = templates.polycrystal_from_odf( orientation_density_function,
+                                                      number_of_crystals,
+                                                      sample_bounding_cylinder_height,
+                                                      sample_bounding_cylinder_radius,                                          
+                                                      unit_cell,
+                                                      sgname,
+                                                      maximum_sampling_bin_seperation )
 
         # TODO: make this look reasonable and put in end to end tests.
         polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
