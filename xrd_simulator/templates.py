@@ -50,6 +50,9 @@ def s3dxrd( parameters ):
         (:obj:`xrd_simulator`) objects defining an experiment:
         (:obj:`xrd_simulator.beam.Beam`), (:obj:`xrd_simulator.detector.Detector`), (:obj:`xrd_simulator.motion.RigidBodyMotion`).
 
+    Examples:
+        .. literalinclude:: examples/s3dxrd.py
+
     """
 
     for key in PARAMETER_KEYS:
@@ -257,6 +260,9 @@ def get_uniform_powder_sample(
 
     Returns:
         (:obj:`xrd_simulator.polycrystal`) A polycyrystal sample with ``number_of_grains`` grains.
+
+    Examples:
+        .. literalinclude:: examples/get_uniform_powder_sample.py
 
     """
     coord, enod, eU, node_number = [],[],[],0
