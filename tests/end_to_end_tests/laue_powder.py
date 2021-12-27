@@ -3,7 +3,7 @@ from xfab import tools
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from xrd_simulator import laue, utils
-from xrd_simulator.motion import RodriguezRotator
+from xrd_simulator.motion import _RodriguezRotator
 
 """Simple simulation of 50 random quartz grains in powder diffraction style only using laue.py 
 and no spatial functions, i.e not considering grain shapes and the like. This is a check to
@@ -40,7 +40,7 @@ for ii in range(50): # sample of 10 crystals
                     theta         = laue.get_bragg_angle(G, wavelength)                    
                     
                     rotation_axis  = np.array([0,0,1])
-                    rotator        = RodriguezRotator( rotation_axis )
+                    rotator        = _RodriguezRotator( rotation_axis )
                     rotation_angle = omega[i+1]-omega[i]
                     c_0, c_1, c_2  = laue.get_tangens_half_angle_equation(ks[i], theta, G, rotation_axis ) 
                     s1, s2         = laue.find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, rotation_angle )

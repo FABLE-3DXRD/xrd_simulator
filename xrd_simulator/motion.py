@@ -22,7 +22,7 @@ class RigidBodyMotion(object):
 
     def __init__(self, rotation_axis, rotation_angle, translation):
         assert rotation_angle < np.pi and  rotation_angle > 0, "The rotation angle must be in [0 pi]"
-        self.rotator = RodriguezRotator(rotation_axis)
+        self.rotator = _RodriguezRotator(rotation_axis)
         self.rotation_axis = rotation_axis
         self.rotation_angle = rotation_angle
         self.translation = translation
@@ -81,7 +81,7 @@ class RigidBodyMotion(object):
             translation = self.translation
         return self.rotator( vectors, self.rotation_angle * time ) + translation * time
 
-class RodriguezRotator(object):
+class _RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
     
     Args:
