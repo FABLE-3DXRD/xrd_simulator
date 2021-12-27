@@ -116,14 +116,14 @@ def polycrystal_from_odf( orientation_density_function,
                           unit_cell,
                           sgname,
                           maximum_sampling_bin_seperation=np.radians(5.0),
-                          strain_tensor=np.zeros((3,3))):
+                          strain_tensor=lambda x: np.zeros((3,3))):
     """Fill a cylinder with crystals from a given orientation density function. 
 
     The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
     quarternions. Each bin is assigned its aproiate probability, assuming the ``orientation_density_function``
     is approximately constant over a single bin. Each sampled orientation then corresponds is first drawing a
     random bin and next drawing unifromly from within that bin, again assuming that ``orientation_density_function``
-    is approximately constant over a bin.s
+    is approximately constant over a bin.
 
     Args:
         orientation_density_function (:obj:`callable`): orientation_density_function(x, q) -> :obj:`float` where input
@@ -152,7 +152,6 @@ def polycrystal_from_odf( orientation_density_function,
     """
     # Sample topology
     volume_per_crystal    = np.pi*(sample_bounding_cylinder_radius**2)*sample_bounding_cylinder_height / number_of_crystals
-
     max_cell_circumradius = ( 3 * volume_per_crystal / (np.pi*4.) )**(1/3.)
 
     # Fudge factor 2.6 gives approximately number_of_crystals elements in the mesh
@@ -177,11 +176,12 @@ def polycrystal_from_odf( orientation_density_function,
     eU = _sample_ODF( orientation_density_function, maximum_sampling_bin_seperation, mesh.ecentroids )
 
     # Sample spatial strain
-    eB = []
+    eB = np.zeros( (mesh.number_of_elements,3,3) )
     for ei in range(mesh.number_of_elements):
-        s = strain_tensor( mesh.ecentroids[ei] )
+        strain_lab = strain_tensor( mesh.ecentroids[ei] )  # strain in lab-coordinates
+        s = np.dot( eU[ei].T, np.dot(strain_lab, eU[ei]) ) # strain in crystal coordinate system
         strain = [ s[0,0], s[0,1], s[0,2], s[1,1], s[1,2], s[2,2] ]
-        eB.append(  tools.epsilon_to_b( strain, unit_cell ) )
+        eB[ei] =  tools.epsilon_to_b( strain, unit_cell ) 
 
     return Polycrystal(mesh, ephase, eU, eB, phases)
 
@@ -235,7 +235,6 @@ def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
     z = sa1*sa2*np.sin(alpha_3)
     w = sa1*np.cos(alpha_2)
     return np.array([x,y,z,w]).T
-
 
 def get_uniform_powder_sample( 
     sample_bounding_radius, 

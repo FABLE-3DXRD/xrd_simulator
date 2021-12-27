@@ -1,10 +1,6 @@
-from math import degrees
 import unittest
 import numpy as np
-import os
-from numpy.linalg import det
 from scipy.spatial.transform import Rotation
-from xfab import tools
 from xrd_simulator import templates
 import matplotlib.pyplot as plt
 
@@ -41,30 +37,6 @@ class TestUtils(unittest.TestCase):
         self.assertAlmostEqual(det_approx_centroid[0], parameters["detector_distance"], msg="Detector distance wrong.")
         self.assertLessEqual(np.abs(det_approx_centroid[1]), 5*parameters["pixel_side_length_y"], msg="Detector not centered.")
         self.assertLessEqual(np.abs(det_approx_centroid[2]), 5*parameters["pixel_side_length_z"], msg="Detector not centered.")
-
-
-        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
-        sgname = 'P3221' # Quartz
-        orientation_density_function = lambda x,q: 1./(np.pi**2) # uniform ODF
-        number_of_crystals = 50
-        sample_bounding_cylinder_height = 512 * 200 / 10.
-        sample_bounding_cylinder_radius = 512 * 200 / 10.
-        maximum_sampling_bin_seperation = np.radians(10.0)
-
-        polycrystal = templates.polycrystal_from_odf( orientation_density_function,
-                                                      number_of_crystals,
-                                                      sample_bounding_cylinder_height,
-                                                      sample_bounding_cylinder_radius,                                          
-                                                      unit_cell,
-                                                      sgname,
-                                                      maximum_sampling_bin_seperation )
-
-        # TODO: make this look reasonable and put in end to end tests.
-        polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
-        pixim = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
-        pixim[pixim>0]=1
-        plt.imshow(pixim)
-        plt.show()
 
     def test_polycrystal_from_odf(self):
 

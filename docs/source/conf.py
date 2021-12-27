@@ -35,7 +35,8 @@ extensions = [ 'sphinx.ext.napoleon',
                'sphinx.ext.autodoc', 
                'sphinx_rtd_theme', 
                'sphinx.ext.autosummary', 
-               'sphinx.ext.linkcode' ]
+               'sphinx.ext.linkcode',
+               'sphinx_copybutton' ]
 
 # include documentation of __special__() functions.
 napoleon_include_special_with_doc = True

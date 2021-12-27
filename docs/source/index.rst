@@ -75,6 +75,8 @@ utils
 ======================================
 templates
 ======================================
+The ``templates`` module allows for fast creation of a few select sample types and diffraction geometries without having to 
+worry about any of the "under the hood" scripting. 
 
 .. automodule:: xrd_simulator.templates
     :members:

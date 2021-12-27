@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix
+from scipy.spatial import ConvexHull
 from numba import njit
 import pygalmesh
 import meshio
@@ -143,6 +144,7 @@ class TetraMesh(object):
         self.ecmat           = self._compute_mesh_interpolation_matrices( self.enod, self.coord )
         self.centroid        = np.mean(self.ecentroids, axis=0)
         self.evolumes        = self._compute_mesh_volumes( self.enod, self.coord )
+        # self.econvexhulls    = [ ConvexHull( self.coord[nodes,:] ) for nodes in self.enod ] #TODO: considering leveraging this in beam.py for speed
 
     def update( self, new_nodal_coordinates ):
         """Update the mesh coordinates and any dependent quanteties by changing the node coordinates.
