@@ -47,6 +47,7 @@ class TestUtils(unittest.TestCase):
         sample_bounding_cylinder_height = 50
         sample_bounding_cylinder_radius = 25
         maximum_sampling_bin_seperation = np.radians(10.0)
+        strain_tensor = lambda x: np.array([[0,0, 0.02*x[2]/sample_bounding_cylinder_height],[0,0,0],[0,0,0]]) # Linear strain gradient along rotaiton axis.
 
         polycrystal = templates.polycrystal_from_odf(  orientation_density_function,
                                                                        number_of_crystals,
@@ -54,7 +55,8 @@ class TestUtils(unittest.TestCase):
                                                                        sample_bounding_cylinder_radius,                                          
                                                                        unit_cell,
                                                                        sgname,
-                                                                       maximum_sampling_bin_seperation )
+                                                                       maximum_sampling_bin_seperation,
+                                                                       strain_tensor )
 
         # Compare Euler angle distributions to scipy random uniform orientation sampler 
         euler1 = np.array([ Rotation.from_matrix( U ).as_euler( 'xyz', degrees=True ) for U in polycrystal.eU_lab])

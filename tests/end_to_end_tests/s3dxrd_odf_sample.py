@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
 from xrd_simulator import templates
+from xrd_simulator.beam import Beam
 import matplotlib.pyplot as plt
 import cProfile
 import pstats
@@ -28,11 +29,16 @@ beam, detector, motion = templates.s3dxrd( parameters )
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221' # Quartz
 orientation_density_function = lambda x,q: 1./(np.pi**2) # uniform ODF.
-number_of_crystals = 500
+number_of_crystals = 30
 sample_bounding_cylinder_height = 256 * 180 / 128.
 sample_bounding_cylinder_radius = 256 * 180 / 128.
 maximum_sampling_bin_seperation = np.radians(10.0)
 strain_tensor = lambda x: np.array([[0,0, 0.02*x[2]/sample_bounding_cylinder_height],[0,0,0],[0,0,0]]) # Linear strain gradient along rotaiton axis.
+
+# Make the beam much smaller than the sample
+# vertices = beam.vertices.copy()
+# vertices[:,1:] = 0.180*vertices[:,1:]/np.max(vertices[:,1:])
+# beam.set_beam_vertices(vertices)
 
 polycrystal = templates.polycrystal_from_odf( orientation_density_function,
                                                 number_of_crystals,

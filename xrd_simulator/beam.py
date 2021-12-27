@@ -10,12 +10,15 @@ class Beam(PickleableObject):
     """Represents a monochromatic X-ray beam as a convex polyhedra.
     
     Args:
-        vertices (:obj:`numpy array`): Xray-beam vertices.
-        wavelength (:obj:`float`): 
+        beam_vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
+        xray_propagation_direction (:obj:`numpy array`): Propagation direction of X-rays ``shape=(3,)``.
+        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
+        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
+            Must be orthogonal to the xray propagation direction.
 
     Attributes:
         vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
-        wavelength (:obj:`float`): Xray wavelength.
+        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
         wave_vector (:obj:`numpy array`): Beam wavevector ``shape=(3,)``
         centroid (:obj:`numpy array`): Beam centroid ``shape=(3,)``
         halfspaces (:obj:`numpy array`): Beam halfspace equation coefficents ``shape=(N,3)``. 
@@ -28,13 +31,23 @@ class Beam(PickleableObject):
     def __init__(self, beam_vertices, xray_propagation_direction, wavelength, polarization_vector):
         self.wave_vector = ( 2* np.pi / wavelength ) * xray_propagation_direction/np.linalg.norm( xray_propagation_direction )
         self.wavelength = wavelength
+        self.set_beam_vertices(beam_vertices)
+        self.polarization_vector = polarization_vector / np.linalg.norm( polarization_vector )
+        assert np.allclose( np.dot( self.polarization_vector, self.wave_vector ), 0 ), "The x-ray polarisation vector is not orthogonal to the wavevector."
+
+    def set_beam_vertices(self, beam_vertices):
+        """Set the beam vertices defining the beam convex hull and update all dependent quanteties.
+
+        Args:
+            beam_vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
+
+        """
+        #TODO: Add unit test for this function.
         ch = ConvexHull( beam_vertices )
         assert ch.points.shape[0]==ch.vertices.shape[0], "The provided beam vertices does not form a convex hull"
         self.vertices   = beam_vertices.copy()
         self.centroid   = np.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull( self.vertices ).equations
-        self.polarization_vector = polarization_vector / np.linalg.norm( polarization_vector )
-        assert np.allclose( np.dot( self.polarization_vector, self.wave_vector ), 0 ), "The x-ray polarisation vector is not orthogonal to the wavevector."
 
     def find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
@@ -52,7 +65,7 @@ class Beam(PickleableObject):
         c[-1] = -1
         A = np.hstack((halfspaces[:, :-1], norm_vector))
         b = - halfspaces[:, -1:]
-        res = linprog(c, A_ub=A, b_ub=b, bounds=(None, None), method='highs-ipm')
+        res = linprog(c, A_ub=A, b_ub=b, bounds=(None, None), method='highs-ipm', options={"maxiter":2000})
         if res.success and res.x[-1]>0:
             return res.x[:-1]
         else:
@@ -165,7 +178,7 @@ class Beam(PickleableObject):
                 if np.sum( fvals < 0 ) == len(fvals): 
                     new_intersections.append( [0.,1.] )
                     continue # Always on the interior of the beam halfplane
-                
+
                 # Add in all intervals where intersection_function(s) < 0
                 for k in range(len(interval_ends)-1):
                     if fvals[k]<0:
