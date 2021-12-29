@@ -150,7 +150,7 @@ class Polycrystal(PickleableObject):
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
 
-        This function will update the polycrystal mesh (update in lab frame) with any dependent quanteties, 
+        This function will update the polycrystal mesh (update in lab frame) with any dependent quantities, 
         such as face normals etc. Likewise, it will update the per element crystallite orientation 
         matrices (U) such that the updated matrix will
 

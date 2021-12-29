@@ -1,4 +1,4 @@
-"""Collection of functions for solving the Laue equations for package specific parametrisations.
+"""Collection of functions for solving the Laue equations for package specific parametrization.
 """
 
 import numpy as np
@@ -46,7 +46,7 @@ def get_sin_theta_and_norm_G( G, wavelength ):
     return normG*wavelength/(4*np.pi), normG
 
 def get_tangens_half_angle_equation(k1, theta, G, rhat ):
-    """Find coefficent to the equation
+    """Find coefficient to the equation
 
     .. math::
         c_0 \cos(s \\alpha) + c_1 \sin(s \\alpha) + c_2 = 0. \\quad\\quad (1)
@@ -76,10 +76,10 @@ def find_solutions_to_tangens_half_angle_equation( c_0, c_1, c_2, alpha ):
     and .. math::\\alpha is the angle between k1 and k2
 
     Args:
-        c_0,c_1,c_2 (:obj:`float`): Coefficents c_0,c_1 and c_2 of equation (1).
+        c_0,c_1,c_2 (:obj:`float`): Coefficients c_0,c_1 and c_2 of equation (1).
 
     Returns:
-        (:obj:`tuple` of :obj:`float` or :obj:`None`): solutions if any exists otherwise returns None.
+        (:obj:`tuple` of :obj:`float` or :obj:`None`): solutions if existing otherwise returns None.
 
     """
 

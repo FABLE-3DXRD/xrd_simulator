@@ -21,7 +21,7 @@ class Beam(PickleableObject):
         wavelength (:obj:`float`): Xray wavelength in units of angstrom.
         wave_vector (:obj:`numpy array`): Beam wavevector ``shape=(3,)``
         centroid (:obj:`numpy array`): Beam centroid ``shape=(3,)``
-        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficents ``shape=(N,3)``. 
+        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficients ``shape=(N,3)``. 
             A point x is on the interior of the halfsplace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
         polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
             Must be orthogonal to the xray propagation direction.
@@ -36,7 +36,7 @@ class Beam(PickleableObject):
         assert np.allclose( np.dot( self.polarization_vector, self.wave_vector ), 0 ), "The x-ray polarisation vector is not orthogonal to the wavevector."
 
     def set_beam_vertices(self, beam_vertices):
-        """Set the beam vertices defining the beam convex hull and update all dependent quanteties.
+        """Set the beam vertices defining the beam convex hull and update all dependent quantities.
 
         Args:
             beam_vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
@@ -53,7 +53,7 @@ class Beam(PickleableObject):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
 
         Args:
-            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficents of a halfspace (``shape=(N,4)``).
+            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficients of a halfspace (``shape=(N,4)``).
 
         Returns:
             (:obj:`None`) if no point is found else (:obj:`numpy array`) point.

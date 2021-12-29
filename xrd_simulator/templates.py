@@ -7,6 +7,7 @@ from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
+from xrd_simulator import utils
 from xfab import tools
 
 PARAMETER_KEYS = [
@@ -28,7 +29,7 @@ def s3dxrd( parameters ):
     """Construct a scaning-three-dimensional-xray diffraction experiment.
 
     This is a helper/utility function for quickly creating an experiment. For full controll
-    over the diffraction geometry consider custom creation of the primitive quanteties: 
+    over the diffraction geometry consider custom creation of the primitive quantities: 
     (:obj:`xrd_simulator.beam.Beam`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
 
     Args:
@@ -123,15 +124,15 @@ def polycrystal_from_odf( orientation_density_function,
     """Fill a cylinder with crystals from a given orientation density function. 
 
     The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
-    quarternions. Each bin is assigned its aproiate probability, assuming the ``orientation_density_function``
+    quarternions. Each bin is assigned its apropiate probability, assuming the ``orientation_density_function``
     is approximately constant over a single bin. Each sampled orientation then corresponds is first drawing a
-    random bin and next drawing unifromly from within that bin, again assuming that ``orientation_density_function``
+    random bin and next drawing uniformly from within that bin, again assuming that ``orientation_density_function``
     is approximately constant over a bin.
 
     Args:
         orientation_density_function (:obj:`callable`): orientation_density_function(x, q) -> :obj:`float` where input
             variable ``x`` is a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the cylinder
-            (x,y,z) and ``q`` is a :obj:`numpy array` of shape ``(4,)`` representing a orientaiton in so3 by a unit 
+            (x,y,z) and ``q`` is a :obj:`numpy array` of shape ``(4,)`` representing a orientation in so3 by a unit 
             quarternion. The format of the quarternion is "scalar last" (same as in scipy.spatial.transform.Rotation).
         number_of_crystals (:obj:`int`): Approximate number of crystal elements to compose the cylinder volume.
         sample_bounding_cylinder_height (:obj:`float`): Height of sample cylinder in units of microns.
@@ -140,8 +141,8 @@ def polycrystal_from_odf( orientation_density_function,
             [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
             a,b and c are in units of anstrom.
         sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
-        maximum_sampling_bin_seperation (:obj:`float`): Discretization steplenght of orientaiton space using spherical coordinates
-            over the unit quarternions in units of radians. A smaller steplenght gives more accurate sampling of the input
+        maximum_sampling_bin_seperation (:obj:`float`): Discretization steplength of orientation space using spherical coordinates
+            over the unit quarternions in units of radians. A smaller steplength gives more accurate sampling of the input
             ``orientation_density_function`` but is computationally slower.
         strain_tensor (:obj:`callable`): Strain tensor field over sample cylinder. strain_tensor(x) -> :obj:`numpy array` of shape ``(3,3)``
             where input variable ``x`` is a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the cylinder (x,y,z).
@@ -182,9 +183,7 @@ def polycrystal_from_odf( orientation_density_function,
     eB = np.zeros( (mesh.number_of_elements,3,3) )
     for ei in range(mesh.number_of_elements):
         strain_lab = strain_tensor( mesh.ecentroids[ei] )  # strain in lab-coordinates
-        s = np.dot( eU[ei].T, np.dot(strain_lab, eU[ei]) ) # strain in crystal coordinate system
-        strain = [ s[0,0], s[0,1], s[0,2], s[1,1], s[1,2], s[2,2] ]
-        eB[ei] =  tools.epsilon_to_b( strain, unit_cell ) 
+        eB[ei] = utils.lab_strain_to_lattice_matrix(strain_lab, eU[ei], unit_cell)
 
     return Polycrystal(mesh, ephase, eU, eB, phases)
 
@@ -201,7 +200,7 @@ def _sample_ODF( ODF, maximum_sampling_bin_seperation, coordinates ):
     A1,A2,A3 = np.meshgrid( alpha_1, alpha_2, alpha_3, indexing='ij' )
     A1,A2,A3 = A1.flatten(), A2.flatten(), A3.flatten()
 
-    q = _alpha_to_quarternion(A1, A2, A3)
+    q = utils.alpha_to_quarternion(A1, A2, A3)
 
     # Approximate volume ber bin: 
     # volume_element = (np.sin(A1)**2) * np.sin(A2) * (dalpha**3)
@@ -224,20 +223,10 @@ def _sample_ODF( ODF, maximum_sampling_bin_seperation, coordinates ):
         a1 = A1[draw] + dalpha * (np.random.rand()-0.5)
         a2 = A2[draw] + dalpha * (np.random.rand()-0.5)
         a3 = A3[draw] + dalpha * (np.random.rand()-0.5)
-        q_pertubated = _alpha_to_quarternion(a1, a2, a3)
+        q_pertubated = utils.alpha_to_quarternion(a1, a2, a3)
         rotations.append( Rotation.from_quat( q_pertubated ).as_matrix().reshape(3,3) )
 
     return np.array(rotations)
-
-def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
-    """Generate a unit quarternion by providing spherical angle coordinates on the S3 ball.
-    """
-    sa1,sa2 = np.sin(alpha_1),np.sin(alpha_2)
-    x = np.cos(alpha_1) 
-    y = sa1*sa2*np.cos(alpha_3)
-    z = sa1*sa2*np.sin(alpha_3)
-    w = sa1*np.cos(alpha_2)
-    return np.array([x,y,z,w]).T
 
 def get_uniform_powder_sample( 
     sample_bounding_radius, 
