@@ -49,8 +49,7 @@ def print_progress(progress_fraction, message):
         message (:obj:`str`): Optional message prepend the loading bar with. (max 55 characters)
 
     """
-    assert len(
-        message) <= 55., "The provided message to print is too long, max 55 characters allowed."
+    assert len(message) <= 55., "Message to print is too long, max 55 characters allowed."
     progress_in_precent = np.round(100 * progress_fraction, 1)
     progress_bar_length = int(progress_fraction * 40)
     sys.stdout.write("\r{0}{1} | {2}>{3} |".format(message, " " * (55 - len(message)), "=" *
@@ -64,11 +63,7 @@ def print_progress(progress_fraction, message):
 
 
 @njit
-def clip_line_with_convex_polyhedron(
-        line_points,
-        line_direction,
-        plane_points,
-        plane_normals):
+def clip_line_with_convex_polyhedron(line_points, line_direction, plane_points, plane_normals):
     """Compute lengths of parallel lines clipped by a convex polyhedron defined by 2d planes.
 
         For algorithm description see: Mike Cyrus and Jay Beck. “Generalized two- and three-
@@ -95,12 +90,7 @@ def clip_line_with_convex_polyhedron(
     for i, line_point in enumerate(line_points):
 
         # find parametric line-plane intersection based on orthogonal equations
-        t_1 = np.sum(
-            np.multiply(
-                plane_points -
-                line_point,
-                plane_normals),
-            axis=1)
+        t_1 = np.sum(np.multiply(plane_points - line_point, plane_normals), axis=1)
 
         # Zero division for a ray parallel to plane, numpy gives np.inf so it is ok!
         t_i = t_1 / t_2
@@ -132,8 +122,7 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
                      sin_alpha_1 * np.cos(alpha_2)]).T
 
 
-def lab_strain_to_lattice_matrix(
-        strain_tensor, crystal_orientation, unit_cell):
+def lab_strain_to_lattice_matrix(strain_tensor, crystal_orientation, unit_cell):
     """Take a strain tensor in crystal coordinates and produce the lattice matrix (B matrix).
 
     Args:
