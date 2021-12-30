@@ -54,7 +54,7 @@ polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle
 diffraction_pattern = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
 
 pr.disable()
-pr.dump_stats('tmp_profile_dump')   
+pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
