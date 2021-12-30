@@ -9,6 +9,7 @@ import vtk
 from vtk.util import numpy_support
 from numba import njit
 import os
+
 def save_as_vtk_voxel_volume(file, voxel_volume, name, units=(1.,1.,1.), origin=(0.,0.,0.)):
     """Save numpy array with voxel information to paraview readable format.
     Args:
