@@ -115,11 +115,15 @@ class TestUtils(unittest.TestCase):
         polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
         diffraction_pattern = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
         bins, histogram = utils.diffractogram(diffraction_pattern>1, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
-        plt.plot(bins, histogram)
-        plt.show()
 
-        plt.imshow( diffraction_pattern )
-        plt.show()
+        csequence, nosequences = 0, 0
+        for i in range(histogram.shape[0]):
+            if histogram[i]>0:
+                csequence +=1
+            elif csequence>=1:
+                    nosequences +=1
+                    csequence = 0
+        self.assertGreaterEqual(nosequences, 10, msg="Few or no rings appeared from diffraction.")
 
     def test_get_uniform_powder_sample(self):
         sample_bounding_radius = 1.203

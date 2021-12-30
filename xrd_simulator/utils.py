@@ -169,7 +169,7 @@ def diffractogram( diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0 
     """
     m,n = diffraction_pattern.shape
     max_radius = np.max([m,n])
-    bin_centres = np.arange( 0, int(max_radius+1), 1.0 )
+    bin_centres = np.arange( 0, int(max_radius+1), binsize )
     histogram = np.zeros( (len(bin_centres), ) )
     for i in range(m):
         for j in range(n):

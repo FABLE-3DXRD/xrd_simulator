@@ -51,23 +51,29 @@ class TestUtils(unittest.TestCase):
     def test_alpha_to_quarternion(self):
         _, alpha_2, alpha_3 = np.random.rand(3,)
         q = utils.alpha_to_quarternion(0, alpha_2, alpha_3)
-        self.assertAlmostEqual(q[0], 1.0, "quarternion wrongly computed")
-        self.assertAlmostEqual(q[1], 0.0, "quarternion wrongly computed")
-        self.assertAlmostEqual(q[2], 0.0, "quarternion wrongly computed")
-        self.assertAlmostEqual(q[3], 0.0, "quarternion wrongly computed")
+        self.assertAlmostEqual(q[0], 1.0, msg="quarternion wrongly computed")
+        self.assertAlmostEqual(q[1], 0.0, msg="quarternion wrongly computed")
+        self.assertAlmostEqual(q[2], 0.0, msg="quarternion wrongly computed")
+        self.assertAlmostEqual(q[3], 0.0, msg="quarternion wrongly computed")
         alpha_1 = np.random.rand(7,)
         alpha_2 = np.random.rand(7,)
         alpha_3 = np.random.rand(7,)
         qq = utils.alpha_to_quarternion(alpha_1, alpha_2, alpha_3)
         for q in qq:
-            print(np.linalg.norm(q))
+            self.assertTrue(np.abs(np.linalg.norm(q)-1.0)<1e-5, msg="quarternion not normalised")
 
-    #TODO: write this test
-    # def test_diffractogram(self):
-    #     diffraction_pattern = np.zeros((10,10))
-    #     for i in range(10):
-    #         for j in range(10):
-
+    def test_diffractogram(self):
+        diffraction_pattern = np.zeros((20,20))
+        R = 8
+        det_c_z, det_c_y = 10.,10.
+        for i in range(diffraction_pattern.shape[0]):
+            for j in range(diffraction_pattern.shape[1]):
+                if np.abs( np.sqrt( (i-det_c_z)**2 + (j-det_c_y)**2 ) - R) < 0.5:
+                    diffraction_pattern[i,j]+=1
+        bin_centres, histogram = utils.diffractogram(diffraction_pattern, det_c_z, det_c_y, 1.0)
+        self.assertEqual(np.sum(histogram>0), 1, msg="Error in diffractogram azimuth integration" )
+        self.assertEqual(np.sum(histogram), np.sum(diffraction_pattern), msg="Error in diffractogram azimuth integration" )
+        self.assertEqual(histogram[R], np.sum(diffraction_pattern), msg="Error in diffractogram azimuth integration" )
 
 if __name__ == '__main__':
     unittest.main()
