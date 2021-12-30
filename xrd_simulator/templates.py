@@ -136,8 +136,8 @@ def polycrystal_from_odf(orientation_density_function,
 
     The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
     quarternions. Each bin is assigned its apropiate probability, assuming the
-    ``orientation_density_function``is approximately constant over a single bin. Each sampled
-    orientation then corresponds is first drawing a random bin and next drawing uniformly from
+    ``orientation_density_function`` is approximately constant over a single bin. Each sampled
+    orientation is constructed by first drawing a random bin and next drawing uniformly from
     within that bin, again assuming that ``orientation_density_function`` is approximately constant
     over a bin.
 
