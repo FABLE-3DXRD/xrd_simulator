@@ -66,15 +66,15 @@ import cProfile
 import pstats
 pr = cProfile.Profile()
 pr.enable()
-pixim = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
+diffraction_pattern = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(20)
 
 import matplotlib.pyplot as plt
-# pixim[ pixim<=0 ] = 1
-# pixim = np.log(pixim)
-plt.imshow(pixim , cmap='jet')
+# diffraction_pattern[ diffraction_pattern<=0 ] = 1
+# diffraction_pattern = np.log(diffraction_pattern)
+plt.imshow(diffraction_pattern , cmap='jet')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

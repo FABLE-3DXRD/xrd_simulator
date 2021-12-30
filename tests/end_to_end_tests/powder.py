@@ -47,9 +47,9 @@ translation = np.array([0,0,0])
 motion  = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 polycrystal.diffract( beam, detector, motion )
-pixim = detector.render(frame_number=0, method='project')
+diffraction_pattern = detector.render(frame_number=0, method='project')
 
 import matplotlib.pyplot as plt
-plt.imshow( pixim>0 , cmap='gray')
+plt.imshow( diffraction_pattern>0 , cmap='gray')
 plt.title("Hits: "+str(len(detector.frames[0]) ))
 plt.show()

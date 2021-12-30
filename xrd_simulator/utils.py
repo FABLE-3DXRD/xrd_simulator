@@ -149,3 +149,36 @@ def lab_strain_to_lattice_matrix(strain_tensor, crystal_orientation, unit_cell):
                                          crystal_strain[2, 2]],
                                         unit_cell)
     return lattice_matrix
+
+
+def diffractogram( diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0 ):
+    """Compute diffractogram from pixelated diffraction pattern.
+
+    Args:
+        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
+        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
+                 beam centroid line and detector along z-axis.
+        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
+                 beam centroid line and detector along y-axis.
+        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
+            radially around the azimuth)
+
+    Returns:
+        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
+
+    """
+    m,n = diffraction_pattern.shape
+    max_radius = np.max([m,n])
+    bin_centres = np.arange( 0, int(max_radius+1), 1.0 )
+    histogram = np.zeros( (len(bin_centres), ) )
+    for i in range(m):
+        for j in range(n):
+            radius = np.sqrt( (i-det_centre_z)**2 + (j-det_centre_y)**2 )
+            bin_index = np.argmin( np.abs( bin_centres - radius ) )
+            histogram[bin_index] += diffraction_pattern[i,j]
+    clip_index=len(histogram)-1
+    for k in range(len(histogram)-1, 0, -1):
+        if histogram[k]!=0: break
+        else: clip_index = k
+    clip_index = np.min([clip_index+m//10, len(histogram)-1])
+    return bin_centres[0:clip_index], histogram[0:clip_index]

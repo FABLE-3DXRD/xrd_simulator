@@ -7,7 +7,7 @@ class RigidBodyMotion(object):
     of a point x by uniformly rotating it from [0, rotation_angle] and translating [0, translation].
     I.e if called at a time time=t the motion will rotate the point t*rotation_angle radians and
     translate an amount t * translation.
-    
+
     Args:
         rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
         rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
@@ -40,7 +40,7 @@ class RigidBodyMotion(object):
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         return self.rotator( vectors, self.rotation_angle * time )
 
     def translate( self, vectors, time ):
@@ -56,7 +56,7 @@ class RigidBodyMotion(object):
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         if len( vectors.shape )>1:
             translation = self.translation.reshape( 3, 1 )
         else:
@@ -65,7 +65,7 @@ class RigidBodyMotion(object):
 
     def __call__( self, vectors, time ):
         """Find the transformation of a set of points at a prescribed time.
-        
+
         Args:
             vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
             time (:obj:`float`): Time to compute for.
@@ -73,8 +73,8 @@ class RigidBodyMotion(object):
         Returns:
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
-        """ 
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the intervall time=[0,1]"
+        """
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         if len( vectors.shape )>1:
             translation = self.translation.reshape( 3, 1 )
         else:
@@ -83,7 +83,7 @@ class RigidBodyMotion(object):
 
 class _RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
-    
+
     Args:
         rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (``shape=(3,)``)
 
@@ -110,7 +110,7 @@ class _RodriguezRotator(object):
 
     def __call__( self, vectors, rotation_angle ):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
-        
+
         Args:
             vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (``shape=(3,N)``)
             rotation_angle (:obj:`float`): Radians to rotate vectors around the rotation_axis (positive rotation).
@@ -118,6 +118,6 @@ class _RodriguezRotator(object):
         Returns:
             Rotated vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
-        """ 
+        """
         R = self.get_rotation_matrix( rotation_angle )
         return R.dot( vectors )

@@ -96,7 +96,7 @@ print("")
 print("Detector centroid rendering:")
 pr = cProfile.Profile()
 pr.enable()
-pixim1 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
+diffraction_pattern1 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
@@ -106,24 +106,24 @@ print("")
 print("Detector project rendering:")
 pr = cProfile.Profile()
 pr.enable()
-pixim2 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
+diffraction_pattern2 = detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method='project')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(10)
 
 import matplotlib.pyplot as plt
-#pixim[ pixim<=0 ] = 1
-#pixim = np.log(pixim)
+#diffraction_pattern[ diffraction_pattern<=0 ] = 1
+#diffraction_pattern = np.log(diffraction_pattern)
 
 #from scipy.signal import convolve
 
 #kernel = np.ones((4,4))
-#pixim1 = convolve(pixim1, kernel, mode='full', method='auto')
+#diffraction_pattern1 = convolve(diffraction_pattern1, kernel, mode='full', method='auto')
 
 fig,ax=plt.subplots(1,2)
-ax[0].imshow(pixim1 , cmap='gray')
-ax[1].imshow(pixim2 , cmap='gray')
+ax[0].imshow(diffraction_pattern1 , cmap='gray')
+ax[1].imshow(diffraction_pattern2 , cmap='gray')
 ax[0].set_title("Fast delta peak rendering")
 ax[1].set_title("Full projection rendering")
 ax[0].set_xlabel("Hits: "+str(len(detector.frames[0]) ))

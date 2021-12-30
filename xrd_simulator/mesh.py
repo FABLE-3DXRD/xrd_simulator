@@ -7,7 +7,7 @@ import pygalmesh
 import meshio
 import miniball
 
-class TetraMesh(object):
+class TetraMesh(object): #TODO: add unit tests
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
 
     Attributes:
@@ -43,7 +43,7 @@ class TetraMesh(object):
         self.ecmat       = None
         self.centroid    = None
         self.number_of_elements = None
-    
+
     @classmethod
     def _build_tetramesh(cls, mesh):
         tetmesh = cls()
@@ -68,7 +68,7 @@ class TetraMesh(object):
     @classmethod
     def generate_mesh_from_vertices(cls, coord, enod):
         """Generate a mesh from vertices using `the meshio package`_:
-        
+
         .. _the meshio package: https://github.com/nschloe/meshio
 
         Args:
@@ -84,7 +84,7 @@ class TetraMesh(object):
     @classmethod
     def generate_mesh_from_levelset(cls, level_set, bounding_radius, max_cell_circumradius):
         """Generate a mesh from a level set using `the pygalmesh package`_:
-        
+
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
 
         Args:
@@ -110,7 +110,7 @@ class TetraMesh(object):
     @classmethod
     def generate_mesh_from_numpy_array(cls, array, voxel_size, max_cell_circumradius):
         """Generate a mesh from a numpy array using `the pygalmesh package`_:
-        
+
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
 
         Args:
@@ -202,7 +202,7 @@ class TetraMesh(object):
         for i in range( enod.shape[0] ):
             ec = coord[enod[i,:], :]
             ecentroid = np.mean( ec, axis=0 )
-            for j in range( efaces.shape[1] ): 
+            for j in range( efaces.shape[1] ):
                 ef = coord[efaces[i,j,:],:]
                 enormals[i,j,:] = self._compute_plane_normal( ef, ecentroid )
         return enormals
@@ -213,7 +213,7 @@ class TetraMesh(object):
         v1 = points[1,:] - points[0,:]
         v2 = points[2,:] - points[0,:]
         n  = np.cross(v1, v2)                            # define a vector perpendicular to the plane.
-        n  = n*np.sign( n.dot(points[0,:] - centroid) )  # set vector direction outwards from centroid.   
+        n  = n*np.sign( n.dot(points[0,:] - centroid) )  # set vector direction outwards from centroid.
         return n/np.linalg.norm(n)                       # normalised vector and return.
 
     def _compute_mesh_centroids(self, coord, enod):
@@ -259,28 +259,28 @@ class TetraMesh(object):
         xs, ys, zs = X.flatten().astype(np.float64), Y.flatten().astype(np.float64), Z.flatten().astype(np.float64)
 
         if dim=='all':
-            values = _get_interpolation_values_nd( xs, ys, zs, 
-                                            self.ecentroids.astype(np.float64), 
-                                            self.eradius.astype(np.float64), 
-                                            self.enormals, 
-                                            self.coord.astype(np.float64), 
-                                            self.efaces, 
-                                            self.ecmat, 
-                                            self.enod, 
+            values = _get_interpolation_values_nd( xs, ys, zs,
+                                            self.ecentroids.astype(np.float64),
+                                            self.eradius.astype(np.float64),
+                                            self.enormals,
+                                            self.coord.astype(np.float64),
+                                            self.efaces,
+                                            self.ecmat,
+                                            self.enod,
                                             self.coefficients.astype(np.float64) )
             return values.reshape(shape+(3,))
         else:
-            values = _get_interpolation_values_1d( xs, ys, zs, 
-                                            self.ecentroids.astype(np.float64), 
-                                            self.eradius.astype(np.float64), 
-                                            self.enormals, 
-                                            self.coord.astype(np.float64), 
-                                            self.efaces, 
-                                            self.ecmat, 
-                                            self.enod, 
+            values = _get_interpolation_values_1d( xs, ys, zs,
+                                            self.ecentroids.astype(np.float64),
+                                            self.eradius.astype(np.float64),
+                                            self.enormals,
+                                            self.coord.astype(np.float64),
+                                            self.efaces,
+                                            self.ecmat,
+                                            self.enod,
                                             self.coefficients.astype(np.float64),
                                             dim )
-            return values.reshape(shape)           
+            return values.reshape(shape)
 
     def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualization.
@@ -288,6 +288,7 @@ class TetraMesh(object):
         Args:
             file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
         """
+        #TODO: add end to end test
         if element_data is not None:
             for key in element_data:
                 self._mesh.cell_data[key] = np.array([element_data[key]])

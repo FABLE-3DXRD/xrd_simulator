@@ -145,4 +145,5 @@ dmypy.json
 # extra saved files
 extras/voroni_sample/
 
+cspell.json
 

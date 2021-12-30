@@ -81,24 +81,24 @@ class TestDetector(unittest.TestCase):
                                 hkl_indx=0 )
 
         self.detector.frames.append([scatterer1, scatterer2])
-        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
+        diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
         
         # the sample sits at the centre of the detector.
         expected_z_pixel = int( self.detector_size / (2*self.pixel_size_z) ) + 2
         expected_y_pixel = int( self.detector_size / (2*self.pixel_size_y) ) + 3
 
-        self.assertAlmostEqual(piximage[expected_z_pixel,expected_y_pixel], ch1.volume, msg="detector rendering did not capture scatterer")
-        self.assertAlmostEqual(np.sum(piximage), ch1.volume, msg="detector rendering captured out of bounds scatterer")
+        self.assertAlmostEqual(diffraction_pattern[expected_z_pixel,expected_y_pixel], ch1.volume, msg="detector rendering did not capture scatterer")
+        self.assertAlmostEqual(np.sum(diffraction_pattern), ch1.volume, msg="detector rendering captured out of bounds scatterer")
 
         # Try rendering with advanced intensity model
-        piximage = self.detector.render(frame_number=0, lorentz=True, polarization=False, structure_factor=False)
-        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use lorentz factor")
+        diffraction_pattern = self.detector.render(frame_number=0, lorentz=True, polarization=False, structure_factor=False)
+        self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use lorentz factor")
         
-        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=True, structure_factor=False)
-        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use polarization factor")
+        diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=True, structure_factor=False)
+        self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use polarization factor")
         
-        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=True)
-        self.assertTrue(piximage[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
+        diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=True)
+        self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
 
     def test_projection_render(self):
         
@@ -135,13 +135,13 @@ class TestDetector(unittest.TestCase):
                                 hkl_indx=0 )
 
         self.detector.frames.append([scatterer])
-        piximage = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="project")
+        diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="project")
 
-        projected_summed_intensity = np.sum(piximage)
+        projected_summed_intensity = np.sum(diffraction_pattern)
         relative_error             = np.abs( scatterer.volume - projected_summed_intensity ) / scatterer.volume
         self.assertLessEqual( relative_error, 1e-4, msg="Projected mass does not match the hull volume" )
 
-        index = np.where(piximage==np.max(piximage))
+        index = np.where(diffraction_pattern==np.max(diffraction_pattern))
         self.assertEqual( index[0][0], self.detector_size//(2*self.pixel_size_z), msg="Projected mass does not match the hull volume" )
         self.assertEqual( index[1][0], self.detector_size//(2*self.pixel_size_y), msg="Projected mass does not match the hull volume" )
 
@@ -154,9 +154,9 @@ class TestDetector(unittest.TestCase):
                 zd = i*self.pixel_size_z
                 yd = j*self.pixel_size_y
                 if (zd - self.detector_size/2.)**2 + (yd - self.detector_size/2.)**2 > (1.01*r)**2:
-                    self.assertAlmostEqual( piximage[i,j], 0 )
+                    self.assertAlmostEqual( diffraction_pattern[i,j], 0 )
                 elif (zd - self.detector_size/2.)**2 + (yd - self.detector_size/2.)**2 < (0.99*r)**2:
-                    self.assertGreater( piximage[i,j], 0 )
+                    self.assertGreater( diffraction_pattern[i,j], 0 )
 
     def test_get_intersection(self):
 
