@@ -1,7 +1,15 @@
 import setuptools
+import os
 
 with open("README.rst", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+
+thelibFolder = os.path.dirname(os.path.realpath(__file__))
+requirementPath = thelibFolder + '/requirements.txt'
+install_requires = []
+if os.path.isfile(requirementPath):
+    with open(requirementPath) as f:
+        install_requires = f.read().splitlines()
 
 setuptools.setup(
     name="xrd_simulator",
@@ -22,10 +30,6 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires= [ "numpy>=1.20.0",
-                        "scipy",
-                        "matplotlib",
-                        "xfab>=0.0.4",
-                        "pygalmesh==0.7.2",
-                        ]
+    install_requires=install_requires
 )
+
