@@ -1,11 +1,8 @@
 miniball==1.1.0
 matplotlib==3.3.1
 numpy==1.21.4
-pyevtk==1.1.2
 meshio==5.0.2
-vtk==9.1.0
 pygalmesh==0.10.6
 scipy==1.6.2
-sphinx_rtd_theme==1.0.0
 xfab==0.0.4
 numba==0.53.1
