@@ -112,6 +112,7 @@ class TestUtils(unittest.TestCase):
                                                         maximum_sampling_bin_seperation,
                                                         strain_tensor )
 
+        polycrystal.transform(motion, time=0.134)
         polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
         diffraction_pattern = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
         bins, histogram = utils.diffractogram(diffraction_pattern>1, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
@@ -125,17 +126,49 @@ class TestUtils(unittest.TestCase):
                     csequence = 0
         self.assertGreaterEqual(nosequences, 10, msg="Few or no rings appeared from diffraction.")
 
+
     def test_get_uniform_powder_sample(self):
-        sample_bounding_radius = 1.203
+        sample_bounding_radius = 256 * 180 / 128.
         polycrystal = templates.get_uniform_powder_sample(
-                        sample_bounding_radius = sample_bounding_radius,
-                        number_of_grains = 15,
+                        sample_bounding_radius,
+                        number_of_grains = 50,
                         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.],
-                        sgname = 'P3221'
+                        sgname = 'P3221',
+                        strain_tensor = np.array([[0,0,0],[0,0,0],[0,0,0.01]])
                         )
         for c in polycrystal.mesh_lab.coord:
             self.assertLessEqual( np.linalg.norm(c), sample_bounding_radius+1e-8, msg='Powder sample not contained by bounding sphere.' )
 
+        parameters = {
+            "detector_distance"             : 191023.9164,
+            "detector_center_pixel_z"       : 256.2345,
+            "detector_center_pixel_y"       : 255.1129,
+            "pixel_side_length_z"           : 181.4234,
+            "pixel_side_length_y"           : 180.2343,
+            "number_of_detector_pixels_z"   : 512,
+            "number_of_detector_pixels_y"   : 512,
+            "wavelength"                    : 0.285227,
+            "beam_side_length_z"            : 512 * 200.,
+            "beam_side_length_y"            : 512 * 200.,
+            "rotation_step"                 : np.radians(20.0),
+            "rotation_axis"                 : np.array([0., 0., 1.0])
+        }
+
+        beam, detector, motion = templates.s3dxrd( parameters )
+        polycrystal.transform(motion, time=0.234)
+
+        polycrystal.diffract( beam, detector, motion, min_bragg_angle=0, max_bragg_angle=None, verbose=True )
+        diffraction_pattern = detector.render(frame_number=0,lorentz=False, polarization=False, structure_factor=False, method="centroid", verbose=True)
+        bins, histogram = utils.diffractogram(diffraction_pattern>1, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+
+        csequence, nosequences = 0, 0
+        for i in range(histogram.shape[0]):
+            if histogram[i]>0:
+                csequence +=1
+            elif csequence>=1:
+                    nosequences +=1
+                    csequence = 0
+        self.assertGreaterEqual(nosequences, 10, msg="Few or no rings appeared from diffraction.")
 
 if __name__ == '__main__':
     unittest.main()
