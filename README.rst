@@ -11,26 +11,42 @@ This is a package for simulating X-ray Difraction from polycrystals
 Installation
 ======================================
 
+Prerequisites
+======================================
+Since xrd_simulator depends on pygalmesh it is neccessary to first install
+the CGAL and EIGEN packages. On Linux::
 
-Anaconda
+Linux
 ===============================
-contomo is installable via anaconda::
+   sudo apt install libcgal-dev libeigen3-dev
 
-   conda install xrd_simulator
-
-
-pip
+MacOS
 ===============================
-as well as via pip::
+On MacOS with homebrew::
+
+   brew install cgal eigen
+
+Windows
+===============================
+On Windows...::
+
+  ...
+
+Pip installation
+======================================
+Once CGAL and EIGEN is installed xrd_simulator is available via the pypi channel::
 
    pip install xrd_simulator
 
-
-source
+Anaconda installation
 ===============================
-you may also try and build form the source. In that case first::
+xrd_simulator is not yet available as a conda package.
 
-   git clone ...
+Source installation
+===============================
+you may also build form the source. In that case replace the pip instal step above by::
+
+   git clone https://github.com/AxelHenningsson/xrd_simulator.git
 
 next, go to the just downloaded directory::
 
@@ -38,5 +54,5 @@ next, go to the just downloaded directory::
 
 and install::
 
-   python setup.py build install
+   python setup.py install
 
