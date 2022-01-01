@@ -18,6 +18,7 @@ the CGAL and EIGEN packages. On Linux::
 
 Linux
 ===============================
+On Linux::
    sudo apt install libcgal-dev libeigen3-dev
 
 MacOS
