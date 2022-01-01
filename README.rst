@@ -14,7 +14,7 @@ Installation
 Prerequisites
 ======================================
 Since xrd_simulator depends on pygalmesh it is neccessary to first install
-the CGAL and EIGEN packages. On Linux::
+the CGAL and EIGEN packages.
 
 Linux
 ===============================
