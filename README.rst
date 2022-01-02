@@ -13,48 +13,29 @@ Installation
 
 Prerequisites
 ======================================
-Since xrd_simulator depends on pygalmesh it is neccessary to first install
-the CGAL and EIGEN packages.
+xrd_simulator depends on pygalmesh which in turn depends in the external CGAL and EIGEN packages.
+It is therefore neccessary, prior to installing xrd_simulator, to either install these packages
+manually, as documented here, or to install pygalmesh using conda as::
 
-Linux
-===============================
-On Linux::
+   conda install -c conda-forge pygalmesh
 
-   sudo apt install libcgal-dev libeigen3-dev
-
-MacOS
-===============================
-On MacOS with homebrew::
-
-   brew install cgal eigen
-
-Windows
-===============================
-On Windows...::
-
-  ...
+the later should work identically across OS systems.
 
 Pip installation
 ======================================
-Once CGAL and EIGEN is installed xrd_simulator is available via the pypi channel::
+Once pygalmesh is available xrd_simulator can be installed as::
 
-   pip install xrd_simulator
-
-Anaconda installation
-===============================
-xrd_simulator is not yet available as a conda package.
+   pip install xrd-simulator
 
 Source installation
 ===============================
-you may also build form the source. In that case replace the pip instal step above by::
+Naturally one can also install from the sources::
 
    git clone https://github.com/AxelHenningsson/xrd_simulator.git
-
-next, go to the just downloaded directory::
-
    cd xrd_simulator
-
-and install::
-
    python setup.py install
 
+Anaconda installation
+===============================
+Unfortunately xrd_simulator is not yet available for pure conda installation. This is mainly due to
+xfab and miniball not being available as conda packages.
