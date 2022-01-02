@@ -4,12 +4,6 @@ import os
 with open("README.rst", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-thelibFolder = os.path.dirname(os.path.realpath(__file__))
-requirementPath = thelibFolder + '/requirements.txt'
-install_requires = []
-if os.path.isfile(requirementPath):
-    with open(requirementPath) as f:
-        install_requires = f.read().splitlines()
 
 setuptools.setup(
     name="xrd_simulator",
@@ -30,6 +24,13 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=install_requires
-)
+    install_requires=[  "miniball==1.1.0"
+                        "matplotlib==3.3.1"
+                        "numpy==1.21.4"
+                        "meshio==5.0.2"
+                        "pygalmesh==0.10.6"
+                        "scipy==1.6.1"
+                        "xfab==0.0.4"
+                        "numba"  ]
+    )
 
