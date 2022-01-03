@@ -5,7 +5,7 @@ from scipy.spatial import ConvexHull
 from numba import njit
 import pygalmesh
 import meshio
-import xrd_simulator.miniball as miniball
+from xrd_simulator import utils
 
 class TetraMesh(object): #TODO: add unit tests
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
@@ -244,7 +244,7 @@ class TetraMesh(object): #TODO: add unit tests
         espherecentroids = np.zeros((enod.shape[0],3))
         for i in range( enod.shape[0] ):
             ec = coord[enod[i,:], :]
-            c, r = miniball.get_bounding_ball(ec, epsilon=1e-8)
+            c, r = utils.get_bounding_ball(ec, epsilon=1e-8)
             espherecentroids[i] = c
             eradius[i] = np.sqrt( r )
             # Whats this .. no trust ...

@@ -37,5 +37,4 @@ Naturally one can also install from the sources::
 
 Anaconda installation
 ===============================
-Unfortunately xrd_simulator is not yet available for pure conda installation. This is mainly due to
-xfab and miniball not being available as conda packages.
+Unfortunately xrd_simulator is not yet available for pure conda installation.
