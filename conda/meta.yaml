@@ -26,10 +26,10 @@ requirements:
 
 test:
   imports:
-    - click
+    - xrd_simulator
 
 about:
-  home: https://palletsprojects.com/p/click/
-  license: BSD
-  license_family: BSD
-  summary: Composable command line interface toolkit
+  home: https://github.com/AxelHenningsson/xrd_simulator
+  license: MIT
+  license_family: MIT
+  summary: {{ data.get('description') }}
