@@ -239,4 +239,4 @@ class Beam(PickleableObject):
             return None
 
 
-            
+

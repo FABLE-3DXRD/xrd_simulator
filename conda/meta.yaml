@@ -8,8 +8,8 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://files.pythonhosted.org/packages/62/64/353514900cf91c74c6fd6de020dc331d29e5b6d4e1393f6945b63fca8fea/{{ name }}-{{ version }}.tar.gz
-  sha256: f44d5d53595b9eaa7bdfdc373579e2117b584f41bb47b7236cae4b2b8919c987
+  url: https://files.pythonhosted.org/packages/8a/92/03e844d27bb909980910b0bf5324a127c265cb28099f9ef9833c04aad899/{{ name }}-{{ version }}.tar.gz
+  sha256: 0e6858002153a92b46a3b218321598ce4a9371c8c52c3a7ee0ea9dfc7d7ba5d3
 
 build:
   number: 0
