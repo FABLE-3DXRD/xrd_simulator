@@ -79,7 +79,7 @@ class Polycrystal(PickleableObject):
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(detector, beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
-            phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle) 
+            phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle, verbose=verbose)
 
         c_0_factor   = -beam.wave_vector.dot( rigid_body_motion.rotator.K2 )
         c_1_factor   =  beam.wave_vector.dot( rigid_body_motion.rotator.K  )

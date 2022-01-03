@@ -5,7 +5,7 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
-from xfab import tools
+from xrd_simulator.xfab import tools
 from scipy.signal import convolve
 import os
 import cProfile

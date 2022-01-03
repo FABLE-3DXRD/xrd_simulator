@@ -1,7 +1,6 @@
 """Run all unittests in the tests folder"""
 from unittest import TestLoader, TestResult
 from pathlib import Path
-from xrd_simulator.utils import _HiddenPrints
 
 def run_tests():
     test_loader = TestLoader()

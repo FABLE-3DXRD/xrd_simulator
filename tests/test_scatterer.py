@@ -25,7 +25,7 @@ class TestScatterer(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = 'Fm-3m' # Iron
         self.phase   = Phase(unit_cell, sgname, path_to_cif_file=data)
-        self.phase.setup_diffracting_planes(self.wavelength, 0, 20*np.pi/180)
+        self.phase.setup_diffracting_planes(self.wavelength, 0, 20*np.pi/180, verbose=False)
 
         self.incident_wave_vector = np.array([1,0.,0])
         self.incident_wave_vector = 2*np.pi*self.incident_wave_vector/(self.wavelength * np.linalg.norm(self.incident_wave_vector) )

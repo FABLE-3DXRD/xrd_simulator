@@ -5,24 +5,7 @@ import sys
 
 import numpy as np
 from numba import njit
-from xfab import tools
-
-
-class _HiddenPrints:
-    """Simple class to enable running code without printing using python with statements.
-
-    This is a hack to suppress printing from imported packages over which we do not have full
-    controll. (xfab.tools)
-    """
-
-    def __enter__(self):
-        self._original_stdout = sys.stdout
-        sys.stdout = open(os.devnull, 'w')
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stdout.close()
-        sys.stdout = self._original_stdout
-
+from xrd_simulator.xfab import tools
 
 def contained_by_intervals(value, intervals):
     """Assert if a float ``value`` is contained by any of a number of ``intervals``.
