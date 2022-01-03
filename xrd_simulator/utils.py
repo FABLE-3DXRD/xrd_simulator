@@ -165,3 +165,107 @@ def diffractogram( diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0 
         else: clip_index = k
     clip_index = np.min([clip_index+m//10, len(histogram)-1])
     return bin_centres[0:clip_index], histogram[0:clip_index]
+
+def _get_circumsphere(point_cloud):
+    """
+    Computes the circumsphere of a set of points
+    Parameters
+    ----------
+    point_cloud : (M, N) ndarray, where 1 <= M <= N + 1
+            The input points
+    Returns
+    -------
+    C, r2 : ((2) ndarray, float)
+            The center and the squared radius of the circumsphere
+
+    NOTE: This code is modified from https://github.com/marmakoide/miniball
+    """
+
+    U = point_cloud[1:] - point_cloud[0]
+    B = np.sqrt(np.sum(U ** 2, axis=1))
+    U /= B[:, None]
+    B /= 2
+    C = np.dot(np.linalg.solve(np.inner(U, U), B), U)
+    r2 = np.sum(C ** 2)
+    C += point_cloud[0]
+    return C, r2
+
+
+def get_bounding_ball(point_cloud, epsilon=1e-7, rng=np.random.default_rng()):
+    """
+    Computes the smallest bounding ball of a set of points
+    Parameters
+    ----------
+    point_cloud : (M, N) ndarray, where 1 <= M <= N + 1
+            The input points
+    epsilon : float
+            Tolerance used when testing if a set of point belongs to the same sphere.
+            Default is 1e-7
+    rng : np.random.Generator
+        Pseudo-random number generator used internally. Default is the one default
+        one provided by np.
+    Returns
+    -------
+    C, r2 : ((2) ndarray, float)
+            The center and the squared radius of the circumsphere
+
+    NOTE: This code is modified from https://github.com/marmakoide/miniball
+    """
+
+    # Iterative implementation of Welzl's algorithm, see
+    # "Smallest enclosing disks (balls and ellipsoids)" Emo Welzl 1991
+
+    def circle_contains(D, p):
+        c, r2 = D
+        return np.sum((p - c) ** 2) <= r2
+
+    def get_boundary(R):
+        if len(R) == 0:
+            return np.zeros(point_cloud.shape[1]), 0.0
+
+        if len(R) <= point_cloud.shape[1] + 1:
+            return _get_circumsphere(point_cloud[R])
+
+        c, r2 = _get_circumsphere(point_cloud[R[: point_cloud.shape[1] + 1]])
+        if np.all(np.fabs(np.sum((point_cloud[R] - c) ** 2, axis=1) - r2) < epsilon):
+            return c, r2
+
+    class Node(object):
+        def __init__(self, P, R):
+            self.P = P
+            self.R = R
+            self.D = None
+            self.pivot = None
+            self.left = None
+            self.right = None
+
+    def traverse(node):
+        stack = [node]
+        while len(stack) > 0:
+            node = stack.pop()
+
+            if len(node.P) == 0 or len(node.R) >= point_cloud.shape[1] + 1:
+                node.D = get_boundary(node.R)
+            elif node.left is None:
+                node.pivot = rng.choice(node.P)
+                node.left = Node(list(set(node.P) - set([node.pivot])), node.R)
+                stack.extend((node, node.left))
+            elif node.right is None:
+                if circle_contains(node.left.D, point_cloud[node.pivot]):
+                    node.D = node.left.D
+                else:
+                    node.right = Node(node.left.P, node.R + [node.pivot])
+                    stack.extend((node, node.right))
+            else:
+                node.D = node.right.D
+                node.left, node.right = None, None
+
+    point_cloud = point_cloud.astype(float, copy=False)
+    root = Node(range(point_cloud.shape[0]), [])
+    traverse(root)
+    return root.D
+
+def get_bounding_ball_2(points):
+    c = np.mean(points, axis=1)
+    r = np.max( np.linalg.norm( points - c, axis=1 ) )
+    return c, r

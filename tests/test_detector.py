@@ -61,28 +61,28 @@ class TestDetector(unittest.TestCase):
         phase   = Phase(unit_cell, sgname, path_to_cif_file=data)
         phase.setup_diffracting_planes(wavelength, 0, 20*np.pi/180, verbose=False)
 
-        scatterer1 = Scatterer( ch1, 
-                                scattered_wave_vector=scattered_wave_vector, 
-                                incident_wave_vector=incident_wave_vector, 
+        scatterer1 = Scatterer( ch1,
+                                scattered_wave_vector=scattered_wave_vector,
+                                incident_wave_vector=incident_wave_vector,
                                 wavelength=wavelength,
-                                incident_polarization_vector=np.array([0,1,0]), 
+                                incident_polarization_vector=np.array([0,1,0]),
                                 rotation_axis=np.array([0,0,1]),
-                                time=0, 
-                                phase=phase, 
+                                time=0,
+                                phase=phase,
                                 hkl_indx=0 )
-        scatterer2 = Scatterer( ch2, 
-                                scattered_wave_vector=scattered_wave_vector, 
-                                incident_wave_vector=incident_wave_vector, 
+        scatterer2 = Scatterer( ch2,
+                                scattered_wave_vector=scattered_wave_vector,
+                                incident_wave_vector=incident_wave_vector,
                                 wavelength=wavelength,
-                                incident_polarization_vector=np.array([0,1,0]), 
+                                incident_polarization_vector=np.array([0,1,0]),
                                 rotation_axis=np.array([0,0,1]),
-                                time=0, 
-                                phase=phase, 
+                                time=0,
+                                phase=phase,
                                 hkl_indx=0 )
 
         self.detector.frames.append([scatterer1, scatterer2])
         diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=False, method="centroid")
-        
+
         # the sample sits at the centre of the detector.
         expected_z_pixel = int( self.detector_size / (2*self.pixel_size_z) ) + 2
         expected_y_pixel = int( self.detector_size / (2*self.pixel_size_y) ) + 3
@@ -93,15 +93,15 @@ class TestDetector(unittest.TestCase):
         # Try rendering with advanced intensity model
         diffraction_pattern = self.detector.render(frame_number=0, lorentz=True, polarization=False, structure_factor=False)
         self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use lorentz factor")
-        
+
         diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=True, structure_factor=False)
         self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use polarization factor")
-        
+
         diffraction_pattern = self.detector.render(frame_number=0, lorentz=False, polarization=False, structure_factor=True)
         self.assertTrue(diffraction_pattern[expected_z_pixel,expected_y_pixel]!=ch1.volume, msg="detector rendering did not use structure_factor factor")
 
     def test_projection_render(self):
-        
+
         # Convex hull of a sphere placed at the centre of the detector
         phi, theta  = np.meshgrid( np.linspace( 0, 2*np.pi, 25 ), np.linspace( 0, 2*np.pi, 25 ), indexing='ij' )
         r     = 1.0*self.detector_size/4.
@@ -124,13 +124,13 @@ class TestDetector(unittest.TestCase):
         phase   = Phase(unit_cell, sgname, path_to_cif_file=data)
         phase.setup_diffracting_planes(wavelength, 0, 20*np.pi/180, verbose=False)
 
-        scatterer = Scatterer(  sphere_hull, 
-                                scattered_wave_vector=scattered_wave_vector, 
-                                incident_wave_vector=incident_wave_vector, 
+        scatterer = Scatterer(  sphere_hull,
+                                scattered_wave_vector=scattered_wave_vector,
+                                incident_wave_vector=incident_wave_vector,
                                 wavelength=wavelength,
-                                incident_polarization_vector=np.array([0,1,0]), 
+                                incident_polarization_vector=np.array([0,1,0]),
                                 rotation_axis=np.array([0,0,1]),
-                                time=0, 
+                                time=0,
                                 phase=phase,
                                 hkl_indx=0 )
 
