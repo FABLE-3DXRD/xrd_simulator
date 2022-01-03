@@ -11,30 +11,35 @@ This is a package for simulating X-ray Difraction from polycrystals
 Installation
 ======================================
 
-Prerequisites
+Anaconda installation
+===============================
+The preffered way to install the xrd_simulator package is via anaconda::
+
+   conda install -c axiomel xrd_simulator
+
+This is meant work across OS-systems and requires no prerequisites except, of course,
+that of `Anaconda`_ itself.
+
+Pip Installation
 ======================================
-xrd_simulator depends on pygalmesh which in turn depends in the external CGAL and EIGEN packages.
-It is therefore neccessary, prior to installing xrd_simulator, to either install these packages
-manually, as documented here, or to install pygalmesh using conda as::
-
-   conda install -c conda-forge pygalmesh
-
-the later should work identically across OS systems.
-
-Pip installation
-======================================
-Once pygalmesh is available xrd_simulator can be installed as::
+Pip installation is possible, however, external dependecies of `pygalmesh`_ must the be preinstalled
+on your system. Installation of these will be OS dependent and documentaiton 
+`can be found elsewhere.`_::
 
    pip install xrd-simulator
 
 Source installation
 ===============================
-Naturally one can also install from the sources::
+Naturally one may also install from the sources::
 
    git clone https://github.com/AxelHenningsson/xrd_simulator.git
    cd xrd_simulator
    python setup.py install
 
-Anaconda installation
-===============================
-Unfortunately xrd_simulator is not yet available for pure conda installation.
+This will then again require the `pygalmesh`_ dependecies to be resolved beforehand.
+
+.. _Anaconda: https://www.anaconda.com/products/individual
+
+.. _pygalmesh: https://github.com/nschloe/pygalmesh
+
+.. _can be found elsewhere.: https://github.com/nschloe/pygalmesh
