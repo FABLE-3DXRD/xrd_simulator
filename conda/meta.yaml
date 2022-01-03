@@ -1,0 +1,35 @@
+
+{% set data = load_setup_py_data(setup_file='../setup.py', from_recipe_dir=True) %}
+{% set name = "xrd_simulator" %}
+{% set version = data.get('version') %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: https://files.pythonhosted.org/packages/62/64/353514900cf91c74c6fd6de020dc331d29e5b6d4e1393f6945b63fca8fea/{{ name }}-{{ version }}.tar.gz
+  sha256: f44d5d53595b9eaa7bdfdc373579e2117b584f41bb47b7236cae4b2b8919c987
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --force-reinstall -vv "
+
+requirements:
+  host:
+    - pip
+    - python
+  run:
+    {% for req in data.get('install_requires', []) %}
+      - {{ req }}
+    {% endfor %}
+
+test:
+  imports:
+    - click
+
+about:
+  home: https://palletsprojects.com/p/click/
+  license: BSD
+  license_family: BSD
+  summary: Composable command line interface toolkit
