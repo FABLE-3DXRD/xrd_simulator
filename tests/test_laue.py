@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from xfab import tools
+from xrd_simulator.xfab import tools
 from xrd_simulator import laue
 from xrd_simulator import utils
 from xrd_simulator.motion import RigidBodyMotion

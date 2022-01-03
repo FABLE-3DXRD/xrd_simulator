@@ -1,7 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from xfab import tools, structure
-from xrd_simulator.utils import _HiddenPrints, cif_open
+from xrd_simulator.xfab import tools, structure
+from xrd_simulator.utils import cif_open
 
 class Phase(object):
 
@@ -39,7 +39,7 @@ class Phase(object):
         self.structure_factors = None
         self.path_to_cif_file  = path_to_cif_file
 
-    def setup_diffracting_planes(self, wavelength, min_bragg_angle, max_bragg_angle):
+    def setup_diffracting_planes(self, wavelength, min_bragg_angle, max_bragg_angle, verbose=True):
         """Generates all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.
 
         If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.
@@ -54,17 +54,16 @@ class Phase(object):
         """
         sintlmin = min_bragg_angle / wavelength
         sintlmax = max_bragg_angle / wavelength
-        with _HiddenPrints(): #TODO: perhaps suggest xfab not to print in the first place and make a pull request.
-            self.miller_indices = tools.genhkl_all(self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
+        self.miller_indices = tools.genhkl_all(self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
         if self.path_to_cif_file is not None:
-            self._set_structure_factors(self.miller_indices)
+            self._set_structure_factors(self.miller_indices, verbose=verbose)
 
-    def _set_structure_factors(self, miller_indices):
+    def _set_structure_factors(self, miller_indices, verbose):
         """Generate unit cell structure factors for all miller indices.
         """
         atom_factory = structure.build_atomlist()
         cifblk = cif_open( self.path_to_cif_file )
-        atom_factory.CIFread(ciffile = None, cifblkname = None, cifblk = cifblk)
+        atom_factory.CIFread(ciffile = None, cifblkname = None, cifblk = cifblk, verbose=verbose)
         atoms = atom_factory.atomlist.atom
         self.structure_factors = np.zeros((miller_indices.shape[0], 2))
         for i,hkl in enumerate(miller_indices):

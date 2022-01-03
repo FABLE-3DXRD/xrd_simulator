@@ -8,7 +8,7 @@ from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
 from xrd_simulator import utils
-from xfab import tools
+from xrd_simulator.xfab import tools
 
 PARAMETER_KEYS = [
     "detector_distance",

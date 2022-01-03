@@ -30,7 +30,6 @@ setuptools.setup(
                         "meshio==5.0.2",
                         "pygalmesh==0.10.6",
                         "scipy==1.6.1",
-                        "xfab==0.0.4",
                         "numba"  ]
     )
 
