@@ -5,7 +5,7 @@ from scipy.spatial import ConvexHull
 from numba import njit
 import pygalmesh
 import meshio
-import miniball
+import xrd_simulator.miniball as miniball
 
 class TetraMesh(object): #TODO: add unit tests
     """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`. 
