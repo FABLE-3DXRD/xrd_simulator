@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 from scipy.optimize import minimize, NonlinearConstraint
 from xrd_simulator.xfab import tools
+from CifFile import ReadCif
 
 
 def contained_by_intervals(value, intervals):
@@ -20,10 +21,8 @@ def contained_by_intervals(value, intervals):
 def cif_open(cif_file):
     """Helper function to be able to use the ``.CIFread`` of ``xfab``.
     """
-    from CifFile import ReadCif
     cif_dict = ReadCif(cif_file)
     return cif_dict[list(cif_dict.keys())[0]]
-
 
 def print_progress(progress_fraction, message):
     """Print a progress bar in the executing shell terminal.
