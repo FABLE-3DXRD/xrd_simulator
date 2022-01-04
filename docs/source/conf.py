@@ -12,7 +12,6 @@
 #
 import os
 import sys
-import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath('../../'))
 
@@ -31,12 +30,12 @@ release = '0.0.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [ 'sphinx.ext.napoleon', 
-               'sphinx.ext.autodoc', 
-               'sphinx_rtd_theme', 
-               'sphinx.ext.autosummary', 
-               'sphinx.ext.linkcode',
-               'sphinx_copybutton' ]
+extensions = ['sphinx.ext.napoleon',
+              'sphinx.ext.autodoc',
+              'sphinx_rtd_theme',
+              'sphinx.ext.autosummary',
+              'sphinx.ext.linkcode',
+              'sphinx_copybutton']
 
 # include documentation of __special__() functions.
 napoleon_include_special_with_doc = True
@@ -48,7 +47,7 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-#napoleon_use_ivar = True
+# napoleon_use_ivar = True
 
 # -- Options for HTML output -------------------------------------------------
 

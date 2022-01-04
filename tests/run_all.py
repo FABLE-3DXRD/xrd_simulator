@@ -2,6 +2,7 @@
 from unittest import TestLoader, TestResult
 from pathlib import Path
 
+
 def run_tests():
     test_loader = TestLoader()
     test_result = TestResult()
@@ -22,5 +23,6 @@ def run_tests():
         print(test_result.errors)
         exit(-1)
 
+
 if __name__ == '__main__':
-    run_tests() # Runs all unittests
+    run_tests()  # Runs all unittests

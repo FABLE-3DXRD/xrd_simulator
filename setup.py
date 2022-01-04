@@ -1,5 +1,4 @@
 import setuptools
-import os
 
 with open("README.rst", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -7,7 +6,7 @@ with open("README.rst", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="xrd_simulator",
-    version="0.0.6",
+    version="0.0.7",
     author="Axel Henningsson",
     author_email="nilsaxelhenningsson@gmail.com",
     description="Tools for diffraction simulation of s3dxrd type experiments.",
@@ -24,11 +23,10 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
-    install_requires=[  "matplotlib==3.3.1",
-                        "numpy==1.21.4",
-                        "meshio==5.0.2",
-                        "pygalmesh==0.10.6",
-                        "scipy==1.6.1",
-                        "numba==0.53.0"  ]
-    )
-
+    install_requires=["matplotlib==3.3.1",
+                      "numpy==1.21.4",
+                      "meshio==5.0.2",
+                      "pygalmesh==0.10.6",
+                      "scipy==1.6.1",
+                      "numba==0.53.0"]
+)
