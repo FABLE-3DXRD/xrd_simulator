@@ -8,8 +8,8 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://files.pythonhosted.org/packages/29/aa/6c53b44c5a4cb2056d1b9b058f74cbdb22b88c94988503ebd72fb4523290/xrd_simulator-0.0.6.tar.gz
-  sha256: 1c7ca305e9c459b2084d61b541e992a0945c68dc58ac5091b179b8ee9229685b
+  url: https://files.pythonhosted.org/packages/ac/aa/d0c7266ce635dec724070faac02740fd9ae82177bb356705e55289d3ebcd/xrd_simulator-0.0.7.tar.gz
+  sha256: 510c819d50ba9eadcc7cc904025db3dd442c69ed9f04cb40c6b67fc9b03564ba
 
 build:
   number: 0
