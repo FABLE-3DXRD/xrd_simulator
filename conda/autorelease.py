@@ -120,7 +120,13 @@ if __name__ == '__main__':
     print(" ")
     print(" ")
     print("You need to login to your pypi account to upload, use __token__ as username")
-    subprocess.run(["twine", "upload", "dist\\*" + new_version + "*"])
+    out = subprocess.run(["twine", "upload", "dist\\*" + new_version + "*"])
+    if out.returncode != 0:
+        print("")
+        print("twine upload failed, lets try one more time, use __token__ as username:")
+        out = subprocess.run(["twine", "upload", "dist\\*" + new_version + "*"])
+        if out.returncode != 0:
+            raise ValueError("twine upload failed")
 
     os.chdir("conda")
 
