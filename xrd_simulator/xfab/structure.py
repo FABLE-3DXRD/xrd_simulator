@@ -10,7 +10,6 @@ import logging
 from xrd_simulator.xfab import tools
 from xrd_simulator.xfab import sg
 from xrd_simulator.xfab import atomlib
-from six.moves import range
 
 def StructureFactor(hkl, ucell, sgname, atoms, disper = None):
     """

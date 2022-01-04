@@ -7,7 +7,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import numpy as n
 from math import degrees
-from six.moves import range
 from xrd_simulator.xfab import checks
 
 
