@@ -12,7 +12,7 @@ source:
   sha256: 0e6858002153a92b46a3b218321598ce4a9371c8c52c3a7ee0ea9dfc7d7ba5d3
 
 build:
-  number: 2
+  number: 0
   script: "{{ PYTHON }} -m pip install . --force-reinstall -vv "
 
 requirements:
