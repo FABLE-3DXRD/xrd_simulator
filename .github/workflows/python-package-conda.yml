@@ -20,6 +20,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        conda config --add channels conda-forge
         conda install -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |
