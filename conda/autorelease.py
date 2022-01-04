@@ -1,4 +1,12 @@
-import argparse
+"""Script to automatesome of the boring stuff when releasing a new version of the package to
+pypi and conda. Essentially the script does the following
+    1. updates the setup files with the new build version.
+    2. pushes the current repo to git.
+    3. builds pyi package and upload to pypi.
+    4. build conda package and uploads to conda.
+During the process, some user specified info is required via the command line.
+"""
+
 import subprocess
 import os
 
@@ -28,10 +36,9 @@ def bump_version( version ):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("version", help="version to bump the package to")
-    args = parser.parse_args()
-    new_version = str( args.version ) # Package version to release
+    old_version = get_current_version()
+    print("Trying autorelease, current package version is "+old_version)
+    new_version = sha256 = input( "Enter desired new version of package: " )
     check_version( new_version )
     bump_version( new_version )
 
@@ -49,12 +56,19 @@ if __name__ == '__main__':
 
     print( "Build and upload the package to pypi" )
     subprocess.run(["python", "-m", "build"])
+
+    print(" ")
+    print(" ")
+    print("You need to login to your pypi account to upload, use __token__ as username")
     subprocess.run(["twine", "upload", "dist\*"+new_version+"*"])
 
     os.chdir("conda")
 
-    sha256 = input( "sha256 of tar.gz: " )
-    url = input( "url to .tar.gz: " )
+    print(" ")
+    print(" ")
+    print("Package is now uploaded to pypi next go to the pypi webpage and get the build info")
+    sha256 = input( "Enter sha256 of tar.gz: " )
+    url = input( "Enter url to .tar.gz: " )
 
     with open("meta.yaml", 'r') as f: data = f.readlines()
     for i,line in enumerate(data):
@@ -66,5 +80,8 @@ if __name__ == '__main__':
 
     print( "Building conda package" )
     subprocess.run(["conda-build", "."])
+    print(" ")
+    print(" ")
+    print("Conda releasable package has been built awaiting path to .tar.bz2 to upload")
     package = input( "Enter conda build path to package (.tar.bz2 file): " )
     subprocess.run(["anaconda", "upload", "--all", package, "--skip"])
