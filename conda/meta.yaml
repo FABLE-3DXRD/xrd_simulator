@@ -8,8 +8,8 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://files.pythonhosted.org/packages/ac/aa/d0c7266ce635dec724070faac02740fd9ae82177bb356705e55289d3ebcd/xrd_simulator-0.0.7.tar.gz
-  sha256: 510c819d50ba9eadcc7cc904025db3dd442c69ed9f04cb40c6b67fc9b03564ba
+  url: https://files.pythonhosted.org/packages/e0/3e/334abb115860dc63469bddf23b6a7321f04600947b6adc8fcefdccef69d8/xrd_simulator-0.0.8.tar.gz
+  sha256: 65b8b8fe8fbbb484feab14996d35a5ef5dfc17dfc41c72d014ad683c0964a7eb
 
 build:
   number: 0
@@ -27,6 +27,7 @@ requirements:
     - pygalmesh==0.10.6
     - scipy==1.6.1
     - numba==0.53.0
+    - pycifrw==4.4.3
 
 test:
   imports:
