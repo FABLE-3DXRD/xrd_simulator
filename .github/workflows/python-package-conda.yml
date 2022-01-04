@@ -2,19 +2,15 @@ name: Python Package using Conda
 
 on: [push]
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build-linux:
+    runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.10
+    - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
@@ -36,4 +32,4 @@ jobs:
       run: |
         conda install pytest
         pytest
-        shell: bash
+
