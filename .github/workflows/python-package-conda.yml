@@ -2,9 +2,13 @@ name: Python Package using Conda
 
 on: [push]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+  build-windows:
+    runs-on: windows-latest
     strategy:
       max-parallel: 5
 
@@ -20,7 +24,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        conda env update --file environment.yml --name base
+        conda install -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |
         conda install flake8
@@ -32,3 +36,4 @@ jobs:
       run: |
         conda install pytest
         pytest
+        shell: bash
