@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class RigidBodyMotion(object):
     """Rigid body transform euclidean points by an euler axis and translation representation.
 
@@ -21,13 +22,13 @@ class RigidBodyMotion(object):
     """
 
     def __init__(self, rotation_axis, rotation_angle, translation):
-        assert rotation_angle < np.pi and  rotation_angle > 0, "The rotation angle must be in [0 pi]"
+        assert rotation_angle < np.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
         self.rotation_axis = rotation_axis
         self.rotation_angle = rotation_angle
         self.translation = translation
 
-    def rotate( self, vectors, time ):
+    def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
 
         NOTE: This function only applies the rigid body rotation
@@ -41,9 +42,9 @@ class RigidBodyMotion(object):
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        return self.rotator( vectors, self.rotation_angle * time )
+        return self.rotator(vectors, self.rotation_angle * time)
 
-    def translate( self, vectors, time ):
+    def translate(self, vectors, time):
         """Find the translational transformation of a set of points at a prescribed time.
 
         NOTE: This function only applies the rigid body translation
@@ -57,13 +58,13 @@ class RigidBodyMotion(object):
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        if len( vectors.shape )>1:
-            translation = self.translation.reshape( 3, 1 )
+        if len(vectors.shape) > 1:
+            translation = self.translation.reshape(3, 1)
         else:
             translation = self.translation
         return vectors + translation * time
 
-    def __call__( self, vectors, time ):
+    def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
 
         Args:
@@ -75,11 +76,13 @@ class RigidBodyMotion(object):
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        if len( vectors.shape )>1:
-            translation = self.translation.reshape( 3, 1 )
+        if len(vectors.shape) > 1:
+            translation = self.translation.reshape(3, 1)
         else:
             translation = self.translation
-        return self.rotator( vectors, self.rotation_angle * time ) + translation * time
+        return self.rotator(vectors, self.rotation_angle *
+                            time) + translation * time
+
 
 class _RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
@@ -96,19 +99,20 @@ class _RodriguezRotator(object):
     """
 
     def __init__(self, rotation_axis):
-        assert np.allclose( np.linalg.norm(rotation_axis), 1  ), "The rotation axis must be length unity."
+        assert np.allclose(np.linalg.norm(rotation_axis),
+                           1), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
-        rx,ry,rz = self.rotation_axis
-        self.K = np.array([ [ 0, -rz,  ry],
-                            [ rz,  0, -rx],
-                            [ -ry, rx,  0] ])
-        self.K2 = self.K.dot( self.K )
-        self.I  = np.eye(3,3)
+        rx, ry, rz = self.rotation_axis
+        self.K = np.array([[0, -rz, ry],
+                           [rz, 0, -rx],
+                           [-ry, rx, 0]])
+        self.K2 = self.K.dot(self.K)
 
     def get_rotation_matrix(self, rotation_angle):
-        return self.I + np.sin( rotation_angle )*self.K + ( 1 - np.cos( rotation_angle ) )*self.K2
+        return np.eye(3, 3) + np.sin(rotation_angle) * self.K + \
+            (1 - np.cos(rotation_angle)) * self.K2
 
-    def __call__( self, vectors, rotation_angle ):
+    def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
 
         Args:
@@ -119,5 +123,5 @@ class _RodriguezRotator(object):
             Rotated vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        R = self.get_rotation_matrix( rotation_angle )
-        return R.dot( vectors )
+        R = self.get_rotation_matrix(rotation_angle)
+        return R.dot(vectors)

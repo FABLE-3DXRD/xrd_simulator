@@ -1,10 +1,7 @@
-from numba.core.decorators import jit
-import numpy as np 
-import matplotlib.pyplot as plt
-from numpy.lib.utils import source
+import numpy as np
 from xrd_simulator import utils
-from scipy.interpolate import griddata
 from xrd_simulator._pickleable_object import PickleableObject
+
 
 class Detector(PickleableObject):
 
@@ -34,19 +31,26 @@ class Detector(PickleableObject):
 
     """
 
-    def __init__(self, pixel_size_z, pixel_size_y, d0, d1, d2 ):
+    def __init__(self, pixel_size_z, pixel_size_y, d0, d1, d2):
         self.d0, self.d1, self.d2 = d0, d1, d2
         self.pixel_size_z = pixel_size_z
         self.pixel_size_y = pixel_size_y
-        self.zmax   = np.linalg.norm(self.d2-self.d0)
-        self.ymax   = np.linalg.norm(self.d1-self.d0)
-        self.zdhat  = (self.d2-self.d0 ) / self.zmax
-        self.ydhat  = (self.d1-self.d0 ) / self.ymax
+        self.zmax = np.linalg.norm(self.d2 - self.d0)
+        self.ymax = np.linalg.norm(self.d1 - self.d0)
+        self.zdhat = (self.d2 - self.d0) / self.zmax
+        self.ydhat = (self.d1 - self.d0) / self.ymax
         self.normal = np.cross(self.zdhat, self.ydhat)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
 
-    def render(self, frame_number, lorentz=True, polarization=True, structure_factor=True, method="centroid", verbose=True):
+    def render(
+            self,
+            frame_number,
+            lorentz=True,
+            polarization=True,
+            structure_factor=True,
+            method="centroid",
+            verbose=True):
         """Render a pixelated diffraction pattern onto the detector plane .
 
         NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
@@ -60,8 +64,9 @@ class Detector(PickleableObject):
             method (:obj:`str`): Rendering method, must be one of ```project``` or ```centroid```. Defaults to ```centroid```.
                 The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
                 tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
-                into a single detector pixel regardless of the geometrical shape of the scatterer. If instead ```method=project```
-                the scattering regions are projected onto the detector depositing a intensity over possibly several pixels as 
+                into a single detector pixel regardless of the geometrical shape of the scatterer. If instead
+                    ```method=project```
+                the scattering regions are projected onto the detector depositing a intensity over possibly several pixels as
                 weighted by the optical path lengths of the rays diffracting from the scattering region.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
 
@@ -71,18 +76,29 @@ class Detector(PickleableObject):
 
         NOTE: This function can be overwitten to do more advanced models for intensity.
         """
-        frame = np.zeros( (int(self.zmax/self.pixel_size_z), int(self.ymax/self.pixel_size_y)) )
-        for si,scatterer in enumerate(self.frames[frame_number]):
+        frame = np.zeros((int(self.zmax / self.pixel_size_z),
+                         int(self.ymax / self.pixel_size_y)))
+        for si, scatterer in enumerate(self.frames[frame_number]):
 
             if verbose:
-                progress_bar_message = "Rendering "+str(len(self.frames[frame_number]))+" scattering volumes unto the detector"
-                progress_fraction    = float(si+1)/len(self.frames[frame_number])
-                utils.print_progress(progress_fraction, message=progress_bar_message)
+                progress_bar_message = "Rendering " + \
+                    str(len(self.frames[frame_number])) + " scattering volumes unto the detector"
+                progress_fraction = float(
+                    si + 1) / len(self.frames[frame_number])
+                utils.print_progress(
+                    progress_fraction,
+                    message=progress_bar_message)
 
-            if method=='project':
-                self._projection_render(scatterer, frame, lorentz, polarization, structure_factor)
-            elif  method=='centroid':
-                self._centroid_render(scatterer, frame, lorentz, polarization, structure_factor)
+            if method == 'project':
+                self._projection_render(
+                    scatterer, frame, lorentz, polarization, structure_factor)
+            elif method == 'centroid':
+                self._centroid_render(
+                    scatterer,
+                    frame,
+                    lorentz,
+                    polarization,
+                    structure_factor)
 
         return frame
 
@@ -90,17 +106,18 @@ class Detector(PickleableObject):
         """Get detector intersection in detector coordinates of a single ray originating from source_point.
 
         Args:
-            ray_direction (:obj:`numpy array`): Vector in direction of the X-ray propagation 
+            ray_direction (:obj:`numpy array`): Vector in direction of the X-ray propagation
             source_point (:obj:`numpy array`): Origin of the ray.
 
         Returns:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        s = (self.d0 - source_point).dot(self.normal) / ray_direction.dot(self.normal)
-        intersection = source_point + ray_direction*s
-        zd = np.dot( intersection - self.d0 , self.zdhat)
-        yd = np.dot( intersection - self.d0 , self.ydhat)
+        s = (self.d0 - source_point).dot(self.normal) / \
+            ray_direction.dot(self.normal)
+        intersection = source_point + ray_direction * s
+        zd = np.dot(intersection - self.d0, self.zdhat)
+        yd = np.dot(intersection - self.d0, self.ydhat)
         return zd, yd
 
     def contains(self, zd, yd):
@@ -114,7 +131,7 @@ class Detector(PickleableObject):
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-        return zd>=0 and zd<=self.zmax and yd>=0 and yd<=self.ymax
+        return zd >= 0 and zd <= self.zmax and yd >= 0 and yd <= self.ymax
 
     def get_wrapping_cone(self, k, source_point):
         """Compute the cone around a wavevector such that the cone wrapps the detector corners.
@@ -129,90 +146,129 @@ class Detector(PickleableObject):
 
         """
         fourth_corner_of_detector = self.d2 + (self.d1 - self.d0[:])
-        geom_mat = np.zeros((3,4))
-        for i,det_corner in enumerate([self.d0,self.d1,self.d2,fourth_corner_of_detector]):
-            geom_mat[:,i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat/np.linalg.norm(geom_mat, axis=0)
-        cone_opening = np.arccos( np.dot(normalised_local_coord_geom_mat.T, k / np.linalg.norm(k) ) ) # These are two time Bragg angles        
-        return np.max( cone_opening ) / 2.
+        geom_mat = np.zeros((3, 4))
+        for i, det_corner in enumerate(
+                [self.d0, self.d1, self.d2, fourth_corner_of_detector]):
+            geom_mat[:, i] = det_corner - source_point
+        normalised_local_coord_geom_mat = geom_mat / \
+            np.linalg.norm(geom_mat, axis=0)
+        cone_opening = np.arccos(
+            np.dot(
+                normalised_local_coord_geom_mat.T,
+                k / np.linalg.norm(k)))  # These are two time Bragg angles
+        return np.max(cone_opening) / 2.
 
     def _get_pixel_coordinates(self):
         zds = np.arange(0, self.zmax, self.pixel_size_z)
         yds = np.arange(0, self.ymax, self.pixel_size_y)
-        pixel_coordinates = np.zeros( (len(zds),len(yds),3) )
-        for i,z in enumerate(zds):
-            for j,y in enumerate(yds):
-                pixel_coordinates[i,j,:] = self.d0 + y*self.ydhat + z*self.zdhat
+        pixel_coordinates = np.zeros((len(zds), len(yds), 3))
+        for i, z in enumerate(zds):
+            for j, y in enumerate(yds):
+                pixel_coordinates[i, j, :] = self.d0 + \
+                    y * self.ydhat + z * self.zdhat
         return pixel_coordinates
 
-    def _centroid_render(self, scatterer, frame, lorentz, polarization, structure_factor):
+    def _centroid_render(
+            self,
+            scatterer,
+            frame,
+            lorentz,
+            polarization,
+            structure_factor):
         """Simple deposit of intensity for each scatterer onto the detector by tracing a line from the
         sample scattering region centroid to the detector plane. The intensity is deposited into a single
         detector pixel regardless of the geometrical shape of the scatterer.
         """
-        zd, yd = self.get_intersection( scatterer.scattered_wave_vector, scatterer.centroid )
-        if self.contains(zd,yd): 
-            intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
-            row, col = self._detector_coordinate_to_pixel_index( zd, yd )
+        zd, yd = self.get_intersection(
+            scatterer.scattered_wave_vector, scatterer.centroid)
+        if self.contains(zd, yd):
+            intensity_scaling_factor = self._get_intensity_factor(
+                scatterer, lorentz, polarization, structure_factor)
+            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
             frame[row, col] += scatterer.volume * intensity_scaling_factor
 
-    def _projection_render(self, scatterer, frame, lorentz, polarization, structure_factor):
+    def _projection_render(
+            self,
+            scatterer,
+            frame,
+            lorentz,
+            polarization,
+            structure_factor):
         """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
         This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
         function.
 
-        NOTE: If the projection of the scatterer does not hit any pixel controids of the detector fallback to 
+        NOTE: If the projection of the scatterer does not hit any pixel controids of the detector fallback to
         the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
         """
-        box = self._get_projected_bounding_box( scatterer )
+        box = self._get_projected_bounding_box(scatterer)
         if box is not None:
-            projection = self._project( scatterer, box )
-            if np.sum(projection)==0: 
+            projection = self._project(scatterer, box)
+            if np.sum(projection) == 0:
                 # The projection of the scatterer did not hit any pixel controids of the detector.
-                # i.e the scatterer is small in comparison to the detector pixels.
-                self._centroid_render( scatterer, frame, lorentz, polarization, structure_factor )
+                # i.e the scatterer is small in comparison to the detector
+                # pixels.
+                self._centroid_render(
+                    scatterer,
+                    frame,
+                    lorentz,
+                    polarization,
+                    structure_factor)
             else:
-                intensity_scaling_factor = self._get_intensity_factor( scatterer, lorentz, polarization, structure_factor )
-                frame[ box[0]:box[1], box[2]:box[3] ] += projection * intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
+                intensity_scaling_factor = self._get_intensity_factor(
+                    scatterer, lorentz, polarization, structure_factor)
+                frame[box[0]:box[1], box[2]:box[3]] += projection * \
+                    intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
 
-    def _get_intensity_factor(self, scatterer, lorentz, polarization, structure_factor):
+    def _get_intensity_factor(
+            self,
+            scatterer,
+            lorentz,
+            polarization,
+            structure_factor):
         intensity_factor = 1.0
-        #TODO: Consider solid angle intensity rescaling.
+        # TODO: Consider solid angle intensity rescaling.
         if lorentz:
-            intensity_factor *= scatterer.lorentz_factor 
+            intensity_factor *= scatterer.lorentz_factor
         if polarization:
             intensity_factor *= scatterer.polarization_factor
         if structure_factor and scatterer.real_structure_factor is not None:
-            intensity_factor *= ( scatterer.real_structure_factor**2 + scatterer.imaginary_structure_factor**2 )
+            intensity_factor *= (scatterer.real_structure_factor **
+                                 2 + scatterer.imaginary_structure_factor**2)
         return intensity_factor
 
-    def _project( self, scatterer, box ):
+    def _project(self, scatterer, box):
         """Compute parametric projection of scattering region unto detector.
         """
 
-        ray_points = self.pixel_coordinates[ box[0]:box[1], box[2]:box[3], : ].reshape( (box[1]-box[0])*(box[3]-box[2]), 3 )
+        ray_points = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :].reshape(
+            (box[1] - box[0]) * (box[3] - box[2]), 3)
 
-        plane_normals = scatterer.convex_hull.equations[:,0:3]
-        plane_ofsets  = scatterer.convex_hull.equations[:,3].reshape(scatterer.convex_hull.equations.shape[0], 1)
-        plane_points  = -np.multiply( plane_ofsets, plane_normals ) 
+        plane_normals = scatterer.convex_hull.equations[:, 0:3]
+        plane_ofsets = scatterer.convex_hull.equations[:, 3].reshape(
+            scatterer.convex_hull.equations.shape[0], 1)
+        plane_points = -np.multiply(plane_ofsets, plane_normals)
 
-        ray_points    = np.ascontiguousarray( ray_points )
-        ray_direction = np.ascontiguousarray( scatterer.scattered_wave_vector / np.linalg.norm( scatterer.scattered_wave_vector ) )
-        plane_points  = np.ascontiguousarray( plane_points )
-        plane_normals = np.ascontiguousarray( plane_normals )
+        ray_points = np.ascontiguousarray(ray_points)
+        ray_direction = np.ascontiguousarray(
+            scatterer.scattered_wave_vector /
+            np.linalg.norm(
+                scatterer.scattered_wave_vector))
+        plane_points = np.ascontiguousarray(plane_points)
+        plane_normals = np.ascontiguousarray(plane_normals)
 
-        clip_lengths  = utils.clip_line_with_convex_polyhedron(ray_points, ray_direction, plane_points, plane_normals)
-        clip_lengths  = clip_lengths.reshape( box[1]-box[0], box[3]-box[2] )
+        clip_lengths = utils.clip_line_with_convex_polyhedron(
+            ray_points, ray_direction, plane_points, plane_normals)
+        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
 
-        return clip_lengths 
-
+        return clip_lengths
 
     def _detector_coordinate_to_pixel_index(self, zd, yd):
-        row_index = int(zd/self.pixel_size_z)
-        col_index = int(yd/self.pixel_size_y)
+        row_index = int(zd / self.pixel_size_z)
+        col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
 
-    def _get_projected_bounding_box( self, scatterer ):
+    def _get_projected_bounding_box(self, scatterer):
         """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
 
         Args:
@@ -223,24 +279,29 @@ class Detector(PickleableObject):
                 are within the bounding box.
 
         """
-        vertices = scatterer.convex_hull.points[ scatterer.convex_hull.vertices ]
-        projected_vertices = np.array( [self.get_intersection( scatterer.scattered_wave_vector, v) for v in vertices] )
+        vertices = scatterer.convex_hull.points[scatterer.convex_hull.vertices]
+        projected_vertices = np.array([self.get_intersection(
+            scatterer.scattered_wave_vector, v) for v in vertices])
 
-        min_zd, max_zd = np.min(projected_vertices[:,0]), np.max(projected_vertices[:,0])
-        min_yd, max_yd = np.min(projected_vertices[:,1]), np.max(projected_vertices[:,1])
+        min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
+            projected_vertices[:, 0])
+        min_yd, max_yd = np.min(projected_vertices[:, 1]), np.max(
+            projected_vertices[:, 1])
 
         min_zd, max_zd = np.max([min_zd, 0]), np.min([max_zd, self.zmax])
         min_yd, max_yd = np.max([min_yd, 0]), np.min([max_yd, self.ymax])
 
-        if min_zd>max_zd or min_yd>max_yd:
+        if min_zd > max_zd or min_yd > max_yd:
             return None
 
-        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index( min_zd, min_yd )
-        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index( max_zd, max_yd )
+        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index(
+            min_zd, min_yd)
+        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index(
+            max_zd, max_yd)
 
-        max_row_indx = np.min([max_row_indx+1, int(self.zmax/self.pixel_size_z) ])
-        max_col_indx = np.min([max_col_indx+1, int(self.ymax/self.pixel_size_y) ])
+        max_row_indx = np.min(
+            [max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
+        max_col_indx = np.min(
+            [max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
-
-

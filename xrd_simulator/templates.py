@@ -8,7 +8,6 @@ from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
 from xrd_simulator import utils
-from xrd_simulator.xfab import tools
 
 PARAMETER_KEYS = [
     "detector_distance",
@@ -69,7 +68,10 @@ def s3dxrd(parameters):
     """
     for key in PARAMETER_KEYS:
         if key not in list(parameters):
-            raise ValueError("No keyword " + key + " found in the input parameters dictionary")
+            raise ValueError(
+                "No keyword " +
+                key +
+                " found in the input parameters dictionary")
 
     detector = _get_detector_from_params(parameters)
     beam = _get_beam_from_params(parameters)
@@ -82,7 +84,10 @@ def _get_motion_from_params(parameters):
     """Produce a ``xrd_simulator.motion.RigidBodyMotion`` from the s3dxrd params dictionary.
     """
     translation = np.array([0., 0., 0.])
-    return RigidBodyMotion(parameters["rotation_axis"], parameters["rotation_step"], translation)
+    return RigidBodyMotion(
+        parameters["rotation_axis"],
+        parameters["rotation_step"],
+        translation)
 
 
 def _get_beam_from_params(parameters):
@@ -104,7 +109,11 @@ def _get_beam_from_params(parameters):
     beam_direction = np.array([1.0, 0.0, 0.0])
     polarization_vector = np.array([0.0, 1.0, 0.0])
 
-    return Beam(beam_vertices, beam_direction, parameters['wavelength'], polarization_vector)
+    return Beam(
+        beam_vertices,
+        beam_direction,
+        parameters['wavelength'],
+        polarization_vector)
 
 
 def _get_detector_from_params(parameters):
@@ -179,7 +188,8 @@ def polycrystal_from_odf(orientation_density_function,
         sample_bounding_cylinder_height / number_of_crystals
     max_cell_circumradius = (3 * volume_per_crystal / (np.pi * 4.))**(1 / 3.)
 
-    # Fudge factor 2.6 gives approximately number_of_crystals elements in the mesh
+    # Fudge factor 2.6 gives approximately number_of_crystals elements in the
+    # mesh
     max_cell_circumradius = 2.65 * max_cell_circumradius
 
     dz = sample_bounding_cylinder_height / 2.
@@ -198,13 +208,18 @@ def polycrystal_from_odf(orientation_density_function,
     ephase = np.zeros((mesh.number_of_elements,)).astype(int)
 
     # Sample spatial texture
-    eU = _sample_ODF(orientation_density_function, maximum_sampling_bin_seperation, mesh.ecentroids)
+    eU = _sample_ODF(
+        orientation_density_function,
+        maximum_sampling_bin_seperation,
+        mesh.ecentroids)
 
     # Sample spatial strain
     eB = np.zeros((mesh.number_of_elements, 3, 3))
     for ei in range(mesh.number_of_elements):
-        strain_lab = strain_tensor(mesh.ecentroids[ei])  # strain in lab-coordinates
-        eB[ei] = utils.lab_strain_to_lattice_matrix(strain_lab, eU[ei], unit_cell)
+        strain_lab = strain_tensor(
+            mesh.ecentroids[ei])  # strain in lab-coordinates
+        eB[ei] = utils.lab_strain_to_lattice_matrix(
+            strain_lab, eU[ei], unit_cell)
 
     return Polycrystal(mesh, ephase, eU, eB, phases)
 
@@ -213,11 +228,44 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
     """Draw orientation matrices form an ODF at spatial locations ``coordinates``.
     """
 
-    dalpha = maximum_sampling_bin_seperation / 2.  # TODO: verify this analytically.
+    dalpha = maximum_sampling_bin_seperation / \
+        2.  # TODO: verify this analytically.
     dalpha = np.pi / 2. / int(np.pi / (dalpha * 2.))
-    alpha_1 = np.arange(0 + dalpha / 2. + 1e-8, np.pi / 2. - dalpha / 2. - 1e-8 + dalpha, dalpha)
-    alpha_2 = np.arange(0 + dalpha / 2. + 1e-8, np.pi - dalpha / 2. - 1e-8 + dalpha, dalpha)
-    alpha_3 = np.arange(0 + dalpha / 2. + 1e-8, 2 * np.pi - dalpha / 2. - 1e-8 + dalpha, dalpha)
+    alpha_1 = np.arange(
+        0 +
+        dalpha /
+        2. +
+        1e-8,
+        np.pi /
+        2. -
+        dalpha /
+        2. -
+        1e-8 +
+        dalpha,
+        dalpha)
+    alpha_2 = np.arange(
+        0 +
+        dalpha /
+        2. +
+        1e-8,
+        np.pi -
+        dalpha /
+        2. -
+        1e-8 +
+        dalpha,
+        dalpha)
+    alpha_3 = np.arange(
+        0 +
+        dalpha /
+        2. +
+        1e-8,
+        2 *
+        np.pi -
+        dalpha /
+        2. -
+        1e-8 +
+        dalpha,
+        dalpha)
 
     A1, A2, A3 = np.meshgrid(alpha_1, alpha_2, alpha_3, indexing='ij')
     A1, A2, A3 = A1.flatten(), A2.flatten(), A3.flatten()
@@ -243,13 +291,17 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
                       1.0) < 0.05, "Orientation density function must be be normalised."
         # Normalisation is not exact due to the discretization.
         probability = probability / np.sum(probability)
-        indices = np.linspace(0, len(probability) - 1, len(probability)).astype(int)
+        indices = np.linspace(
+            0,
+            len(probability) - 1,
+            len(probability)).astype(int)
         draw = np.random.choice(indices, size=1, replace=True, p=probability)
         a1 = A1[draw] + dalpha * (np.random.rand() - 0.5)
         a2 = A2[draw] + dalpha * (np.random.rand() - 0.5)
         a3 = A3[draw] + dalpha * (np.random.rand() - 0.5)
         q_pertubated = utils.alpha_to_quarternion(a1, a2, a3)
-        rotations.append(Rotation.from_quat(q_pertubated).as_matrix().reshape(3, 3))
+        rotations.append(Rotation.from_quat(
+            q_pertubated).as_matrix().reshape(3, 3))
 
     return np.array(rotations)
 
@@ -292,6 +344,7 @@ def get_uniform_powder_sample(
     coord, enod = np.array(coord), np.array(enod)
     mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
     eU = Rotation.random(mesh.number_of_elements).as_matrix()
-    eB = np.array([utils.lab_strain_to_lattice_matrix(strain_tensor, U, unit_cell) for U in eU])
+    eB = np.array([utils.lab_strain_to_lattice_matrix(
+        strain_tensor, U, unit_cell) for U in eU])
     ephase = np.zeros((mesh.number_of_elements,)).astype(int)
     return Polycrystal(mesh, ephase, eU, eB, [Phase(unit_cell, sgname)])
