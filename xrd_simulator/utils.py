@@ -24,6 +24,7 @@ def cif_open(cif_file):
     cif_dict = ReadCif(cif_file)
     return cif_dict[list(cif_dict.keys())[0]]
 
+
 def print_progress(progress_fraction, message):
     """Print a progress bar in the executing shell terminal.
 
@@ -202,9 +203,9 @@ def get_bounding_ball(points):
         (:obj:`tuple`) with ``centroid`` and ``radius``.
 
     """
-    # TODO: add unittest
+
     centroid = np.mean(points, axis=0)
-    base_radius = np.max(np.linalg.norm(points - centroid, axis=1)) + 1e-8
+    base_radius = np.max(np.linalg.norm(points - centroid, axis=1))
 
     # x[-1] is the radius of the ball and x[0:3] the centroid
     def fun(x): return np.linalg.norm(points - x[0:3], axis=1) - x[-1]
@@ -212,8 +213,14 @@ def get_bounding_ball(points):
     def cost(x): return x[-1]
     # the pointcloud must be contained by the ball
     res = minimize(cost,
-                   x0=np.array([centroid[0], centroid[1], centroid[2], base_radius]),
+                   x0=np.array([centroid[0], centroid[1], centroid[2], base_radius * 1.001]),
                    jac='3-point',
-                   constraints=NonlinearConstraint(fun, -np.inf, 0),
-                   options={'maxiter': 10})
-    return res.x[0:3], res[-1]
+                   constraints=NonlinearConstraint(fun, -np.inf, 0, keep_feasible=True),
+                   method='trust-constr',
+                   options={'maxiter': 25, 'verbose': -1})
+
+    # TODO: add unittest and put similar check there instead
+    for p in points:
+        assert (p - res.x[0:3]).dot(p - res.x[0:3]) <= (res.x[-1] * 1.001)**2
+
+    return res.x[0:3], res.x[-1]

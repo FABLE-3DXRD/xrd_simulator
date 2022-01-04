@@ -263,10 +263,6 @@ class TetraMesh(object):  # TODO: add unit tests
         for i in range(enod.shape[0]):
             ec = coord[enod[i, :], :]
             espherecentroids[i], eradius[i] = utils.get_bounding_ball(ec)
-            # Whats this .. no trust ...
-            for c in ec:
-                assert (c - espherecentroids[i]).dot(c - espherecentroids[i]) <= (eradius[i] * 1.001)**2, "error = " + str(
-                    (c - espherecentroids[i]).dot(c - espherecentroids[i]) - eradius[i]**2)
         return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):

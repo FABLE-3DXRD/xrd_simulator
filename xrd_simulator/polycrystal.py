@@ -95,9 +95,7 @@ class Polycrystal(PickleableObject):
 
         c_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
         c_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-        c_2_factor = beam.wave_vector.dot(
-            rigid_body_motion.rotator.I +
-            rigid_body_motion.rotator.K2)
+        c_2_factor = beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2)
 
         scatterers = []
 

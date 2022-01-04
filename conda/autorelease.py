@@ -27,7 +27,7 @@ def check_version(new_version):
 
 
 def get_current_version():
-    with open("..\\setup.py", 'r') as f:
+    with open("setup.py", 'r') as f:
         for line in f.readlines():
             if line.strip().startswith("version"):
                 return line.strip().split("=")[1].split(",")[
@@ -35,7 +35,7 @@ def get_current_version():
 
 
 def bump_version(version):
-    paths = ["..\\setup.py", "..\\setup.cfg"]
+    paths = ["setup.py", "setup.cfg"]
     patterns = [
         '    version="' +
         version +
@@ -55,19 +55,58 @@ def bump_version(version):
 
 if __name__ == '__main__':
 
+    conda_dir = os.getcwd()
+    if conda_dir.split("\\")[-1] != 'conda':
+        raise ValueError(
+            "autorelease.py is meant to be run from within the conda directory")
+
+    os.chdir("..")
+
+    print("Running pytest...")
+    out = subprocess.run(["pytest"])
+    print(out.returncode)
+    if out.returncode != 0:
+        raise ValueError("pytest Failed")
+
+    print("")
+    print("")
+    print("Running flake8...")
+    # stop the build if there are Python syntax errors or undefined names
+    out = subprocess.run(["flake8",
+                          ".",
+                          "--count",
+                          "--select=E9,F63,F7,F82",
+                          "--show-source",
+                          "--statistics"])
+    if out.returncode != 0:
+        print("")
+        print("")
+        raise ValueError(
+            "flake8 Failed, consider using: autopep8 --in-place --aggressive --aggressive <filename>")
+
+    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars
+    # wide
+    out = subprocess.run(["flake8",
+                          ".",
+                          "--count",
+                          "--exit-zero",
+                          "--max-complexity=10",
+                          "--max-line-length=127",
+                          "--statistics",
+                          "--exclude=xfab"])
+    if out.returncode != 0:
+        print("")
+        print("")
+        raise ValueError(
+            "flake8 Failed, consider using: autopep8 --in-place --aggressive --aggressive <filename>")
+
     old_version = get_current_version()
     print("Trying autorelease, current package version is " + old_version)
     new_version = sha256 = input("Enter desired new version of package: ")
     check_version(new_version)
     bump_version(new_version)
 
-    conda_dir = os.getcwd()
-    if conda_dir.split("\\")[-1] != 'conda':
-        raise ValueError(
-            "autorelease.py is meant to be run from within the conda directory")
-
     print("Commiting and pushing code to the github repository")
-    os.chdir("..")
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", "bumping version to " +
                    new_version + " and distributing"])
