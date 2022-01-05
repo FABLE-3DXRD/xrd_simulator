@@ -21,12 +21,12 @@ requirements:
     - python
   run:
     - python
-    - matplotlib==3.3.1
-    - numpy==1.21.4
+    - matplotlib==3.5.1
+    - numpy==1.21.5
     - meshio==5.0.2
     - pygalmesh==0.10.6
-    - scipy==1.6.1
-    - numba==0.53.0
+    - scipy==1.7.3
+    - numba==0.54.1
     - pycifrw==4.4.3
 
 test:
