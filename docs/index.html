@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to the xrd_simulator &mdash; xrd_simulator 0.0.0 documentation</title>
+  <title>Simulate X-ray Diffraction from Polycrystals. &mdash; xrd_simulator 0.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
@@ -40,7 +40,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <!-- Local TOC -->
               <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">Welcome to the xrd_simulator</a></li>
+<li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals.</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
 <li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
@@ -76,7 +76,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home"></a> &raquo;</li>
-      <li>Welcome to the xrd_simulator</li>
+      <li>Simulate X-ray Diffraction from Polycrystals.</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -88,15 +88,17 @@
              
   <div class="toctree-wrapper compound">
 </div>
+<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/AxelHenningsson/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" /></a>
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" src="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" /></a>
-<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://badge.fury.io/py/xrd-simulator.svg?" src="https://badge.fury.io/py/xrd-simulator.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
-<div class="section" id="welcome-to-the-xrd-simulator">
-<h1>Welcome to the xrd_simulator<a class="headerlink" href="#welcome-to-the-xrd-simulator" title="Permalink to this headline"></a></h1>
-<p>A package for simulating X-ray Diffraction from polycrystals.</p>
+<div class="section" id="simulate-x-ray-diffraction-from-polycrystals">
+<h1>Simulate X-ray Diffraction from Polycrystals.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals" title="Permalink to this headline"></a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> defines polycrystals as a mesh of tetrahedral single crystals and simulates
 diffraction as collected by a 2D discretized detector array while the sample is rocked
 around an arbitrary rotation axis.</p>
@@ -499,16 +501,13 @@ the pixel area.</p>
 <li><p><strong>lorentz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Lorentz factor. Defaults to False.</p></li>
 <li><p><strong>polarization</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Polarization factor. Defaults to False.</p></li>
 <li><p><strong>structure_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Structure Factor factor. Defaults to False.</p></li>
-<li><p><strong>method</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – <p>Rendering method, must be one of <code class="docutils literal notranslate"><span class="pre">`project`</span></code> or <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>.
+<li><p><strong>method</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Rendering method, must be one of <code class="docutils literal notranslate"><span class="pre">`project`</span></code> or <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>.
 The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
 tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
-into a single detector pixel regardless of the geometrical shape of the scatterer. If instead</p>
-<blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">`method=project`</span></code></p>
-</div></blockquote>
-<p>the scattering regions are projected onto the detector depositing a intensity over possibly several pixels as
-weighted by the optical path lengths of the rays diffracting from the scattering region.</p>
-</p></li>
+into a single detector pixel regardless of the geometrical shape of the scatterer. If instead
+<code class="docutils literal notranslate"><span class="pre">`method=project`</span></code> the scattering regions are projected onto the detector depositing a intensity over
+possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
+region.</p></li>
 <li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Prints progress. Defaults to True.</p></li>
 </ul>
 </dd>
