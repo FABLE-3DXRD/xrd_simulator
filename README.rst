@@ -62,7 +62,9 @@ Let's go ahead and build ourselves some x-rays:
 
 We will also need to define a detector:
 
-   <detector example goes here>
+    Examples:
+        .. literalinclude:: examples/s3dxrd.py
+
 
 Next we go ahead and produce a sample:
 
