@@ -8,8 +8,8 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://files.pythonhosted.org/packages/dc/b4/2677f1bb4ee635e0842ed6ad882581c40e868937ed394d92184b91b97936/xrd_simulator-0.1.1.tar.gz
-  sha256: 87ce28e6ad8c11e9141095954fde34c058b76da7e7e5a4371bf94610e8545749
+  url: https://files.pythonhosted.org/packages/1e/b2/22d27dcada96677a8eb71aee5f23dadb2c31ca682a84890a9ef9e02e370e/xrd_simulator-0.1.2.tar.gz
+  sha256: a87eb5da72403b2ccdcc298d33c014e2cbe223d3c8b9c37b335fec117f867117
 
 build:
   number: 0
@@ -22,7 +22,7 @@ requirements:
   run:
     - python
     - matplotlib==3.5.1
-    - numpy==1.22.0
+    - numpy==1.21.4
     - meshio==5.0.2
     - pygalmesh==0.10.6
     - scipy==1.7.3
@@ -39,4 +39,6 @@ about:
   license_family: MIT
   summary: {{ data.get('description') }}
   description: |
-    A package for simulating X-ray Diffraction from polycrystals.
+    A package for simulating X-ray Diffraction from polycrystals. Note that the conda-forge channel
+    must be on your default channels for installation. Alternatively, use:
+    conda install -c conda-forge -c axiomel xrd_simulator
