@@ -11,6 +11,9 @@ Welcome to the xrd_simulator
 .. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?
 	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/
 
+.. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?
+	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/
+
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
