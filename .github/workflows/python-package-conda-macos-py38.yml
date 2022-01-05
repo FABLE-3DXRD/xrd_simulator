@@ -21,6 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
+        sudo chown 501:20 /usr/local/miniconda/pkgs/cache/53d7ef51.json
         conda install python=3.8
         conda install -c conda-forge -c axiomel xrd_simulator
     - name: Lint with flake8
