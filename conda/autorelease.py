@@ -1,9 +1,12 @@
 """Script to automatesome of the boring stuff when releasing a new version of the package to
 pypi and conda. Essentially the script does the following
-    1. updates the setup files with the new build version.
-    2. pushes the current repo to git.
-    3. builds pyi package and upload to pypi.
-    4. build conda package and uploads to conda.
+    1. Builds and serves documentation using sphinx.
+    2. Runs pytest.
+    3. Runs flake8 checks.
+    4. Updates the setup files with the new build version.
+    5. Pushes the current repo to git.
+    6. Builds pyi package and upload to pypi.org.
+    7. Builds conda package and uploads to anaconda.org.
 During the process, some user specified info is required via the command line.
 
 This script also serves as a documentation for how to do releases.
@@ -64,16 +67,16 @@ if __name__ == '__main__':
     os.chdir("..")
     os.chdir("docs")
 
-    print( "Building and serving docs.." )
+    print("Building and serving docs..")
     out = os.system("make html")
-    if out!=0:
+    if out != 0:
         print("")
         print("")
         raise ValueError("Failed to build docs")
     for file in os.listdir(os.path.join("build","html")):
         if not file.startswith('_'):
-            shutil.copy2(os.path.join(os.path.join("build","html"),file), ".")
-    print( "Copied all docs to path visible by github pages" )
+            shutil.copy2(os.path.join(os.path.join("build","html"), file), ".")
+    print("Copied all docs to path visible by github pages")
 
     os.chdir("..")
 
