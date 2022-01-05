@@ -1,3 +1,6 @@
+.. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
+	:target: https://pypi.org/project/xrd-simulator/
+
 .. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg?
 	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/
 
@@ -12,6 +15,7 @@
 
 .. image:: https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?
 	:target: https://anaconda.org/axiomel/xrd_simulator/
+
 
 
 =====================================================================
