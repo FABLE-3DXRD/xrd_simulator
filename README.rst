@@ -1,6 +1,11 @@
 =====================================================================
 Welcome to the xrd_simulator
 =====================================================================
+
+.. raw:: html
+
+   <img src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg"/></a>
+
 A package for simulating X-ray Diffraction from polycrystals.
 
 ``xrd_simulator`` defines polycrystals as a mesh of tetrahedral single crystals and simulates
@@ -14,6 +19,7 @@ and their interaction simulated as the sample is rocked. This means that standar
 such as `scanning-3dxrd`_ and full-field `3dxrd`_ (or HEDM if you like) can be simulated as well as more advanced
 measurement sequences such as helical scans for instance. It is also possible to simulate `powder like`_
 scenarios using orientation density functions as input.
+
 
 
 ======================================
