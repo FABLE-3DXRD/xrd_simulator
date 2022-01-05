@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: ubuntu-linux conda-build
 
 on: [push]
 
@@ -10,10 +10,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.8
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
-        conda install python=3.9.0
+        conda install python=3.8
         conda install -c conda-forge -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |

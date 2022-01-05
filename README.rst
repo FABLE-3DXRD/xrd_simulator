@@ -1,7 +1,14 @@
+=====================================================================
+Welcome to the xrd_simulator
+=====================================================================
+
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
-.. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg?
+.. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?
+	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/
+
+.. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?
 	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/
 
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
@@ -15,12 +22,6 @@
 
 .. image:: https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?
 	:target: https://anaconda.org/axiomel/xrd_simulator/
-
-
-
-=====================================================================
-Welcome to the xrd_simulator
-=====================================================================
 
 
 A package for simulating X-ray Diffraction from polycrystals.
