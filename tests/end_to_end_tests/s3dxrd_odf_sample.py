@@ -18,7 +18,7 @@ parameters = {
     "wavelength": 0.285227,
     "beam_side_length_z": 512 * 200.,
     "beam_side_length_y": 512 * 200.,
-    "rotation_step": np.radians(1.0),
+    "rotation_step": np.radians(10.0),
     "rotation_axis": np.array([0., 0., 1.0])
 }
 
@@ -29,7 +29,7 @@ sgname = 'P3221'  # Quartz
 def orientation_density_function(x, q): return 1. / (np.pi**2)  # uniform ODF.
 
 
-number_of_crystals = 30
+number_of_crystals = 200
 sample_bounding_cylinder_height = 256 * 180 / 128.
 sample_bounding_cylinder_radius = 256 * 180 / 128.
 maximum_sampling_bin_seperation = np.radians(10.0)
@@ -77,5 +77,5 @@ ps.print_stats(15)
 print("")
 
 diffraction_pattern[diffraction_pattern > 0] = 1
-plt.imshow(diffraction_pattern)
+plt.imshow(diffraction_pattern, cmap='gray')
 plt.show()

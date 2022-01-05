@@ -1,6 +1,4 @@
-=====================================================================
-Welcome to the xrd_simulator
-=====================================================================
+.. image:: docs/source/images/logo.png
 
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
@@ -26,8 +24,9 @@ Welcome to the xrd_simulator
 .. image:: https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?
 	:target: https://anaconda.org/axiomel/xrd_simulator/
 
-
-A package for simulating X-ray Diffraction from polycrystals.
+===================================================================================================
+Simulate X-ray Diffraction from Polycrystals.
+===================================================================================================
 
 ``xrd_simulator`` defines polycrystals as a mesh of tetrahedral single crystals and simulates
 diffraction as collected by a 2D discretized detector array while the sample is rocked
