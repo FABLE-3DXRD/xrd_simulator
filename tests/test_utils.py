@@ -105,6 +105,27 @@ class TestUtils(unittest.TestCase):
             np.sum(diffraction_pattern),
             msg="Error in diffractogram azimuth integration")
 
+    def test_get_bounding_ball(self):
+        points = np.random.rand(4,3)-0.5
+        centre, radius = utils.get_bounding_ball(points)
+        mean = np.mean(points,axis=0)
+        base_radius = np.max(np.linalg.norm(points-mean,axis=1))
+        self.assertLessEqual( radius, base_radius, msg="Ball is larger than initial guess")
+
+        for p in points:
+            self.assertLessEqual(
+                (p - centre[0:3]).dot(p - centre[0:3]),
+                (radius * 1.0001)**2,
+                msg="Point not contained by ball")
+
+        ratios = []
+        for _ in range(500):
+            points = np.random.rand(4,3)-0.5
+            centre, radius = utils.get_bounding_ball(points)
+            mean = np.mean(points,axis=0)
+            base_radius = np.max(np.linalg.norm(points-mean,axis=1))
+            ratios.append( radius / base_radius )
+        self.assertLessEqual(np.mean(ratios), 0.9, msg="Averag radius decrease less than 10%")
 
 if __name__ == '__main__':
     unittest.main()
