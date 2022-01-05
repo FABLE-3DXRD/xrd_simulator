@@ -49,11 +49,9 @@ This is meant work across OS-systems and requires no prerequisites except, of co
 that of `Anaconda`_ itself.
 
 .. note::
-   Although xrd_simulator is distributed at the private ``axiomel`` conda channel some packages
-   need be fetched from the more standard conda-forge channel. This is usually not default
-   when installing anaconda, hence the need to add ``-c conda-forge`` in the above. If conda-forge
-   is already on your channels it is possible to install as: ``conda install -c axiomel xrd_simulator``.
-
+   ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
+   python version before installation. For instance, running ``conda install python=3.8`` before 
+   installation should ensure correct behavior.
 
 Pip Installation
 ======================================
