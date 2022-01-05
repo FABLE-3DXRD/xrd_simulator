@@ -17,7 +17,8 @@ setuptools.setup(
         "Documentation": "https://axelhenningsson.github.io/xrd_simulator/",
     },
     classifiers=[
-        "Programming Language :: Python :: 3.8 :: 3.9",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
