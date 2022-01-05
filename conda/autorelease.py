@@ -10,6 +10,8 @@ pypi and conda. Essentially the script does the following
 During the process, some user specified info is required via the command line.
 
 This script also serves as a documentation for how to do releases.
+
+NOTE: this script is locally dependent.
 """
 
 import subprocess
@@ -65,6 +67,12 @@ if __name__ == '__main__':
             "autorelease.py is meant to be run from within the conda directory")
 
     os.chdir("..")
+
+    old_version = get_current_version()
+    print("Trying autorelease, current package version is " + old_version)
+    new_version = input("Enter desired new version of package: ")
+    check_version(new_version)
+
     os.chdir("docs")
 
     print("Building and serving docs..")
@@ -118,13 +126,8 @@ if __name__ == '__main__':
         raise ValueError(
             "flake8 Failed, consider using: autopep8 --in-place --aggressive --aggressive <filename>")
 
-    old_version = get_current_version()
-    print("Trying autorelease, current package version is " + old_version)
-    new_version = sha256 = input("Enter desired new version of package: ")
-    check_version(new_version)
+    print("Bumping version, commiting and pushing code to the github repository")
     bump_version(new_version)
-
-    print("Commiting and pushing code to the github repository")
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", "bumping version to " +
                    new_version + " and distributing"])
@@ -138,27 +141,23 @@ if __name__ == '__main__':
     print(" ")
     print(" ")
     print("You need to login to your pypi account to upload, use __token__ as username")
-    out = subprocess.run(["twine", "upload", "dist\\*" + new_version + "*"])
+    with open("../tokens/pypi.token", "r") as f: token = f.readlines()[0]
+    out = subprocess.run(["twine", "upload", "dist\\*" + new_version + "*", "-u __token__", "-p "+token])
     if out.returncode != 0:
-        print("")
-        print("twine upload failed, lets try one more time, use __token__ as username:")
-        out = subprocess.run(["twine", "upload", "dist\\*" + new_version + "*"])
-        if out.returncode != 0:
-            raise ValueError("twine upload failed")
+        raise ValueError("twine upload failed")
 
     os.chdir("conda")
 
     print(" ")
     print(" ")
-    print("Package is now uploaded to pypi next go to the pypi webpage and get the build info")
-    sha256 = input("Enter sha256 of tar.gz: ")
-    url = input("Enter url to .tar.gz: ")
+    print("Package is now uploaded to pypi next go to the pypi webpage and get the build url info")
+
+    out = subprocess.check_output(["pip", "hash", os.path.join("dist","xrd_simulator-"+new_version+".tar.gz") ])
+    sha256 = (str(out).split("--hash=sha256:")[-1]).replace('\\r\\n','')
 
     with open("meta.yaml", 'r') as f:
         data = f.readlines()
     for i, line in enumerate(data):
-        if line.strip().startswith("url"):
-            data[i] = "  url: " + url + "\n"
         if line.strip().startswith("sha256"):
             data[i] = "  sha256: " + sha256 + "\n"
     with open("meta.yaml", 'w') as f:
@@ -169,5 +168,5 @@ if __name__ == '__main__':
     print(" ")
     print(" ")
     print("Conda releasable package has been built awaiting path to .tar.bz2 to upload")
-    package = input("Enter conda build path to package (.tar.bz2 file): ")
+    package = 'C:\\Users\\Henningsson\\anaconda3\\conda-bld\\win-64\\xrd_simulator-'+new_version+'-py38_0.tar.bz2'
     subprocess.run(["anaconda", "upload", "--all", package, "--skip"])

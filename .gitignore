@@ -11,6 +11,7 @@ xrd_simulator/utils/__pycache__/*
 # Distribution / packaging
 .Python
 build/
+conda/autorelease.py
 develop-eggs/
 dist/
 downloads/
