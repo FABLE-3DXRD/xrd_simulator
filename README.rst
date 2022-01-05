@@ -25,11 +25,11 @@
 	:target: https://anaconda.org/axiomel/xrd_simulator/
 
 ===================================================================================================
-Simulate X-ray Diffraction from Polycrystals.
+Simulate X-ray Diffraction from Polycrystals in 3D.
 ===================================================================================================
 
-``xrd_simulator`` defines polycrystals as a mesh of tetrahedral single crystals and simulates
-diffraction as collected by a 2D discretized detector array while the sample is rocked
+The **X**-**R** ay **D** iffraction **SIMULATOR** package defines polycrystals as a mesh of tetrahedral single crystals
+and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
 around an arbitrary rotation axis.
 
 ``xrd_simulator`` was originally developed with the hope to answer questions about measurement optimization in
@@ -43,7 +43,39 @@ scenarios using orientation density functions as input.
 ===================================================================================================
 Documentation
 ===================================================================================================
-`The full documentation is hosted separately at this link.`_
+Before reading all the boring documentation (`which is hosted here`_) let's dive into some end to end
+examples to get us started on a good flavour.
+
+The ``xrd_simulator`` is built around four python objects which reflect a diffraction experiment:
+
+   * A **beam** of xrays (using the ``xrd_simulator.beam`` module)
+   * A 2D area **detector** (using the ``xrd_simulator.detector`` module)
+   * A 3D **polycrystal** sample (using the ``xrd_simulator.polycrystal`` module)
+   * A rigid body sample **motion** (using the ``xrd_simulator.motion`` module)
+
+Once these objects are defined the it is possible to let the **detector** collect scattering of the **polycrystal**
+as the sample undergoes the prescribed rigid body **motion** while being illuminated by the xray **beam**.
+
+Let's go ahead and build ourselves some x-rays:
+
+   <beam example goes here>
+
+We will also need to define a detector:
+
+   <detector example goes here>
+
+Next we go ahead and produce a sample:
+
+   <polycrystal example goes here>
+
+And finally we define some motion of the sample over which to integrate the diffraction signal:
+
+   <motion example goes here>
+
+Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
+
+   <diffract and rendering example goes here>
+
 
 ======================================
 Installation
@@ -93,4 +125,4 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 
 .. _powder like: https://en.wikipedia.org/wiki/Powder_diffraction
 
-.. _The full documentation is hosted separately at this link.: https://axelhenningsson.github.io/xrd_simulator/
+.. _which is hosted here: https://axelhenningsson.github.io/xrd_simulator/

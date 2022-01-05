@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simulate X-ray Diffraction from Polycrystals. &mdash; xrd_simulator 0.0.0 documentation</title>
+  <title>Simulate X-ray Diffraction from Polycrystals in 3D. &mdash; xrd_simulator 0.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
@@ -41,14 +41,15 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <!-- Local TOC -->
               <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals.</a></li>
+<li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals in 3D.</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
 <li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
 <li><a class="reference internal" href="#source-installation">Source installation</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#documentation">Documentation</a><ul>
+<li><a class="reference internal" href="#id1">Documentation</a><ul>
 <li><a class="reference internal" href="#beam">beam</a></li>
 <li><a class="reference internal" href="#detector">detector</a></li>
 <li><a class="reference internal" href="#motion">motion</a></li>
@@ -77,7 +78,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home"></a> &raquo;</li>
-      <li>Simulate X-ray Diffraction from Polycrystals.</li>
+      <li>Simulate X-ray Diffraction from Polycrystals in 3D.</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -98,10 +99,10 @@
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
-<div class="section" id="simulate-x-ray-diffraction-from-polycrystals">
-<h1>Simulate X-ray Diffraction from Polycrystals.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals" title="Permalink to this headline"></a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> defines polycrystals as a mesh of tetrahedral single crystals and simulates
-diffraction as collected by a 2D discretized detector array while the sample is rocked
+<div class="section" id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
+<h1>Simulate X-ray Diffraction from Polycrystals in 3D.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals-in-3d" title="Permalink to this headline"></a></h1>
+<p>The <strong>X</strong>-<strong>R</strong> ay <strong>D</strong> iffraction <strong>SIMULATOR</strong> package defines polycrystals as a mesh of tetrahedral single crystals
+and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
 around an arbitrary rotation axis.</p>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> was originally developed with the hope to answer questions about measurement optimization in
 scanning x-ray diffraction experiments. However, <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> can simulate a wide range of experimental
@@ -110,6 +111,42 @@ and their interaction simulated as the sample is rocked. This means that standar
 such as <a class="reference external" href="https://doi.org/10.1107/S1600576720001016">scanning-3dxrd</a> and full-field <a class="reference external" href="https://en.wikipedia.org/wiki/3DXRD">3dxrd</a> (or HEDM if you like) can be simulated as well as more advanced
 measurement sequences such as helical scans for instance. It is also possible to simulate <a class="reference external" href="https://en.wikipedia.org/wiki/Powder_diffraction">powder like</a>
 scenarios using orientation density functions as input.</p>
+</div>
+<div class="section" id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<p>Before reading all the boring documentation (<a class="reference external" href="https://axelhenningsson.github.io/xrd_simulator/">which is hosted here</a>) let’s dive into some end to end
+examples to get us started on a good flavour.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is built around four python objects which reflect a diffraction experiment:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A <strong>beam</strong> of xrays (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.beam</span></code> module)</p></li>
+<li><p>A 2D area <strong>detector</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.detector</span></code> module)</p></li>
+<li><p>A 3D <strong>polycrystal</strong> sample (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal</span></code> module)</p></li>
+<li><p>A rigid body sample <strong>motion</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.motion</span></code> module)</p></li>
+</ul>
+</div></blockquote>
+<p>Once these objects are defined the it is possible to let the <strong>detector</strong> collect scattering of the <strong>polycrystal</strong>
+as the sample undergoes the prescribed rigid body <strong>motion</strong> while being illuminated by the xray <strong>beam</strong>.</p>
+<p>Let’s go ahead and build ourselves some x-rays:</p>
+<blockquote>
+<div><p>&lt;beam example goes here&gt;</p>
+</div></blockquote>
+<p>We will also need to define a detector:</p>
+<blockquote>
+<div><p>&lt;detector example goes here&gt;</p>
+</div></blockquote>
+<p>Next we go ahead and produce a sample:</p>
+<blockquote>
+<div><p>&lt;polycrystal example goes here&gt;</p>
+</div></blockquote>
+<p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
+<blockquote>
+<div><p>&lt;motion example goes here&gt;</p>
+</div></blockquote>
+<p>Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:</p>
+<blockquote>
+<div><p>&lt;diffract and rendering example goes here&gt;</p>
+</div></blockquote>
 </div>
 <div class="section" id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
@@ -148,10 +185,10 @@ on your system. Installation of these will be OS dependent and documentation
 <p>This will then again require the <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> dependencies to be resolved beforehand.</p>
 </div>
 </div>
-<div class="section" id="documentation">
-<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<div class="section" id="id1">
+<h1>Documentation<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h1>
 <div class="section" id="beam">
-<span id="id1"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
+<span id="id2"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.beam"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.beam.</span></span><span class="sig-name descname"><span class="pre">Beam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_vertices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xray_propagation_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization_vector</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam" title="Permalink to this definition"></a></dt>
@@ -321,7 +358,7 @@ input vertices.</p>
 
 </div>
 <div class="section" id="detector">
-<span id="id2"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
+<span id="id3"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.detector"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
@@ -524,7 +561,7 @@ pixel size.</p>
 
 </div>
 <div class="section" id="motion">
-<span id="id3"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
+<span id="id4"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.motion"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>
@@ -1379,14 +1416,22 @@ radially around the azimuth)</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="xrd_simulator.utils.get_bounding_ball">
-<span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">get_bounding_ball</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.get_bounding_ball" title="Permalink to this definition"></a></dt>
-<dd><p>Compute a bounding ball centroid and radius for a set of euclidean points.</p>
+<span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">get_bounding_ball</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-07</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.get_bounding_ball" title="Permalink to this definition"></a></dt>
+<dd><p>Compute a minimal bounding ball for a set of euclidean points.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>points</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Points to be wrapped by sphere <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code></p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>points</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Points to be wrapped by sphere <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code></p></li>
+<li><p><strong>epsilon</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – the same sphere. Default is 1e-7</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>) with <code class="docutils literal notranslate"><span class="pre">centroid</span></code> and <code class="docutils literal notranslate"><span class="pre">radius</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>NOTE: Iterative implementation of Welzl’s algorithm, see “Smallest enclosing disks</dt><dd><p>(balls and ellipsoids)” Emo Welzl 1991. IMplementation adapted from miniball:
+<a class="reference external" href="https://github.com/marmakoide/miniball/">https://github.com/marmakoide/miniball/</a>.</p>
 </dd>
 </dl>
 </dd></dl>
