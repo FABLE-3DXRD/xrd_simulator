@@ -40,7 +40,10 @@ such as `scanning-3dxrd`_ and full-field `3dxrd`_ (or HEDM if you like) can be s
 measurement sequences such as helical scans for instance. It is also possible to simulate `powder like`_
 scenarios using orientation density functions as input.
 
-
+===================================================================================================
+Documentation
+===================================================================================================
+`The full documentation is hosted separately at this link.`_
 
 ======================================
 Installation
@@ -89,3 +92,5 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 .. _3dxrd: https://en.wikipedia.org/wiki/3DXRD
 
 .. _powder like: https://en.wikipedia.org/wiki/Powder_diffraction
+
+.. _The full documentation is hosted separately at this link.: https://axelhenningsson.github.io/xrd_simulator/

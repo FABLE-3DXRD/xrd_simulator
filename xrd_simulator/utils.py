@@ -1,5 +1,6 @@
 """General package internal utility functions.
 """
+from re import L
 import sys
 
 import numpy as np
@@ -193,34 +194,88 @@ def diffractogram(
     return bin_centres[0:clip_index], histogram[0:clip_index]
 
 
-def get_bounding_ball(points):
-    """Compute a bounding ball centroid and radius for a set of euclidean points.
+def _get_circumsphere(points):
+    """
+    Computes the circumsphere of a set of points
+
+    NOTE: Implementation adapted from miniball: https://github.com/marmakoide/miniball/.
+
+    """
+    U = points[1:] - points[0]
+    B = np.sqrt(np.sum(U ** 2, axis=1))
+    U /= B[:, None]
+    B /= 2
+    C = np.dot(np.linalg.solve(np.inner(U, U), B), U)
+    r2 = np.sum(C ** 2)
+    C += points[0]
+    return C, r2
+
+
+def get_bounding_ball(points, epsilon=1e-7):
+    """Compute a minimal bounding ball for a set of euclidean points.
 
     Args:
         points (:obj:`numpy array`): Points to be wrapped by sphere ``shape=(n,3)``
+        epsilon (:obj:`float`) Tolerance used when testing if a set of point belongs to
+            the same sphere. Default is 1e-7
 
     Returns:
         (:obj:`tuple`) with ``centroid`` and ``radius``.
 
+    NOTE: Iterative implementation of Welzl's algorithm, see "Smallest enclosing disks
+        (balls and ellipsoids)" Emo Welzl 1991. IMplementation adapted from miniball:
+        https://github.com/marmakoide/miniball/.
+
     """
+    rng = np.random.default_rng()
 
-    centroid = np.mean(points, axis=0)
-    base_radius = np.max(np.linalg.norm(points - centroid, axis=1))
+    def circle_contains(D, point):
+        center, r2 = D
+        return np.sum((point - center) ** 2) <= r2
 
-    # x[-1] is the radius of the ball and x[0:3] the centroid
-    def fun(x): return np.linalg.norm(points - x[0:3], axis=1) - x[-1]
-    # we seek to minimize the ball radius which will be our cost
-    def cost(x): return x[-1]
-    # the pointcloud must be contained by the ball
-    res = minimize(cost,
-                   x0=np.array([centroid[0], centroid[1], centroid[2], base_radius * 1.001]),
-                   jac='3-point',
-                   constraints=NonlinearConstraint(fun, -np.inf, 0, keep_feasible=True),
-                   method='trust-constr',
-                   options={'maxiter': 25, 'verbose': -1})
+    def get_boundary(R):
+        if len(R) == 0:
+            return np.zeros(points.shape[1]), 0.0
 
-    # TODO: add unittest and put similar check there instead
-    for p in points:
-        assert (p - res.x[0:3]).dot(p - res.x[0:3]) <= (res.x[-1] * 1.001)**2
+        if len(R) <= points.shape[1] + 1:
+            return _get_circumsphere(points[R])
 
-    return res.x[0:3], res.x[-1]
+        c, r2 = _get_circumsphere(points[R[: points.shape[1] + 1]])
+        if np.all(np.fabs(np.sum((points[R] - c) ** 2, axis=1) - r2) < epsilon):
+            return c, r2
+
+    class Node(object):
+        def __init__(self, P, R):
+            self.P = P
+            self.R = R
+            self.D = None
+            self.pivot = None
+            self.left = None
+            self.right = None
+
+    def traverse(node):
+        stack = [node]
+        while len(stack) > 0:
+            node = stack.pop()
+
+            if len(node.P) == 0 or len(node.R) >= points.shape[1] + 1:
+                node.D = get_boundary(node.R)
+            elif node.left is None:
+                node.pivot = rng.choice(node.P)
+                node.left = Node(list(set(node.P) - set([node.pivot])), node.R)
+                stack.extend((node, node.left))
+            elif node.right is None:
+                if circle_contains(node.left.D, points[node.pivot]):
+                    node.D = node.left.D
+                else:
+                    node.right = Node(node.left.P, node.R + [node.pivot])
+                    stack.extend((node, node.right))
+            else:
+                node.D = node.right.D
+                node.left, node.right = None, None
+
+    points = points.astype(float, copy=False)
+    root = Node(range(points.shape[0]), [])
+    traverse(root)
+    c,r = root.D
+    return c, np.sqrt(r)
