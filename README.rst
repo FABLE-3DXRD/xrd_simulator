@@ -1,4 +1,4 @@
-.. image:: docs/source/images/logo.png
+.. image:: https://github.com/AxelHenningsson/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true
 
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/

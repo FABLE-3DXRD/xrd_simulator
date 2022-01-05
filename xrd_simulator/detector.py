@@ -65,9 +65,9 @@ class Detector(PickleableObject):
                 The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
                 tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
                 into a single detector pixel regardless of the geometrical shape of the scatterer. If instead
-                    ```method=project```
-                the scattering regions are projected onto the detector depositing a intensity over possibly several pixels as
-                weighted by the optical path lengths of the rays diffracting from the scattering region.
+                ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
+                possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
+                region.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
 
         Returns:
@@ -75,6 +75,7 @@ class Detector(PickleableObject):
             pixel size.
 
         NOTE: This function can be overwitten to do more advanced models for intensity.
+
         """
         frame = np.zeros((int(self.zmax / self.pixel_size_z),
                          int(self.ymax / self.pixel_size_y)))
