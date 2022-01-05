@@ -20,6 +20,8 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        python --version
+        conda install python=3.8
         conda install -c conda-forge -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |
