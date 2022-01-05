@@ -21,8 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         conda install python=3.8
-        conda config --add channels conda-forge
-        conda install -c axiomel xrd_simulator
+        conda install -c conda-forge -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |
         conda install flake8
@@ -34,4 +33,3 @@ jobs:
       run: |
         conda install pytest
         pytest
-
