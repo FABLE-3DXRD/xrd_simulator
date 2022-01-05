@@ -6,7 +6,7 @@ with open("README.rst", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="xrd_simulator",
-    version="0.1.1",
+    version="0.1.2",
     author="Axel Henningsson",
     author_email="nilsaxelhenningsson@gmail.com",
     description="Tools for diffraction simulation of s3dxrd type experiments.",
@@ -17,7 +17,7 @@ setuptools.setup(
         "Documentation": "https://axelhenningsson.github.io/xrd_simulator/",
     },
     classifiers=[
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.8 :: 3.9",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
