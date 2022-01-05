@@ -10,6 +10,7 @@ This script also serves as a documentation for how to do releases.
 """
 
 import subprocess
+import shutil
 import os
 
 
@@ -59,6 +60,20 @@ if __name__ == '__main__':
     if conda_dir.split("\\")[-1] != 'conda':
         raise ValueError(
             "autorelease.py is meant to be run from within the conda directory")
+
+    os.chdir("..")
+    os.chdir("docs")
+
+    print( "Building and serving docs.." )
+    out = os.system("make html")
+    if out!=0:
+        print("")
+        print("")
+        raise ValueError("Failed to build docs")
+    for file in os.listdir(os.path.join("build","html")):
+        if not file.startswith('_'):
+            shutil.copy2(os.path.join(os.path.join("build","html"),file), ".")
+    print( "Copied all docs to path visible by github pages" )
 
     os.chdir("..")
 

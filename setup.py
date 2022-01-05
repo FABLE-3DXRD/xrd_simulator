@@ -6,7 +6,7 @@ with open("README.rst", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="xrd_simulator",
-    version="0.1.4",
+    version="0.1.5",
     author="Axel Henningsson",
     author_email="nilsaxelhenningsson@gmail.com",
     description="Tools for diffraction simulation of s3dxrd type experiments.",
@@ -22,7 +22,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    python_requires="3.8",
+    python_requires=">=3.8,<3.9",
     install_requires=["matplotlib==3.3.1",
                       "numpy==1.21.4",
                       "meshio==5.0.2",
