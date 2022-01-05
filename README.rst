@@ -1,22 +1,18 @@
-.. raw:: html
+.. image:: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg?
+	:target: https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/
 
-   <img src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda.yml/badge.svg"/></a>
+.. image:: https://badge.fury.io/py/xrd-simulator.svg?
+	:target: https://pypi.org/project/xrd-simulator/
 
-.. raw:: html
+.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?
+	:target: https://anaconda.org/axiomel/xrd_simulator/
 
-   <img src="https://badge.fury.io/py/xrd-simulator.svg"/></a>
+.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?
+	:target: https://anaconda.org/axiomel/xrd_simulator/
 
-.. raw:: html
+.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?
+	:target: https://anaconda.org/axiomel/xrd_simulator/
 
-   <img src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg"/></a>
-
-.. raw:: html
-
-   <img src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg"/></a>
-
-.. raw:: html
-
-   <img src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg"/></a>
 
 =====================================================================
 Welcome to the xrd_simulator
