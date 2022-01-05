@@ -8,8 +8,8 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://files.pythonhosted.org/packages/1e/b2/22d27dcada96677a8eb71aee5f23dadb2c31ca682a84890a9ef9e02e370e/xrd_simulator-0.1.2.tar.gz
-  sha256: a87eb5da72403b2ccdcc298d33c014e2cbe223d3c8b9c37b335fec117f867117
+  url: https://files.pythonhosted.org/packages/4c/4f/1362dcac39a4f7c99513650dd929be047b67ee2b7f5c161894efa455950a/xrd_simulator-0.1.3.tar.gz
+  sha256: ba090164a05faed1125bc5e19133415d2dc66ac8b3a9b10e98ade735cf4c6a0a
 
 build:
   number: 0
@@ -21,12 +21,12 @@ requirements:
     - python
   run:
     - python
-    - matplotlib==3.5.1
+    - matplotlib==3.3.1
     - numpy==1.21.4
     - meshio==5.0.2
     - pygalmesh==0.10.6
-    - scipy==1.7.3
-    - numba==0.54.1
+    - scipy==1.6.1
+    - numba==0.53.0
     - pycifrw==4.4.3
 
 test:
