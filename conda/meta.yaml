@@ -22,7 +22,7 @@ requirements:
   run:
     - python
     - matplotlib==3.5.1
-    - numpy==1.21.5
+    - numpy==1.22.0
     - meshio==5.0.2
     - pygalmesh==0.10.6
     - scipy==1.7.3
