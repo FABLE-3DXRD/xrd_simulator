@@ -38,3 +38,5 @@ about:
   license: MIT
   license_family: MIT
   summary: {{ data.get('description') }}
+  description: |
+    A package for simulating X-ray Diffraction from polycrystals.
