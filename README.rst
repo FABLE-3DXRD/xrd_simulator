@@ -48,7 +48,7 @@ examples to get us started on a good flavour.
 
 The ``xrd_simulator`` is built around four python objects which reflect a diffraction experiment:
 
-   * A **beam** of xrays (using the ``xrd_simulator.beam`` module)
+   * A **beam** of x-rays (using the ``xrd_simulator.beam`` module)
    * A 2D area **detector** (using the ``xrd_simulator.detector`` module)
    * A 3D **polycrystal** sample (using the ``xrd_simulator.polycrystal`` module)
    * A rigid body sample **motion** (using the ``xrd_simulator.motion`` module)
