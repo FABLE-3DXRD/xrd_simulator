@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simulate X-ray Diffraction from Polycrystals in 3D. &mdash; xrd_simulator 0.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -99,7 +100,7 @@
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
-<div class="section" id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
+<section id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
 <h1>Simulate X-ray Diffraction from Polycrystals in 3D.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals-in-3d" title="Permalink to this headline"></a></h1>
 <p>The <strong>X</strong>-<strong>R</strong> ay <strong>D</strong> iffraction <strong>SIMULATOR</strong> package defines polycrystals as a mesh of tetrahedral single crystals
 and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
@@ -111,15 +112,15 @@ and their interaction simulated as the sample is rocked. This means that standar
 such as <a class="reference external" href="https://doi.org/10.1107/S1600576720001016">scanning-3dxrd</a> and full-field <a class="reference external" href="https://en.wikipedia.org/wiki/3DXRD">3dxrd</a> (or HEDM if you like) can be simulated as well as more advanced
 measurement sequences such as helical scans for instance. It is also possible to simulate <a class="reference external" href="https://en.wikipedia.org/wiki/Powder_diffraction">powder like</a>
 scenarios using orientation density functions as input.</p>
-</div>
-<div class="section" id="documentation">
+</section>
+<section id="documentation">
 <h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
 <p>Before reading all the boring documentation (<a class="reference external" href="https://axelhenningsson.github.io/xrd_simulator/">which is hosted here</a>) let’s dive into some end to end
 examples to get us started on a good flavour.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is built around four python objects which reflect a diffraction experiment:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>A <strong>beam</strong> of xrays (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.beam</span></code> module)</p></li>
+<li><p>A <strong>beam</strong> of x-rays (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.beam</span></code> module)</p></li>
 <li><p>A 2D area <strong>detector</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.detector</span></code> module)</p></li>
 <li><p>A 3D <strong>polycrystal</strong> sample (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal</span></code> module)</p></li>
 <li><p>A rigid body sample <strong>motion</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.motion</span></code> module)</p></li>
@@ -133,22 +134,7 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>We will also need to define a detector:</p>
 <blockquote>
-<div><dl>
-<dt>Examples:</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
-
-<span class="n">pixel_size_z</span> <span class="o">=</span> <span class="mf">75.0</span>
-<span class="n">pixel_size_y</span> <span class="o">=</span> <span class="mf">55.0</span>
-<span class="n">detector_size_z</span> <span class="o">=</span> <span class="n">pixel_size_z</span> <span class="o">*</span> <span class="mi">1024</span>
-<span class="n">detector_distance</span> <span class="o">=</span> <span class="mf">142938.3</span>
-<span class="n">d0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">d1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">d2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="p">,</span> <span class="n">pixel_size_y</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd>
-</dl>
+<div><p>&lt;polycrystal example goes here&gt;</p>
 </div></blockquote>
 <p>Next we go ahead and produce a sample:</p>
 <blockquote>
@@ -162,10 +148,10 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <blockquote>
 <div><p>&lt;diffract and rendering example goes here&gt;</p>
 </div></blockquote>
-</div>
-<div class="section" id="installation">
+</section>
+<section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
-<div class="section" id="anaconda-installation">
+<section id="anaconda-installation">
 <h2>Anaconda installation<a class="headerlink" href="#anaconda-installation" title="Permalink to this headline"></a></h2>
 <p>The preferred way to install the xrd_simulator package is via anaconda:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">axiomel</span> <span class="n">xrd_simulator</span>
@@ -178,9 +164,9 @@ that of <a class="reference external" href="https://www.anaconda.com/products/in
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> works on python versions =&gt;3.8&lt;3.9. Make sure your conda environment has the right
 python version before installation. For instance, running <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">python=3.8</span></code> before
 installation should ensure correct behavior.</p>
-</div>
-</div>
-<div class="section" id="pip-installation">
+</aside>
+</section>
+<section id="pip-installation">
 <h2>Pip Installation<a class="headerlink" href="#pip-installation" title="Permalink to this headline"></a></h2>
 <p>Pip installation is possible, however, external dependencies of <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> must the be preinstalled
 on your system. Installation of these will be OS dependent and documentation
@@ -188,8 +174,8 @@ on your system. Installation of these will be OS dependent and documentation
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">xrd</span><span class="o">-</span><span class="n">simulator</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="source-installation">
+</section>
+<section id="source-installation">
 <h2>Source installation<a class="headerlink" href="#source-installation" title="Permalink to this headline"></a></h2>
 <p>Naturally one may also install from the sources:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">AxelHenningsson</span><span class="o">/</span><span class="n">xrd_simulator</span><span class="o">.</span><span class="n">git</span>
@@ -198,11 +184,11 @@ on your system. Installation of these will be OS dependent and documentation
 </pre></div>
 </div>
 <p>This will then again require the <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> dependencies to be resolved beforehand.</p>
-</div>
-</div>
-<div class="section" id="id1">
+</section>
+</section>
+<section id="id1">
 <h1>Documentation<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h1>
-<div class="section" id="beam">
+<section id="beam">
 <span id="id2"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.beam"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam">
@@ -210,7 +196,7 @@ on your system. Installation of these will be OS dependent and documentation
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
 <p>Represents a monochromatic X-ray beam as a convex polyhedra.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p></li>
 <li><p><strong>xray_propagation_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Propagation direction of X-rays <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p></li>
@@ -225,7 +211,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <span class="sig-name descname"><span class="pre">vertices</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.vertices" title="Permalink to this definition"></a></dt>
 <dd><p>Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -236,7 +222,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <span class="sig-name descname"><span class="pre">wavelength</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.wavelength" title="Permalink to this definition"></a></dt>
 <dd><p>Xray wavelength in units of angstrom.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -247,7 +233,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <span class="sig-name descname"><span class="pre">wave_vector</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.wave_vector" title="Permalink to this definition"></a></dt>
 <dd><p>Beam wavevector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -258,7 +244,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <span class="sig-name descname"><span class="pre">centroid</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.centroid" title="Permalink to this definition"></a></dt>
 <dd><p>Beam centroid <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -270,7 +256,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <dd><p>Beam halfspace equation coefficients <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.
 A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] &lt;= 0.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -282,7 +268,7 @@ A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  ha
 <dd><p>Beam linear polarization unit vector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
 Must be orthogonal to the xray propagation direction.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -293,10 +279,10 @@ Must be orthogonal to the xray propagation direction.</p>
 <span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.contains" title="Permalink to this definition"></a></dt>
 <dd><p>Check if the beam contains a point.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>point</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Point to evaluate <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Boolean True if the beam contains the point.</p>
 </dd>
 </dl>
@@ -307,10 +293,10 @@ Must be orthogonal to the xray propagation direction.</p>
 <span class="sig-name descname"><span class="pre">find_feasible_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">halfspaces</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.find_feasible_point" title="Permalink to this definition"></a></dt>
 <dd><p>Find a point which is clearly inside a set of halfspaces (A * point + b &lt; 0).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>halfspaces</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Halfspace equations, each row holds coefficients of a halfspace (<code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code>).</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>) if no point is found else (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) point.</p>
 </dd>
 </dl>
@@ -323,7 +309,7 @@ Must be orthogonal to the xray propagation direction.</p>
 <p>This method can be used as a pre-checker before running the <cite>intersect()</cite> method on a polyhedral
 set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sphere_centres</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Centroids of a spheres <code class="docutils literal notranslate"><span class="pre">shape=(3,n)</span></code>.</p></li>
 <li><p><strong>sphere_radius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Radius of a spheres <code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code>.</p></li>
@@ -331,13 +317,13 @@ set. This avoids wasting compute resources on polyhedra which clearly do not int
 polycrystal transformation as a funciton of time on the domain time=[0,1].</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Parametric ranges in which the spheres
 has an intersection with the beam. [(<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>)] if no intersection exist in <code class="docutils literal notranslate"><span class="pre">`time=[0,1]`</span></code>.
 the entry at <code class="docutils literal notranslate"><span class="pre">`[i][j]`</span></code> is a list with two floats <code class="docutils literal notranslate"><span class="pre">`[t_1,t_2]`</span></code> and gives the j:th
 intersection interval of sphere number i with the beam.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code>)</p>
 </dd>
 </dl>
@@ -348,10 +334,10 @@ intersection interval of sphere number i with the beam.</p>
 <span class="sig-name descname"><span class="pre">intersect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vertices</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.intersect" title="Permalink to this definition"></a></dt>
 <dd><p>Compute the beam intersection with a convex polyhedra, returns a list of HalfspaceIntersections.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vertices of a convex polyhedra with <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
 input vertices.</p>
 </dd>
@@ -363,7 +349,7 @@ input vertices.</p>
 <span class="sig-name descname"><span class="pre">set_beam_vertices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_vertices</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.set_beam_vertices" title="Permalink to this definition"></a></dt>
 <dd><p>Set the beam vertices defining the beam convex hull and update all dependent quantities.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 </dd>
 </dl>
@@ -371,8 +357,8 @@ input vertices.</p>
 
 </dd></dl>
 
-</div>
-<div class="section" id="detector">
+</section>
+<section id="detector">
 <span id="id3"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.detector"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
@@ -384,7 +370,7 @@ Using a render function these abstract representation can be rendered into pixel
 The detector is described by a 3 x 3 geometry matrix whic columns contain vectors that attach
 to three of the four corners of the detector.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>pixel_size_z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length along zdhat (rectangular pixels) in units of microns.</p></li>
 <li><p><strong>pixel_size_y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length along ydhat (rectangular pixels) in units of microns.</p></li>
@@ -402,7 +388,7 @@ is at d0.</p></li>
 <span class="sig-name descname"><span class="pre">pixel_size_z</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.pixel_size_z" title="Permalink to this definition"></a></dt>
 <dd><p>Pixel side length along zdhat (rectangular pixels) in units of microns.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -413,7 +399,7 @@ is at d0.</p></li>
 <span class="sig-name descname"><span class="pre">pixel_size_y</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.pixel_size_y" title="Permalink to this definition"></a></dt>
 <dd><p>Pixel side length along ydhat (rectangular pixels) in units of microns.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -425,7 +411,7 @@ is at d0.</p></li>
 <dd><p>Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>. The origin of the detector
 is at d0.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -436,7 +422,7 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">frames</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.frames" title="Permalink to this definition"></a></dt>
 <dd><p>Analytical diffraction patterns which</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">scatterer.Scatterer</span></code></p>
 </dd>
 </dl>
@@ -447,7 +433,7 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">zdhat,ydhat</span></span></dt>
 <dd><p>Detector basis vectors.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -458,7 +444,7 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">normal</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.normal" title="Permalink to this definition"></a></dt>
 <dd><p>Detector normal.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -469,7 +455,7 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">zmax,ymax</span></span></dt>
 <dd><p>Detector width and height.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -480,7 +466,7 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">pixel_coordinates</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.pixel_coordinates" title="Permalink to this definition"></a></dt>
 <dd><p>Real space 3d detector pixel coordinates. <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -491,13 +477,13 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yd</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.contains" title="Permalink to this definition"></a></dt>
 <dd><p>Determine if the detector coordinate zd,yd lies within the detector bounds.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>zd</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Detector z coordinate</p></li>
 <li><p><strong>yd</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Detector y coordinate</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">boolean</span></code>) True if the zd,yd is within the detector bounds.</p>
 </dd>
 </dl>
@@ -508,13 +494,13 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">get_intersection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_point</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.get_intersection" title="Permalink to this definition"></a></dt>
 <dd><p>Get detector intersection in detector coordinates of a single ray originating from source_point.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ray_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vector in direction of the X-ray propagation</p></li>
 <li><p><strong>source_point</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Origin of the ray.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>) zd, yd in detector plane coordinates.</p>
 </dd>
 </dl>
@@ -525,13 +511,13 @@ is at d0.</p>
 <span class="sig-name descname"><span class="pre">get_wrapping_cone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_point</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.get_wrapping_cone" title="Permalink to this definition"></a></dt>
 <dd><p>Compute the cone around a wavevector such that the cone wrapps the detector corners.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>k</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Wavevector forming the central axis of cone ´´´shape=(3,)´´´.</p></li>
 <li><p><strong>source_point</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Origin of the wavevector ´´´shape=(3,)´´´.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after</dt><dd><p>which scattering will systematically miss the detector.</p>
 </dd>
@@ -548,7 +534,7 @@ is at d0.</p>
 <p>NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
 the pixel area.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>frame_number</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>) – Index of the frame in the <a class="reference internal" href="#xrd_simulator.detector.Detector.frames" title="xrd_simulator.detector.Detector.frames"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frames</span></code></a> list to be rendered.</p></li>
 <li><p><strong>lorentz</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Lorentz factor. Defaults to False.</p></li>
@@ -564,7 +550,7 @@ region.</p></li>
 <li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Prints progress. Defaults to True.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A pixelated frame as a (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) with shape infered form the detector geometry and
 pixel size.</p>
 </dd>
@@ -574,8 +560,8 @@ pixel size.</p>
 
 </dd></dl>
 
-</div>
-<div class="section" id="motion">
+</section>
+<section id="motion">
 <span id="id4"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.motion"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
@@ -587,7 +573,7 @@ of a point x by uniformly rotating it from [0, rotation_angle] and translating [
 I.e if called at a time time=t the motion will rotate the point t*rotation_angle radians and
 translate an amount t * translation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>rotation_axis</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Rotation axis <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p></li>
 <li><p><strong>rotation_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Radians for final rotation, when time=1.</p></li>
@@ -600,7 +586,7 @@ translate an amount t * translation.</p>
 <span class="sig-name descname"><span class="pre">rotation_axis</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.rotation_axis" title="Permalink to this definition"></a></dt>
 <dd><p>Rotation axis <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -611,7 +597,7 @@ translate an amount t * translation.</p>
 <span class="sig-name descname"><span class="pre">rotation_angle</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.rotation_angle" title="Permalink to this definition"></a></dt>
 <dd><p>Radians for final rotation, when time=1.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -622,7 +608,7 @@ translate an amount t * translation.</p>
 <span class="sig-name descname"><span class="pre">translation</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.translation" title="Permalink to this definition"></a></dt>
 <dd><p>Translation vector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -633,13 +619,13 @@ translate an amount t * translation.</p>
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.__call__" title="Permalink to this definition"></a></dt>
 <dd><p>Find the transformation of a set of points at a prescribed time.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vectors</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – A set of points in 3d euclidean space to be rotated (<code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>)</p></li>
 <li><p><strong>time</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Time to compute for.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Transformed vectors (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) of <code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>.</p>
 </dd>
 </dl>
@@ -651,13 +637,13 @@ translate an amount t * translation.</p>
 <dd><p>Find the rotational transformation of a set of vectors at a prescribed time.</p>
 <p>NOTE: This function only applies the rigid body rotation</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vectors</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – A set of points in 3d euclidean space to be rotated (<code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>)</p></li>
 <li><p><strong>time</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Time to compute for.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Transformed vectors (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) of <code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>.</p>
 </dd>
 </dl>
@@ -669,13 +655,13 @@ translate an amount t * translation.</p>
 <dd><p>Find the translational transformation of a set of points at a prescribed time.</p>
 <p>NOTE: This function only applies the rigid body translation</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vectors</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – A set of points in 3d euclidean space to be rotated (<code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>)</p></li>
 <li><p><strong>time</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Time to compute for.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Transformed vectors (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) of <code class="docutils literal notranslate"><span class="pre">shape=(3,N)</span></code>.</p>
 </dd>
 </dl>
@@ -683,8 +669,8 @@ translate an amount t * translation.</p>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-xrd_simulator.mesh">
+</section>
+<section id="module-xrd_simulator.mesh">
 <span id="mesh"></span><h2>mesh<a class="headerlink" href="#module-xrd_simulator.mesh" title="Permalink to this headline"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.mesh.TetraMesh">
@@ -697,7 +683,7 @@ translate an amount t * translation.</p>
 <dd><p>Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
 coordinates of a mesh node.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -709,7 +695,7 @@ coordinates of a mesh node.</p>
 <dd><p>Tetra element nodes shape=(nelm, nenodes).e.g enod[i,:] gives
 the nodal indices of element i.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -721,7 +707,7 @@ the nodal indices of element i.</p>
 <dd><p>Per node degrees of freedom, i.e dof[i,:]
 gives the degrees of freedom of node i.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -733,7 +719,7 @@ gives the degrees of freedom of node i.</p>
 <dd><p>Element faces nodal indices, shape=(nelm, nenodes, 3).
 e.g efaces[i,j,:] gives the nodal indices of face j of element i.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -745,7 +731,7 @@ e.g efaces[i,j,:] gives the nodal indices of face j of element i.</p>
 <dd><p>Element faces outwards normals (nelm, nefaces, 3).
 e.g enormals[i,j,:] gives the normal of face j of element i.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -756,7 +742,7 @@ e.g enormals[i,j,:] gives the normal of face j of element i.</p>
 <span class="sig-name descname"><span class="pre">ecentroids</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.ecentroids" title="Permalink to this definition"></a></dt>
 <dd><p>Per element centroids, shape=(nelm, 3).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -767,7 +753,7 @@ e.g enormals[i,j,:] gives the normal of face j of element i.</p>
 <span class="sig-name descname"><span class="pre">eradius</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.eradius" title="Permalink to this definition"></a></dt>
 <dd><p>Per element bounding radius, shape=(nelm, 1).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -780,7 +766,7 @@ e.g enormals[i,j,:] gives the normal of face j of element i.</p>
 multiplied on a coordinate array, <code class="xref py py-obj docutils literal notranslate"><span class="pre">np.array([1,x,y,z])</span></code>, the interpolated value
 at x,y,z is found, given that x,y,z is contained by the corresponding element.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -797,7 +783,7 @@ at x,y,z is found, given that x,y,z is contained by the corresponding element.</
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_levelset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounding_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cell_circumradius</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_levelset" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a mesh from a level set using <a class="reference external" href="https://github.com/nschloe/pygalmesh">the pygalmesh package</a>:</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>level_set</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code>) – Level set, level_set(x) should give a negative output on the exterior
 of the mesh and positive on the interior.</p></li>
@@ -813,7 +799,7 @@ of the mesh and positive on the interior.</p></li>
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_numpy_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cell_circumradius</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a mesh from a numpy array using <a class="reference external" href="https://github.com/nschloe/pygalmesh">the pygalmesh package</a>:</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>array</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Numpy array to generate mesh from.</p></li>
 <li><p><strong>voxel_size</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Dimension of array voxels.</p></li>
@@ -828,7 +814,7 @@ of the mesh and positive on the interior.</p></li>
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_vertices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coord</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enod</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_vertices" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a mesh from vertices using <a class="reference external" href="https://github.com/nschloe/meshio">the meshio package</a>:</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>coord</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
 coordinates of a mesh node.</p></li>
@@ -850,7 +836,7 @@ the nodal indices of element i.</p></li>
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.load" title="Permalink to this definition"></a></dt>
 <dd><p>Load a mesh from a saved mesh file set using <a class="reference external" href="https://github.com/nschloe/meshio">the meshio package</a>:</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>file</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Absolute path to save the mesh at (without .xdmf extension)</p>
 </dd>
 </dl>
@@ -861,7 +847,7 @@ the nodal indices of element i.</p></li>
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.save" title="Permalink to this definition"></a></dt>
 <dd><p>Save the tetra mesh to .xdmf paraview readable format for visualization.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>file</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Absolute path to save the mesh in .xdmf format.</p>
 </dd>
 </dl>
@@ -875,8 +861,8 @@ the nodal indices of element i.</p></li>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-xrd_simulator.phase">
+</section>
+<section id="module-xrd_simulator.phase">
 <span id="phase"></span><h2>phase<a class="headerlink" href="#module-xrd_simulator.phase" title="Permalink to this headline"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.phase.Phase">
@@ -888,7 +874,7 @@ to compute a set of Miller indices for a given wavelength that can give diffract
 possible to compute unit cell structure factors for the hkls which is usefull to model the scattered intensity.
 This will however require a CIF file.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>unit_cell</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Crystal unit cell representation of the form
 [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
@@ -906,7 +892,7 @@ factors are computed, i.e <cite>structure_factors=None</cite>.</p></li>
 [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
 a,b and c are in units of anstrom.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -917,7 +903,7 @@ a,b and c are in units of anstrom.</p>
 <span class="sig-name descname"><span class="pre">sgname</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/phase.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.phase.Phase.sgname" title="Permalink to this definition"></a></dt>
 <dd><p>Name of space group , e.g ‘P3221’ for quartz, SiO2, for instance</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></p>
 </dd>
 </dl>
@@ -928,7 +914,7 @@ a,b and c are in units of anstrom.</p>
 <span class="sig-name descname"><span class="pre">miller_indices</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/phase.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.phase.Phase.miller_indices" title="Permalink to this definition"></a></dt>
 <dd><p>Allowable integer Miller indices (h,k,l) of <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -941,7 +927,7 @@ a,b and c are in units of anstrom.</p>
 of <code class="docutils literal notranslate"><span class="pre">shape=(n,2)</span></code>. <cite>structure_factors[i,0]</cite> gives the real structure factor of <cite>hkl=miller_indices[i,:]</cite>
 while <cite>structure_factors[i,0]</cite> gives the corresponding imaginary part of the structure factor.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -953,7 +939,7 @@ while <cite>structure_factors[i,0]</cite> gives the corresponding imaginary part
 <dd><p>Generates all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.</p>
 <p>If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – X-ray wavelenght in units of anstrom.</p></li>
 <li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Maximum Bragg angle, in radians, allowed to be taken during diffraction.</p></li>
@@ -967,8 +953,8 @@ factor vanishing, i.e forbidden reflections, such as a 100 in an fcc for instanc
 
 </dd></dl>
 
-</div>
-<div class="section" id="polycrystal">
+</section>
+<section id="polycrystal">
 <h2>polycrystal<a class="headerlink" href="#polycrystal" title="Permalink to this headline"></a></h2>
 <p>The polycrystal is your sample. Once created it supports diffraction computations for a
 provided diffraction geometry which is specified via a <a class="reference internal" href="#beam"><span class="std std-ref">beam</span></a>, sample <a class="reference internal" href="#motion"><span class="std std-ref">motion</span></a> and <a class="reference internal" href="#detector"><span class="std std-ref">detector</span></a>.</p>
@@ -978,7 +964,7 @@ provided diffraction geometry which is specified via a <a class="reference inter
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
 <p>Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mesh</strong> (<a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a>) – Object representing a tetrahedral mesh which defines the
 geometry of the sample. At instantiation it is assumed that the sample and lab coordinate systems
@@ -998,7 +984,7 @@ is assumed that the sample and lab coordinate systems are aligned.</p></li>
 <dd><p>Object representing a tetrahedral mesh which defines the
 geometry of the sample in a fixed lab frame coordinate system.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a></p>
 </dd>
 </dl>
@@ -1010,7 +996,7 @@ geometry of the sample in a fixed lab frame coordinate system.</p>
 <dd><p>Object representing a tetrahedral mesh which defines the
 geometry of the sample in a sample coordinate system.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a></p>
 </dd>
 </dl>
@@ -1022,7 +1008,7 @@ geometry of the sample in a sample coordinate system.</p>
 <dd><p>Index of phase that elements belong to such that phases[ephase[i]] gives the
 xrd_simulator.phase.Phase object of element number i.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -1034,7 +1020,7 @@ xrd_simulator.phase.Phase object of element number i.</p>
 <dd><p>Per element U (orientation) matrices in a fixed lab frame coordinate
 system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -1046,7 +1032,7 @@ system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3
 <dd><p>Per element U (orientation) matrices in a sample coordinate
 system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -1057,7 +1043,7 @@ system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,
 <span class="sig-name descname"><span class="pre">eB</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.eB" title="Permalink to this definition"></a></dt>
 <dd><p>Per element B (hkl to crystal mapper) matrices, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
 </dd>
 </dl>
@@ -1068,7 +1054,7 @@ system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,
 <span class="sig-name descname"><span class="pre">phases</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.phases" title="Permalink to this definition"></a></dt>
 <dd><p>List of all unique phases present in the polycrystal.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a></p>
 </dd>
 </dl>
@@ -1082,7 +1068,7 @@ system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,
 The scattering regions may be rendered as pixelated patterns on the detector by using a detector rendering
 option.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>) – Object representing a monochromatic beam of X-rays.</p></li>
 <li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) – Object representing a flat rectangular detector.</p></li>
@@ -1105,7 +1091,7 @@ max_bragg_angle is approximated by wrapping the detector corners in a cone with 
 such as face normals etc. Likewise, it will update the per element crystallite orientation
 matrices (U) such that the updated matrix will</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
 polycrystal transformation as a funciton of time on the domain time=[0,1].</p></li>
@@ -1117,8 +1103,8 @@ polycrystal transformation as a funciton of time on the domain time=[0,1].</p></
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-xrd_simulator.scatterer">
+</section>
+<section id="module-xrd_simulator.scatterer">
 <span id="scatterer"></span><h2>scatterer<a class="headerlink" href="#module-xrd_simulator.scatterer" title="Permalink to this headline"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer">
@@ -1126,7 +1112,7 @@ polycrystal transformation as a funciton of time on the domain time=[0,1].</p></
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Defines a scattering single crystal as a convex polyhedra.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>convex_hull</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">scipy.spatial.ConvexHull</span></code>) – Object describing the convex hull of the self.</p></li>
 <li><p><strong>kprime</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Scattering vector, i.e the wavevector pointing in the direction of diffraction.</p></li>
@@ -1143,7 +1129,7 @@ position is applicable during diffraction.</p></li>
 <span class="sig-name descname"><span class="pre">convex_hull</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.convex_hull" title="Permalink to this definition"></a></dt>
 <dd><p>Object describing the convex hull of the self.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">scipy.spatial.ConvexHull</span></code></p>
 </dd>
 </dl>
@@ -1154,7 +1140,7 @@ position is applicable during diffraction.</p></li>
 <span class="sig-name descname"><span class="pre">kprime</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.kprime" title="Permalink to this definition"></a></dt>
 <dd><p>Scattering vector, i.e the wavevector pointing in the direction of diffraction.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></p>
 </dd>
 </dl>
@@ -1167,7 +1153,7 @@ position is applicable during diffraction.</p></li>
 while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
 position is applicable during diffraction.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
 </dd>
 </dl>
@@ -1178,7 +1164,7 @@ position is applicable during diffraction.</p>
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">centroid</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.centroid" title="Permalink to this definition"></a></dt>
 <dd><p>centroid of the scattering region. <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>centroid (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1189,7 +1175,7 @@ position is applicable during diffraction.</p>
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">hkl</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.hkl" title="Permalink to this definition"></a></dt>
 <dd><p>Miller indices [h,k,l] <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1200,7 +1186,7 @@ position is applicable during diffraction.</p>
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">imaginary_structure_factor</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.imaginary_structure_factor" title="Permalink to this definition"></a></dt>
 <dd><p>Imaginary part of unit cell structure factor</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1223,7 +1209,7 @@ position is applicable during diffraction.</p>
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">real_structure_factor</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.real_structure_factor" title="Permalink to this definition"></a></dt>
 <dd><p>Real part of unit cell structure factor</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1234,7 +1220,7 @@ position is applicable during diffraction.</p>
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">volume</span></span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.volume" title="Permalink to this definition"></a></dt>
 <dd><p>volume of the scattering region volume</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>volume (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
 </dd>
 </dl>
@@ -1242,8 +1228,8 @@ position is applicable during diffraction.</p>
 
 </dd></dl>
 
-</div>
-<div class="section" id="module-xrd_simulator.laue">
+</section>
+<section id="module-xrd_simulator.laue">
 <span id="laue"></span><h2>laue<a class="headerlink" href="#module-xrd_simulator.laue" title="Permalink to this headline"></a></h2>
 <p>Collection of functions for solving the Laue equations for package specific parametrization.</p>
 <dl class="py function">
@@ -1260,17 +1246,17 @@ position is applicable during diffraction.</p>
 \[t = \tan(s \alpha / 2). \quad\quad (3)\]</div>
 <p>and .. math::alpha is the angle between k1 and k2</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>c_0</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Coefficients c_0,c_1 and c_2 of equation (1).</p></li>
 <li><p><strong>c_1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Coefficients c_0,c_1 and c_2 of equation (1).</p></li>
 <li><p><strong>c_2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Coefficients c_0,c_1 and c_2 of equation (1).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>solutions if existing otherwise returns None.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>)</p>
 </dd>
 </dl>
@@ -1281,17 +1267,17 @@ position is applicable during diffraction.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.laue.</span></span><span class="sig-name descname"><span class="pre">get_G</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">B</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">G_hkl</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/laue.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.laue.get_G" title="Permalink to this definition"></a></dt>
 <dd><p>Compute the diffraction vector G=UBG_HKL</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>U</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) Orientation matrix of <code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code> (unitary) – </p></li>
 <li><p><strong>B</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Reciprocal to grain coordinate mapping matrix of <code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>.</p></li>
 <li><p><strong>G_hkl</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Miller indices, i.e the h,k,l integers (<code class="docutils literal notranslate"><span class="pre">shape=(3,n)</span></code>).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Sample coordinate system diffraction vector. (<code class="docutils literal notranslate"><span class="pre">shape=(3,n)</span></code>)</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>G (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1302,16 +1288,16 @@ position is applicable during diffraction.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.laue.</span></span><span class="sig-name descname"><span class="pre">get_bragg_angle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">G</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/laue.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.laue.get_bragg_angle" title="Permalink to this definition"></a></dt>
 <dd><p>Compute a Bragg angle given a diffraction (scattering) vector.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>G</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Sample coordinate system diffraction vector. (<code class="docutils literal notranslate"><span class="pre">shape=(3,n)</span></code>)</p></li>
 <li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Photon wavelength in units of angstrom.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>in units of radians. (<code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code>)</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Bragg angles (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
 </dd>
 </dl>
@@ -1322,16 +1308,16 @@ position is applicable during diffraction.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.laue.</span></span><span class="sig-name descname"><span class="pre">get_sin_theta_and_norm_G</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">G</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/laue.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.laue.get_sin_theta_and_norm_G" title="Permalink to this definition"></a></dt>
 <dd><p>Compute a Bragg angle given a diffraction (scattering) vector.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>G</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Sample coordinate system diffraction vector.</p></li>
 <li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Photon wavelength in units of angstrom.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>in units of radians and ||G||.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sin(Bragg angle) (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
 </dd>
 </dl>
@@ -1345,8 +1331,8 @@ position is applicable during diffraction.</p>
 \[c_0 \cos(s \alpha) + c_1 \sin(s \alpha) + c_2 = 0. \quad\quad (1)\]</div>
 </dd></dl>
 
-</div>
-<div class="section" id="module-xrd_simulator.utils">
+</section>
+<section id="module-xrd_simulator.utils">
 <span id="utils"></span><h2>utils<a class="headerlink" href="#module-xrd_simulator.utils" title="Permalink to this headline"></a></h2>
 <p>General package internal utility functions.</p>
 <dl class="py function">
@@ -1354,14 +1340,14 @@ position is applicable during diffraction.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">alpha_to_quarternion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_3</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.alpha_to_quarternion" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a unit quarternion by providing spherical angle coordinates on the S3 ball.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>alpha_1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Radians. <code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code></p></li>
 <li><p><strong>alpha_2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Radians. <code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code></p></li>
 <li><p><strong>alpha_3</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Radians. <code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code></p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) Rotation as unit quarternion <code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code></p>
 </dd>
 </dl>
@@ -1382,7 +1368,7 @@ dimensional clipping”. (1978) The algorithms is based on solving orthogonal eq
 sorting the resulting plane line interestion points to find which are entry and which are
 exit points through the convex polyhedron.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>line_points</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – base points of rays
 (exterior to polyhedron), <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code></p></li>
@@ -1392,10 +1378,10 @@ exit points through the convex polyhedron.</p>
 <li><p><strong>plane_normals</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – outwards element face normals. <code class="docutils literal notranslate"><span class="pre">shape=(m,3)</span></code></p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>intersection lengths.  <code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>clip_lengths (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
 </dd>
 </dl>
@@ -1412,7 +1398,7 @@ exit points through the convex polyhedron.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">diffractogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">diffraction_pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_centre_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_centre_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">binsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.diffractogram" title="Permalink to this definition"></a></dt>
 <dd><p>Compute diffractogram from pixelated diffraction pattern.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>diffraction_pattern</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Pixelated diffraction pattern``shape=(m,n)``</p></li>
 <li><p><strong>det_centre_z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Intersection pixel coordinate between
@@ -1423,7 +1409,7 @@ beam centroid line and detector along y-axis.</p></li>
 radially around the azimuth)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>) with <code class="docutils literal notranslate"><span class="pre">bin_centres</span></code> and <code class="docutils literal notranslate"><span class="pre">histogram</span></code>.</p>
 </dd>
 </dl>
@@ -1434,13 +1420,13 @@ radially around the azimuth)</p></li>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">get_bounding_ball</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-07</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.get_bounding_ball" title="Permalink to this definition"></a></dt>
 <dd><p>Compute a minimal bounding ball for a set of euclidean points.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>points</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Points to be wrapped by sphere <code class="docutils literal notranslate"><span class="pre">shape=(n,3)</span></code></p></li>
 <li><p><strong>epsilon</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – the same sphere. Default is 1e-7</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>) with <code class="docutils literal notranslate"><span class="pre">centroid</span></code> and <code class="docutils literal notranslate"><span class="pre">radius</span></code>.</p>
 </dd>
 </dl>
@@ -1456,7 +1442,7 @@ radially around the azimuth)</p></li>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">lab_strain_to_lattice_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strain_tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crystal_orientation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_cell</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.lab_strain_to_lattice_matrix" title="Permalink to this definition"></a></dt>
 <dd><p>Take a strain tensor in crystal coordinates and produce the lattice matrix (B matrix).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>strain_tensor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Symmetric strain tensor in crystal
 coordinates. <code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code></p></li>
@@ -1467,7 +1453,7 @@ coordinates. <code class="docutils literal notranslate"><span class="pre">shape=
 a,b and c are in units of anstrom.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) Lattice matrix (B matrix)``shape=(3,3)``</p>
 </dd>
 </dl>
@@ -1478,7 +1464,7 @@ a,b and c are in units of anstrom.</p></li>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">print_progress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">progress_fraction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.print_progress" title="Permalink to this definition"></a></dt>
 <dd><p>Print a progress bar in the executing shell terminal.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>progress_fraction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – progress between 0 and 1.</p></li>
 <li><p><strong>message</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Optional message prepend the loading bar with. (max 55 characters)</p></li>
@@ -1487,8 +1473,8 @@ a,b and c are in units of anstrom.</p></li>
 </dl>
 </dd></dl>
 
-</div>
-<div class="section" id="templates">
+</section>
+<section id="templates">
 <h2>templates<a class="headerlink" href="#templates" title="Permalink to this headline"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">templates</span></code> module allows for fast creation of a few select sample types and diffraction geometries without having to
 worry about any of the “under the hood” scripting.</p>
@@ -1497,7 +1483,7 @@ worry about any of the “under the hood” scripting.</p>
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.templates.</span></span><span class="sig-name descname"><span class="pre">get_uniform_powder_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample_bounding_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_grains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sgname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain_tensor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([[0.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">0.]])</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/templates.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.templates.get_uniform_powder_sample" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a polycyrystal with grains overlayed at the origin and orientations drawn uniformly.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sample_bounding_radius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Bounding radius of sample. All tetrahedral crystal
 elements will be overlayed within a sphere of <code class="docutils literal notranslate"><span class="pre">sample_bounding_radius</span></code> radius.</p></li>
@@ -1510,7 +1496,7 @@ a,b and c are in units of anstrom.</p></li>
 elements contained within the sample. <code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<a class="reference internal" href="#module-xrd_simulator.polycrystal" title="xrd_simulator.polycrystal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal</span></code></a>) A polycyrystal sample with <code class="docutils literal notranslate"><span class="pre">number_of_grains</span></code> grains.</p>
 </dd>
 </dl>
@@ -1542,7 +1528,7 @@ orientation is constructed by first drawing a random bin and next drawing unifor
 within that bin, again assuming that <code class="docutils literal notranslate"><span class="pre">orientation_density_function</span></code> is approximately constant
 over a bin.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>orientation_density_function</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code>) – orientation_density_function(x, q) -&gt;
 <code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code> where input variable <code class="docutils literal notranslate"><span class="pre">x</span></code> is a <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code> of shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>
@@ -1570,7 +1556,7 @@ a <code class="xref py py-obj docutils literal notranslate"><span class="pre">nu
 cylinder (x,y,z).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal" title="xrd_simulator.polycrystal.Polycrystal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal</span></code></a>)</p>
 </dd>
 </dl>
@@ -1616,7 +1602,7 @@ cylinder (x,y,z).</p></li>
 over the diffraction geometry consider custom creation of the primitive quantities:
 (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>), and (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) seperately.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>parameters</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code>) – <p>Dictionary with fields as</p>
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">&quot;detector_distance&quot;</span></code><span class="classifier">(<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) Distance form sample origin to</span></dt><dd><p>detector centre in units of microns.</p>
@@ -1647,11 +1633,11 @@ over the diffraction geometry consider custom creation of the primitive quantiti
 </dl>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>(<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>),
 (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>), (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>).</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator</span></code>) objects defining an experiment</p>
 </dd>
 </dl>
@@ -1679,8 +1665,8 @@ over the diffraction geometry consider custom creation of the primitive quantiti
 </div>
 </dd></dl>
 
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
