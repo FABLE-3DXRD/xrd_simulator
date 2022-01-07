@@ -62,9 +62,7 @@ Let's go ahead and build ourselves some x-rays:
 
 We will also need to define a detector:
 
-.. literalinclude:: docs/source/examples/make_detector.py
-  :language: JSON
-
+.. include:: docs/source/examples/make_detector.py
 
 Next we go ahead and produce a sample:
 
