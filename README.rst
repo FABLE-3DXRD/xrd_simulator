@@ -62,7 +62,7 @@ Let's go ahead and build ourselves some x-rays:
 
 We will also need to define a detector:
 
-.. include:: docs/source/examples/make_detector.py
+   <polycrystal example goes here>
 
 Next we go ahead and produce a sample:
 
