@@ -113,9 +113,27 @@ Naturally one may also install from the sources::
 
 This will then again require the `pygalmesh`_ dependencies to be resolved beforehand.
 
+Credits
+===============================
+``xrd_simulator`` uses a builtin modified verisons of xfab and miniball. The source code of these repos can be found here:
+
+* `https://github.com/FABLE-3DXRD/xfab`_
+* `https://github.com/marmakoide/miniball`_
+
+``xrd_simulator`` also makes good use of pygalmesh:
+
+* `https://github.com/nschloe/pygalmesh`_
+
+
+.. _https://github.com/FABLE-3DXRD/xfab: https://github.com/FABLE-3DXRD/xfab
+
+.. _https://github.com/marmakoide/miniball: https://github.com/marmakoide/miniball
+
 .. _Anaconda: https://www.anaconda.com/products/individual
 
 .. _pygalmesh: https://github.com/nschloe/pygalmesh
+
+.. _https://github.com/nschloe/pygalmesh: https://github.com/nschloe/pygalmesh
 
 .. _can be found elsewhere.: https://github.com/nschloe/pygalmesh#installation
 
@@ -126,3 +144,5 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 .. _powder like: https://en.wikipedia.org/wiki/Powder_diffraction
 
 .. _which is hosted here: https://axelhenningsson.github.io/xrd_simulator/
+
+
