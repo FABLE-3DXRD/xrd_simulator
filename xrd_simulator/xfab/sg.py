@@ -83,7 +83,7 @@ sgdic = {
     "ama2": "Sg40",
     "aba2": "Sg41",
     "fmm2": "Sg42",
-    "fdd2": "Sg43",
+    "fddet_corner_2": "Sg43",
     "imm2": "Sg44",
     "iba2": "Sg45",
     "ima2": "Sg46",

@@ -15,7 +15,7 @@ class Polycrystal(PickleableObject):
             are aligned.
         ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
             xrd_simulator.phase.Phase object of element number i.
-        eU (:obj:`numpy array`): Per element U (orinetation) matrices, (``shape=(N,3,3)``). At instantiation it
+        eU (:obj:`numpy array`): Per element U (orientation) matrices, (``shape=(N,3,3)``). At instantiation it
             is assumed that the sample and lab coordinate systems are aligned.
         eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
@@ -75,9 +75,9 @@ class Polycrystal(PickleableObject):
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a funciton of time on the domain time=[0,1].
-            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below wich to not compute diffraction. Defaults to 0.
-            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after wich to not compute diffraction. By default the
+                polycrystal transformation as a function of time on the domain time=[0,1].
+            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction. Defaults to 0.
+            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after which to not compute diffraction. By default the
                 max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample centroid.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
 
@@ -113,7 +113,7 @@ class Polycrystal(PickleableObject):
                     progress_fraction,
                     message=progress_bar_message)
 
-            # skipp elements not illuminated
+            # skip elements not illuminated
             if proximity_intervals[ei][0] is None:
                 continue
 
@@ -162,7 +162,7 @@ class Polycrystal(PickleableObject):
             beam,
             min_bragg_angle,
             max_bragg_angle):
-        """Compute a maximum Bragg angle cutof based on the beam sample interection region centroid and detector corners.
+        """Compute a maximum Bragg angle cut of based on the beam sample interection region centroid and detector corners.
 
         If the beam graces or misses the sample, the sample centroid is used.
         """
@@ -189,7 +189,7 @@ class Polycrystal(PickleableObject):
 
         Args:
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a funciton of time on the domain time=[0,1].
+                polycrystal transformation as a function of time on the domain time=[0,1].
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
 

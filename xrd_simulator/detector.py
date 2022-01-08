@@ -9,36 +9,39 @@ class Detector(PickleableObject):
 
     The detector can collect scattering as abstract objects and map them to frame numbers.
     Using a render function these abstract representation can be rendered into pixelated frames.
-    The detector is described by a 3 x 3 geometry matrix whic columns contain vectors that attach
+    The detector is described by a 3 x 3 geometry matrix which columns contain vectors that attach
     to three of the four corners of the detector.
 
     Args:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``. The origin of the detector
-            is at d0.
+        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
+            The origin of the detector is at det_corner_0.
 
     Attributes:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        d0,d1,d2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``. The origin of the detector
-            is at d0.
+        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
+            The origin of the detector is at det_corner_0.
         frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
         zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
         normal (:obj:`numpy array`): Detector normal.
         zmax,ymax (:obj:`numpy array`): Detector width and height.
         pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
 
+    Examples:
+        .. literalinclude:: examples/example_init_detector.py
+
     """
 
-    def __init__(self, pixel_size_z, pixel_size_y, d0, d1, d2):
-        self.d0, self.d1, self.d2 = d0, d1, d2
+    def __init__(self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2):
+        self.det_corner_0, self.det_corner_1, self.det_corner_2 = det_corner_0, det_corner_1, det_corner_2
         self.pixel_size_z = pixel_size_z
         self.pixel_size_y = pixel_size_y
-        self.zmax = np.linalg.norm(self.d2 - self.d0)
-        self.ymax = np.linalg.norm(self.d1 - self.d0)
-        self.zdhat = (self.d2 - self.d0) / self.zmax
-        self.ydhat = (self.d1 - self.d0) / self.ymax
+        self.zmax = np.linalg.norm(det_corner_2 - det_corner_0)
+        self.ymax = np.linalg.norm(det_corner_1 - det_corner_0)
+        self.zdhat = (det_corner_2 - det_corner_0) / self.zmax
+        self.ydhat = (det_corner_1 - det_corner_0) / self.ymax
         self.normal = np.cross(self.zdhat, self.ydhat)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
@@ -71,7 +74,7 @@ class Detector(PickleableObject):
             verbose (:obj:`bool`): Prints progress. Defaults to True.
 
         Returns:
-            A pixelated frame as a (:obj:`numpy array`) with shape infered form the detector geometry and
+            A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
             pixel size.
 
         NOTE: This function can be overwitten to do more advanced models for intensity.
@@ -114,11 +117,11 @@ class Detector(PickleableObject):
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        s = (self.d0 - source_point).dot(self.normal) / \
+        s = (self.det_corner_0 - source_point).dot(self.normal) / \
             ray_direction.dot(self.normal)
         intersection = source_point + ray_direction * s
-        zd = np.dot(intersection - self.d0, self.zdhat)
-        yd = np.dot(intersection - self.d0, self.ydhat)
+        zd = np.dot(intersection - self.det_corner_0, self.zdhat)
+        yd = np.dot(intersection - self.det_corner_0, self.ydhat)
         return zd, yd
 
     def contains(self, zd, yd):
@@ -135,7 +138,7 @@ class Detector(PickleableObject):
         return zd >= 0 and zd <= self.zmax and yd >= 0 and yd <= self.ymax
 
     def get_wrapping_cone(self, k, source_point):
-        """Compute the cone around a wavevector such that the cone wrapps the detector corners.
+        """Compute the cone around a wavevector such that the cone wraps the detector corners.
 
         Args:
             k (:obj:`numpy array`): Wavevector forming the central axis of cone ´´´shape=(3,)´´´.
@@ -146,10 +149,10 @@ class Detector(PickleableObject):
                 which scattering will systematically miss the detector.
 
         """
-        fourth_corner_of_detector = self.d2 + (self.d1 - self.d0[:])
+        fourth_corner_of_detector = self.det_corner_2 + (self.det_corner_1 - self.det_corner_0[:])
         geom_mat = np.zeros((3, 4))
         for i, det_corner in enumerate(
-                [self.d0, self.d1, self.d2, fourth_corner_of_detector]):
+                [self.det_corner_0, self.det_corner_1, self.det_corner_2, fourth_corner_of_detector]):
             geom_mat[:, i] = det_corner - source_point
         normalised_local_coord_geom_mat = geom_mat / \
             np.linalg.norm(geom_mat, axis=0)
@@ -165,7 +168,7 @@ class Detector(PickleableObject):
         pixel_coordinates = np.zeros((len(zds), len(yds), 3))
         for i, z in enumerate(zds):
             for j, y in enumerate(yds):
-                pixel_coordinates[i, j, :] = self.d0 + \
+                pixel_coordinates[i, j, :] = self.det_corner_0 + \
                     y * self.ydhat + z * self.zdhat
         return pixel_coordinates
 
@@ -199,14 +202,14 @@ class Detector(PickleableObject):
         This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
         function.
 
-        NOTE: If the projection of the scatterer does not hit any pixel controids of the detector fallback to
+        NOTE: If the projection of the scatterer does not hit any pixel centroids of the detector fallback to
         the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
         """
         box = self._get_projected_bounding_box(scatterer)
         if box is not None:
             projection = self._project(scatterer, box)
             if np.sum(projection) == 0:
-                # The projection of the scatterer did not hit any pixel controids of the detector.
+                # The projection of the scatterer did not hit any pixel centroids of the detector.
                 # i.e the scatterer is small in comparison to the detector
                 # pixels.
                 self._centroid_render(

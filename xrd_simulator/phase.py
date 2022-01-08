@@ -45,12 +45,12 @@ class Phase(object):
             min_bragg_angle,
             max_bragg_angle,
             verbose=True):
-        """Generates all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.
+        """Generates all Miller indices (h,k,l) that will diffract given wavelength and Bragg angle bounds.
 
         If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.
 
         Args:
-            wavelength (:obj:`float`): X-ray wavelenght in units of anstrom.
+            wavelength (:obj:`float`): X-ray wavelength in units of anstrom.
             min_bragg_angle (:obj:`float`): Maximum Bragg angle, in radians, allowed to be taken during diffraction.
             max_bragg_angle (:obj:`float`): Minimum Bragg angle, in radians, allowed to be taken during diffraction.
 

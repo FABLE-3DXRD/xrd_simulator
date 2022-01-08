@@ -63,7 +63,7 @@ def s3dxrd(parameters):
         (:obj:`xrd_simulator.detector.Detector`), (:obj:`xrd_simulator.motion.RigidBodyMotion`).
 
     Examples:
-        .. literalinclude:: examples/s3dxrd.py
+        .. literalinclude:: examples/example_s3dxrd.py
 
     """
     for key in PARAMETER_KEYS:
@@ -180,7 +180,7 @@ def polycrystal_from_odf(orientation_density_function,
         (:obj:`xrd_simulator.polycrystal.Polycrystal`)
 
     Examples:
-        .. literalinclude:: examples/polycrystal_from_odf.py
+        .. literalinclude:: examples/example_polycrystal_from_odf.py
 
     """
     # Sample topology
@@ -329,7 +329,7 @@ def get_uniform_powder_sample(
         (:obj:`xrd_simulator.polycrystal`) A polycyrystal sample with ``number_of_grains`` grains.
 
     Examples:
-        .. literalinclude:: examples/get_uniform_powder_sample.py
+        .. literalinclude:: examples/example_get_uniform_powder_sample.py
 
     """
     coord, enod, eU, node_number = [], [], [], 0

@@ -62,7 +62,7 @@ Let's go ahead and build ourselves some x-rays:
 
 We will also need to define a detector:
 
-   .. literalinclude:: examples/make_detector.py
+   .. literalinclude:: examples/example_init_detector.py
 
 Next we go ahead and produce a sample:
 

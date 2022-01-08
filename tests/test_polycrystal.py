@@ -18,19 +18,19 @@ class TestPolycrystal(unittest.TestCase):
         self.pixel_size = 75.
         self.detector_size = self.pixel_size * 1024
         self.detector_distance = 142938.28756189224
-        self.d0 = np.array(
+        det_corner_0 = np.array(
             [self.detector_distance, -self.detector_size / 2., -self.detector_size / 2.])
-        self.d1 = np.array(
+        det_corner_1 = np.array(
             [self.detector_distance, self.detector_size / 2., -self.detector_size / 2.])
-        self.d2 = np.array(
+        det_corner_2 = np.array(
             [self.detector_distance, -self.detector_size / 2., self.detector_size / 2.])
 
         self.detector = Detector(
             self.pixel_size,
             self.pixel_size,
-            self.d0,
-            self.d1,
-            self.d2)
+            det_corner_0,
+            det_corner_1,
+            det_corner_2)
 
         mesh = TetraMesh.generate_mesh_from_levelset(
             level_set=lambda x: np.dot(x, x) - self.detector_size / 10.,

@@ -13,11 +13,11 @@ from xrd_simulator.xfab import tools
 pixel_size = 75.
 detector_size = pixel_size * 1024
 detector_distance = 142938.28756189224
-d0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
-d1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
-d2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
+det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
+det_corner_1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
+det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
 
-detector = Detector(pixel_size, pixel_size, d0, d1, d2)
+detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
 
 np.random.seed(1)
 r = (detector_size / 10.)
