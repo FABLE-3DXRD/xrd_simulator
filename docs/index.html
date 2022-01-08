@@ -132,7 +132,28 @@ examples to get us started on a good flavour.</p>
 as the sample undergoes the prescribed rigid body <strong>motion</strong> while being illuminated by the xray <strong>beam</strong>.</p>
 <p>Let’s go ahead and build ourselves some x-rays:</p>
 <blockquote>
-<div><p>&lt;beam example goes here&gt;</p>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.beam</span> <span class="kn">import</span> <span class="n">Beam</span>
+
+<span class="c1"># The beam of x-rays is represented as a convex polyhedron</span>
+<span class="c1"># We specify the vertices in a numpy array.</span>
+<span class="n">beam_vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]])</span>
+
+<span class="n">beam</span> <span class="o">=</span> <span class="n">Beam</span><span class="p">(</span>
+    <span class="n">beam_vertices</span><span class="p">,</span>
+    <span class="n">xray_propagation_direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]),</span>
+    <span class="n">wavelength</span><span class="o">=</span><span class="mf">0.28523</span><span class="p">,</span>
+    <span class="n">polarization_vector</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]))</span>
+</pre></div>
+</div>
 </div></blockquote>
 <p>We will also need to define a detector:</p>
 <blockquote>
@@ -150,7 +171,39 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>Next we go ahead and produce a sample:</p>
 <blockquote>
-<div><p>&lt;polycrystal example goes here&gt;</p>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.mesh</span> <span class="kn">import</span> <span class="n">TetraMesh</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
+
+<span class="c1"># The toplogy of the polycrystal is described by a tetrahedral mesh,</span>
+<span class="c1"># xrd_simulator supports several ways to generate a mesh, here we</span>
+<span class="c1"># generate meshed solid sphere using a level set.</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">TetraMesh</span><span class="o">.</span><span class="n">generate_mesh_from_levelset</span><span class="p">(</span>
+    <span class="n">level_set</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">768.0</span><span class="p">,</span>
+    <span class="n">bounding_radius</span><span class="o">=</span><span class="mf">769.0</span><span class="p">,</span>
+    <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
+
+<span class="c1"># The mesh can be saved as a .xdmf for visualization.</span>
+<span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;C:\Users\Henningsson\Downloads\mesh.xdmf&#39;</span><span class="p">)</span>
+
+<span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
+<span class="c1"># by an xrd_simulator.phase.Phase object.</span>
+<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span>
+    <span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
+    <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span>  <span class="c1"># (Quartz)</span>
+<span class="p">)</span>
+
+<span class="c1"># The polycrystal can now map phase(s) (only quartz here), orientations and</span>
+<span class="c1"># strains to the tetrahedral mesh elements.</span>
+<span class="n">polycrystal</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
+                          <span class="n">ephase</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">,))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
+                          <span class="n">crystal_orientations</span><span class="o">=</span><span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">(),</span>
+                          <span class="n">crystal_strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span>
+                          <span class="n">phases</span><span class="o">=</span><span class="p">[</span><span class="n">quartz</span><span class="p">])</span>
+</pre></div>
+</div>
 </div></blockquote>
 <p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
 <blockquote>
