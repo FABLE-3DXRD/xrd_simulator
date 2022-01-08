@@ -61,7 +61,7 @@ as the sample undergoes the prescribed rigid body **motion** while being illumin
 
 Let's go ahead and build ourselves some x-rays:
 
-   <beam example goes here>
+   .. literalinclude:: examples/example_init_beam.py
 
 We will also need to define a detector:
 
@@ -69,7 +69,7 @@ We will also need to define a detector:
 
 Next we go ahead and produce a sample:
 
-   <polycrystal example goes here>
+   .. literalinclude:: examples/example_init_polycrystal.py
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
