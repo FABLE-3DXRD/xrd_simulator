@@ -4,6 +4,29 @@
 import os
 import shutil
 
+with open(os.path.join("source", "raw_README.rst"), "r") as f:
+    data = f.readlines()
+
+new_data =[]
+for i,line in enumerate(data):
+    if line.strip().startswith(".. literalinclude::"):
+        py_file = line.strip().split("::")[-1].strip()
+        py_file = os.path.join("source",py_file)
+        py_file = os.path.abspath(py_file)
+        new_data.append("   .. code:: python")
+        new_data.append("\n\n")
+        with open(py_file, "r") as f:
+            for line in f.readlines():
+                if len(line.strip())>0:
+                    new_data.append("      "+line)
+                else:
+                    new_data.append("\n")
+    else:
+        new_data.append(line)
+
+with open(os.path.join("..","README.rst"), 'w') as f:
+    f.writelines(new_data)
+
 out = os.system("make html")
 if out != 0:
     print("")

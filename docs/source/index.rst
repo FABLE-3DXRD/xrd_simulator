@@ -2,7 +2,7 @@
    :maxdepth: 2
    :caption: Contents:
 
-.. include:: ../../README.rst
+.. include:: raw_README.rst
 
 ======================================
 Documentation
@@ -10,7 +10,7 @@ Documentation
 
 .. _beam:
 
-beam 
+beam
 ======================================
 
 .. automodule:: xrd_simulator.beam
