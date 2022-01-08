@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.lib.function_base import iterable
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils, laue
 from xrd_simulator._pickleable_object import PickleableObject
@@ -13,49 +14,89 @@ class Polycrystal(PickleableObject):
         mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
             geometry of the sample. At instantiation it is assumed that the sample and lab coordinate systems
             are aligned.
-        ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
-            xrd_simulator.phase.Phase object of element number i.
-        eU (:obj:`numpy array`): Per element U (orientation) matrices, (``shape=(N,3,3)``). At instantiation it
+        orientation (:obj:`numpy array`): Per element orientation matrices (sometimes known by the capital letter U),
+            (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is uniform between elements. At instantiation it
             is assumed that the sample and lab coordinate systems are aligned.
-        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (``shape=(N,3,3)``).
+        strain (:obj:`numpy array`): Per element strain tensor, (``shape=(N,3,3)``) or (``shape=(3,3)``) if the strain is
+            uniform between elements.
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
+        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
+            gives the xrd_simulator.phase.Phase object of element number i. None if the sample is composed of a single phase.
+            (Defaults to None)
 
     Attributes:
         mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
             geometry of the sample in a fixed lab frame coordinate system.
         mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
             geometry of the sample in a sample coordinate system.
-        ephase (:obj:`numpy array`): Index of phase that elements belong to such that phases[ephase[i]] gives the
-            xrd_simulator.phase.Phase object of element number i.
-        eU_lab (:obj:`numpy array`): Per element U (orientation) matrices in a fixed lab frame coordinate
+        orientation_lab (:obj:`numpy array`): Per element orientation matrices in a fixed lab frame coordinate
+            system, (``shape=(N,3,3)``). (sometimes known by the capital letter U)
+        orientation_sample (:obj:`numpy array`): Per element orientation matrices in a sample coordinate
+            system., (``shape=(N,3,3)``). (sometimes known by the capital letter U)
+        strain_lab (:obj:`numpy array`): Per element strain tensor in a fixed lab frame coordinate
             system, (``shape=(N,3,3)``).
-        eU_sample (:obj:`numpy array`): Per element U (orientation) matrices in a sample coordinate
+        strain_sample (:obj:`numpy array`): Per element strain tensor in a sample coordinate
             system., (``shape=(N,3,3)``).
-        eB (:obj:`numpy array`): Per element B (hkl to crystal mapper) matrices, (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
+        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
+            gives the xrd_simulator.phase.Phase object of element number i.
 
     """
 
-    def __init__(self, mesh, ephase, eU, eB, phases):
+    def __init__(
+            self,
+            mesh,
+            orientation,
+            strain,
+            phases,
+            element_phase_map=None):
 
-        assert eU.shape[0] == mesh.enod.shape[0], "Every crystal element must have an orientation."
-        assert eB.shape[0] == mesh.enod.shape[0], "Every crystal element must have a deformation state."
+        if len(orientation.shape) == 2:
+            self.orientation_lab = np.repeat(
+                orientation.reshape(
+                    1, 3, 3), mesh.number_of_elements, axis=0)
+        else:
+            self.orientation_lab = np.copy(orientation)
+
+        if len(strain.shape) == 2:
+            self.strain_lab = np.repeat(strain.reshape(
+                1, 3, 3), mesh.number_of_elements, axis=0)
+        else:
+            self.strain_lab = np.copy(strain)
+
+        if not isinstance(phases, list):
+            self.phases = [phases]
+        else:
+            self.phases = phases
+
+        if len(self.phases) == 0 and self.element_phase_map is None:
+            self.element_phase_map = np.zeros((self.mesh.number_of_elements,))
+        else:
+            self.element_phase_map = element_phase_map
+
+        self._eB = np.zeros((mesh.number_of_elements, 3, 3))
+        for i in range(mesh.number_of_elements):
+            self._eB[i,
+                     :,
+                     :] = utils.lab_strain_to_B_matrix(self.strain_lab[i,
+                                                                       :,
+                                                                       :],
+                                                       self.orientation_lab[i,
+                                                                            :,
+                                                                            :],
+                                                       self.phases[element_phase_map[i]].unit_cell)
+
+        assert self.orientation_lab.shape[0] == mesh.number_of_elements, "Every crystal element must have an orientation."
+        assert self._eB.shape[0] == mesh.number_of_elements, "Every crystal element must have a deformation state."
         for i in range(1, 3):
-            assert eU.shape[i] == 3
-            assert eB.shape[i] == 3
-
-        # TODO: Allow specifying strain rather than eB as eB is much more
-        # non intuitive quantity.
+            assert orientation.shape[i] == 3
+            assert self._eB.shape[i] == 3
 
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
-        self.eU_lab = eU.copy()
         self.mesh_sample = copy.deepcopy(mesh)
-        self.eU_sample = eU.copy()
-
-        self.phases = phases
-        self.ephase = ephase
-        self.eB = eB
+        self.strain_sample = np.copy(self.strain_lab)
+        self.orientation_sample = np.copy(self.orientation_lab)
 
     def diffract(
             self,
@@ -95,7 +136,8 @@ class Polycrystal(PickleableObject):
 
         c_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
         c_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-        c_2_factor = beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2)
+        c_2_factor = beam.wave_vector.dot(
+            np.eye(3, 3) + rigid_body_motion.rotator.K2)
 
         scatterers = []
 
@@ -118,8 +160,8 @@ class Polycrystal(PickleableObject):
                 continue
 
             element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
-            G_0 = laue.get_G(
-                self.eU_lab[ei], self.eB[ei], self.phases[self.ephase[ei]].miller_indices.T)
+            G_0 = laue.get_G(self.orientation_lab[ei], self._eB[ei],
+                             self.phases[self.element_phase_map[ei]].miller_indices.T)
 
             c_0s = c_0_factor.dot(G_0)
             c_1s = c_1_factor.dot(G_0)
@@ -151,7 +193,7 @@ class Polycrystal(PickleableObject):
                                                       beam.polarization_vector,
                                                       rigid_body_motion.rotation_axis,
                                                       time,
-                                                      self.phases[self.ephase[ei]],
+                                                      self.phases[self.element_phase_map[ei]],
                                                       hkl_indx)
                                 scatterers.append(scatterer)
         detector.frames.append(scatterers)
@@ -185,18 +227,27 @@ class Polycrystal(PickleableObject):
 
         This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
         such as face normals etc. Likewise, it will update the per element crystallite orientation
-        matrices (U) such that the updated matrix will
+        matrices (U).
 
         Args:
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
-
         """
+        angle_to_rotate = rigid_body_motion.rotation_angle * time
+        Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
+            angle_to_rotate)
         new_nodal_coordinates = rigid_body_motion(
             self.mesh_lab.coord.T, time=time).T
         self.mesh_lab.update(new_nodal_coordinates)
         for ei in range(self.mesh_lab.number_of_elements):
-            self.eU_lab[ei] = rigid_body_motion.rotate(
-                self.eU_lab[ei], time=time)
+            self.orientation_lab[ei] = np.dot(
+                Rot_mat, self.orientation_lab[ei])
+            self.strain_lab[ei] = utils._rotate_tensor(
+                self.strain_lab[ei], Rot_mat) #TODO: unit test the strains
+
+    # TODO: overload the save function to also save a nice xdmf with all per element things attached..
+    # def save(self, path):
+    #     super().save(path)
+    #     self.mesh_lab.save(path + "mesh.xdmf", element_data=..)

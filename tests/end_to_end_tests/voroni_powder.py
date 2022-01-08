@@ -56,15 +56,13 @@ detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corn
 unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
 sgname = 'Fm-3m'  # Iron
 phases = [Phase(unit_cell, sgname)]
-B0 = tools.epsilon_to_b(np.zeros((6,)), unit_cell)
-eB = np.array([B0 for _ in range(mesh.number_of_elements)])
 
 grain_avg_rot = np.max([np.radians(1.0), np.random.rand() * 2 * np.pi])
 euler_angles = grain_avg_rot + \
     np.random.normal(loc=0.0, scale=np.radians(20), size=(mesh.number_of_elements, 3))
-eU = np.array([tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles])
-ephase = np.zeros((mesh.number_of_elements,)).astype(int)
-polycrystal = Polycrystal(mesh, ephase, eU, eB, phases)
+orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles])
+element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+Polycrystal(mesh, orientation, strain=np.zeros((3,3)), phases=phases, element_phase_map=element_phase_map)
 
 w = detector_size  # full field beam
 beam_vertices = np.array([

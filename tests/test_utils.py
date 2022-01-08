@@ -34,14 +34,14 @@ class TestUtils(unittest.TestCase):
                 1.0,
                 msg="Tilted projection through unity cube should give greater than unity clip length")
 
-    def test_lab_strain_to_lattice_matrix(self):
+    def test_lab_strain_to_B_matrix(self):
 
         U = Rotation.random().as_matrix()
         strain_tensor = (np.random.rand(3, 3) - 0.5) / \
             100.  # random small strain tensor
         strain_tensor = (strain_tensor.T + strain_tensor) / 2.
         unit_cell = [5.028, 5.028, 5.519, 90., 90., 120.]
-        B = utils.lab_strain_to_lattice_matrix(strain_tensor, U, unit_cell)
+        B = utils.lab_strain_to_B_matrix(strain_tensor, U, unit_cell)
 
         n_c = np.random.rand(3,)  # crystal unit vector
         n_c = n_c / np.linalg.norm(n_c)
