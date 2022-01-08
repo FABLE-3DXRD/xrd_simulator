@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulate X-ray Diffraction from Polycrystals in 3D. &mdash; xrd_simulator 0.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/clipboard.min.js"></script>
+        <script src="_static/copybutton.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html">
+            <img src="_static/logo_stripped_white.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals in 3D.</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#installation">Installation</a><ul>
+<li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
+<li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
+<li><a class="reference internal" href="#source-installation">Source installation</a></li>
+<li><a class="reference internal" href="#credits">Credits</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xrd_simulator</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Simulate X-ray Diffraction from Polycrystals in 3D.</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/raw_README.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
+<a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" src="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://badge.fury.io/py/xrd-simulator.svg?" src="https://badge.fury.io/py/xrd-simulator.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
+<section id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
+<h1>Simulate X-ray Diffraction from Polycrystals in 3D.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals-in-3d" title="Permalink to this headline"></a></h1>
+<p>The <strong>X</strong>-<strong>R</strong> ay <strong>D</strong> iffraction <strong>SIMULATOR</strong> package defines polycrystals as a mesh of tetrahedral single crystals
+and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
+around an arbitrary rotation axis.</p>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> was originally developed with the hope to answer questions about measurement optimization in
+scanning x-ray diffraction experiments. However, <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> can simulate a wide range of experimental
+diffraction setups. The essential idea is that the sample and beam topology can be arbitrarily specified,
+and their interaction simulated as the sample is rocked. This means that standard “non-powder” experiments
+such as <a class="reference external" href="https://doi.org/10.1107/S1600576720001016">scanning-3dxrd</a> and full-field <a class="reference external" href="https://en.wikipedia.org/wiki/3DXRD">3dxrd</a> (or HEDM if you like) can be simulated as well as more advanced
+measurement sequences such as helical scans for instance. It is also possible to simulate <a class="reference external" href="https://en.wikipedia.org/wiki/Powder_diffraction">powder like</a>
+scenarios using orientation density functions as input.</p>
+</section>
+<section id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<p>Before reading all the boring documentation (<a class="reference external" href="https://axelhenningsson.github.io/xrd_simulator/">which is hosted here</a>) let’s dive into some end to end
+examples to get us started on a good flavour.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is built around four python objects which reflect a diffraction experiment:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A <strong>beam</strong> of x-rays (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.beam</span></code> module)</p></li>
+<li><p>A 2D area <strong>detector</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.detector</span></code> module)</p></li>
+<li><p>A 3D <strong>polycrystal</strong> sample (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal</span></code> module)</p></li>
+<li><p>A rigid body sample <strong>motion</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.motion</span></code> module)</p></li>
+</ul>
+</div></blockquote>
+<p>Once these objects are defined the it is possible to let the <strong>detector</strong> collect scattering of the <strong>polycrystal</strong>
+as the sample undergoes the prescribed rigid body <strong>motion</strong> while being illuminated by the xray <strong>beam</strong>.</p>
+<p>Let’s go ahead and build ourselves some x-rays:</p>
+<blockquote>
+<div><p>&lt;beam example goes here&gt;</p>
+</div></blockquote>
+<p>We will also need to define a detector:</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
+
+<span class="n">pixel_size_z</span> <span class="o">=</span> <span class="mf">75.0</span>
+<span class="n">pixel_size_y</span> <span class="o">=</span> <span class="mf">55.0</span>
+<span class="n">detector_size_z</span> <span class="o">=</span> <span class="n">pixel_size_z</span> <span class="o">*</span> <span class="mi">1024</span>
+<span class="n">detector_distance</span> <span class="o">=</span> <span class="mf">142938.3</span>
+<span class="n">d0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">d1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="p">,</span> <span class="n">pixel_size_y</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Next we go ahead and produce a sample:</p>
+<blockquote>
+<div><p>&lt;polycrystal example goes here&gt;</p>
+</div></blockquote>
+<p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
+<blockquote>
+<div><p>&lt;motion example goes here&gt;</p>
+</div></blockquote>
+<p>Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:</p>
+<blockquote>
+<div><p>&lt;diffract and rendering example goes here&gt;</p>
+</div></blockquote>
+</section>
+<section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
+<section id="anaconda-installation">
+<h2>Anaconda installation<a class="headerlink" href="#anaconda-installation" title="Permalink to this headline"></a></h2>
+<p>The preferred way to install the xrd_simulator package is via anaconda:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">axiomel</span> <span class="n">xrd_simulator</span>
+</pre></div>
+</div>
+<p>This is meant work across OS-systems and requires no prerequisites except, of course,
+that of <a class="reference external" href="https://www.anaconda.com/products/individual">Anaconda</a> itself.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> works on python versions =&gt;3.8&lt;3.9. Make sure your conda environment has the right
+python version before installation. For instance, running <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">python=3.8</span></code> before
+installation should ensure correct behavior.</p>
+</aside>
+</section>
+<section id="pip-installation">
+<h2>Pip Installation<a class="headerlink" href="#pip-installation" title="Permalink to this headline"></a></h2>
+<p>Pip installation is possible, however, external dependencies of <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> must the be preinstalled
+on your system. Installation of these will be OS dependent and documentation
+<a class="reference external" href="https://github.com/nschloe/pygalmesh#installation">can be found elsewhere.</a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">xrd</span><span class="o">-</span><span class="n">simulator</span>
+</pre></div>
+</div>
+</section>
+<section id="source-installation">
+<h2>Source installation<a class="headerlink" href="#source-installation" title="Permalink to this headline"></a></h2>
+<p>Naturally one may also install from the sources:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">FABLE</span><span class="o">-</span><span class="mi">3</span><span class="n">DXRD</span><span class="o">/</span><span class="n">xrd_simulator</span><span class="o">.</span><span class="n">git</span>
+<span class="n">cd</span> <span class="n">xrd_simulator</span>
+<span class="n">python</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>This will then again require the <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> dependencies to be resolved beforehand.</p>
+</section>
+<section id="credits">
+<h2>Credits<a class="headerlink" href="#credits" title="Permalink to this headline"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> uses a builtin modified verisons of xfab and miniball. The source code of these repos can be found here:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/FABLE-3DXRD/xfab">https://github.com/FABLE-3DXRD/xfab</a></p></li>
+<li><p><a class="reference external" href="https://github.com/marmakoide/miniball">https://github.com/marmakoide/miniball</a></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> also makes good use of pygalmesh:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/nschloe/pygalmesh">https://github.com/nschloe/pygalmesh</a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Axel Henningsson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

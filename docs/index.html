@@ -48,6 +48,7 @@
 <li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
 <li><a class="reference internal" href="#source-installation">Source installation</a></li>
+<li><a class="reference internal" href="#credits">Credits</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id1">Documentation</a><ul>
@@ -91,11 +92,11 @@
              
   <div class="toctree-wrapper compound">
 </div>
-<img alt="https://github.com/AxelHenningsson/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/AxelHenningsson/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
+<img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" src="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" /></a>
-<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" /></a>
-<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
-<a class="reference external image-reference" href="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/AxelHenningsson/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://badge.fury.io/py/xrd-simulator.svg?" src="https://badge.fury.io/py/xrd-simulator.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
@@ -134,7 +135,19 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>We will also need to define a detector:</p>
 <blockquote>
-<div><p>&lt;polycrystal example goes here&gt;</p>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
+
+<span class="n">pixel_size_z</span> <span class="o">=</span> <span class="mf">75.0</span>
+<span class="n">pixel_size_y</span> <span class="o">=</span> <span class="mf">55.0</span>
+<span class="n">detector_size_z</span> <span class="o">=</span> <span class="n">pixel_size_z</span> <span class="o">*</span> <span class="mi">1024</span>
+<span class="n">detector_distance</span> <span class="o">=</span> <span class="mf">142938.3</span>
+<span class="n">d0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">d1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
+<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="p">,</span> <span class="n">pixel_size_y</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
+</pre></div>
+</div>
 </div></blockquote>
 <p>Next we go ahead and produce a sample:</p>
 <blockquote>
@@ -178,12 +191,24 @@ on your system. Installation of these will be OS dependent and documentation
 <section id="source-installation">
 <h2>Source installation<a class="headerlink" href="#source-installation" title="Permalink to this headline"></a></h2>
 <p>Naturally one may also install from the sources:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">AxelHenningsson</span><span class="o">/</span><span class="n">xrd_simulator</span><span class="o">.</span><span class="n">git</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">FABLE</span><span class="o">-</span><span class="mi">3</span><span class="n">DXRD</span><span class="o">/</span><span class="n">xrd_simulator</span><span class="o">.</span><span class="n">git</span>
 <span class="n">cd</span> <span class="n">xrd_simulator</span>
 <span class="n">python</span> <span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="n">install</span>
 </pre></div>
 </div>
 <p>This will then again require the <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> dependencies to be resolved beforehand.</p>
+</section>
+<section id="credits">
+<h2>Credits<a class="headerlink" href="#credits" title="Permalink to this headline"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> uses a builtin modified verisons of xfab and miniball. The source code of these repos can be found here:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/FABLE-3DXRD/xfab">https://github.com/FABLE-3DXRD/xfab</a></p></li>
+<li><p><a class="reference external" href="https://github.com/marmakoide/miniball">https://github.com/marmakoide/miniball</a></p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> also makes good use of pygalmesh:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/nschloe/pygalmesh">https://github.com/nschloe/pygalmesh</a></p></li>
+</ul>
 </section>
 </section>
 <section id="id1">
