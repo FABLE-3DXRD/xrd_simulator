@@ -27,6 +27,9 @@
 ===================================================================================================
 Simulate X-ray Diffraction from Polycrystals in 3D.
 ===================================================================================================
+.. image:: https://img.shields.io/badge/stability-alpha-f4d03f.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/
+
 
 The **X**-**R** ay **D** iffraction **SIMULATOR** package defines polycrystals as a mesh of tetrahedral single crystals
 and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
@@ -143,6 +146,6 @@ Credits
 
 .. _powder like: https://en.wikipedia.org/wiki/Powder_diffraction
 
-.. _which is hosted here: https://axelhenningsson.github.io/xrd_simulator/
+.. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
 
