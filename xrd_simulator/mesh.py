@@ -303,6 +303,8 @@ class TetraMesh(object):  # TODO: add unit tests
 
         Args:
             file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
+            element_data (:obj:`dict` if :obj:`list`): Data associated to the elements.
+
         """
         # TODO: add end to end test
         if element_data is not None:

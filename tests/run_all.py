@@ -20,7 +20,9 @@ def run_tests():
     else:
         print(" Unittests Failed !")
         print(test_result.failures)
-        print(test_result.errors)
+        for errorlist in test_result.errors:
+            for line in errorlist:
+                print(line)
         exit(-1)
 
 

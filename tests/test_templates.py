@@ -94,7 +94,7 @@ class TestUtils(unittest.TestCase):
         # Compare Euler angle distributions to scipy random uniform orientation
         # sampler
         euler1 = np.array([Rotation.from_matrix(U).as_euler(
-            'xyz', degrees=True) for U in polycrystal.eU_lab])
+            'xyz', degrees=True) for U in polycrystal.orientation_lab])
         euler2 = Rotation.random(10 * euler1.shape[0]).as_euler('xyz')
 
         for i in range(3):

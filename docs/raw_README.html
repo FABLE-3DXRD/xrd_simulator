@@ -170,22 +170,23 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
     <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
 
 <span class="c1"># The mesh can be saved as a .xdmf for visualization.</span>
-<span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;C:\Users\Henningsson\Downloads\mesh.xdmf&#39;</span><span class="p">)</span>
+<span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;mesh.xdmf&quot;</span><span class="p">)</span>
 
 <span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
 <span class="c1"># by an xrd_simulator.phase.Phase object.</span>
-<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span>
-    <span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
-    <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span>  <span class="c1"># (Quartz)</span>
-<span class="p">)</span>
+<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
+               <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span><span class="p">,</span>  <span class="c1"># (Quartz)</span>
+               <span class="n">path_to_cif_file</span><span class="o">=</span><span class="kc">None</span>  <span class="c1"># phases can be defined from crystalographic information files</span>
+               <span class="p">)</span>
 
 <span class="c1"># The polycrystal can now map phase(s) (only quartz here), orientations and</span>
 <span class="c1"># strains to the tetrahedral mesh elements.</span>
+<span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
 <span class="n">polycrystal</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
-                          <span class="n">ephase</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">,))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span>
-                          <span class="n">crystal_orientations</span><span class="o">=</span><span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">(),</span>
-                          <span class="n">crystal_strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span>
-                          <span class="n">phases</span><span class="o">=</span><span class="p">[</span><span class="n">quartz</span><span class="p">])</span>
+                          <span class="n">orientation</span><span class="p">,</span>
+                          <span class="n">strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+                          <span class="n">phases</span><span class="o">=</span><span class="n">quartz</span><span class="p">,</span>
+                          <span class="n">element_phase_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </pre></div>
 </div>
 </div></blockquote>

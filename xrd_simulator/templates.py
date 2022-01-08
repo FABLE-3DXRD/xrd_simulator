@@ -205,23 +205,26 @@ def polycrystal_from_odf(orientation_density_function,
 
     # Sample is uniformly single phase
     phases = [Phase(unit_cell, sgname)]
-    ephase = np.zeros((mesh.number_of_elements,)).astype(int)
+    element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
 
     # Sample spatial texture
-    eU = _sample_ODF(
+    orientation = _sample_ODF(
         orientation_density_function,
         maximum_sampling_bin_seperation,
         mesh.ecentroids)
 
     # Sample spatial strain
-    eB = np.zeros((mesh.number_of_elements, 3, 3))
+    strain_lab = np.zeros((mesh.number_of_elements, 3, 3))
     for ei in range(mesh.number_of_elements):
-        strain_lab = strain_tensor(
-            mesh.ecentroids[ei])  # strain in lab-coordinates
-        eB[ei] = utils.lab_strain_to_lattice_matrix(
-            strain_lab, eU[ei], unit_cell)
+        # strain in lab/sample-coordinates
+        strain_lab[ei] = strain_tensor(mesh.ecentroids[ei])
 
-    return Polycrystal(mesh, ephase, eU, eB, phases)
+    return Polycrystal(
+        mesh,
+        orientation,
+        strain=strain_lab,
+        phases=phases,
+        element_phase_map=element_phase_map)
 
 
 def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
@@ -311,7 +314,8 @@ def get_uniform_powder_sample(
         number_of_grains,
         unit_cell,
         sgname,
-        strain_tensor=np.zeros((3, 3))):
+        strain_tensor=np.zeros((3, 3)),
+        path_to_cif_file=None):
     """Generate a polycyrystal with grains overlayed at the origin and orientations drawn uniformly.
 
     Args:
@@ -324,6 +328,8 @@ def get_uniform_powder_sample(
         sgname (:obj:`string`):  Name of space group , e.g 'P3221' for quartz, SiO2, for instance
         strain_tensor (:obj:`numpy array`): Strain tensor to apply to all tetrahedral crystal
             elements contained within the sample. ``shape=(3,3)``.
+        path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
+            factors are computed, i.e `structure_factors=None`.
 
     Returns:
         (:obj:`xrd_simulator.polycrystal`) A polycyrystal sample with ``number_of_grains`` grains.
@@ -343,8 +349,12 @@ def get_uniform_powder_sample(
         node_number += 3
     coord, enod = np.array(coord), np.array(enod)
     mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
-    eU = Rotation.random(mesh.number_of_elements).as_matrix()
-    eB = np.array([utils.lab_strain_to_lattice_matrix(
-        strain_tensor, U, unit_cell) for U in eU])
-    ephase = np.zeros((mesh.number_of_elements,)).astype(int)
-    return Polycrystal(mesh, ephase, eU, eB, [Phase(unit_cell, sgname)])
+    orientation = Rotation.random(mesh.number_of_elements).as_matrix()
+    element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+    phases = [Phase(unit_cell, sgname, path_to_cif_file)]
+    return Polycrystal(
+        mesh,
+        orientation,
+        strain=strain_tensor,
+        phases=phases,
+        element_phase_map=element_phase_map)
