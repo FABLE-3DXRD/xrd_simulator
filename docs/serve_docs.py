@@ -32,7 +32,12 @@ if out != 0:
     print("")
     print("")
     raise ValueError("Failed to build docs")
-for file in os.listdir(os.path.join("build","html")):
+html = os.path.join("build","html")
+for file in os.listdir(html):
     if not file.startswith('_'):
-        shutil.copy2(os.path.join(os.path.join("build", "html"), file), ".")
+        shutil.copy2(os.path.join(html, file), ".")
+
+for file in os.listdir(os.path.join(html, '_static')):
+    if file.endswith('.png'):
+        shutil.copy2( os.path.join(os.path.join(html, '_static') , file), "_static")
 print("Copied all docs to path visible by github pages")
