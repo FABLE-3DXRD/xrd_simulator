@@ -68,7 +68,7 @@ class Beam(PickleableObject):
 
         """
         # NOTE: from profiling: this method is slow, beware of using it
-        # uneccesarrily.
+        # unnecessarily.
         norm_vector = np.reshape(np.linalg.norm(
             halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
         c = np.zeros((halfspaces.shape[1],))
@@ -153,7 +153,7 @@ class Beam(PickleableObject):
             sphere_centres (:obj:`numpy array`): Centroids of a spheres ``shape=(3,n)``.
             sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a funciton of time on the domain time=[0,1].
+                polycrystal transformation as a function of time on the domain time=[0,1].
 
         Returns:
             (:obj:`list` of :obj:`list` of :obj:`list`): Parametric ranges in which the spheres
@@ -197,7 +197,7 @@ class Beam(PickleableObject):
                         time * rigid_body_motion.rotation_angle) + time * q_2 + q_3
 
                 # Find roots of intersection_function(s) by first finding its
-                # extreemal points
+                # extremal points
                 brackets = self._find_brackets_of_roots(
                     q_0, q_1, q_2, rigid_body_motion.rotation_angle, intersection_function)
 

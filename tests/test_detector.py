@@ -13,19 +13,19 @@ class TestDetector(unittest.TestCase):
         self.pixel_size_z = 50.
         self.pixel_size_y = 40.
         self.detector_size = 10000.
-        self.d0 = np.array([1, 0, 0]) * self.detector_size
-        self.d1 = np.array([1, 1, 0]) * self.detector_size
-        self.d2 = np.array([1, 0, 1]) * self.detector_size
+        self.det_corner_0 = np.array([1, 0, 0]) * self.detector_size
+        self.det_corner_1 = np.array([1, 1, 0]) * self.detector_size
+        self.det_corner_2 = np.array([1, 0, 1]) * self.detector_size
         self.detector = Detector(
             self.pixel_size_z,
             self.pixel_size_y,
-            self.d0,
-            self.d1,
-            self.d2)
+            self.det_corner_0,
+            self.det_corner_1,
+            self.det_corner_2)
 
     def test_init(self):
 
-        for o, otrue in zip(self.detector.d0, np.array(
+        for o, otrue in zip(self.detector.det_corner_0, np.array(
                 [1, 0, 0]) * self.detector_size):
             self.assertAlmostEqual(
                 o, otrue, msg="detector origin is incorrect")
@@ -60,7 +60,7 @@ class TestDetector(unittest.TestCase):
         wavelength = 1.0
 
         incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
-        scattered_wave_vector = self.d0 + self.pixel_size_y * 3 * \
+        scattered_wave_vector = self.det_corner_0 + self.pixel_size_y * 3 * \
             self.detector.ydhat + self.pixel_size_z * 2 * self.detector.zdhat
         scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
             (np.linalg.norm(scattered_wave_vector) * wavelength)
@@ -278,9 +278,9 @@ class TestDetector(unittest.TestCase):
                         self.detector.ydhat) * self.detector_size / 2.
         opening_angle = self.detector.get_wrapping_cone(k, source_point)
 
-        normed_det_center = (source_point + self.d0) / \
-            np.linalg.norm(source_point + self.d0)
-        normed_det_origin = self.d0 / np.linalg.norm(self.d0)
+        normed_det_center = (source_point + self.det_corner_0) / \
+            np.linalg.norm(source_point + self.det_corner_0)
+        normed_det_origin = self.det_corner_0 / np.linalg.norm(self.det_corner_0)
         expected_angle = np.arccos(
             np.dot(
                 normed_det_center,

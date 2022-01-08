@@ -615,7 +615,7 @@ def epsilon_to_b(epsilon, unit_cell):
 def euler_to_u(phi1, PHI, phi2):
     """
     U matrix from Euler angles phi1, PHI, phi2.
-    The formalism follows the ID11-3DXRD specs
+    The formalism follows the Idet_corner_11-3DXRD specs
 
     U = euler_to_u(phi1, PHI, phi2)
 

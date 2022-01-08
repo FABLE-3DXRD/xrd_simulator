@@ -138,14 +138,12 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
 
-<span class="n">pixel_size_z</span> <span class="o">=</span> <span class="mf">75.0</span>
-<span class="n">pixel_size_y</span> <span class="o">=</span> <span class="mf">55.0</span>
-<span class="n">detector_size_z</span> <span class="o">=</span> <span class="n">pixel_size_z</span> <span class="o">*</span> <span class="mi">1024</span>
-<span class="n">detector_distance</span> <span class="o">=</span> <span class="mf">142938.3</span>
-<span class="n">d0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">d1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">d2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">detector_distance</span><span class="p">,</span> <span class="o">-</span><span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="n">detector_size_z</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">])</span>
-<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="p">,</span> <span class="n">pixel_size_y</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">d2</span><span class="p">)</span>
+<span class="c1"># The detector plane is defined by it&#39;s corner coordinates det_corner_0,det_corner_1,det_corner_2</span>
+<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="o">=</span><span class="mf">75.0</span><span class="p">,</span>
+                    <span class="n">pixel_size_y</span><span class="o">=</span><span class="mf">55.0</span><span class="p">,</span>
+                    <span class="n">det_corner_0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">]),</span>
+                    <span class="n">det_corner_1</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="mf">38400.</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">]),</span>
+                    <span class="n">det_corner_2</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">,</span> <span class="mf">38400.</span><span class="p">]))</span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -339,7 +337,7 @@ set. This avoids wasting compute resources on polyhedra which clearly do not int
 <li><p><strong>sphere_centres</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Centroids of a spheres <code class="docutils literal notranslate"><span class="pre">shape=(3,n)</span></code>.</p></li>
 <li><p><strong>sphere_radius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Radius of a spheres <code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code>.</p></li>
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
-polycrystal transformation as a funciton of time on the domain time=[0,1].</p></li>
+polycrystal transformation as a function of time on the domain time=[0,1].</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -387,24 +385,24 @@ input vertices.</p>
 <span id="id3"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.detector"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
 <p>Represents a rectangular X-ray scattering flat area detection device.</p>
 <p>The detector can collect scattering as abstract objects and map them to frame numbers.
 Using a render function these abstract representation can be rendered into pixelated frames.
-The detector is described by a 3 x 3 geometry matrix whic columns contain vectors that attach
+The detector is described by a 3 x 3 geometry matrix which columns contain vectors that attach
 to three of the four corners of the detector.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>pixel_size_z</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length along zdhat (rectangular pixels) in units of microns.</p></li>
 <li><p><strong>pixel_size_y</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Pixel side length along ydhat (rectangular pixels) in units of microns.</p></li>
-<li><p><strong>d0</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>. The origin of the detector
-is at d0.</p></li>
-<li><p><strong>d1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>. The origin of the detector
-is at d0.</p></li>
-<li><p><strong>d2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>. The origin of the detector
-is at d0.</p></li>
+<li><p><strong>det_corner_0</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
+The origin of the detector is at det_corner_0.</p></li>
+<li><p><strong>det_corner_1</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
+The origin of the detector is at det_corner_0.</p></li>
+<li><p><strong>det_corner_2</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
+The origin of the detector is at det_corner_0.</p></li>
 </ul>
 </dd>
 </dl>
@@ -432,9 +430,9 @@ is at d0.</p></li>
 
 <dl class="py attribute">
 <dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">d0,d1,d2</span></span></dt>
-<dd><p>Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>. The origin of the detector
-is at d0.</p>
+<span class="sig-name descname"><span class="pre">det_corner_0,det_corner_1,det_corner_2</span></span></dt>
+<dd><p>Detector corner 3d coordinates <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
+The origin of the detector is at det_corner_0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -497,6 +495,18 @@ is at d0.</p>
 </dl>
 </dd></dl>
 
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
+
+<span class="c1"># The detector plane is defined by it&#39;s corner coordinates det_corner_0,det_corner_1,det_corner_2</span>
+<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="o">=</span><span class="mf">75.0</span><span class="p">,</span>
+                    <span class="n">pixel_size_y</span><span class="o">=</span><span class="mf">55.0</span><span class="p">,</span>
+                    <span class="n">det_corner_0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">]),</span>
+                    <span class="n">det_corner_1</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="mf">38400.</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">]),</span>
+                    <span class="n">det_corner_2</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.</span><span class="p">,</span> <span class="mf">38400.</span><span class="p">]))</span>
+</pre></div>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector.contains">
 <span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yd</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.contains" title="Permalink to this definition"></a></dt>
@@ -534,7 +544,7 @@ is at d0.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector.get_wrapping_cone">
 <span class="sig-name descname"><span class="pre">get_wrapping_cone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_point</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.get_wrapping_cone" title="Permalink to this definition"></a></dt>
-<dd><p>Compute the cone around a wavevector such that the cone wrapps the detector corners.</p>
+<dd><p>Compute the cone around a wavevector such that the cone wraps the detector corners.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -576,7 +586,7 @@ region.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A pixelated frame as a (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) with shape infered form the detector geometry and
+<dd class="field-even"><p>A pixelated frame as a (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) with shape inferred form the detector geometry and
 pixel size.</p>
 </dd>
 </dl>
@@ -961,12 +971,12 @@ while <cite>structure_factors[i,0]</cite> gives the corresponding imaginary part
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.phase.Phase.setup_diffracting_planes">
 <span class="sig-name descname"><span class="pre">setup_diffracting_planes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bragg_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_bragg_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/phase.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.phase.Phase.setup_diffracting_planes" title="Permalink to this definition"></a></dt>
-<dd><p>Generates all Miller indices (h,k,l) that will difract given wavelength and Bragg angle bounds.</p>
+<dd><p>Generates all Miller indices (h,k,l) that will diffract given wavelength and Bragg angle bounds.</p>
 <p>If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – X-ray wavelenght in units of anstrom.</p></li>
+<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – X-ray wavelength in units of anstrom.</p></li>
 <li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Maximum Bragg angle, in radians, allowed to be taken during diffraction.</p></li>
 <li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle, in radians, allowed to be taken during diffraction.</p></li>
 </ul>
@@ -996,7 +1006,7 @@ geometry of the sample. At instantiation it is assumed that the sample and lab c
 are aligned.</p></li>
 <li><p><strong>ephase</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Index of phase that elements belong to such that phases[ephase[i]] gives the
 xrd_simulator.phase.Phase object of element number i.</p></li>
-<li><p><strong>eU</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element U (orinetation) matrices, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>). At instantiation it
+<li><p><strong>eU</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element U (orientation) matrices, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>). At instantiation it
 is assumed that the sample and lab coordinate systems are aligned.</p></li>
 <li><p><strong>eB</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element B (hkl to crystal mapper) matrices, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p></li>
 <li><p><strong>phases</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a>) – List of all unique phases present in the polycrystal.</p></li>
@@ -1098,9 +1108,9 @@ option.</p>
 <li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>) – Object representing a monochromatic beam of X-rays.</p></li>
 <li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) – Object representing a flat rectangular detector.</p></li>
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
-polycrystal transformation as a funciton of time on the domain time=[0,1].</p></li>
-<li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) below wich to not compute diffraction. Defaults to 0.</p></li>
-<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) after wich to not compute diffraction. By default the
+polycrystal transformation as a function of time on the domain time=[0,1].</p></li>
+<li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) below which to not compute diffraction. Defaults to 0.</p></li>
+<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) after which to not compute diffraction. By default the
 max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample centroid.</p></li>
 <li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Prints progress. Defaults to True.</p></li>
 </ul>
@@ -1119,7 +1129,7 @@ matrices (U) such that the updated matrix will</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
-polycrystal transformation as a funciton of time on the domain time=[0,1].</p></li>
+polycrystal transformation as a function of time on the domain time=[0,1].</p></li>
 <li><p><strong>time</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Time between [0,1] at which to call the rigid body motion.</p></li>
 </ul>
 </dd>

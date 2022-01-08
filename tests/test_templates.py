@@ -30,9 +30,9 @@ class TestUtils(unittest.TestCase):
         for ci in beam.centroid:
             self.assertAlmostEqual(ci, 0, msg="beam not at origin.")
 
-        det_approx_centroid = detector.d0.copy()
-        det_approx_centroid[1] += detector.d1[1]
-        det_approx_centroid[2] += detector.d2[2]
+        det_approx_centroid = detector.det_corner_0.copy()
+        det_approx_centroid[1] += detector.det_corner_1[1]
+        det_approx_centroid[2] += detector.det_corner_2[2]
 
         self.assertAlmostEqual(
             det_approx_centroid[0],

@@ -83,8 +83,8 @@ class TestScatterer(unittest.TestCase):
             structure_factor, 0, msg="structure factor is wrong")
 
     def test_centroid(self):
-        centroid2 = self.scatterer.centroid
-        for c1, c2 in zip(np.array([0.25, 0.25, 0.25]), centroid2):
+        centroidet_corner_2 = self.scatterer.centroid
+        for c1, c2 in zip(np.array([0.25, 0.25, 0.25]), centroidet_corner_2):
             self.assertAlmostEqual(c1, c2, msg="centroid is wrong")
 
     def test_volume(self):

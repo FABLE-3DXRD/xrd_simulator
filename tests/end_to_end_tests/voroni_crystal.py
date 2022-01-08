@@ -29,11 +29,11 @@ print("")
 pixel_size = sample_diameter / 256.
 detector_size = pixel_size * 1024
 detector_distance = 10 * sample_diameter
-d0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
-d1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
-d2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
+det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
+det_corner_1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
+det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
 
-detector = Detector(pixel_size, pixel_size, d0, d1, d2)
+detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
 
 # data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
 unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]

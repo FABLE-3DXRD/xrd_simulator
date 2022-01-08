@@ -1224,7 +1224,7 @@ class Sg42:
 class Sg43:
     def __init__(self, cell_choice='standard'):
         self.no = 43
-        self.name = "Fdd2"
+        self.name = "Fddet_corner_2"
         self.crystal_system = "orthorhombic"
         self.Laue = "mmm"
         self.nsymop = 16
