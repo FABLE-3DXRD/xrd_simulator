@@ -70,10 +70,12 @@ polycrystal.diffract(beam, detector, motion)
 diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
 
 import matplotlib.pyplot as plt
-plt.imshow(diffraction_pattern, cmap='gray')
+fig,ax = plt.subplots(1,1)
+ax.imshow(diffraction_pattern, cmap='gray')
 plt.show()
 
 import os
 path = os.path.join( os.path.join( os.path.join(os.path.dirname(__file__), ".."), 'images'),"diffraction_pattern.png")
-plt.savefig(os.path.abspath(path))
+plt.tight_layout()
+fig.savefig(os.path.abspath(path), bbox_inches='tight', transparent=True)
 

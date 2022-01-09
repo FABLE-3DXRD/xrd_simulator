@@ -147,11 +147,11 @@ Ok, so now we got ourselves an experimental setup, about time to collect some di
       diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
 
       import matplotlib.pyplot as plt
-      plt.imshow(diffraction_pattern, cmap='gray')
+      fig,ax = plt.subplots(1,1)
+      ax.imshow(diffraction_pattern, cmap='gray')
       plt.show()
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
-
 
 ======================================
 Installation
