@@ -35,7 +35,6 @@ from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
 from xrd_simulator.polycrystal import Polycrystal
 
-# The toplogy of the polycrystal is described by a tetrahedral mesh,
 # xrd_simulator supports several ways to generate a mesh, here we
 # generate meshed solid sphere using a level set.
 mesh = TetraMesh.generate_mesh_from_levelset(
@@ -43,15 +42,11 @@ mesh = TetraMesh.generate_mesh_from_levelset(
     bounding_radius=769.0,
     max_cell_circumradius=450.)
 
-# Each element of the mesh is a single crystal with properties defined
-# by an xrd_simulator.phase.Phase object.
 quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
                sgname='P3221',  # (Quartz)
                path_to_cif_file=None  # phases can be defined from crystalographic information files
                )
 
-# The polycrystal can now map phase(s) (only quartz here), orientations and
-# strains to the tetrahedral mesh elements.
 orientation = R.random(mesh.number_of_elements).as_matrix()
 polycrystal = Polycrystal(mesh,
                           orientation,
@@ -67,7 +62,11 @@ motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]
                          translation=np.array([123, -153.3, 3.42]))
 
 polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
+diffraction_pattern = detector.render(frame_number=0,
+                                        lorentz=False,
+                                        polarization=False,
+                                        structure_factor=False,
+                                        method="project")
 
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots(1,1)
