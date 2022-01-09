@@ -62,51 +62,52 @@ as the sample undergoes the prescribed rigid body **motion** while being illumin
 Let's go ahead and build ourselves some x-rays:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 1-20
+      :lines: 1-19
 
 We will also need to define a detector:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 23-30
+      :lines: 21-27
 
 Next we go ahead and produce a sample, to do this we need to first define a mesh that
 describes the topology of the sample, in this example we make the sample shaped as a ball:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 33-43
+      :lines: 29-36
 
 Every element in the sample is composed of some material, or "phase", we define the present phases
 in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a single phase is present:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 45-48
+      :lines: 38-42
 
 The polycrystal sample can now be created. In this example the crystal elements have random orientations
 and the strain is uniformly zero in the sample:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 50-55
+      :lines: 44-50
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 58-62
+      :lines: 52-55
 
 Now that we have an experimental setup we may collect diffraction by letting the beam and detector
 interact with the sample:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 64-69
+      :lines: 57-62
 
 The resulting rendered detector frame looks something like this:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 71-74
+      :lines: 64-67
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
 
 Many more options for experimental setup and intensity rendering exist, have fun experimenting!
+The above example code can be found as a `single .py file here.`_
 
 ======================================
 Installation
@@ -123,7 +124,7 @@ that of `Anaconda`_ itself.
 
 .. note::
    ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
-   python version before installation. For instance, running ``conda install python=3.8`` before 
+   python version before installation. For instance, running ``conda install python=3.8`` before
    installation should ensure correct behavior.
 
 Pip Installation
@@ -176,4 +177,6 @@ Credits
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
+.. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
+.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_end_to_end.py

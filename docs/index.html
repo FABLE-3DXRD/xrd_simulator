@@ -51,7 +51,7 @@
 <li><a class="reference internal" href="#credits">Credits</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id1">Documentation</a><ul>
+<li><a class="reference internal" href="#id2">Documentation</a><ul>
 <li><a class="reference internal" href="#beam">beam</a></li>
 <li><a class="reference internal" href="#detector">detector</a></li>
 <li><a class="reference internal" href="#motion">motion</a></li>
@@ -134,7 +134,6 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.beam</span> <span class="kn">import</span> <span class="n">Beam</span>
-
 <span class="c1"># The beam of x-rays is represented as a convex polyhedron</span>
 <span class="c1"># We specify the vertices in a numpy array.</span>
 <span class="n">beam_vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
@@ -158,7 +157,6 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <p>We will also need to define a detector:</p>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
-
 <span class="c1"># The detector plane is defined by it&#39;s corner coordinates det_corner_0,det_corner_1,det_corner_2</span>
 <span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="o">=</span><span class="mf">75.0</span><span class="p">,</span>
                     <span class="n">pixel_size_y</span><span class="o">=</span><span class="mf">55.0</span><span class="p">,</span>
@@ -173,9 +171,6 @@ describes the topology of the sample, in this example we make the sample shaped 
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.mesh</span> <span class="kn">import</span> <span class="n">TetraMesh</span>
-<span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
-<span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
-
 <span class="c1"># xrd_simulator supports several ways to generate a mesh, here we</span>
 <span class="c1"># generate meshed solid sphere using a level set.</span>
 <span class="n">mesh</span> <span class="o">=</span> <span class="n">TetraMesh</span><span class="o">.</span><span class="n">generate_mesh_from_levelset</span><span class="p">(</span>
@@ -188,7 +183,8 @@ describes the topology of the sample, in this example we make the sample shaped 
 <p>Every element in the sample is composed of some material, or “phase”, we define the present phases
 in a list of <code class="docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code> objects, in this example only a single phase is present:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
+<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
                <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span><span class="p">,</span>  <span class="c1"># (Quartz)</span>
                <span class="n">path_to_cif_file</span><span class="o">=</span><span class="kc">None</span>  <span class="c1"># phases can be defined from crystalographic information files</span>
                <span class="p">)</span>
@@ -198,7 +194,8 @@ in a list of <code class="docutils literal notranslate"><span class="pre">xrd_si
 <p>The polycrystal sample can now be created. In this example the crystal elements have random orientations
 and the strain is uniformly zero in the sample:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
+<span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
 <span class="n">polycrystal</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
                           <span class="n">orientation</span><span class="p">,</span>
                           <span class="n">strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
@@ -210,7 +207,6 @@ and the strain is uniformly zero in the sample:</p>
 <p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.motion</span> <span class="kn">import</span> <span class="n">RigidBodyMotion</span>
-
 <span class="n">motion</span> <span class="o">=</span> <span class="n">RigidBodyMotion</span><span class="p">(</span><span class="n">rotation_axis</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
                          <span class="n">rotation_angle</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span>
                          <span class="n">translation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">123</span><span class="p">,</span> <span class="o">-</span><span class="mf">153.3</span><span class="p">,</span> <span class="mf">3.42</span><span class="p">]))</span>
@@ -239,7 +235,8 @@ interact with the sample:</p>
 </div>
 </div></blockquote>
 <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true" class="align-center" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true" />
-<p>Many more options for experimental setup and intensity rendering exist, have fun experimenting!</p>
+<p>Many more options for experimental setup and intensity rendering exist, have fun experimenting!
+The above example code can be found as a <a class="reference external" href="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_end_to_end.py">single .py file here.</a></p>
 </section>
 <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
@@ -290,10 +287,10 @@ on your system. Installation of these will be OS dependent and documentation
 </ul>
 </section>
 </section>
-<section id="id1">
-<h1>Documentation<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h1>
+<section id="id2">
+<h1>Documentation<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h1>
 <section id="beam">
-<span id="id2"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
+<span id="id3"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.beam"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.beam.</span></span><span class="sig-name descname"><span class="pre">Beam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_vertices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xray_propagation_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization_vector</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam" title="Permalink to this definition"></a></dt>
@@ -463,7 +460,7 @@ input vertices.</p>
 
 </section>
 <section id="detector">
-<span id="id3"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
+<span id="id4"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.detector"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
@@ -678,7 +675,7 @@ pixel size.</p>
 
 </section>
 <section id="motion">
-<span id="id4"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
+<span id="id5"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
 <span class="target" id="module-xrd_simulator.motion"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>

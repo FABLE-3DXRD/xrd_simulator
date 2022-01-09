@@ -64,7 +64,6 @@ Let's go ahead and build ourselves some x-rays:
    .. code:: python
 
       from xrd_simulator.beam import Beam
-
       # The beam of x-rays is represented as a convex polyhedron
       # We specify the vertices in a numpy array.
       beam_vertices = np.array([
@@ -88,7 +87,6 @@ We will also need to define a detector:
 
    .. code:: python
 
-
       # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
       detector = Detector(pixel_size_z=75.0,
                           pixel_size_y=55.0,
@@ -103,9 +101,6 @@ describes the topology of the sample, in this example we make the sample shaped 
    .. code:: python
 
       from xrd_simulator.mesh import TetraMesh
-      from xrd_simulator.phase import Phase
-      from xrd_simulator.polycrystal import Polycrystal
-
       # xrd_simulator supports several ways to generate a mesh, here we
       # generate meshed solid sphere using a level set.
       mesh = TetraMesh.generate_mesh_from_levelset(
@@ -119,6 +114,7 @@ in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a singl
 
    .. code:: python
 
+      quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
                      sgname='P3221',  # (Quartz)
                      path_to_cif_file=None  # phases can be defined from crystalographic information files
                      )
@@ -129,6 +125,7 @@ and the strain is uniformly zero in the sample:
 
    .. code:: python
 
+      orientation = R.random(mesh.number_of_elements).as_matrix()
       polycrystal = Polycrystal(mesh,
                                 orientation,
                                 strain=np.zeros((3, 3)),
@@ -139,7 +136,6 @@ and the strain is uniformly zero in the sample:
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
    .. code:: python
-
 
       motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
                                rotation_angle=np.radians(1.0),
@@ -171,6 +167,7 @@ The resulting rendered detector frame looks something like this:
    :align: center
 
 Many more options for experimental setup and intensity rendering exist, have fun experimenting!
+The above example code can be found as a `single .py file here.`_
 
 ======================================
 Installation
@@ -187,7 +184,7 @@ that of `Anaconda`_ itself.
 
 .. note::
    ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
-   python version before installation. For instance, running ``conda install python=3.8`` before 
+   python version before installation. For instance, running ``conda install python=3.8`` before
    installation should ensure correct behavior.
 
 Pip Installation
@@ -240,4 +237,6 @@ Credits
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
+.. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
+.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_end_to_end.py
