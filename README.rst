@@ -137,8 +137,14 @@ Next we go ahead and produce a sample:
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
-   <motion example goes here>
+   .. code:: python
 
+      import numpy as np
+      from xrd_simulator.motion import RigidBodyMotion
+
+      motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
+                               rotation_angle=np.radians(2.0),
+                               translation=np.array([123, -153.3, 3.42]))
 Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
 
    <diffract and rendering example goes here>
