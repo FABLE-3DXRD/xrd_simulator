@@ -31,5 +31,3 @@ setuptools.setup(
                       "numba==0.53.0",
                       "pycifrw==4.4.3"]
 )
-
-

@@ -40,15 +40,15 @@ class TestPolycrystal(unittest.TestCase):
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221'  # Quartz
         self.phases = [Phase(unit_cell, sgname)]
-        euler_angles = np.random.rand(self.mesh.number_of_elements, 3) * 2 * np.pi
+        euler_angles = np.random.rand(
+            self.mesh.number_of_elements, 3) * 2 * np.pi
         self.orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2])
-                                for ea in euler_angles])
-        self.element_phase_map = np.zeros((self.mesh.number_of_elements,)).astype(int)
-        self.polycrystal = Polycrystal(mesh=self.mesh,
-                                       orientation=self.orientation,
-                                       strain=np.zeros((3, 3)),
-                                       phases=self.phases,
-                                       element_phase_map=self.element_phase_map)
+                                     for ea in euler_angles])
+        self.element_phase_map = np.zeros(
+            (self.mesh.number_of_elements,)).astype(int)
+        self.polycrystal = Polycrystal(
+            mesh=self.mesh, orientation=self.orientation, strain=np.zeros(
+                (3, 3)), phases=self.phases, element_phase_map=self.element_phase_map)
 
         w = self.detector_size / 2.  # full field illumination
         beam_vertices = np.array([
@@ -138,45 +138,50 @@ class TestPolycrystal(unittest.TestCase):
         single_phase_successfull = False
         try:
             polycrystal = Polycrystal(mesh=self.mesh,
-                                    orientation=self.orientation,
-                                    strain=np.zeros((3, 3)),
-                                    phases=self.phases[0],
-                                    element_phase_map=None)
+                                      orientation=self.orientation,
+                                      strain=np.zeros((3, 3)),
+                                      phases=self.phases[0],
+                                      element_phase_map=None)
             polycrystal = Polycrystal(mesh=self.mesh,
-                                    orientation=self.orientation,
-                                    strain=np.zeros((3, 3)),
-                                    phases=self.phases[0],
-                                    element_phase_map=self.element_phase_map)
+                                      orientation=self.orientation,
+                                      strain=np.zeros((3, 3)),
+                                      phases=self.phases[0],
+                                      element_phase_map=self.element_phase_map)
             single_phase_successfull = True
-        except:
+        except BaseException:
             pass
 
-        self.assertTrue(single_phase_successfull, msg="Passing phases as a single object failed.")
+        self.assertTrue(single_phase_successfull,
+                        msg="Passing phases as a single object failed.")
 
         array_strain_successfull = False
         try:
-            polycrystal = Polycrystal(mesh=self.mesh,
-                                    orientation=self.orientation,
-                                    strain=np.zeros((self.mesh.number_of_elements, 3, 3)),
-                                    phases=self.phases,
-                                    element_phase_map=self.element_phase_map)
+            polycrystal = Polycrystal(
+                mesh=self.mesh,
+                orientation=self.orientation,
+                strain=np.zeros(
+                    (self.mesh.number_of_elements,
+                     3,
+                     3)),
+                phases=self.phases,
+                element_phase_map=self.element_phase_map)
             array_strain_successfull = True
-        except:
+        except BaseException:
             pass
 
-        self.assertTrue(array_strain_successfull, msg="Passing an array of strain tensors failed.")
-
+        self.assertTrue(array_strain_successfull,
+                        msg="Passing an array of strain tensors failed.")
 
     def test_transformation(self):
         strains = np.zeros((self.mesh.number_of_elements, 3, 3))
         for i in range(self.mesh.number_of_elements):
-            strains[i] = 0.001 * (np.random.rand(3, 3)-0.5)
-            strains[i] = 0.5 * (strains[i]  + strains[i].T)
+            strains[i] = 0.001 * (np.random.rand(3, 3) - 0.5)
+            strains[i] = 0.5 * (strains[i] + strains[i].T)
         polycrystal = Polycrystal(mesh=self.mesh,
-                                orientation=self.orientation,
-                                strain=strains,
-                                phases=self.phases,
-                                element_phase_map=self.element_phase_map)
+                                  orientation=self.orientation,
+                                  strain=strains,
+                                  phases=self.phases,
+                                  element_phase_map=self.element_phase_map)
         rotation_angle = 10 * np.pi / 180.
         rotation_axis = np.array([0, 0, 1])
         translation = np.array([-34.0, 0.243, 345.324])
@@ -184,16 +189,21 @@ class TestPolycrystal(unittest.TestCase):
 
         time = 0.8436
         polycrystal.transform(motion, time=time)
-        Rot_mat = motion.rotator.get_rotation_matrix(time*rotation_angle)
+        Rot_mat = motion.rotator.get_rotation_matrix(time * rotation_angle)
         unit_vector = np.random.rand(3,)
-        unit_vector = unit_vector/np.linalg.norm(unit_vector)
+        unit_vector = unit_vector / np.linalg.norm(unit_vector)
         new_unit_vector = np.dot(Rot_mat, unit_vector)
-        for i,strain in enumerate(strains):
+        for i, strain in enumerate(strains):
             s1 = np.dot(unit_vector, np.dot(strain, unit_vector))
-            s2 = np.dot(new_unit_vector, np.dot(polycrystal.strain_lab[i], new_unit_vector))
-            self.assertAlmostEqual(s1,s2,msg="Transformation does not preserve directional strains")
+            s2 = np.dot(
+                new_unit_vector,
+                np.dot(
+                    polycrystal.strain_lab[i],
+                    new_unit_vector))
+            self.assertAlmostEqual(
+                s1, s2, msg="Transformation does not preserve directional strains")
 
-        #TODO: also test the orientation transformations.
+        # TODO: also test the orientation transformations.
 
 
 if __name__ == '__main__':

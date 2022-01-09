@@ -143,7 +143,9 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
-    crystal_strain = np.dot(crystal_orientation.T, np.dot(strain_tensor, crystal_orientation))
+    crystal_strain = np.dot(
+        crystal_orientation.T, np.dot(
+            strain_tensor, crystal_orientation))
     lattice_matrix = tools.epsilon_to_b([crystal_strain[0, 0],
                                          crystal_strain[0, 1],
                                          crystal_strain[0, 2],
