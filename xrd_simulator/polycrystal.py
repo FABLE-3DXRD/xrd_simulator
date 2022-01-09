@@ -5,6 +5,8 @@ from xrd_simulator import utils, laue
 from xrd_simulator._pickleable_object import PickleableObject
 import copy
 
+from xrd_simulator.xfab import tools
+
 
 class Polycrystal(PickleableObject):
 
@@ -69,22 +71,16 @@ class Polycrystal(PickleableObject):
         else:
             self.phases = phases
 
-        if len(self.phases) == 0 and self.element_phase_map is None:
-            self.element_phase_map = np.zeros((self.mesh.number_of_elements,))
+        if len(self.phases) == 1:
+            self.element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
         else:
             self.element_phase_map = element_phase_map
 
         self._eB = np.zeros((mesh.number_of_elements, 3, 3))
         for i in range(mesh.number_of_elements):
-            self._eB[i,
-                     :,
-                     :] = utils.lab_strain_to_B_matrix(self.strain_lab[i,
-                                                                       :,
-                                                                       :],
-                                                       self.orientation_lab[i,
-                                                                            :,
-                                                                            :],
-                                                       self.phases[element_phase_map[i]].unit_cell)
+            self._eB[i,:,:] = utils.lab_strain_to_B_matrix(self.strain_lab[i,:,:],
+                                                       self.orientation_lab[i,:,:],
+                                                       self.phases[self.element_phase_map[i]].unit_cell)
 
         assert self.orientation_lab.shape[0] == mesh.number_of_elements, "Every crystal element must have an orientation."
         assert self._eB.shape[0] == mesh.number_of_elements, "Every crystal element must have a deformation state."
@@ -227,7 +223,7 @@ class Polycrystal(PickleableObject):
 
         This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
         such as face normals etc. Likewise, it will update the per element crystallite orientation
-        matrices (U).
+        matrices (U) and the lab frame description of strain.
 
         Args:
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
@@ -244,10 +240,33 @@ class Polycrystal(PickleableObject):
         for ei in range(self.mesh_lab.number_of_elements):
             self.orientation_lab[ei] = np.dot(
                 Rot_mat, self.orientation_lab[ei])
-            self.strain_lab[ei] = utils._rotate_tensor(
-                self.strain_lab[ei], Rot_mat) #TODO: unit test the strains
+            self.strain_lab[ei] = np.dot(Rot_mat, np.dot(self.strain_lab[ei], Rot_mat.T))
 
-    # TODO: overload the save function to also save a nice xdmf with all per element things attached..
-    # def save(self, path):
-    #     super().save(path)
-    #     self.mesh_lab.save(path + "mesh.xdmf", element_data=..)
+    def save(self, path, save_mesh_as_xdmf=True):
+        """Save object to disc.
+
+        Args:
+            path (:obj:`str`): File path at which to save, ending with the desired filename.
+            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycyrystal mesh with associated
+                strains and crystal orientations as a .xdmf for visualization (sample coordinates).
+
+        """
+        super().save(path)
+        if save_mesh_as_xdmf:
+            element_data = {}
+            element_data['$\epsilon_{11}$'] = self.strain_sample[:,0,0]
+            element_data['$\epsilon_{22}$'] = self.strain_sample[:,1,1]
+            element_data['$\epsilon_{33}$'] = self.strain_sample[:,2,2]
+            element_data['$\epsilon_{12}$'] = self.strain_sample[:,0,1]
+            element_data['$\epsilon_{13}$'] = self.strain_sample[:,0,2]
+            element_data['$\epsilon_{23}$'] = self.strain_sample[:,1,2]
+            element_data['$\\varphi_{1}$'] = []
+            element_data['$\Phi$'] = []
+            element_data['$\\varphi_{2}$'] = []
+            for U in self.orientation_sample:
+                phi_1, PHI, phi_2 = tools.u_to_euler(U)
+                element_data['$\\varphi_{1}$'].append( phi_1 )
+                element_data['$\Phi$'].append( PHI )
+                element_data['$\\varphi_{2}$'].append( phi_2 )
+            element_data['Phases'] = self.element_phase_map
+            self.mesh_sample.save(path + ".xdmf", element_data=element_data)

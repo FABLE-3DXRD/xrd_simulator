@@ -123,13 +123,6 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
                      sin_alpha_1 * np.cos(alpha_2)]).T
 
 
-def _rotate_tensor(tensor, orientation):
-    """Produce the 3x3 tensor corresponding to the input tensor given that the original coordinate
-    system, where the tensor started, has been rotated by the input orientation matrix.
-    """
-    return np.dot(orientation.T, np.dot(tensor, orientation))
-
-
 def lab_strain_to_B_matrix(
         strain_tensor,
         crystal_orientation,
@@ -150,7 +143,7 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
-    crystal_strain = _rotate_tensor(strain_tensor, crystal_orientation)
+    crystal_strain = np.dot(crystal_orientation.T, np.dot(strain_tensor, crystal_orientation))
     lattice_matrix = tools.epsilon_to_b([crystal_strain[0, 0],
                                          crystal_strain[0, 1],
                                          crystal_strain[0, 2],

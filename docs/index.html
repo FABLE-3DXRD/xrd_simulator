@@ -659,9 +659,9 @@ pixel size.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Rigid body transform euclidean points by an euler axis and translation representation.</p>
 <p>The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
-of a point x by uniformly rotating it from [0, rotation_angle] and translating [0, translation].
-I.e if called at a time time=t the motion will rotate the point t*rotation_angle radians and
-translate an amount t * translation.</p>
+of a point x by linearly uniformly rotating it from [0, rotation_angle] and translating [0, translation].
+I.e if called at a time time=t the motion will first rotate the point <code class="docutils literal notranslate"><span class="pre">t*rotation_angle</span></code> radians
+around <code class="docutils literal notranslate"><span class="pre">rotation_axis</span></code> and next translate the point by the vector <code class="docutils literal notranslate"><span class="pre">t*translation</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -940,7 +940,7 @@ the nodal indices of element i.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>file</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Absolute path to save the mesh in .xdmf format.</p></li>
-<li><p><strong>element_data</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> if <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code>) – Data associated to the elements.</p></li>
+<li><p><strong>element_data</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Data associated to the elements.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1193,12 +1193,27 @@ max_bragg_angle is approximated by wrapping the detector corners in a cone with 
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_mesh_as_xdmf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.save" title="Permalink to this definition"></a></dt>
+<dd><p>Save object to disc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p></li>
+<li><p><strong>save_mesh_as_xdmf</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – If true, saves the polycyrystal mesh with associated
+strains and crystal orientations as a .xdmf for visualization (sample coordinates).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.transform">
 <span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/AxelHenningsson/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.transform" title="Permalink to this definition"></a></dt>
 <dd><p>Transform the polycrystal by performing a rigid body motion (translation + rotation)</p>
 <p>This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
 such as face normals etc. Likewise, it will update the per element crystallite orientation
-matrices (U).</p>
+matrices (U) and the lab frame description of strain.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

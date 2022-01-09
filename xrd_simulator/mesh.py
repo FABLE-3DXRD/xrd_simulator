@@ -303,18 +303,15 @@ class TetraMesh(object):  # TODO: add unit tests
 
         Args:
             file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
-            element_data (:obj:`dict` if :obj:`list`): Data associated to the elements.
+            element_data (:obj:`dict` of :obj:`list` or :obj:`numpy array`): Data associated to the elements.
 
         """
-        # TODO: add end to end test
-        if element_data is not None:
-            for key in element_data:
-                self._mesh.cell_data[key] = np.array([element_data[key]])
-
-        if file.endswith(".xdmf"):
-            self._mesh.write(file)
+        if not file.endswith(".xdmf"):
+            save_path = file + ".xdmf"
         else:
-            self._mesh.write(file + ".xdmf")
+            save_path = file
+        for key in element_data: element_data[key] = [list(element_data[key])]
+        meshio.write_points_cells(save_path, self.coord, [("tetra", self.enod)], cell_data=element_data )
 
 
 @njit
