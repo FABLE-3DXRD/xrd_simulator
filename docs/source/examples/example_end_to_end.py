@@ -46,9 +46,6 @@ mesh = TetraMesh.generate_mesh_from_levelset(
     bounding_radius=769.0,
     max_cell_circumradius=450.)
 
-# The mesh can be saved as a .xdmf for visualization.
-mesh.save("mesh.xdmf")
-
 # Each element of the mesh is a single crystal with properties defined
 # by an xrd_simulator.phase.Phase object.
 quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
