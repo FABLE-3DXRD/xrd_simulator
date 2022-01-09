@@ -122,14 +122,14 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <span class="c1"># The beam of x-rays is represented as a convex polyhedron</span>
 <span class="c1"># We specify the vertices in a numpy array.</span>
 <span class="n">beam_vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
-    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
-    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
-    <span class="p">[</span><span class="o">-</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
-    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
-    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span>
-    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span>
-    <span class="p">[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]])</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">1e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">1e6</span><span class="p">,</span> <span class="mf">500.</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">1e6</span><span class="p">,</span> <span class="mf">500.</span><span class="p">,</span> <span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">1e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">,</span> <span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">1e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">1e6</span><span class="p">,</span> <span class="mf">500.</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">1e6</span><span class="p">,</span> <span class="mf">500.</span><span class="p">,</span> <span class="mf">500.</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">1e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">,</span> <span class="mf">500.</span><span class="p">]])</span>
 
 <span class="n">beam</span> <span class="o">=</span> <span class="n">Beam</span><span class="p">(</span>
     <span class="n">beam_vertices</span><span class="p">,</span>
@@ -141,8 +141,7 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>We will also need to define a detector:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
 
 <span class="c1"># The detector plane is defined by it&#39;s corner coordinates det_corner_0,det_corner_1,det_corner_2</span>
 <span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span><span class="n">pixel_size_z</span><span class="o">=</span><span class="mf">75.0</span><span class="p">,</span>
@@ -155,8 +154,7 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>Next we go ahead and produce a sample:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.mesh</span> <span class="kn">import</span> <span class="n">TetraMesh</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
@@ -189,18 +187,24 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">xrd_simulator.motion</span> <span class="kn">import</span> <span class="n">RigidBodyMotion</span>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.motion</span> <span class="kn">import</span> <span class="n">RigidBodyMotion</span>
 
 <span class="n">motion</span> <span class="o">=</span> <span class="n">RigidBodyMotion</span><span class="p">(</span><span class="n">rotation_axis</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
-                         <span class="n">rotation_angle</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">2.0</span><span class="p">),</span>
+                         <span class="n">rotation_angle</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span>
                          <span class="n">translation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">123</span><span class="p">,</span> <span class="o">-</span><span class="mf">153.3</span><span class="p">,</span> <span class="mf">3.42</span><span class="p">]))</span>
 </pre></div>
 </div>
 </div></blockquote>
 <p>Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:</p>
 <blockquote>
-<div><p>&lt;diffract and rendering example goes here&gt;</p>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">polycrystal</span><span class="o">.</span><span class="n">diffract</span><span class="p">(</span><span class="n">beam</span><span class="p">,</span> <span class="n">detector</span><span class="p">,</span> <span class="n">motion</span><span class="p">)</span>
+<span class="n">diffraction_pattern</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">frame_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">lorentz</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">polarization</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">structure_factor</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;project&quot;</span><span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">diffraction_pattern</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
 </div></blockquote>
 </section>
 <section id="installation">

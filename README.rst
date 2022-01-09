@@ -63,20 +63,19 @@ Let's go ahead and build ourselves some x-rays:
 
    .. code:: python
 
-      import numpy as np
       from xrd_simulator.beam import Beam
 
       # The beam of x-rays is represented as a convex polyhedron
       # We specify the vertices in a numpy array.
       beam_vertices = np.array([
-          [-5., 0., 0.],
-          [-5., 1., 0.],
-          [-5., 0., 1.],
-          [-5., 1., 1.],
-          [5., 0., 0.],
-          [5., 1., 0.],
-          [5., 0., 1.],
-          [5., 1., 1.]])
+          [-1e6, -500., -500.],
+          [-1e6, 500., -500.],
+          [-1e6, 500., 500.],
+          [-1e6, -500., 500.],
+          [1e6, -500., -500.],
+          [1e6, 500., -500.],
+          [1e6, 500., 500.],
+          [1e6, -500., 500.]])
 
       beam = Beam(
           beam_vertices,
@@ -84,12 +83,11 @@ Let's go ahead and build ourselves some x-rays:
           wavelength=0.28523,
           polarization_vector=np.array([0., 1., 0.]))
 
+
 We will also need to define a detector:
 
    .. code:: python
 
-      import numpy as np
-      from xrd_simulator.detector import Detector
 
       # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
       detector = Detector(pixel_size_z=75.0,
@@ -98,12 +96,11 @@ We will also need to define a detector:
                           det_corner_1=np.array([142938.3, 38400., -38400.]),
                           det_corner_2=np.array([142938.3, -38400., 38400.]))
 
+
 Next we go ahead and produce a sample:
 
    .. code:: python
 
-      import numpy as np
-      from scipy.spatial.transform import Rotation as R
       from xrd_simulator.mesh import TetraMesh
       from xrd_simulator.phase import Phase
       from xrd_simulator.polycrystal import Polycrystal
@@ -132,20 +129,28 @@ Next we go ahead and produce a sample:
                                 phases=quartz,
                                 element_phase_map=None)
 
+
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
    .. code:: python
 
-      import numpy as np
-      from xrd_simulator.motion import RigidBodyMotion
 
       motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
-                               rotation_angle=np.radians(2.0),
+                               rotation_angle=np.radians(1.0),
                                translation=np.array([123, -153.3, 3.42]))
+
 
 Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
 
-   <diffract and rendering example goes here>
+   .. code:: python
+
+      diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
+
+      import matplotlib.pyplot as plt
+      plt.imshow(diffraction_pattern, cmap='gray')
+      plt.show()
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
 
 
 ======================================
