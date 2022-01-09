@@ -116,9 +116,6 @@ Next we go ahead and produce a sample:
           bounding_radius=769.0,
           max_cell_circumradius=450.)
 
-      # The mesh can be saved as a .xdmf for visualization.
-      mesh.save("mesh.xdmf")
-
       # Each element of the mesh is a single crystal with properties defined
       # by an xrd_simulator.phase.Phase object.
       quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
@@ -145,6 +142,7 @@ And finally we define some motion of the sample over which to integrate the diff
       motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
                                rotation_angle=np.radians(2.0),
                                translation=np.array([123, -153.3, 3.42]))
+
 Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
 
    <diffract and rendering example goes here>

@@ -169,9 +169,6 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
     <span class="n">bounding_radius</span><span class="o">=</span><span class="mf">769.0</span><span class="p">,</span>
     <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
 
-<span class="c1"># The mesh can be saved as a .xdmf for visualization.</span>
-<span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;mesh.xdmf&quot;</span><span class="p">)</span>
-
 <span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
 <span class="c1"># by an xrd_simulator.phase.Phase object.</span>
 <span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>

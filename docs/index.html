@@ -185,9 +185,6 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
     <span class="n">bounding_radius</span><span class="o">=</span><span class="mf">769.0</span><span class="p">,</span>
     <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
 
-<span class="c1"># The mesh can be saved as a .xdmf for visualization.</span>
-<span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;mesh.xdmf&quot;</span><span class="p">)</span>
-
 <span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
 <span class="c1"># by an xrd_simulator.phase.Phase object.</span>
 <span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
@@ -1190,9 +1187,11 @@ option.</p>
 <li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) – Object representing a flat rectangular detector.</p></li>
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
 polycrystal transformation as a function of time on the domain time=[0,1].</p></li>
-<li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) below which to not compute diffraction. Defaults to 0.</p></li>
-<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) after which to not compute diffraction. By default the
-max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample centroid.</p></li>
+<li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) below which to not compute diffraction.
+Defaults to 0.</p></li>
+<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) after which to not compute diffraction. By default
+the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
+centroid.</p></li>
 <li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Prints progress. Defaults to True.</p></li>
 </ul>
 </dd>
