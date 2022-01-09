@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.lib.function_base import iterable
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils, laue
 from xrd_simulator._pickleable_object import PickleableObject
@@ -120,9 +119,11 @@ class Polycrystal(PickleableObject):
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
-            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction. Defaults to 0.
-            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after which to not compute diffraction. By default the
-                max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample centroid.
+            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
+                Defaults to 0.
+            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after which to not compute diffraction. By default
+                the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
+                centroid.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
 
         """

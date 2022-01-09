@@ -137,16 +137,16 @@ class TestPolycrystal(unittest.TestCase):
     def test_dimension_handling(self):
         single_phase_successfull = False
         try:
-            polycrystal = Polycrystal(mesh=self.mesh,
-                                      orientation=self.orientation,
-                                      strain=np.zeros((3, 3)),
-                                      phases=self.phases[0],
-                                      element_phase_map=None)
-            polycrystal = Polycrystal(mesh=self.mesh,
-                                      orientation=self.orientation,
-                                      strain=np.zeros((3, 3)),
-                                      phases=self.phases[0],
-                                      element_phase_map=self.element_phase_map)
+            Polycrystal(mesh=self.mesh,
+                        orientation=self.orientation,
+                        strain=np.zeros((3, 3)),
+                        phases=self.phases[0],
+                        element_phase_map=None)
+            Polycrystal(mesh=self.mesh,
+                        orientation=self.orientation,
+                        strain=np.zeros((3, 3)),
+                        phases=self.phases[0],
+                        element_phase_map=self.element_phase_map)
             single_phase_successfull = True
         except BaseException:
             pass
@@ -156,7 +156,7 @@ class TestPolycrystal(unittest.TestCase):
 
         array_strain_successfull = False
         try:
-            polycrystal = Polycrystal(
+            Polycrystal(
                 mesh=self.mesh,
                 orientation=self.orientation,
                 strain=np.zeros(

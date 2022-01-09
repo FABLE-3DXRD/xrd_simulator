@@ -1,11 +1,9 @@
 """General package internal utility functions.
 """
-from re import L
 import sys
 
 import numpy as np
 from numba import njit
-from scipy.optimize import minimize, NonlinearConstraint
 from xrd_simulator.xfab import tools
 from CifFile import ReadCif
 

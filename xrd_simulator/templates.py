@@ -338,7 +338,7 @@ def get_uniform_powder_sample(
         .. literalinclude:: examples/example_get_uniform_powder_sample.py
 
     """
-    coord, enod, eU, node_number = [], [], [], 0
+    coord, enod, node_number = [], [], 0
     r = sample_bounding_radius
     for _ in range(number_of_grains):
         coord.append([r / np.sqrt(3.), r / np.sqrt(3.), -r / np.sqrt(3.)])
