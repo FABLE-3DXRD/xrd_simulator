@@ -69,23 +69,44 @@ We will also need to define a detector:
    .. literalinclude:: examples/example_end_to_end.py
       :lines: 23-30
 
-Next we go ahead and produce a sample:
+Next we go ahead and produce a sample, to do this we need to first define a mesh that
+describes the topology of the sample, in this example we make the sample shaped as a ball:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 33-60
+      :lines: 33-43
+
+Every element in the sample is composed of some material, or "phase", we define the present phases
+in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a single phase is present:
+
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 45-48
+
+The polycrystal sample can now be created. In this example the crystal elements have random orientations
+and the strain is uniformly zero in the sample:
+
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 50-55
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 63-67
+      :lines: 58-62
 
-Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
+Now that we have an experimental setup we may collect diffraction by letting the beam and detector
+interact with the sample:
 
    .. literalinclude:: examples/example_end_to_end.py
-      :lines: 69-74
+      :lines: 64-69
+
+The resulting rendered detector frame looks something like this:
+
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 71-74
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
+
+Many more options for experimental setup and intensity rendering exist, have fun experimenting!
 
 ======================================
 Installation

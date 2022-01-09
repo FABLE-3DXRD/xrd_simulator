@@ -97,7 +97,8 @@ We will also need to define a detector:
                           det_corner_2=np.array([142938.3, -38400., 38400.]))
 
 
-Next we go ahead and produce a sample:
+Next we go ahead and produce a sample, to do this we need to first define a mesh that
+describes the topology of the sample, in this example we make the sample shaped as a ball:
 
    .. code:: python
 
@@ -105,7 +106,6 @@ Next we go ahead and produce a sample:
       from xrd_simulator.phase import Phase
       from xrd_simulator.polycrystal import Polycrystal
 
-      # The toplogy of the polycrystal is described by a tetrahedral mesh,
       # xrd_simulator supports several ways to generate a mesh, here we
       # generate meshed solid sphere using a level set.
       mesh = TetraMesh.generate_mesh_from_levelset(
@@ -113,16 +113,22 @@ Next we go ahead and produce a sample:
           bounding_radius=769.0,
           max_cell_circumradius=450.)
 
-      # Each element of the mesh is a single crystal with properties defined
-      # by an xrd_simulator.phase.Phase object.
-      quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
+
+Every element in the sample is composed of some material, or "phase", we define the present phases
+in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a single phase is present:
+
+   .. code:: python
+
                      sgname='P3221',  # (Quartz)
                      path_to_cif_file=None  # phases can be defined from crystalographic information files
                      )
 
-      # The polycrystal can now map phase(s) (only quartz here), orientations and
-      # strains to the tetrahedral mesh elements.
-      orientation = R.random(mesh.number_of_elements).as_matrix()
+
+The polycrystal sample can now be created. In this example the crystal elements have random orientations
+and the strain is uniformly zero in the sample:
+
+   .. code:: python
+
       polycrystal = Polycrystal(mesh,
                                 orientation,
                                 strain=np.zeros((3, 3)),
@@ -140,19 +146,31 @@ And finally we define some motion of the sample over which to integrate the diff
                                translation=np.array([123, -153.3, 3.42]))
 
 
-Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
+Now that we have an experimental setup we may collect diffraction by letting the beam and detector
+interact with the sample:
 
    .. code:: python
 
-      diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
+      diffraction_pattern = detector.render(frame_number=0,
+                                              lorentz=False,
+                                              polarization=False,
+                                              structure_factor=False,
+                                              method="project")
 
-      import matplotlib.pyplot as plt
+
+The resulting rendered detector frame looks something like this:
+
+   .. code:: python
+
       fig,ax = plt.subplots(1,1)
       ax.imshow(diffraction_pattern, cmap='gray')
       plt.show()
 
+
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
+
+Many more options for experimental setup and intensity rendering exist, have fun experimenting!
 
 ======================================
 Installation

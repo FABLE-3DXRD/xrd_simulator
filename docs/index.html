@@ -168,31 +168,37 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </pre></div>
 </div>
 </div></blockquote>
-<p>Next we go ahead and produce a sample:</p>
+<p>Next we go ahead and produce a sample, to do this we need to first define a mesh that
+describes the topology of the sample, in this example we make the sample shaped as a ball:</p>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.mesh</span> <span class="kn">import</span> <span class="n">TetraMesh</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
 
-<span class="c1"># The toplogy of the polycrystal is described by a tetrahedral mesh,</span>
 <span class="c1"># xrd_simulator supports several ways to generate a mesh, here we</span>
 <span class="c1"># generate meshed solid sphere using a level set.</span>
 <span class="n">mesh</span> <span class="o">=</span> <span class="n">TetraMesh</span><span class="o">.</span><span class="n">generate_mesh_from_levelset</span><span class="p">(</span>
     <span class="n">level_set</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">768.0</span><span class="p">,</span>
     <span class="n">bounding_radius</span><span class="o">=</span><span class="mf">769.0</span><span class="p">,</span>
     <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
-
-<span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
-<span class="c1"># by an xrd_simulator.phase.Phase object.</span>
-<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Every element in the sample is composed of some material, or “phase”, we define the present phases
+in a list of <code class="docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code> objects, in this example only a single phase is present:</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
                <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span><span class="p">,</span>  <span class="c1"># (Quartz)</span>
                <span class="n">path_to_cif_file</span><span class="o">=</span><span class="kc">None</span>  <span class="c1"># phases can be defined from crystalographic information files</span>
                <span class="p">)</span>
-
-<span class="c1"># The polycrystal can now map phase(s) (only quartz here), orientations and</span>
-<span class="c1"># strains to the tetrahedral mesh elements.</span>
-<span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The polycrystal sample can now be created. In this example the crystal elements have random orientations
+and the strain is uniformly zero in the sample:</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
 <span class="n">polycrystal</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
                           <span class="n">orientation</span><span class="p">,</span>
                           <span class="n">strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
@@ -211,18 +217,29 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </pre></div>
 </div>
 </div></blockquote>
-<p>Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:</p>
+<p>Now that we have an experimental setup we may collect diffraction by letting the beam and detector
+interact with the sample:</p>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">polycrystal</span><span class="o">.</span><span class="n">diffract</span><span class="p">(</span><span class="n">beam</span><span class="p">,</span> <span class="n">detector</span><span class="p">,</span> <span class="n">motion</span><span class="p">)</span>
-<span class="n">diffraction_pattern</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">frame_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">lorentz</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">polarization</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">structure_factor</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;project&quot;</span><span class="p">)</span>
-
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">diffraction_pattern</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">frame_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                        <span class="n">lorentz</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                        <span class="n">polarization</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                        <span class="n">structure_factor</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                        <span class="n">method</span><span class="o">=</span><span class="s2">&quot;project&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The resulting rendered detector frame looks something like this:</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="n">fig</span><span class="p">,</span><span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">diffraction_pattern</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
 </div></blockquote>
 <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true" class="align-center" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true" />
+<p>Many more options for experimental setup and intensity rendering exist, have fun experimenting!</p>
 </section>
 <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
