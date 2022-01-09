@@ -85,6 +85,7 @@ Ok, so now we got ourselves an experimental setup, about time to collect some di
       :lines: 69-74
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
+   :align: center
 
 ======================================
 Installation
