@@ -3,6 +3,9 @@ from xrd_simulator import templates
 import matplotlib.pyplot as plt
 import cProfile
 import pstats
+import os
+
+from xrd_simulator.polycrystal import Polycrystal
 
 pr = cProfile.Profile()
 pr.enable()
@@ -37,7 +40,7 @@ maximum_sampling_bin_seperation = np.radians(10.0)
 
 
 def strain_tensor(x): return np.array(
-    [[0, 0, 0.02 * x[2] / sample_bounding_cylinder_height], [0, 0, 0], [0, 0, 0]])
+    [[0, 0, 0], [0, 0, 0], [0, 0, 0.02 * x[2] / sample_bounding_cylinder_height]])
 
 # Make the beam much smaller than the sample
 # vertices = beam.vertices.copy()
@@ -53,6 +56,13 @@ polycrystal = templates.polycrystal_from_odf(orientation_density_function,
                                              sgname,
                                              maximum_sampling_bin_seperation,
                                              strain_tensor)
+path = os.path.join(
+    os.path.join(
+        os.path.dirname(__file__),
+        'saves'),
+    'polycrystal_from_odf')
+polycrystal.save(path, save_mesh_as_xdmf=True)
+polycrystal = Polycrystal.load(path)
 
 # Full field diffraction.
 polycrystal.diffract(

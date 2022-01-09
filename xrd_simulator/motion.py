@@ -5,9 +5,9 @@ class RigidBodyMotion(object):
     """Rigid body transform euclidean points by an euler axis and translation representation.
 
     The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
-    of a point x by uniformly rotating it from [0, rotation_angle] and translating [0, translation].
-    I.e if called at a time time=t the motion will rotate the point t*rotation_angle radians and
-    translate an amount t * translation.
+    of a point x by linearly uniformly rotating it from [0, rotation_angle] and translating [0, translation].
+    I.e if called at a time time=t the motion will first rotate the point ``t*rotation_angle`` radians
+    around ``rotation_axis`` and next translate the point by the vector ``t*translation``.
 
     Args:
         rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
