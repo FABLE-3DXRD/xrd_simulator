@@ -208,7 +208,14 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 </div></blockquote>
 <p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
 <blockquote>
-<div><p>&lt;motion example goes here&gt;</p>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.motion</span> <span class="kn">import</span> <span class="n">RigidBodyMotion</span>
+
+<span class="n">motion</span> <span class="o">=</span> <span class="n">RigidBodyMotion</span><span class="p">(</span><span class="n">rotation_axis</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
+                         <span class="n">rotation_angle</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mf">2.0</span><span class="p">),</span>
+                         <span class="n">translation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">123</span><span class="p">,</span> <span class="o">-</span><span class="mf">153.3</span><span class="p">,</span> <span class="mf">3.42</span><span class="p">]))</span>
+</pre></div>
+</div>
 </div></blockquote>
 <p>Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:</p>
 <blockquote>

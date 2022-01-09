@@ -73,7 +73,7 @@ Next we go ahead and produce a sample:
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
-   <motion example goes here>
+   .. literalinclude:: examples/example_init_motion.py
 
 Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
 
