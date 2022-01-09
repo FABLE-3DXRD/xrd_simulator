@@ -1,20 +1,17 @@
-# TODO: tune these parameters and add linenumbers in literalincludes in raw_README
-# then delete individual examples...
-
 import numpy as np
 from xrd_simulator.beam import Beam
 
 # The beam of x-rays is represented as a convex polyhedron
 # We specify the vertices in a numpy array.
 beam_vertices = np.array([
-    [-5., 0., 0.],
-    [-5., 1., 0.],
-    [-5., 0., 1.],
-    [-5., 1., 1.],
-    [5., 0., 0.],
-    [5., 1., 0.],
-    [5., 0., 1.],
-    [5., 1., 1.]])
+    [-1e6, -500., -500.],
+    [-1e6, 500., -500.],
+    [-1e6, 500., 500.],
+    [-1e6, -500., 500.],
+    [1e6, -500., -500.],
+    [1e6, 500., -500.],
+    [1e6, 500., 500.],
+    [1e6, -500., 500.]])
 
 beam = Beam(
     beam_vertices,
@@ -66,13 +63,17 @@ polycrystal = Polycrystal(mesh,
 from xrd_simulator.motion import RigidBodyMotion
 
 motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
-                         rotation_angle=np.radians(2.0),
+                         rotation_angle=np.radians(1.0),
                          translation=np.array([123, -153.3, 3.42]))
 
 polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(frame_number=0, method="project")
+diffraction_pattern = detector.render(frame_number=0,lorentz=False,polarization=False,structure_factor=False, method="project")
 
 import matplotlib.pyplot as plt
 plt.imshow(diffraction_pattern, cmap='gray')
 plt.show()
+
+import os
+path = os.path.join( os.path.join( os.path.join(os.path.dirname(__file__), ".."), 'images'),"diffraction_pattern.png")
+plt.savefig(os.path.abspath(path))
 

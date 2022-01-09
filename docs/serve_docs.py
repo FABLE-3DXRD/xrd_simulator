@@ -4,23 +4,46 @@
 import os
 import shutil
 
+def in_lines(k, allowed_lines):
+    if allowed_lines=='all':
+        return True
+    elif k in allowed_lines:
+        return True
+    else:
+        return False
+
 with open(os.path.join("source", "raw_README.rst"), "r") as f:
     data = f.readlines()
 
 new_data = []
 for i, line in enumerate(data):
     if line.strip().startswith(".. literalinclude::"):
+        if str(data[i+1]).strip().startswith(":lines:"):
+            allowed_lines_str = str(data[i+1]).strip().split(":lines:")[-1].split(",")
+            allowed_lines = []
+            for segment in allowed_lines_str:
+                if len(segment)==1:
+                    allowed_lines.append(float(segment))
+                else:
+                    a=int(segment.split("-")[0])
+                    b=int(segment.split("-")[1])
+                    allowed_lines.extend(list(range(a,b+1)))
+        else:
+            allowed_lines='all'
         py_file = line.strip().split("::")[-1].strip()
         py_file = os.path.join("source", py_file)
         py_file = os.path.abspath(py_file)
         new_data.append("   .. code:: python")
         new_data.append("\n\n")
         with open(py_file, "r") as f:
-            for line in f.readlines():
-                if len(line.strip()) > 0:
-                    new_data.append("      " + line)
-                else:
-                    new_data.append("\n")
+            for k,pyline in enumerate(f.readlines()):
+                if in_lines(k, allowed_lines):
+                    if len(pyline.strip()) > 0:
+                        new_data.append("      " + pyline)
+                    else:
+                        new_data.append("\n")
+    elif line.strip().startswith(":lines:"):
+        pass
     else:
         new_data.append(line)
 

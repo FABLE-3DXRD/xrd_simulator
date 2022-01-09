@@ -61,24 +61,30 @@ as the sample undergoes the prescribed rigid body **motion** while being illumin
 
 Let's go ahead and build ourselves some x-rays:
 
-   .. literalinclude:: examples/example_init_beam.py
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 1-20
 
 We will also need to define a detector:
 
-   .. literalinclude:: examples/example_init_detector.py
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 23-30
 
 Next we go ahead and produce a sample:
 
-   .. literalinclude:: examples/example_init_polycrystal.py
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 33-60
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
-   .. literalinclude:: examples/example_init_motion.py
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 63-67
 
 Ok, so now we got ourselves an experimental setup, about time to collect some diffraction:
 
-   <diffract and rendering example goes here>
+   .. literalinclude:: examples/example_end_to_end.py
+      :lines: 69-74
 
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
 
 ======================================
 Installation
