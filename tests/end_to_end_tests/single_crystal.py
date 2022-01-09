@@ -13,11 +13,19 @@ from xrd_simulator.xfab import tools
 pixel_size = 75.
 detector_size = pixel_size * 1024
 detector_distance = 142938.28756189224
-det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
-det_corner_1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
-det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
+det_corner_0 = np.array(
+    [detector_distance, -detector_size / 2., -detector_size / 2.])
+det_corner_1 = np.array(
+    [detector_distance, detector_size / 2., -detector_size / 2.])
+det_corner_2 = np.array(
+    [detector_distance, -detector_size / 2., detector_size / 2.])
 
-detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
+detector = Detector(
+    pixel_size,
+    pixel_size,
+    det_corner_0,
+    det_corner_1,
+    det_corner_2)
 
 np.random.seed(1)
 r = (detector_size / 10.)
@@ -37,9 +45,11 @@ np.random.seed(2)
 grain_avg_rot = np.max([np.radians(1.0), np.random.rand() * 2 * np.pi])
 euler_angles = grain_avg_rot + \
     np.random.normal(loc=0.0, scale=np.radians(0), size=(mesh.number_of_elements, 3))
-orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2]) for ea in euler_angles])
+orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2])
+                       for ea in euler_angles])
 element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
-Polycrystal(mesh, orientation, strain=np.zeros((3,3)), phases=phases, element_phase_map=element_phase_map)
+polycrystal = Polycrystal(mesh, orientation, strain=np.zeros(
+    (3, 3)), phases=phases, element_phase_map=element_phase_map)
 
 w = detector_size  # full field beam
 beam_vertices = np.array([
