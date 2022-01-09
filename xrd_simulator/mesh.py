@@ -310,8 +310,11 @@ class TetraMesh(object):  # TODO: add unit tests
             save_path = file + ".xdmf"
         else:
             save_path = file
-        for key in element_data:
-            element_data[key] = [list(element_data[key])]
+
+        if element_data is not None:
+            for key in element_data:
+                element_data[key] = [list(element_data[key])]
+
         meshio.write_points_cells(
             save_path, self.coord, [
                 ("tetra", self.enod)], cell_data=element_data)
