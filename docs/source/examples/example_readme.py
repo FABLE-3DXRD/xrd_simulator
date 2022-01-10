@@ -86,7 +86,7 @@ ax.imshow(diffraction_pattern, cmap='gray')
 plt.show()
 ##example:
 
-##example: move
+##example: transform
 polycrystal.transform(motion, time=1.0)
 polycrystal.diffract(beam, detector, motion)
 ##example:

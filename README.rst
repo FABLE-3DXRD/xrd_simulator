@@ -179,10 +179,8 @@ each computation using the same or another motion.
 
    .. code:: python
 
-      import matplotlib.pyplot as plt
-      fig,ax = plt.subplots(1,1)
-      ax.imshow(diffraction_pattern, cmap='gray')
-      plt.show()
+      polycrystal.transform(motion, time=1.0)
+      polycrystal.diffract(beam, detector, motion)
 
 Many more options for experimental setups and intensity rendering exist, have fun experimenting!
 The above example code can be found as a `single .py file here.`_
