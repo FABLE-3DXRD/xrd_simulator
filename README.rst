@@ -223,13 +223,10 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 
 Credits
 ===============================
-``xrd_simulator`` uses a builtin modified versions of xfab and miniball. The source code of these repos can be found here:
+``xrd_simulator`` uses a builtin modified versions of xfab and also makes good use of pygalmesh.
+The source code of these repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `https://github.com/marmakoide/miniball`_
-
-``xrd_simulator`` also makes good use of pygalmesh:
-
 * `https://github.com/nschloe/pygalmesh`_
 
 

@@ -109,7 +109,7 @@ class TestUtils(unittest.TestCase):
 
     def test_get_bounding_ball(self):
         points = np.random.rand(4, 3) - 0.5
-        centre, radius = utils.get_bounding_ball(points)
+        centre, radius = utils._get_bounding_ball(points)
         mean = np.mean(points, axis=0)
         base_radius = np.max(np.linalg.norm(points - mean, axis=1))
         self.assertLessEqual(
@@ -126,7 +126,7 @@ class TestUtils(unittest.TestCase):
         ratios = []
         for _ in range(500):
             points = np.random.rand(4, 3) - 0.5
-            centre, radius = utils.get_bounding_ball(points)
+            centre, radius = utils._get_bounding_ball(points)
             mean = np.mean(points, axis=0)
             base_radius = np.max(np.linalg.norm(points - mean, axis=1))
             ratios.append(radius / base_radius)
