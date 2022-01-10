@@ -4,51 +4,44 @@
 import os
 import shutil
 
-def in_lines(k, allowed_lines):
-    if allowed_lines=='all':
-        return True
-    elif k in allowed_lines:
-        return True
-    else:
-        return False
+def render_example_code_in_readme( path_to_raw_readme, example_code_path, pattern):
+    """Handle code inclusion from file in github readme. Any line in the raw .rst that
+    starts with ``pattern`` will be replaced by a github friendly ".. code::" block
+    inserting all code lines from ``example_code_path`` that lies between two patterns
+    in the ``example_code_path`.
 
-with open(os.path.join("source", "raw_README.rst"), "r") as f:
-    data = f.readlines()
+    (The reason for this function is that github does not support code inclusion in the readme.)
+    """
+    with open(path_to_raw_readme, "r") as f:
+        data = f.readlines()
+    new_data = []
+    for i, line in enumerate(data):
+        if line.strip().startswith(pattern):
+            example = str(line.strip())
+            new_data.append("   .. code:: python")
+            new_data.append("\n\n")
+            with open(example_code_path, "r") as f:
+                read_lines = False
+                for code_line in f.readlines():
 
-new_data = []
-for i, line in enumerate(data):
-    if line.strip().startswith(".. literalinclude::"):
-        if str(data[i+1]).strip().startswith(":lines:"):
-            allowed_lines_str = str(data[i+1]).strip().split(":lines:")[-1].split(",")
-            allowed_lines = []
-            for segment in allowed_lines_str:
-                if len(segment)==1:
-                    allowed_lines.append(float(segment))
-                else:
-                    a=int(segment.split("-")[0])
-                    b=int(segment.split("-")[1])
-                    allowed_lines.extend(list(range(a,b+1)))
+                    if code_line.strip().startswith(pattern) and not code_line.strip().startswith(example):
+                        read_lines = False
+                    if read_lines:
+                        if len(code_line.strip()) > 0:
+                            new_data.append("      " + code_line)
+                        else:
+                            new_data.append("\n")
+
+                    if code_line.strip().startswith(example):
+                        read_lines = True
         else:
-            allowed_lines='all'
-        py_file = line.strip().split("::")[-1].strip()
-        py_file = os.path.join("source", py_file)
-        py_file = os.path.abspath(py_file)
-        new_data.append("   .. code:: python")
-        new_data.append("\n\n")
-        with open(py_file, "r") as f:
-            for k,pyline in enumerate(f.readlines()):
-                if in_lines(k, allowed_lines):
-                    if len(pyline.strip()) > 0:
-                        new_data.append("      " + pyline)
-                    else:
-                        new_data.append("\n")
-    elif line.strip().startswith(":lines:"):
-        pass
-    else:
-        new_data.append(line)
+            new_data.append(line)
+    with open(os.path.join("..", "README.rst"), 'w') as f:
+        f.writelines(new_data)
 
-with open(os.path.join("..", "README.rst"), 'w') as f:
-    f.writelines(new_data)
+render_example_code_in_readme(os.path.join("source", "raw_README.rst"),
+                              os.path.join("source", "examples", "example_readme.py"),
+                              pattern="##example:")
 
 out = os.system("make html")
 if out != 0:

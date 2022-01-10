@@ -63,6 +63,7 @@ Let's go ahead and build ourselves some x-rays:
 
    .. code:: python
 
+      import numpy as np
       from xrd_simulator.beam import Beam
       # The beam of x-rays is represented as a convex polyhedron
       # We specify the vertices in a numpy array.
@@ -82,18 +83,17 @@ Let's go ahead and build ourselves some x-rays:
           wavelength=0.28523,
           polarization_vector=np.array([0., 1., 0.]))
 
-
 We will also need to define a detector:
 
    .. code:: python
 
+      from xrd_simulator.detector import Detector
       # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
       detector = Detector(pixel_size_z=75.0,
                           pixel_size_y=55.0,
                           det_corner_0=np.array([142938.3, -38400., -38400.]),
                           det_corner_1=np.array([142938.3, 38400., -38400.]),
                           det_corner_2=np.array([142938.3, -38400., 38400.]))
-
 
 Next we go ahead and produce a sample, to do this we need to first define a mesh that
 describes the topology of the sample, in this example we make the sample shaped as a ball:
@@ -108,35 +108,43 @@ describes the topology of the sample, in this example we make the sample shaped 
           bounding_radius=769.0,
           max_cell_circumradius=450.)
 
-
 Every element in the sample is composed of some material, or "phase", we define the present phases
 in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a single phase is present:
 
    .. code:: python
 
+      from xrd_simulator.phase import Phase
       quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
                      sgname='P3221',  # (Quartz)
                      path_to_cif_file=None  # phases can be defined from crystalographic information files
                      )
-
 
 The polycrystal sample can now be created. In this example the crystal elements have random orientations
 and the strain is uniformly zero in the sample:
 
    .. code:: python
 
+      from scipy.spatial.transform import Rotation as R
+      from xrd_simulator.polycrystal import Polycrystal
       orientation = R.random(mesh.number_of_elements).as_matrix()
       polycrystal = Polycrystal(mesh,
                                 orientation,
                                 strain=np.zeros((3, 3)),
                                 phases=quartz,
                                 element_phase_map=None)
+      # The polycrystal can be saved to file using: polycrystal.save()
 
+We can visualize the sample in by saving to file and opening in your favorite 3D rendering program.
+In `paraview`_ the sampled colored by one of its Euler angles looks like this:
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_readme_polycrystal.png?raw=true
+   :align: center
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
 
    .. code:: python
 
+      from xrd_simulator.motion import RigidBodyMotion
       motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
                                rotation_angle=np.radians(1.0),
                                translation=np.array([123, -153.3, 3.42]))
@@ -147,21 +155,21 @@ interact with the sample:
 
    .. code:: python
 
+      polycrystal.diffract(beam, detector, motion)
       diffraction_pattern = detector.render(frame_number=0,
                                               lorentz=False,
                                               polarization=False,
                                               structure_factor=False,
                                               method="project")
 
-
 The resulting rendered detector frame looks something like this:
 
    .. code:: python
 
+      import matplotlib.pyplot as plt
       fig,ax = plt.subplots(1,1)
       ax.imshow(diffraction_pattern, cmap='gray')
       plt.show()
-
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
@@ -240,3 +248,5 @@ Credits
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
 .. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_end_to_end.py
+
+.. _paraview: https://www.paraview.org/
