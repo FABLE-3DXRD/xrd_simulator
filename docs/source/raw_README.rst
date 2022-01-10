@@ -85,7 +85,7 @@ and the strain is uniformly zero in the sample:
 We can visualize the sample in by saving to file and opening in your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
 
-.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_readme_polycrystal.png?raw=true
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_polycrystal_readme.png?raw=true
    :align: center
 
 And finally we define some motion of the sample over which to integrate the diffraction signal:
