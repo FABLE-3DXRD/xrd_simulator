@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 from xrd_simulator.xfab import tools
 from CifFile import ReadCif
+from itertools import combinations
 
 
 def contained_by_intervals(value, intervals):
@@ -193,92 +194,50 @@ def diffractogram(
     return bin_centres[0:clip_index], histogram[0:clip_index]
 
 
-def _get_circumsphere(points):
+def _get_circumscribed_sphere_centroid(subset_of_points):
+    """Compute circumscribed_sphere_centroid by solving linear systems of equations
+    enforcing the centorid to be a linear combination of the subset_of_points space.
+
+    The central idea is to substitute the squared radius in the nonlinear quadratic
+    sphere equations and proceed to find a linear system with only the sphere centroid
+    as the unknown.
+
+    Args:
+        subset_of_points (:obj:`numpy array`): Points to circumscribe with a sphere ``shape=(n,3)``
+
+    Returns:
+        (:obj:`numpy array`) with ``centroid`` of``shape=(3,)``
+
     """
-    Computes the circumsphere of a set of points
-
-    NOTE: Implementation adapted from miniball: https://github.com/marmakoide/miniball/.
-
-    """
-    U = points[1:] - points[0]
-    B = np.sqrt(np.sum(U ** 2, axis=1))
-    U /= B[:, None]
-    B /= 2
-    C = np.dot(np.linalg.solve(np.inner(U, U), B), U)
-    r2 = np.sum(C ** 2)
-    C += points[0]
-    return C, r2
+    A = 2*(subset_of_points[0]-subset_of_points[1:])
+    pp = np.sum(subset_of_points*subset_of_points,axis=1)
+    b = pp[0] - pp[1:]
+    B = (subset_of_points[0]-subset_of_points[1:]).T
+    x = np.linalg.solve(A.dot(B), b - A.dot(subset_of_points[0]))
+    return subset_of_points[0] + B.dot(x)
 
 
-def get_bounding_ball(points, epsilon=1e-7):
+def _get_bounding_ball(points):
     """Compute a minimal bounding ball for a set of euclidean points.
+
+    This is a naive implementation that checks all possible minimal bounding balls
+    by constructing spheres that have increasingly higher number of points from the
+    point set exactly at their surface. For extremely low dimensional problems
+    (such as tetrahedrons in a mesh) this has been found to be more efficient than
+    more standard methods, such as the Emo Welzl 1991 algorithm. For larger point sets
+    however, the method quickly becomes slow.
 
     Args:
         points (:obj:`numpy array`): Points to be wrapped by sphere ``shape=(n,3)``
-        epsilon (:obj:`float`) Tolerance used when testing if a set of point belongs to
-            the same sphere. Default is 1e-7
 
     Returns:
-        (:obj:`tuple`) with ``centroid`` and ``radius``.
-
-    NOTE: Iterative implementation of Welzl's algorithm, see "Smallest enclosing disks
-        (balls and ellipsoids)" Emo Welzl 1991. IMplementation adapted from miniball:
-        https://github.com/marmakoide/miniball/.
+        (:obj:`tuple` of :obj:`numpy array` and :obj:`float`) ``centroid`` and ``radius``.
 
     """
-    rng = np.random.default_rng()
-
-    def circle_contains(D, point):
-        center, r2 = D
-        return np.sum((point - center) ** 2) <= r2
-
-    def get_boundary(R):
-        if len(R) == 0:
-            return np.zeros(points.shape[1]), 0.0
-
-        if len(R) <= points.shape[1] + 1:
-            return _get_circumsphere(points[R])
-
-        c, r2 = _get_circumsphere(points[R[: points.shape[1] + 1]])
-        if np.all(
-            np.fabs(
-                np.sum(
-                    (points[R] - c) ** 2,
-                axis=1) - r2) < epsilon):
-            return c, r2
-
-    class Node(object):
-        def __init__(self, P, R):
-            self.P = P
-            self.R = R
-            self.D = None
-            self.pivot = None
-            self.left = None
-            self.right = None
-
-    def traverse(node):
-        stack = [node]
-        while len(stack) > 0:
-            node = stack.pop()
-
-            if len(node.P) == 0 or len(node.R) >= points.shape[1] + 1:
-                node.D = get_boundary(node.R)
-            elif node.left is None:
-                node.pivot = rng.choice(node.P)
-                node.left = Node(list(set(node.P) - set([node.pivot])), node.R)
-                stack.extend((node, node.left))
-            elif node.right is None:
-                if circle_contains(node.left.D, points[node.pivot]):
-                    node.D = node.left.D
-                else:
-                    node.right = Node(node.left.P, node.R + [node.pivot])
-                    stack.extend((node, node.right))
-            else:
-                node.D = node.right.D
-                node.left, node.right = None, None
-
-    points = points.astype(float, copy=False)
-    root = Node(range(points.shape[0]), [])
-    traverse(root)
-    c, r = root.D
-    return c, np.sqrt(r)
+    radius, centroids = [],[]
+    for k in range(2,5):
+        for subset_of_points in combinations(points, k):
+            centroids.append(_get_circumscribed_sphere_centroid(np.array(subset_of_points)))
+            radius.append(np.max(np.linalg.norm(points - centroids[-1], axis=1)))
+    index = np.argmin(radius)
+    return centroids[index], radius[index]

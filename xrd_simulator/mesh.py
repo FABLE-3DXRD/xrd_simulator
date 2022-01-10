@@ -262,7 +262,7 @@ class TetraMesh(object):  # TODO: add unit tests
         espherecentroids = np.zeros((enod.shape[0], 3))
         for i in range(enod.shape[0]):
             ec = coord[enod[i, :], :]
-            espherecentroids[i], eradius[i] = utils.get_bounding_ball(ec)
+            espherecentroids[i], eradius[i] = utils._get_bounding_ball(ec)
         return eradius, espherecentroids
 
     def __call__(self, X, Y, Z, dim='all'):
