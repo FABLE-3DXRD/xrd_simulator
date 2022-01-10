@@ -128,7 +128,7 @@ examples to get us started on a good flavour.</p>
 <li><p>A rigid body sample <strong>motion</strong> (using the <code class="docutils literal notranslate"><span class="pre">xrd_simulator.motion</span></code> module)</p></li>
 </ul>
 </div></blockquote>
-<p>Once these objects are defined the it is possible to let the <strong>detector</strong> collect scattering of the <strong>polycrystal</strong>
+<p>Once these objects are defined it is possible to let the <strong>detector</strong> collect scattering of the <strong>polycrystal</strong>
 as the sample undergoes the prescribed rigid body <strong>motion</strong> while being illuminated by the xray <strong>beam</strong>.</p>
 <p>Let’s go ahead and build ourselves some x-rays:</p>
 <blockquote>
@@ -205,10 +205,10 @@ and the strain is uniformly zero in the sample:</p>
 </pre></div>
 </div>
 </div></blockquote>
-<p>We can visualize the sample in by saving to file and opening in your favorite 3D rendering program.
+<p>We can visualize the sample by saving to file and opening it in your favorite 3D rendering program.
 In <a class="reference external" href="https://www.paraview.org/">paraview</a> the sampled colored by one of its Euler angles looks like this:</p>
 <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_polycrystal_readme.png?raw=true" class="align-center" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_polycrystal_readme.png?raw=true" />
-<p>And finally we define some motion of the sample over which to integrate the diffraction signal:</p>
+<p>We can now define some motion of the sample over which to integrate the diffraction signal:</p>
 <blockquote>
 <div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">xrd_simulator.motion</span> <span class="kn">import</span> <span class="n">RigidBodyMotion</span>
 <span class="n">motion</span> <span class="o">=</span> <span class="n">RigidBodyMotion</span><span class="p">(</span><span class="n">rotation_axis</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
@@ -288,7 +288,7 @@ on your system. Installation of these will be OS dependent and documentation
 </section>
 <section id="credits">
 <h2>Credits<a class="headerlink" href="#credits" title="Permalink to this headline"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> uses a builtin modified verisons of xfab and miniball. The source code of these repos can be found here:</p>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> uses a builtin modified versions of xfab and miniball. The source code of these repos can be found here:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://github.com/FABLE-3DXRD/xfab">https://github.com/FABLE-3DXRD/xfab</a></p></li>
 <li><p><a class="reference external" href="https://github.com/marmakoide/miniball">https://github.com/marmakoide/miniball</a></p></li>

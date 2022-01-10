@@ -56,7 +56,7 @@ The ``xrd_simulator`` is built around four python objects which reflect a diffra
    * A 3D **polycrystal** sample (using the ``xrd_simulator.polycrystal`` module)
    * A rigid body sample **motion** (using the ``xrd_simulator.motion`` module)
 
-Once these objects are defined the it is possible to let the **detector** collect scattering of the **polycrystal**
+Once these objects are defined it is possible to let the **detector** collect scattering of the **polycrystal**
 as the sample undergoes the prescribed rigid body **motion** while being illuminated by the xray **beam**.
 
 Let's go ahead and build ourselves some x-rays:
@@ -82,13 +82,13 @@ and the strain is uniformly zero in the sample:
 
    ##example: polycrystal
 
-We can visualize the sample in by saving to file and opening in your favorite 3D rendering program.
+We can visualize the sample by saving to file and opening it in your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_polycrystal_readme.png?raw=true
    :align: center
 
-And finally we define some motion of the sample over which to integrate the diffraction signal:
+We can now define some motion of the sample over which to integrate the diffraction signal:
 
    ##example: motion
 
@@ -150,7 +150,7 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 
 Credits
 ===============================
-``xrd_simulator`` uses a builtin modified verisons of xfab and miniball. The source code of these repos can be found here:
+``xrd_simulator`` uses a builtin modified versions of xfab and miniball. The source code of these repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
 * `https://github.com/marmakoide/miniball`_
