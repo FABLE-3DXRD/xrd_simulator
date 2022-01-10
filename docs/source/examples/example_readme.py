@@ -86,6 +86,11 @@ ax.imshow(diffraction_pattern, cmap='gray')
 plt.show()
 ##example:
 
+##example: move
+polycrystal.transform(motion, time=1.0)
+polycrystal.diffract(beam, detector, motion)
+##example:
+
 import os
 path = os.path.join( os.path.dirname(__file__), "..", 'images', "diffraction_pattern.png")
 fig.savefig(os.path.abspath(path), bbox_inches='tight', transparent=True)

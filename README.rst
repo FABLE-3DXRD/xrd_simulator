@@ -174,7 +174,17 @@ The resulting rendered detector frame looks something like this:
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
 
-Many more options for experimental setup and intensity rendering exist, have fun experimenting!
+To compute several frames simply change the motion and collect the diffraction again. The sample may be moved before
+each computation using the same or another motion.
+
+   .. code:: python
+
+      import matplotlib.pyplot as plt
+      fig,ax = plt.subplots(1,1)
+      ax.imshow(diffraction_pattern, cmap='gray')
+      plt.show()
+
+Many more options for experimental setups and intensity rendering exist, have fun experimenting!
 The above example code can be found as a `single .py file here.`_
 
 ======================================
