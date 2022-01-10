@@ -255,6 +255,6 @@ Credits
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
-.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_end_to_end.py
+.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_readme.py
 
 .. _paraview: https://www.paraview.org/
