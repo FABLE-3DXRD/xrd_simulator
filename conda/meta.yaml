@@ -28,6 +28,7 @@ requirements:
     - scipy==1.6.1
     - numba==0.53.0
     - pycifrw==4.4.3
+    - conda-forge::conda_build_test_requirement
 
 test:
   imports:
