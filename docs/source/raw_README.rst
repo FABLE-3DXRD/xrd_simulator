@@ -120,7 +120,7 @@ Anaconda installation
 ===============================
 The preferred way to install the xrd_simulator package is via anaconda::
 
-   conda install -c conda-forge -c axiomel xrd_simulator
+   conda install -c axiomel xrd_simulator
 
 This is meant work across OS-systems and requires no prerequisites except, of course,
 that of `Anaconda`_ itself.
