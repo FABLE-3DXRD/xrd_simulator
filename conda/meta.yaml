@@ -40,5 +40,4 @@ about:
   summary: {{ data.get('description') }}
   description: |
     A package for simulating X-ray Diffraction from polycrystals. Note that the conda-forge channel
-    must be on your default channels for installation. Alternatively, use:
-    conda install -c conda-forge -c axiomel xrd_simulator
+    must be on your default channels for installation.

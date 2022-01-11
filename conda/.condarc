@@ -1,0 +1,4 @@
+channels:
+  - axiomel
+  - conda-forge
+  - defaults
