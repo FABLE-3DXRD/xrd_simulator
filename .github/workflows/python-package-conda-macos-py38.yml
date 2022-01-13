@@ -21,8 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
-        sudo conda install python=3.8
-        sudo conda install -c conda-forge -c axiomel xrd_simulator
+        sudo conda install -c axiomel xrd_simulator
     - name: Lint with flake8
       run: |
         sudo conda install flake8
