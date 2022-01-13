@@ -6,6 +6,7 @@
   <title>Index &mdash; xrd_simulator 0.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -14,6 +15,8 @@
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/clipboard.min.js"></script>
+        <script src="_static/copybutton.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -24,7 +27,8 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> xrd_simulator
+            <a href="index.html">
+            <img src="_static/logo_stripped_white.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -64,6 +68,7 @@
 
 <div class="genindex-jumpbox">
  <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
  | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
@@ -76,6 +81,7 @@
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
@@ -90,6 +96,18 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.__call__">__call__() (xrd_simulator.mesh.TetraMesh method)</a>
+
+      <ul>
+        <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.__call__">(xrd_simulator.motion.RigidBodyMotion method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.utils.alpha_to_quarternion">alpha_to_quarternion() (in module xrd_simulator.utils)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -111,10 +129,14 @@
         <li><a href="index.html#xrd_simulator.scatterer.Scatterer.centroid">(xrd_simulator.scatterer.Scatterer property)</a>
 </li>
       </ul></li>
+      <li><a href="index.html#xrd_simulator.utils.cif_open">cif_open() (in module xrd_simulator.utils)</a>
+</li>
       <li><a href="index.html#xrd_simulator.utils.clip_line_with_convex_polyhedron">clip_line_with_convex_polyhedron() (in module xrd_simulator.utils)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.utils.contained_by_intervals">contained_by_intervals() (in module xrd_simulator.utils)</a>
+</li>
       <li><a href="index.html#xrd_simulator.beam.Beam.contains">contains() (xrd_simulator.beam.Beam method)</a>
 
       <ul>
@@ -133,9 +155,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.detector.Detector">Detector (class in xrd_simulator.detector)</a>
 </li>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.diffract">diffract() (xrd_simulator.polycrystal.Polycrystal method)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.diffract">diffract() (xrd_simulator.polycrystal.Polycrystal method)</a>
+      <li><a href="index.html#xrd_simulator.utils.diffractogram">diffractogram() (in module xrd_simulator.utils)</a>
 </li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.dof">dof (xrd_simulator.mesh.TetraMesh attribute)</a>
 </li>
@@ -145,27 +169,21 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.eB">eB (xrd_simulator.polycrystal.Polycrystal attribute)</a>
-</li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.ecentroids">ecentroids (xrd_simulator.mesh.TetraMesh attribute)</a>
 </li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.ecmat">ecmat (xrd_simulator.mesh.TetraMesh attribute)</a>
 </li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.efaces">efaces (xrd_simulator.mesh.TetraMesh attribute)</a>
 </li>
-      <li><a href="index.html#xrd_simulator.mesh.TetraMesh.enod">enod (xrd_simulator.mesh.TetraMesh attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.element_phase_map">element_phase_map (xrd_simulator.polycrystal.Polycrystal attribute)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.mesh.TetraMesh.enod">enod (xrd_simulator.mesh.TetraMesh attribute)</a>
+</li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.enormals">enormals (xrd_simulator.mesh.TetraMesh attribute)</a>
 </li>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.ephase">ephase (xrd_simulator.polycrystal.Polycrystal attribute)</a>
-</li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.eradius">eradius (xrd_simulator.mesh.TetraMesh attribute)</a>
-</li>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.eU_lab">eU_lab (xrd_simulator.polycrystal.Polycrystal attribute)</a>
-</li>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.eU_sample">eU_sample (xrd_simulator.polycrystal.Polycrystal attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -197,10 +215,10 @@
 </li>
       <li><a href="index.html#xrd_simulator.laue.get_bragg_angle">get_bragg_angle() (in module xrd_simulator.laue)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.laue.get_G">get_G() (in module xrd_simulator.laue)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.detector.Detector.get_intersection">get_intersection() (xrd_simulator.detector.Detector method)</a>
 </li>
       <li><a href="index.html#xrd_simulator.beam.Beam.get_proximity_intervals">get_proximity_intervals() (xrd_simulator.beam.Beam method)</a>
@@ -208,6 +226,8 @@
       <li><a href="index.html#xrd_simulator.laue.get_sin_theta_and_norm_G">get_sin_theta_and_norm_G() (in module xrd_simulator.laue)</a>
 </li>
       <li><a href="index.html#xrd_simulator.laue.get_tangens_half_angle_equation">get_tangens_half_angle_equation() (in module xrd_simulator.laue)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.templates.get_uniform_powder_sample">get_uniform_powder_sample() (in module xrd_simulator.templates)</a>
 </li>
       <li><a href="index.html#xrd_simulator.detector.Detector.get_wrapping_cone">get_wrapping_cone() (xrd_simulator.detector.Detector method)</a>
 </li>
@@ -249,10 +269,12 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.mesh.TetraMesh.load">load() (xrd_simulator.mesh.TetraMesh class method)</a>
+      <li><a href="index.html#xrd_simulator.utils.lab_strain_to_B_matrix">lab_strain_to_B_matrix() (in module xrd_simulator.utils)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.mesh.TetraMesh.load">load() (xrd_simulator.mesh.TetraMesh class method)</a>
+</li>
       <li><a href="index.html#xrd_simulator.scatterer.Scatterer.lorentz_factor">lorentz_factor (xrd_simulator.scatterer.Scatterer property)</a>
 </li>
   </ul></td>
@@ -279,6 +301,8 @@
 </li>
         <li><a href="index.html#module-xrd_simulator.mesh">xrd_simulator.mesh</a>
 </li>
+        <li><a href="index.html#module-xrd_simulator.motion">xrd_simulator.motion</a>
+</li>
         <li><a href="index.html#module-xrd_simulator.phase">xrd_simulator.phase</a>
 </li>
         <li><a href="index.html#module-xrd_simulator.polycrystal">xrd_simulator.polycrystal</a>
@@ -301,6 +325,18 @@
   </ul></td>
 </tr></table>
 
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.orientation_lab">orientation_lab (xrd_simulator.polycrystal.Polycrystal attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.orientation_sample">orientation_sample (xrd_simulator.polycrystal.Polycrystal attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -312,15 +348,17 @@
 </li>
       <li><a href="index.html#xrd_simulator.detector.Detector.pixel_size_y">pixel_size_y (xrd_simulator.detector.Detector attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.detector.Detector.pixel_size_z">pixel_size_z (xrd_simulator.detector.Detector attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.scatterer.Scatterer.polarization_factor">polarization_factor (xrd_simulator.scatterer.Scatterer property)</a>
 </li>
       <li><a href="index.html#xrd_simulator.beam.Beam.polarization_vector">polarization_vector (xrd_simulator.beam.Beam attribute)</a>
 </li>
       <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal">Polycrystal (class in xrd_simulator.polycrystal)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.templates.polycrystal_from_odf">polycrystal_from_odf() (in module xrd_simulator.templates)</a>
 </li>
       <li><a href="index.html#xrd_simulator.utils.print_progress">print_progress() (in module xrd_simulator.utils)</a>
 </li>
@@ -332,9 +370,17 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.scatterer.Scatterer.real_structure_factor">real_structure_factor (xrd_simulator.scatterer.Scatterer property)</a>
 </li>
+      <li><a href="index.html#xrd_simulator.detector.Detector.render">render() (xrd_simulator.detector.Detector method)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion">RigidBodyMotion (class in xrd_simulator.motion)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.detector.Detector.render">render() (xrd_simulator.detector.Detector method)</a>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.rotate">rotate() (xrd_simulator.motion.RigidBodyMotion method)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.rotation_angle">rotation_angle (xrd_simulator.motion.RigidBodyMotion attribute)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.rotation_axis">rotation_axis (xrd_simulator.motion.RigidBodyMotion attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -347,14 +393,24 @@
       <li><a href="index.html#xrd_simulator.templates.s3dxrd">s3dxrd() (in module xrd_simulator.templates)</a>
 </li>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh.save">save() (xrd_simulator.mesh.TetraMesh method)</a>
+
+      <ul>
+        <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.save">(xrd_simulator.polycrystal.Polycrystal method)</a>
+</li>
+      </ul></li>
+      <li><a href="index.html#xrd_simulator.scatterer.Scatterer">Scatterer (class in xrd_simulator.scatterer)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.scatterer.Scatterer">Scatterer (class in xrd_simulator.scatterer)</a>
+      <li><a href="index.html#xrd_simulator.beam.Beam.set_beam_vertices">set_beam_vertices() (xrd_simulator.beam.Beam method)</a>
 </li>
       <li><a href="index.html#xrd_simulator.phase.Phase.setup_diffracting_planes">setup_diffracting_planes() (xrd_simulator.phase.Phase method)</a>
 </li>
       <li><a href="index.html#xrd_simulator.phase.Phase.sgname">sgname (xrd_simulator.phase.Phase attribute)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.strain_lab">strain_lab (xrd_simulator.polycrystal.Polycrystal attribute)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.strain_sample">strain_sample (xrd_simulator.polycrystal.Polycrystal attribute)</a>
 </li>
       <li><a href="index.html#xrd_simulator.phase.Phase.structure_factors">structure_factors (xrd_simulator.phase.Phase attribute)</a>
 </li>
@@ -366,9 +422,13 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#xrd_simulator.mesh.TetraMesh">TetraMesh (class in xrd_simulator.mesh)</a>
 </li>
+      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.transform">transform() (xrd_simulator.polycrystal.Polycrystal method)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="index.html#xrd_simulator.polycrystal.Polycrystal.transform">transform() (xrd_simulator.polycrystal.Polycrystal method)</a>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.translate">translate() (xrd_simulator.motion.RigidBodyMotion method)</a>
+</li>
+      <li><a href="index.html#xrd_simulator.motion.RigidBodyMotion.translation">translation (xrd_simulator.motion.RigidBodyMotion attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -441,14 +501,21 @@
 </li>
       </ul></li>
       <li>
+    xrd_simulator.motion
+
+      <ul>
+        <li><a href="index.html#module-xrd_simulator.motion">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
     xrd_simulator.phase
 
       <ul>
         <li><a href="index.html#module-xrd_simulator.phase">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     xrd_simulator.polycrystal
 
