@@ -23,7 +23,7 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6,<3.9",
-    install_requires=["matplotlib==3.3.1",
+    install_requires=["matplotlib",
                       "numpy==1.21.4",
                       "meshio==5.0.2",
                       "pygalmesh==0.10.6",
