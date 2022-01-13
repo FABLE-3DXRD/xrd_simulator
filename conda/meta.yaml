@@ -9,7 +9,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 2377f3c283d78270f29eb7524d123ff0c3bbda94429bf5623db4480f770fdc8d
+  sha256: 79dfe23ead75a247c95ecba0b3a16c07f0be178479582d9ef8b71cde105a3b18
 
 build:
   number: 0
@@ -20,7 +20,7 @@ requirements:
     - pip
     - python >=3.8,<3.9
   run:
-    - conda-forge::python >=3.8,<3.9
+    - python >=3.8,<3.9
     - conda-forge::matplotlib==3.3.1
     - conda-forge::numpy==1.21.4
     - conda-forge::meshio==5.0.2
