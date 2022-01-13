@@ -73,4 +73,4 @@ def linkcode_resolve(domain, info):
     if not info['module']:
         return None
     filename = info['module'].replace('.', '/')
-    return "https://github.com/AxelHenningsson/xrd_simulator/blob/main/%s.py/" % filename
+    return "https://github.com/fable-3dxrd/xrd_simulator/blob/main/%s.py/" % filename
