@@ -22,7 +22,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    python_requires=">=3.8,<3.9",
+    python_requires=">=3.6,<3.9",
     install_requires=["matplotlib==3.3.1",
                       "numpy==1.21.4",
                       "meshio==5.0.2",

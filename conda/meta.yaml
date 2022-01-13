@@ -13,25 +13,31 @@ source:
 
 build:
   number: 0
-  script: "{{ PYTHON }} -m pip install . --force-reinstall -vv "
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
 
 requirements:
   host:
     - pip
-    - python
+    - python >=3.6,<3.9
   run:
-    - python
-    - matplotlib==3.3.1
-    - numpy==1.21.4
-    - meshio==5.0.2
-    - pygalmesh==0.10.6
-    - scipy==1.6.1
-    - numba==0.53.0
-    - pycifrw==4.4.3
+    - matplotlib-base ==3.3.1
+    - meshio ==5.0.2
+    - numba ==0.53.0
+    - numpy ==1.21.4
+    - pycifrw ==4.4.3
+    - pygalmesh ==0.10.6
+    - python >=3.6,<3.9
+    - scipy ==1.6.1
 
 test:
   imports:
+    - tests
     - xrd_simulator
+  commands:
+    - pip check
+  requires:
+    - pip
 
 about:
   home: https://github.com/fable-3dxrd/xrd_simulator
@@ -43,4 +49,4 @@ about:
   summary: {{ data.get('description') }}
   description: |
     A package for simulating X-ray Diffraction from polycrystals. Note that the conda-forge channel
-    must be on your default channels for installation.
+    must be on your channels for installation.
