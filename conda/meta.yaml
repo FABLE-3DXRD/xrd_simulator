@@ -21,22 +21,25 @@ requirements:
     - python
   run:
     - python
-    - conda-forge::matplotlib==3.3.1
-    - conda-forge::numpy==1.21.4
-    - conda-forge::meshio==5.0.2
-    - conda-forge::pygalmesh==0.10.6
-    - conda-forge::scipy==1.6.1
-    - conda-forge::numba==0.53.0
-    - conda-forge::pycifrw==4.4.3
+    - matplotlib==3.3.1
+    - numpy==1.21.4
+    - meshio==5.0.2
+    - pygalmesh==0.10.6
+    - scipy==1.6.1
+    - numba==0.53.0
+    - pycifrw==4.4.3
 
 test:
   imports:
     - xrd_simulator
 
 about:
-  home: https://github.com/AxelHenningsson/xrd_simulator
+  home: https://github.com/fable-3dxrd/xrd_simulator
+  doc_url: https://fable-3dxrd.github.io/xrd_simulator
+  dev_url: https://github.com/fable-3dxrd/xrd_simulator
   license: MIT
   license_family: MIT
+  license_file: LICENSE
   summary: {{ data.get('description') }}
   description: |
     A package for simulating X-ray Diffraction from polycrystals. Note that the conda-forge channel
