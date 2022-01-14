@@ -191,17 +191,22 @@ Installation
 
 Anaconda installation
 ===============================
-The preferred way to install the xrd_simulator package is via anaconda::
+``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install 
+the xrd_simulator package is via `Anaconda`_::
 
-   conda install -c conda-forge -c axiomel xrd_simulator
+   conda install -c conda-forge xrd_simulator
 
 This is meant work across OS-systems and requires no prerequisites except, of course,
 that of `Anaconda`_ itself.
 
 .. note::
    ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
-   python version before installation. For instance, running ``conda install python=3.8`` before
-   installation should ensure correct behavior.
+   python version before installation. For instance, creating a new conda python 3.8 environment as::
+      conda create -n xrd_simulator python=3.8
+      conda activate xrd_simulator
+   before to installing can be a good idea.
+
+(The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
 
 Pip Installation
 ======================================
@@ -255,3 +260,7 @@ The source code of these repos can be found here:
 .. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_readme.py
 
 .. _paraview: https://www.paraview.org/
+
+.. _can be found here.: https://github.com/conda-forge/xrd_simulator-feedstock
+
+.. _conda-forge channel: https://anaconda.org/conda-forge/xrd_simulator
