@@ -254,8 +254,9 @@ The above example code can be found as a <a class="reference external" href="htt
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
 <section id="anaconda-installation">
 <h2>Anaconda installation<a class="headerlink" href="#anaconda-installation" title="Permalink to this headline"></a></h2>
-<p>The preferred way to install the xrd_simulator package is via anaconda:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">axiomel</span> <span class="n">xrd_simulator</span>
+<p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is distributed on the <a class="reference external" href="https://anaconda.org/conda-forge/xrd_simulator">conda-forge channel</a> and the preferred way to install
+the xrd_simulator package is via <a class="reference external" href="https://www.anaconda.com/products/individual">Anaconda</a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="n">xrd_simulator</span>
 </pre></div>
 </div>
 <p>This is meant work across OS-systems and requires no prerequisites except, of course,
@@ -263,9 +264,14 @@ that of <a class="reference external" href="https://www.anaconda.com/products/in
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> works on python versions =&gt;3.8&lt;3.9. Make sure your conda environment has the right
-python version before installation. For instance, running <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">python=3.8</span></code> before
-installation should ensure correct behavior.</p>
+python version before installation. For instance, creating a new conda python 3.8 environment as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">xrd_simulator</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.8</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">xrd_simulator</span>
+</pre></div>
+</div>
+<p>before to installing can be a good idea.</p>
 </aside>
+<p>(The conda-forge feedstock of <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> <a class="reference external" href="https://github.com/conda-forge/xrd_simulator-feedstock">can be found here.</a>)</p>
 </section>
 <section id="pip-installation">
 <h2>Pip Installation<a class="headerlink" href="#pip-installation" title="Permalink to this headline"></a></h2>
