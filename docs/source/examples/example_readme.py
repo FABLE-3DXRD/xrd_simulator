@@ -1,7 +1,7 @@
 ##example: beam
 import numpy as np
 from xrd_simulator.beam import Beam
-# The beam of x-rays is represented as a convex polyhedron
+# The beam of xrays is represented as a convex polyhedron
 # We specify the vertices in a numpy array.
 beam_vertices = np.array([
     [-1e6, -500., -500.],

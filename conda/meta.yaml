@@ -48,5 +48,5 @@ about:
   license_file: LICENSE
   summary: {{ data.get('description') }}
   description: |
-    A package for simulating X-ray Diffraction from polycrystals. Note that the conda-forge channel
+    A package for simulating xray Diffraction from polycrystals. Note that the conda-forge channel
     must be on your channels for installation.

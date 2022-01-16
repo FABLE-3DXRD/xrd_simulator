@@ -15,14 +15,14 @@
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
-.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?
-	:target: https://anaconda.org/axiomel/xrd_simulator/
+.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?
+	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
-.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?
-	:target: https://anaconda.org/axiomel/xrd_simulator/
+.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?
+	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
-.. image:: https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?
-	:target: https://anaconda.org/axiomel/xrd_simulator/
+.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
+	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 ===================================================================================================
 Simulate X-ray Diffraction from Polycrystals in 3D.
@@ -65,7 +65,7 @@ Let's go ahead and build ourselves some x-rays:
 
       import numpy as np
       from xrd_simulator.beam import Beam
-      # The beam of x-rays is represented as a convex polyhedron
+      # The beam of xrays is represented as a convex polyhedron
       # We specify the vertices in a numpy array.
       beam_vertices = np.array([
           [-1e6, -500., -500.],
@@ -191,7 +191,7 @@ Installation
 
 Anaconda installation
 ===============================
-``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install 
+``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install
 the xrd_simulator package is via `Anaconda`_::
 
    conda install -c conda-forge xrd_simulator
@@ -200,10 +200,13 @@ This is meant work across OS-systems and requires no prerequisites except, of co
 that of `Anaconda`_ itself.
 
 .. note::
+
    ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
    python version before installation. For instance, creating a new conda python 3.8 environment as::
+
       conda create -n xrd_simulator python=3.8
       conda activate xrd_simulator
+
    before to installing can be a good idea.
 
 (The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)

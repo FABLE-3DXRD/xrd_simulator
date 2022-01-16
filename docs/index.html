@@ -98,9 +98,9 @@
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://badge.fury.io/py/xrd-simulator.svg?" src="https://badge.fury.io/py/xrd-simulator.svg?" /></a>
-<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/installer/conda.svg?" /></a>
-<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/platforms.svg?" /></a>
-<a class="reference external image-reference" href="https://anaconda.org/axiomel/xrd_simulator/"><img alt="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/axiomel/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
 <section id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
 <h1>Simulate X-ray Diffraction from Polycrystals in 3D.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals-in-3d" title="Permalink to this headline"></a></h1>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/"><img alt="https://img.shields.io/badge/stability-alpha-f4d03f.svg?" src="https://img.shields.io/badge/stability-alpha-f4d03f.svg?" /></a>
@@ -134,7 +134,7 @@ as the sample undergoes the prescribed rigid body <strong>motion</strong> while 
 <blockquote>
 <div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.beam</span> <span class="kn">import</span> <span class="n">Beam</span>
-<span class="c1"># The beam of x-rays is represented as a convex polyhedron</span>
+<span class="c1"># The beam of xrays is represented as a convex polyhedron</span>
 <span class="c1"># We specify the vertices in a numpy array.</span>
 <span class="n">beam_vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
     <span class="p">[</span><span class="o">-</span><span class="mf">1e6</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">,</span> <span class="o">-</span><span class="mf">500.</span><span class="p">],</span>
@@ -310,12 +310,12 @@ The source code of these repos can be found here:</p>
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.beam.</span></span><span class="sig-name descname"><span class="pre">Beam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_vertices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xray_propagation_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization_vector</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
-<p>Represents a monochromatic X-ray beam as a convex polyhedra.</p>
+<p>Represents a monochromatic xray beam as a convex polyhedra.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p></li>
-<li><p><strong>xray_propagation_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Propagation direction of X-rays <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p></li>
+<li><p><strong>xray_propagation_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Propagation direction of xrays <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p></li>
 <li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Xray wavelength in units of angstrom.</p></li>
 <li><p><strong>polarization_vector</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Beam linear polarization unit vector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
 Must be orthogonal to the xray propagation direction.</p></li>
@@ -480,7 +480,7 @@ input vertices.</p>
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
-<p>Represents a rectangular X-ray scattering flat area detection device.</p>
+<p>Represents a rectangular xray scattering flat area detection device.</p>
 <p>The detector can collect scattering as abstract objects and map them to frame numbers.
 Using a render function these abstract representation can be rendered into pixelated frames.
 The detector is described by a 3 x 3 geometry matrix which columns contain vectors that attach
@@ -624,7 +624,7 @@ The origin of the detector is at det_corner_0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ray_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vector in direction of the X-ray propagation</p></li>
+<li><p><strong>ray_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vector in direction of the xray propagation</p></li>
 <li><p><strong>source_point</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Origin of the ray.</p></li>
 </ul>
 </dd>
@@ -1072,7 +1072,7 @@ while <cite>structure_factors[i,0]</cite> gives the corresponding imaginary part
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – X-ray wavelength in units of anstrom.</p></li>
+<li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – xray wavelength in units of anstrom.</p></li>
 <li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Maximum Bragg angle, in radians, allowed to be taken during diffraction.</p></li>
 <li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle, in radians, allowed to be taken during diffraction.</p></li>
 </ul>
@@ -1217,7 +1217,7 @@ option.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>) – Object representing a monochromatic beam of X-rays.</p></li>
+<li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>) – Object representing a monochromatic beam of xrays.</p></li>
 <li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) – Object representing a flat rectangular detector.</p></li>
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
 polycrystal transformation as a function of time on the domain time=[0,1].</p></li>

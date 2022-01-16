@@ -116,7 +116,7 @@ class Polycrystal(PickleableObject):
         option.
 
         Args:
-            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of X-rays.
+            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
