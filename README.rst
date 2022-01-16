@@ -44,7 +44,7 @@ measurement sequences such as helical scans for instance. It is also possible to
 scenarios using orientation density functions as input.
 
 ===================================================================================================
-Documentation
+Introduction
 ===================================================================================================
 Before reading all the boring documentation (`which is hosted here`_) let's dive into some end to end
 examples to get us started on a good flavour.
@@ -208,6 +208,7 @@ that of `Anaconda`_ itself.
       conda activate xrd_simulator
 
    before to installing can be a good idea.
+
 
 (The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
 

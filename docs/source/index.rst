@@ -8,8 +8,6 @@
 Documentation
 ======================================
 
-.. _beam:
-
 beam
 ======================================
 
@@ -17,16 +15,12 @@ beam
     :members:
     :show-inheritance:
 
-.. _detector:
-
 detector
 ======================================
 
 .. automodule:: xrd_simulator.detector
     :members:
     :show-inheritance:
-
-.. _motion:
 
 motion
 ======================================
