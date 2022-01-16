@@ -43,7 +43,7 @@
               <!-- Local TOC -->
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals in 3D.</a></li>
-<li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
 <li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
@@ -51,10 +51,10 @@
 <li><a class="reference internal" href="#credits">Credits</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id2">Documentation</a><ul>
-<li><a class="reference internal" href="#beam">beam</a></li>
-<li><a class="reference internal" href="#detector">detector</a></li>
-<li><a class="reference internal" href="#motion">motion</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a><ul>
+<li><a class="reference internal" href="#module-xrd_simulator.beam">beam</a></li>
+<li><a class="reference internal" href="#module-xrd_simulator.detector">detector</a></li>
+<li><a class="reference internal" href="#module-xrd_simulator.motion">motion</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.mesh">mesh</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.phase">phase</a></li>
 <li><a class="reference internal" href="#polycrystal">polycrystal</a></li>
@@ -115,8 +115,8 @@ such as <a class="reference external" href="https://doi.org/10.1107/S16005767200
 measurement sequences such as helical scans for instance. It is also possible to simulate <a class="reference external" href="https://en.wikipedia.org/wiki/Powder_diffraction">powder like</a>
 scenarios using orientation density functions as input.</p>
 </section>
-<section id="documentation">
-<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline"></a></h1>
 <p>Before reading all the boring documentation (<a class="reference external" href="https://FABLE-3DXRD.github.io/xrd_simulator/">which is hosted here</a>) let’s dive into some end to end
 examples to get us started on a good flavour.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is built around four python objects which reflect a diffraction experiment:</p>
@@ -302,20 +302,23 @@ The source code of these repos can be found here:</p>
 </ul>
 </section>
 </section>
-<section id="id2">
-<h1>Documentation<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h1>
-<section id="beam">
-<span id="id3"></span><h2>beam<a class="headerlink" href="#beam" title="Permalink to this headline"></a></h2>
-<span class="target" id="module-xrd_simulator.beam"></span><dl class="py class">
+<section id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline"></a></h1>
+<section id="module-xrd_simulator.beam">
+<span id="beam"></span><h2>beam<a class="headerlink" href="#module-xrd_simulator.beam" title="Permalink to this headline"></a></h2>
+<p>The beam module is used to represent a beam of xrays. The idea is to create a <a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a> object and
+pass it along to the <a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal.diffract" title="xrd_simulator.polycrystal.Polycrystal.diffract"><code class="xref py py-func docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal.diffract()</span></code></a> function to compute diffraction from the sample
+for the specified xray beam geometry.</p>
+<dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.beam.</span></span><span class="sig-name descname"><span class="pre">Beam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_vertices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xray_propagation_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization_vector</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
-<p>Represents a monochromatic xray beam as a convex polyhedra.</p>
+<p>Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p></li>
-<li><p><strong>xray_propagation_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Propagation direction of xrays <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p></li>
+<li><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vertices of the xray beam in units of microns, <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p></li>
+<li><p><strong>xray_propagation_direction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Propagation direction of xrays, <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p></li>
 <li><p><strong>wavelength</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Xray wavelength in units of angstrom.</p></li>
 <li><p><strong>polarization_vector</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Beam linear polarization unit vector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.
 Must be orthogonal to the xray propagation direction.</p></li>
@@ -325,7 +328,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam.vertices">
 <span class="sig-name descname"><span class="pre">vertices</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.vertices" title="Permalink to this definition"></a></dt>
-<dd><p>Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
+<dd><p>Vertices of the xray beam in units of microns, <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -347,7 +350,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam.wave_vector">
 <span class="sig-name descname"><span class="pre">wave_vector</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.wave_vector" title="Permalink to this definition"></a></dt>
-<dd><p>Beam wavevector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
+<dd><p>Beam wavevector with norm 2*pi/wavelength, <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -358,7 +361,7 @@ Must be orthogonal to the xray propagation direction.</p></li>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam.centroid">
 <span class="sig-name descname"><span class="pre">centroid</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.centroid" title="Permalink to this definition"></a></dt>
-<dd><p>Beam centroid <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
+<dd><p>Beam convex hull centroid <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -405,20 +408,6 @@ Must be orthogonal to the xray propagation direction.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="xrd_simulator.beam.Beam.find_feasible_point">
-<span class="sig-name descname"><span class="pre">find_feasible_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">halfspaces</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.find_feasible_point" title="Permalink to this definition"></a></dt>
-<dd><p>Find a point which is clearly inside a set of halfspaces (A * point + b &lt; 0).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>halfspaces</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Halfspace equations, each row holds coefficients of a halfspace (<code class="docutils literal notranslate"><span class="pre">shape=(N,4)</span></code>).</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>(<code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>) if no point is found else (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) point.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam.get_proximity_intervals">
 <span class="sig-name descname"><span class="pre">get_proximity_intervals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sphere_centres</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sphere_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.get_proximity_intervals" title="Permalink to this definition"></a></dt>
 <dd><p>Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are interesecting beam.</p>
@@ -448,13 +437,13 @@ intersection interval of sphere number i with the beam.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.beam.Beam.intersect">
 <span class="sig-name descname"><span class="pre">intersect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vertices</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.Beam.intersect" title="Permalink to this definition"></a></dt>
-<dd><p>Compute the beam intersection with a convex polyhedra, returns a list of HalfspaceIntersections.</p>
+<dd><p>Compute the beam intersection with a convex polyhedra.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vertices of a convex polyhedra with <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A scipy.spatial.ConvexHull object formed from the vertices of the intersection between beam vertices and
+<dd class="field-even"><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.spatial.ConvexHull</span></code> object formed from the vertices of the intersection between beam vertices and
 input vertices.</p>
 </dd>
 </dl>
@@ -466,7 +455,7 @@ input vertices.</p>
 <dd><p>Set the beam vertices defining the beam convex hull and update all dependent quantities.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Xray-beam vertices <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
+<dd class="field-odd"><p><strong>beam_vertices</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Vertices of the xray beam in units of microns, <code class="docutils literal notranslate"><span class="pre">shape=(N,3)</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -474,9 +463,9 @@ input vertices.</p>
 </dd></dl>
 
 </section>
-<section id="detector">
-<span id="id4"></span><h2>detector<a class="headerlink" href="#detector" title="Permalink to this headline"></a></h2>
-<span class="target" id="module-xrd_simulator.detector"></span><dl class="py class">
+<section id="module-xrd_simulator.detector">
+<span id="detector"></span><h2>detector<a class="headerlink" href="#module-xrd_simulator.detector" title="Permalink to this headline"></a></h2>
+<dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.detector.</span></span><span class="sig-name descname"><span class="pre">Detector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pixel_size_z</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_corner_2</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
@@ -689,9 +678,9 @@ pixel size.</p>
 </dd></dl>
 
 </section>
-<section id="motion">
-<span id="id5"></span><h2>motion<a class="headerlink" href="#motion" title="Permalink to this headline"></a></h2>
-<span class="target" id="module-xrd_simulator.motion"></span><dl class="py class">
+<section id="module-xrd_simulator.motion">
+<span id="motion"></span><h2>motion<a class="headerlink" href="#module-xrd_simulator.motion" title="Permalink to this headline"></a></h2>
+<dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1088,7 +1077,7 @@ factor vanishing, i.e forbidden reflections, such as a 100 in an fcc for instanc
 <section id="polycrystal">
 <h2>polycrystal<a class="headerlink" href="#polycrystal" title="Permalink to this headline"></a></h2>
 <p>The polycrystal is your sample. Once created it supports diffraction computations for a
-provided diffraction geometry which is specified via a <a class="reference internal" href="#beam"><span class="std std-ref">beam</span></a>, sample <a class="reference internal" href="#motion"><span class="std std-ref">motion</span></a> and <a class="reference internal" href="#detector"><span class="std std-ref">detector</span></a>.</p>
+provided diffraction geometry which is specified via a <a class="reference internal" href="#module-xrd_simulator.beam"><span class="std std-ref">beam</span></a>, sample <a class="reference internal" href="#module-xrd_simulator.motion"><span class="std std-ref">motion</span></a> and <a class="reference internal" href="#module-xrd_simulator.detector"><span class="std std-ref">detector</span></a>.</p>
 <span class="target" id="module-xrd_simulator.polycrystal"></span><dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.polycrystal.</span></span><span class="sig-name descname"><span class="pre">Polycrystal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phases</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_phase_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal" title="Permalink to this definition"></a></dt>
