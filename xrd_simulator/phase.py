@@ -1,3 +1,4 @@
+#TODO: Review docs.
 import numpy as np
 from xrd_simulator.xfab import tools, structure
 from xrd_simulator.utils import cif_open

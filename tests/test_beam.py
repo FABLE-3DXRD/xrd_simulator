@@ -8,7 +8,7 @@ from xrd_simulator.motion import RigidBodyMotion
 class TestBeam(unittest.TestCase):
 
     def setUp(self):
-        np.random.seed(10)  # changes all randomisation in the test
+        np.random.seed(10)  # changes all randomization in the test
         self.beam_vertices = np.array([
             [-5., 0., 0.],
             [-5., 1., 0.],
@@ -146,6 +146,16 @@ class TestBeam(unittest.TestCase):
                     fraction_before_beam_leaves_sphere) < 1. /
                 len(times),
                 msg="Proximity interval wrong")
+
+    def test_set_beam_vertices(self):
+        new_vertices = np.array([[-5., 0., 0.],
+                                 [-5., 1., 0.],
+                                 [-5., 0., 1.],
+                                 [5., 0., 0.]])
+        self.beam.set_beam_vertices(new_vertices)
+        self.assertTrue( np.allclose(np.mean(new_vertices,axis=0), self.beam.centroid), msg="centroid incorrect")
+        self.assertTrue( np.allclose(self.beam.halfspaces.shape, (4,4)))
+        self.assertTrue( np.allclose(self.beam.vertices, new_vertices))
 
 
 if __name__ == '__main__':

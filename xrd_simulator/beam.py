@@ -1,3 +1,4 @@
+#TODO: Review docs.
 import numpy as np
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
@@ -41,7 +42,7 @@ class Beam(PickleableObject):
         self.polarization_vector = polarization_vector / \
             np.linalg.norm(polarization_vector)
         assert np.allclose(np.dot(self.polarization_vector, self.wave_vector),
-                           0), "The x-ray polarisation vector is not orthogonal to the wavevector."
+                           0), "The x-ray polarization vector is not orthogonal to the wavevector."
 
     def set_beam_vertices(self, beam_vertices):
         """Set the beam vertices defining the beam convex hull and update all dependent quantities.
@@ -50,7 +51,6 @@ class Beam(PickleableObject):
             beam_vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
 
         """
-        # TODO: Add unit test for this function.
         ch = ConvexHull(beam_vertices)
         assert ch.points.shape[0] == ch.vertices.shape[0], "The provided beam vertices does not form a convex hull"
         self.vertices = beam_vertices.copy()
