@@ -1,8 +1,10 @@
-#TODO: Review docs.
 import pickle
 
 
 class PickleableObject(object):
+    """Simple super class to make any python object easily pickable to disc.
+
+    """
 
     def __init__(self):
         pass
@@ -24,7 +26,8 @@ class PickleableObject(object):
         Args:
             path (:obj:`str`): File path at which to load, ending with the desired filename.
 
-        Warning: This function will unpickle the data from the provied path. The pickle module
+        .. warning::
+            This function will unpickle data from the provied path. The pickle module
             is not intended to be secure against erroneous or maliciously constructed data.
             Never unpickle data received from an untrusted or unauthenticated source.
 

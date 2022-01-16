@@ -6,7 +6,7 @@ from xrd_simulator._pickleable_object import PickleableObject
 
 class Detector(PickleableObject):
 
-    """Represents a rectangular X-ray scattering flat area detection device.
+    """Represents a rectangular xray scattering flat area detection device.
 
     The detector can collect scattering as abstract objects and map them to frame numbers.
     Using a render function these abstract representation can be rendered into pixelated frames.
@@ -111,7 +111,7 @@ class Detector(PickleableObject):
         """Get detector intersection in detector coordinates of a single ray originating from source_point.
 
         Args:
-            ray_direction (:obj:`numpy array`): Vector in direction of the X-ray propagation
+            ray_direction (:obj:`numpy array`): Vector in direction of the xray propagation
             source_point (:obj:`numpy array`): Origin of the ray.
 
         Returns:

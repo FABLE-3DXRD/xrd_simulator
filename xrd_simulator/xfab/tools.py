@@ -296,7 +296,7 @@ def form_b_mat(unit_cell):
     """
     calculate B matrix of (Gcart = B Ghkl) following eq. 3.4 in
     H.F. Poulsen.
-    Three-dimensional X-ray diffraction microscopy.
+    Three-dimensional xray diffraction microscopy.
     Mapping polycrystals and their dynamics.
     Springer Tracts in Modern Physics, v. 205), (Springer, Berlin, 2004).
 
@@ -341,7 +341,7 @@ def form_b_mat(unit_cell):
 def form_a_mat(unit_cell):
     """
     calculate the A matrix given in eq. 3.23 of H.F. Poulsen.
-    Three-dimensional X-ray diffraction microscopy.
+    Three-dimensional xray diffraction microscopy.
     Mapping polycrystals and their dynamics.
     (Springer Tracts in Modern Physics, v. 205), (Springer, Berlin, 2004).
 
@@ -379,7 +379,7 @@ def form_a_mat(unit_cell):
 def form_a_mat_inv(unit_cell):
     """
     calculate the inverse of the A matrix given in eq. 3.23 of H.F. Poulsen.
-    Three-dimensional X-ray diffraction microscopy.
+    Three-dimensional xray diffraction microscopy.
     Mapping polycrystals and their dynamics.
     (Springer Tracts in Modern Physics, v. 205), (Springer, Berlin, 2004).
 

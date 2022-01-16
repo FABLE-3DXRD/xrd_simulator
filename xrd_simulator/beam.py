@@ -8,11 +8,11 @@ from xrd_simulator._pickleable_object import PickleableObject
 
 
 class Beam(PickleableObject):
-    """Represents a monochromatic X-ray beam as a convex polyhedra.
+    """Represents a monochromatic xray beam as a convex polyhedra.
 
     Args:
         beam_vertices (:obj:`numpy array`): Xray-beam vertices ``shape=(N,3)``.
-        xray_propagation_direction (:obj:`numpy array`): Propagation direction of X-rays ``shape=(3,)``.
+        xray_propagation_direction (:obj:`numpy array`): Propagation direction of xrays ``shape=(3,)``.
         wavelength (:obj:`float`): Xray wavelength in units of angstrom.
         polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
             Must be orthogonal to the xray propagation direction.
@@ -42,7 +42,7 @@ class Beam(PickleableObject):
         self.polarization_vector = polarization_vector / \
             np.linalg.norm(polarization_vector)
         assert np.allclose(np.dot(self.polarization_vector, self.wave_vector),
-                           0), "The x-ray polarization vector is not orthogonal to the wavevector."
+                           0), "The xray polarization vector is not orthogonal to the wavevector."
 
     def set_beam_vertices(self, beam_vertices):
         """Set the beam vertices defining the beam convex hull and update all dependent quantities.
