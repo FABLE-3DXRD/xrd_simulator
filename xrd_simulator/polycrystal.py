@@ -1,3 +1,4 @@
+#TODO: Review docs.
 import numpy as np
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils, laue

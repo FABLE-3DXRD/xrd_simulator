@@ -1,3 +1,4 @@
+#TODO: Review docs.
 """General package internal utility functions.
 """
 import sys
