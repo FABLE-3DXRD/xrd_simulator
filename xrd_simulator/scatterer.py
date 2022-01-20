@@ -70,7 +70,6 @@ class Scatterer(object):
     def lorentz_factor(self):
         """Compute the Lorentz intensity factor for a scatterer.
         """
-        #TODO: Fix this to work with the rigid body motion...
         k = self.incident_wave_vector
         kp = self.scattered_wave_vector
         theta = np.arccos(k.dot(kp) / (np.linalg.norm(k)**2)) / 2.

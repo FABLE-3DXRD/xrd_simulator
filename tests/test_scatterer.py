@@ -62,6 +62,8 @@ class TestScatterer(unittest.TestCase):
         L = self.scatterer.lorentz_factor
         self.assertTrue(L is np.inf)
 
+        #TODO: Add some more complex testing of this.
+
     def test_polarization(self):
         self.scatterer.scattered_wave_vector = np.array([0, 1.0, 0])
         P = self.scatterer.polarization_factor
