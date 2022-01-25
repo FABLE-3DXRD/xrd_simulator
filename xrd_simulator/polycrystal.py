@@ -53,53 +53,69 @@ class Polycrystal(PickleableObject):
             phases,
             element_phase_map=None):
 
-        if len(orientation.shape) == 2:
-            self.orientation_lab = np.repeat(
-                orientation.reshape(
-                    1, 3, 3), mesh.number_of_elements, axis=0)
-        else:
-            self.orientation_lab = np.copy(orientation)
-
-        if len(strain.shape) == 2:
-            self.strain_lab = np.repeat(strain.reshape(
-                1, 3, 3), mesh.number_of_elements, axis=0)
-        else:
-            self.strain_lab = np.copy(strain)
-
-        if not isinstance(phases, list):
-            self.phases = [phases]
-        else:
-            self.phases = phases
-
-        if len(self.phases) == 1:
-            self.element_phase_map = np.zeros(
-                (mesh.number_of_elements,), dtype=int)
-        else:
-            self.element_phase_map = element_phase_map
-
-        self._eB = np.zeros((mesh.number_of_elements, 3, 3))
-        for i in range(mesh.number_of_elements):
-            self._eB[i,
-                     :,
-                     :] = utils.lab_strain_to_B_matrix(self.strain_lab[i,
-                                                                       :,
-                                                                       :],
-                                                       self.orientation_lab[i,
-                                                                            :,
-                                                                            :],
-                                                       self.phases[self.element_phase_map[i]].unit_cell)
-
-        assert self.orientation_lab.shape[0] == mesh.number_of_elements, "Every crystal element must have an orientation."
-        assert self._eB.shape[0] == mesh.number_of_elements, "Every crystal element must have a deformation state."
-        for i in range(1, 3):
-            assert orientation.shape[i] == 3
-            assert self._eB.shape[i] == 3
+        self.orientation_lab = self._instantiate_orientation(orientation, mesh)
+        self.strain_lab = self._instantiate_strain(strain, mesh)
+        self.element_phase_map, self.phases = self._instantiate_phase(phases, element_phase_map, mesh)
+        self._eB = self._instantiate_eB(self.orientation_lab, self.strain_lab, self.phases, self.element_phase_map, mesh)
 
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
         self.mesh_sample = copy.deepcopy(mesh)
         self.strain_sample = np.copy(self.strain_lab)
         self.orientation_sample = np.copy(self.orientation_lab)
+
+    def _instantiate_orientation(self, orientation, mesh):
+        """Instantiate the orientations using for smart multi shape handling.
+
+        """
+        if orientation.shape==(3,3):
+            orientation_lab = np.repeat(
+                orientation.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
+        elif orientation.shape==(mesh.number_of_elements,3,3):
+            orientation_lab = np.copy(orientation)
+        else:
+            raise ValueError("orientation input is of incompatible shape")
+        return orientation_lab
+
+    def _instantiate_strain(self, strain, mesh):
+        """Instantiate the strain using for smart multi shape handling.
+
+        """
+        if strain.shape==(3,3):
+            strain_lab = np.repeat(strain.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
+        elif strain.shape==(mesh.number_of_elements,3,3):
+            strain_lab = np.copy(strain)
+        else:
+            raise ValueError("strain input is of incompatible shape")
+        return strain_lab
+
+    def _instantiate_phase(self, phases, element_phase_map, mesh):
+        """Instantiate the phases using for smart multi shape handling.
+
+        """
+        if not isinstance(phases, list):
+            phases = [phases]
+        if element_phase_map is None:
+            if len(phases)>1:
+                raise ValueError("element_phase_map not set for multiphase polycrystal")
+            element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
+        return element_phase_map, phases
+
+    def _instantiate_eB(self, orientation_lab, strain_lab, phases, element_phase_map, mesh):
+        """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
+
+            (These are upper triangular matrices such that
+                G_s = U * B G_hkl
+            where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
+            and U are the crystal element orientation matrices.)
+
+        """
+        _eB = np.zeros((mesh.number_of_elements, 3, 3))
+        for i in range(mesh.number_of_elements):
+            _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
+                                                      orientation_lab[i,:,:],
+                                                      phases[element_phase_map[i]].unit_cell)
+        return _eB
 
     def diffract(
             self,
