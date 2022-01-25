@@ -1,8 +1,9 @@
 #TODO: Review docs.
 import numpy as np
+from xrd_simulator._pickleable_object import PickleableObject
 
 
-class RigidBodyMotion():
+class RigidBodyMotion(PickleableObject):
     """Rigid body transform euclidean points by an euler axis and translation representation.
 
     The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
