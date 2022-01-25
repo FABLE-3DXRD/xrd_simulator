@@ -1,5 +1,6 @@
 
 import unittest
+import os
 import numpy as np
 from xrd_simulator.motion import RigidBodyMotion
 
@@ -65,6 +66,25 @@ class TestPhase(unittest.TestCase):
         self.assertAlmostEqual(np.linalg.norm(
             v - np.array([1, 0, 1])), 0, msg='Error in rigid body transformation')
 
+    def test_save_and_load(self):
+        rotation_axis = np.random.rand(3,)
+        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
+        rotation_angle = np.random.rand(1,) * np.pi
+        translation = np.random.rand(3,)
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+        path = os.path.join(
+            os.path.join(
+                os.path.dirname(__file__),
+                'data'),
+            'my_motion')
+        motion.save(path)
+        motion = RigidBodyMotion.load(path)
+        self.assertTrue(
+            np.allclose(
+                motion.rotation_axis,
+                rotation_axis),
+            msg='Data corrupted on save and load')
+        os.remove(path)
 
 if __name__ == '__main__':
     unittest.main()
