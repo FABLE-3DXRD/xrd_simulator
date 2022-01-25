@@ -135,42 +135,26 @@ class TestPolycrystal(unittest.TestCase):
         os.remove(path + ".h5")
 
     def test_dimension_handling(self):
-        single_phase_successfull = False
-        try:
-            Polycrystal(mesh=self.mesh,
-                        orientation=self.orientation,
-                        strain=np.zeros((3, 3)),
-                        phases=self.phases[0],
-                        element_phase_map=None)
-            Polycrystal(mesh=self.mesh,
-                        orientation=self.orientation,
-                        strain=np.zeros((3, 3)),
-                        phases=self.phases[0],
-                        element_phase_map=self.element_phase_map)
-            single_phase_successfull = True
-        except BaseException:
-            pass
 
-        self.assertTrue(single_phase_successfull,
-                        msg="Passing phases as a single object failed.")
-
-        array_strain_successfull = False
-        try:
-            Polycrystal(
-                mesh=self.mesh,
-                orientation=self.orientation,
-                strain=np.zeros(
-                    (self.mesh.number_of_elements,
-                     3,
-                     3)),
-                phases=self.phases,
-                element_phase_map=self.element_phase_map)
-            array_strain_successfull = True
-        except BaseException:
-            pass
-
-        self.assertTrue(array_strain_successfull,
-                        msg="Passing an array of strain tensors failed.")
+        Polycrystal(mesh=self.mesh,
+                    orientation=self.orientation,
+                    strain=np.zeros((3, 3)),
+                    phases=self.phases[0],
+                    element_phase_map=None)
+        Polycrystal(mesh=self.mesh,
+                    orientation=self.orientation,
+                    strain=np.zeros((3, 3)),
+                    phases=self.phases[0],
+                    element_phase_map=self.element_phase_map)
+        Polycrystal(
+            mesh=self.mesh,
+            orientation=self.orientation,
+            strain=np.zeros(
+                (self.mesh.number_of_elements,
+                    3,
+                    3)),
+            phases=self.phases,
+            element_phase_map=self.element_phase_map)
 
     def test_transformation(self):
         strains = np.zeros((self.mesh.number_of_elements, 3, 3))

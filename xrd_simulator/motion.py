@@ -2,7 +2,7 @@
 import numpy as np
 
 
-class RigidBodyMotion(object):
+class RigidBodyMotion():
     """Rigid body transform euclidean points by an euler axis and translation representation.
 
     The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
