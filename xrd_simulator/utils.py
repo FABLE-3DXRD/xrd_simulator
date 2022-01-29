@@ -1,7 +1,6 @@
 #TODO: Review docs.
 """General package internal utility functions.
 """
-import sys
 
 import numpy as np
 from numba import njit
@@ -26,7 +25,7 @@ def cif_open(cif_file):
     return cif_dict[list(cif_dict.keys())[0]]
 
 
-def print_progress(progress_fraction, message):
+def _print_progress(progress_fraction, message):
     """Print a progress bar in the executing shell terminal.
 
     Args:
@@ -38,7 +37,7 @@ def print_progress(progress_fraction, message):
         message) <= 55., "Message to print is too long, max 55 characters allowed."
     progress_in_precent = np.round(100 * progress_fraction, 1)
     progress_bar_length = int(progress_fraction * 40)
-    sys.stdout.write("\r{0}{1} | {2}>{3} |".format(message, " " *
+    print("\r{0}{1} | {2}>{3} |".format(message, " " *
                                                    (55 -
                                                     len(message)), "=" *
                                                    progress_bar_length, " " *
@@ -46,11 +45,9 @@ def print_progress(progress_fraction, message):
                                                        progress_bar_length)) +
                      " " +
                      str(progress_in_precent) +
-                     "%")
-    if progress_fraction != 1.0:
-        sys.stdout.flush()
-    else:
-        sys.stdout.write("\n")
+                     "%", end = '')
+    if progress_fraction == 1.0:
+        print("")
 
 
 @njit
