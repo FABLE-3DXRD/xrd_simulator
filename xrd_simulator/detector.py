@@ -90,7 +90,7 @@ class Detector(PickleableObject):
                     str(len(self.frames[frame_number])) + " scattering volumes unto the detector"
                 progress_fraction = float(
                     si + 1) / len(self.frames[frame_number])
-                utils.print_progress(
+                utils._print_progress(
                     progress_fraction,
                     message=progress_bar_message)
 

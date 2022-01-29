@@ -172,7 +172,7 @@ class Polycrystal(PickleableObject):
                     str(self.mesh_lab.number_of_elements) + " elements"
                 progress_fraction = float(
                     ei + 1) / self.mesh_lab.number_of_elements
-                utils.print_progress(
+                utils._print_progress(
                     progress_fraction,
                     message=progress_bar_message)
 
