@@ -237,9 +237,13 @@ class Detector(PickleableObject):
             intensity_factor *= scatterer.lorentz_factor
         if polarization:
             intensity_factor *= scatterer.polarization_factor
-        if structure_factor and scatterer.real_structure_factor is not None:
-            intensity_factor *= (scatterer.real_structure_factor **
-                                 2 + scatterer.imaginary_structure_factor**2)
+        if structure_factor:
+            if scatterer.phase.structure_factors is not None:
+                intensity_factor *= (scatterer.real_structure_factor **
+                                    2 + scatterer.imaginary_structure_factor**2)
+            else:
+                raise ValueError("structure_factor is set to True but no structure factors has been set for the scatterer, \
+             to compute structure factors a .cif file must be provided to the phase objects when creating your sample.")
         return intensity_factor
 
     def _project(self, scatterer, box):

@@ -81,7 +81,7 @@ class TestPolycrystal(unittest.TestCase):
 
         # The rendered diffraction pattern should have intensity
         diffraction_pattern = self.detector.render(
-            frame_number=0, lorentz=True, polarization=True, structure_factor=True)
+            frame_number=0, lorentz=True, polarization=True, structure_factor=False)
 
         self.assertGreater(np.sum(diffraction_pattern), 0)
 
