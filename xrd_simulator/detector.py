@@ -83,8 +83,18 @@ class Detector(PickleableObject):
         """
         frame = np.zeros((int(self.zmax / self.pixel_size_z),
                          int(self.ymax / self.pixel_size_y)))
-        for si, scatterer in enumerate(self.frames[frame_number]):
+        
+        # intens = []
+        # for si, scatterer in enumerate(self.frames[frame_number]):
+        #     intensity_scaling_factor = self._get_intensity_factor(
+        #         scatterer, lorentz, polarization, structure_factor)
+        #     intens.append( intensity_scaling_factor )
+        # intens = np.array(intens)
+        # mi = np.max(intens)
+        # mask = np.array([ I>mi*0.00025 for I in intens ])
 
+        for si, scatterer in enumerate(self.frames[frame_number]):
+            
             if verbose:
                 progress_bar_message = "Rendering " + \
                     str(len(self.frames[frame_number])) + " scattering volumes unto the detector"
@@ -93,6 +103,8 @@ class Detector(PickleableObject):
                 utils._print_progress(
                     progress_fraction,
                     message=progress_bar_message)
+
+            #if not mask[si]: continue
 
             if method == 'project':
                 self._projection_render(
@@ -191,6 +203,24 @@ class Detector(PickleableObject):
                 scatterer, lorentz, polarization, structure_factor)
             row, col = self._detector_coordinate_to_pixel_index(zd, yd)
             frame[row, col] += scatterer.volume * intensity_scaling_factor
+
+
+            # side_length = 5
+            # sigma = 0.5
+            # kernel = self._gaussian_kernel(side_length, sigma) 
+            # kernel *= scatterer.volume * intensity_scaling_factor
+            # r1 = np.max([0, row - kernel.shape[0]//2])
+            # c1 = np.max([0, col - kernel.shape[1]//2])
+            # r2 = np.min([frame.shape[0], row + 1 + kernel.shape[0]//2])
+            # c2 = np.min([frame.shape[1], col + 1 + kernel.shape[1]//2 ])
+
+            # frame[r1:r2, c1:c2] += kernel[0:r2-r1,0:c2-c1] #/ (self.pixel_size_z * self.pixel_size_y)
+
+    def _gaussian_kernel(self, side_length, sigma):
+        ax = np.linspace(-(side_length - 1) / 2., (side_length - 1) / 2., side_length)
+        gauss = np.exp(-0.5 * np.square(ax) / np.square(sigma))
+        kernel = np.outer(gauss, gauss)
+        return kernel / np.sum(kernel)
 
     def _projection_render(
             self,

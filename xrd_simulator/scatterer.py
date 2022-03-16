@@ -77,7 +77,8 @@ class Scatterer(object):
         eta = np.arccos(
             self.rotation_axis.dot(korthogonal) /
             np.linalg.norm(korthogonal))
-        if eta < 1e-8 or theta < 1e-8:
+        tol = 0.5
+        if np.abs(np.degrees(eta)) < tol or np.abs(np.degrees(eta)) > 180-tol or np.degrees(theta) < tol:
             return np.inf
         else:
             return 1. / (np.sin(2 * theta) * np.abs(np.sin(eta)))

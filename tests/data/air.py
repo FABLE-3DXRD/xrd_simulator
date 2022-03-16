@@ -9,6 +9,7 @@ collected: 16 March 2022
 """
 
 air = np.array( [
+       #   MeV        mu/rho    mu_en/rho
        [1.00000e-3,  3.606e+3,  3.599e+3],
        [1.50000e-3,  1.191e+3,  1.188e+3],
        [2.00000e-3,  5.279e+2,  5.262e+2],
@@ -49,14 +50,25 @@ air = np.array( [
        [2.00000e+1,  1.705e-2,  1.311e-2]
        ])
 
+density = 1225. / 1e6 # g / cm^3
+
+# mu is in units : cm^2 / g = (1/cm) / (g/cm^3) 
+# i.e lengths in Beers law should be in cm and density in g/cm^3
 
 if __name__=='__main__':
    import matplotlib.pyplot as plt
+   # E = 43.469 keV
+   v = 2.485e-1 # 40 kev
+   l = 14.293828756189224 # must be in cm!
+   print( np.exp( -v*density*l ) )
    plt.figure()
-   plt.plot(np.log(air[:,0]), np.log(air[:,1]), 'k' )
-   plt.plot(np.log(air[:,0]), np.log(air[:,2]), '--k' )
+   plt.plot(air[:,0], air[:,1], 'k', label=r'$\mu$ / $\rho$' )
+   plt.plot(air[:,0], air[:,2], '--k', label=r'$\mu_{en}$ / $\rho$' )
    plt.grid(True)
-   plt.title('Air dry, near sea level')
+   plt.title('Air, dry (near sea level)')
    plt.xlabel('MeV')
-   plt.ylabel(r'$\mu$ / $\rho$')
+   plt.ylabel(r'$\mu$ / $\rho$   (cm$^2$/g)')
+   plt.yscale('log')
+   plt.xscale('log')
+   plt.legend()
    plt.show()
