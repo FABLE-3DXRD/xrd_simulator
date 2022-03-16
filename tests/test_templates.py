@@ -88,8 +88,9 @@ class TestUtils(unittest.TestCase):
             sample_bounding_cylinder_radius,
             unit_cell,
             sgname,
-            maximum_sampling_bin_seperation,
-            strain_tensor)
+            path_to_cif_file=None,
+            maximum_sampling_bin_seperation=maximum_sampling_bin_seperation,
+            strain_tensor=strain_tensor)
 
         # Compare Euler angle distributions to scipy random uniform orientation
         # sampler
@@ -139,8 +140,9 @@ class TestUtils(unittest.TestCase):
             sample_bounding_cylinder_radius,
             unit_cell,
             sgname,
-            maximum_sampling_bin_seperation,
-            strain_tensor)
+            path_to_cif_file=None,
+            maximum_sampling_bin_seperation=maximum_sampling_bin_seperation,
+            strain_tensor=strain_tensor)
 
         polycrystal.transform(motion, time=0.134)
         polycrystal.diffract(
