@@ -140,6 +140,7 @@ def polycrystal_from_odf(orientation_density_function,
                          sample_bounding_cylinder_radius,
                          unit_cell,
                          sgname,
+                         path_to_cif_file=None,
                          maximum_sampling_bin_seperation=np.radians(5.0),
                          strain_tensor=lambda x: np.zeros((3, 3))):
     """Fill a cylinder with crystals from a given orientation density function.
@@ -205,7 +206,7 @@ def polycrystal_from_odf(orientation_density_function,
     mesh = TetraMesh._build_tetramesh(cylinder)
 
     # Sample is uniformly single phase
-    phases = [Phase(unit_cell, sgname)]
+    phases = [Phase(unit_cell, sgname, path_to_cif_file)]
     element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
 
     # Sample spatial texture

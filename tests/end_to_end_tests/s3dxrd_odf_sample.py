@@ -32,7 +32,7 @@ sgname = 'P3221'  # Quartz
 def orientation_density_function(x, q): return 1. / (np.pi**2)  # uniform ODF.
 
 
-number_of_crystals = 1000
+number_of_crystals = 500
 sample_bounding_cylinder_height = 256 * 180 / 128.
 sample_bounding_cylinder_radius = 256 * 180 / 128.
 maximum_sampling_bin_seperation = np.radians(10.0)
