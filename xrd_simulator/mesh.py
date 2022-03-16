@@ -113,7 +113,7 @@ class TetraMesh(object):  # TODO: add unit tests
 
     @classmethod
     def generate_mesh_from_numpy_array(
-            cls, array, voxel_size, max_cell_circumradius):
+            cls, array, voxel_size, max_cell_circumradius, max_facet_distance):
         """Generate a mesh from a numpy array using `the pygalmesh package`_:
 
         .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
@@ -124,11 +124,11 @@ class TetraMesh(object):  # TODO: add unit tests
             max_cell_circumradius (:obj:`float`): Bound for element radii.
 
         """
-
         mesh = pygalmesh.generate_from_array(
             array,
-            [voxel_size] * 3,
+            (voxel_size, voxel_size, voxel_size),
             max_cell_circumradius=max_cell_circumradius,
+            max_facet_distance=max_facet_distance,
             verbose=False)
         return cls._build_tetramesh(mesh)
 
