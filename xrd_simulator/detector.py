@@ -232,7 +232,7 @@ class Detector(PickleableObject):
             polarization,
             structure_factor):
         intensity_factor = 1.0
-        # TODO: Consider solid angle intensity rescaling.
+        # TODO: Consider solid angle intensity rescaling and air scattering.
         if lorentz:
             intensity_factor *= scatterer.lorentz_factor
         if polarization:
@@ -242,9 +242,25 @@ class Detector(PickleableObject):
                 intensity_factor *= (scatterer.real_structure_factor **
                                     2 + scatterer.imaginary_structure_factor**2)
             else:
-                raise ValueError("structure_factor is set to True but no structure factors has been set for the scatterer, \
-             to compute structure factors a .cif file must be provided to the phase objects when creating your sample.")
+                raise ValueError("Structure factors have not been set, .cif file is required at sample instantiation.")
+
+    #     # DEBUG:
+    #     path_length_attenuation = True
+    #     if path_length_attenuation:
+    #         intensity_factor *= self._get_path_length(scatterer)
+    #     #
+
         return intensity_factor
+
+    # def _get_path_length(self, scatterer):
+    #     """Compute the pathlength between detector and scatterer along the scattered ray direction.
+    #     """
+    #     ray_direction = scatterer.scattered_wave_vector / np.linalg.norm(scatterer.scattered_wave_vector)
+    #     path_length = (self.det_corner_0 - scatterer.centroid).dot(self.normal) / ray_direction.dot(self.normal)
+    #     xray = scatterer.incident_wave_vector / np.linalg.norm(scatterer.incident_wave_vector)
+    #     D = self.det_corner_0.dot(self.normal) / xray.dot(self.normal)
+    #     return np.exp( 200.*(D-path_length)/D )
+
 
     def _project(self, scatterer, box):
         """Compute parametric projection of scattering region unto detector.
