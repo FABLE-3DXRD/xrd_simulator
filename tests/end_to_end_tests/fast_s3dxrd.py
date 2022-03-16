@@ -42,7 +42,7 @@ path = os.path.join(
         'saves'),
     'fast_polycrystal_from_odf')
 
-if 0:
+if 1:
     def strain_tensor(x): return np.array(
         [[0, 0, 0], [0, 0, 0], [0, 0, 0.02 * x[2] / sample_bounding_cylinder_height]])
 
@@ -84,8 +84,8 @@ def gaussian_kernel(side_length, sigma):
 
 from scipy.signal import convolve
 diffraction_pattern[diffraction_pattern==0]=1
-kernel = gaussian_kernel(15, 0.5)
-diffraction_pattern = convolve(diffraction_pattern, kernel, mode='same', method='auto')
+#kernel = gaussian_kernel(15, 0.5)
+#diffraction_pattern = convolve(diffraction_pattern, kernel, mode='same', method='auto')
 #plt.imshow(diffraction_pattern, cmap='jet')
 plt.imshow(np.log(diffraction_pattern), cmap='jet')
 
