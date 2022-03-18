@@ -24,11 +24,11 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires=">=3.8,<3.9",
     install_requires=["matplotlib",
-                      "numpy==1.21.4",
-                      "meshio==5.0.2",
-                      "pygalmesh==0.10.6",
-                      "scipy==1.6.1",
-                      "numba==0.53.0",
-                      "pycifrw==4.4.3",
+                      "numpy",
+                      "meshio",
+                      "pygalmesh",
+                      "scipy",
+                      "numba",
+                      "pycifrw",
                       "dill"]
 )
