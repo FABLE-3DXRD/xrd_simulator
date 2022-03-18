@@ -577,6 +577,20 @@ The origin of the detector is at det_corner_0.</p>
 </dl>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.detector.Detector.point_spread_function">
+<span class="sig-name descname"><span class="pre">point_spread_function</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.point_spread_function" title="Permalink to this definition"></a></dt>
+<dd><p>Scalar point spread function called as point_spread_function(z, y). The
+z and y coordinates are assumed to be in local units of pixels. I.e point_spread_function(0, 0) returns the
+value of the pointspread function at the location of the point being spread. This is meant to model blurring
+due to detector optics. Defaults to a Gaussian with standard deviation 1.0 and mean at (z,y)=(0,0).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <p class="rubric">Examples</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
@@ -644,6 +658,23 @@ The origin of the detector is at det_corner_0.</p>
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="xrd_simulator.detector.Detector.point_spread_kernel_shape">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">point_spread_kernel_shape</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.point_spread_kernel_shape" title="Permalink to this definition"></a></dt>
+<dd><p>Number of pixels in z and y over which to apply the pointspread function
+for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction pattern. The
+values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).</p>
+<dl class="simple">
+<dt>NOTE: The point_spread_function is automatically normalised over the point_spread_kernel_shape domain such that the</dt><dd><p>final convolution over the detector diffraction pattern is intensity preserving.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>point_spread_kernel_shape  (<code class="xref py py-obj docutils literal notranslate"><span class="pre">tuple</span></code>)</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector.render">
 <span class="sig-name descname"><span class="pre">render</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lorentz</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structure_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'centroid'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.render" title="Permalink to this definition"></a></dt>
@@ -683,7 +714,7 @@ pixel size.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator._pickleable_object.PickleableObject</span></code></p>
 <p>Rigid body transform euclidean points by an euler axis and translation representation.</p>
 <p>The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
 of a point x by linearly uniformly rotating it from [0, rotation_angle] and translating [0, translation].
@@ -913,7 +944,7 @@ of the mesh and positive on the interior.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_numpy_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cell_circumradius</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_numpy_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cell_circumradius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_facet_distance</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array" title="Permalink to this definition"></a></dt>
 <dd><p>Generate a mesh from a numpy array using <a class="reference external" href="https://github.com/nschloe/pygalmesh">the pygalmesh package</a>:</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1591,20 +1622,6 @@ coordinates, <code class="docutils literal notranslate"><span class="pre">shape=
 </dl>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="xrd_simulator.utils.print_progress">
-<span class="sig-prename descclassname"><span class="pre">xrd_simulator.utils.</span></span><span class="sig-name descname"><span class="pre">print_progress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">progress_fraction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/utils.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.utils.print_progress" title="Permalink to this definition"></a></dt>
-<dd><p>Print a progress bar in the executing shell terminal.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>progress_fraction</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – progress between 0 and 1.</p></li>
-<li><p><strong>message</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Optional message prepend the loading bar with. (max 55 characters)</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 <section id="templates">
 <h2>templates<a class="headerlink" href="#templates" title="Permalink to this headline"></a></h2>
@@ -1653,7 +1670,7 @@ factors are computed, i.e <cite>structure_factors=None</cite>.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="xrd_simulator.templates.polycrystal_from_odf">
-<span class="sig-prename descclassname"><span class="pre">xrd_simulator.templates.</span></span><span class="sig-name descname"><span class="pre">polycrystal_from_odf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orientation_density_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_crystals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_bounding_cylinder_height</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_bounding_cylinder_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sgname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum_sampling_bin_seperation=0.08726646259971647</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain_tensor=&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/templates.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.templates.polycrystal_from_odf" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">xrd_simulator.templates.</span></span><span class="sig-name descname"><span class="pre">polycrystal_from_odf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orientation_density_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_crystals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_bounding_cylinder_height</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_bounding_cylinder_radius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unit_cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sgname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_cif_file=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maximum_sampling_bin_seperation=0.08726646259971647</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain_tensor=&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/templates.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.templates.polycrystal_from_odf" title="Permalink to this definition"></a></dt>
 <dd><p>Fill a cylinder with crystals from a given orientation density function.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">orientation_density_function</span></code> is sampled by discretizing orientation space over the unit
 quarternions. Each bin is assigned its apropiate probability, assuming the
