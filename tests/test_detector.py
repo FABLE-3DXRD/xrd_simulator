@@ -341,5 +341,19 @@ class TestDetector(unittest.TestCase):
             self.assertAlmostEqual(kernel[i,5], 2./60., msg="Point spread function kernel does not match spread function")
             self.assertAlmostEqual(kernel[i,6], 3./60., msg="Point spread function kernel does not match spread function")
 
+    def test_save_and_load(self):
+        self.detector.point_spread_function = lambda z, y: 1.0
+        path = os.path.join(
+            os.path.join(
+                os.path.dirname(__file__),
+                'data'),
+            'my_detector')
+        self.detector.save(path)
+        self.detector = Detector.load(path)
+        self.assertAlmostEqual( self.detector.point_spread_function(-23., 2.0),
+                                1.0,
+                                msg='Data corrupted on save and load')
+        os.remove(path)
+
 if __name__ == '__main__':
     unittest.main()

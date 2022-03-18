@@ -29,5 +29,6 @@ setuptools.setup(
                       "pygalmesh==0.10.6",
                       "scipy==1.6.1",
                       "numba==0.53.0",
-                      "pycifrw==4.4.3"]
+                      "pycifrw==4.4.3",
+                      "dill"]
 )
