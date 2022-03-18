@@ -160,7 +160,8 @@ class TestUtils(unittest.TestCase):
             method="centroid",
             verbose=True)
         bins, histogram = utils.diffractogram(
-            diffraction_pattern > 1, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+            diffraction_pattern, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+        histogram[histogram < 0.5 * np.median(histogram)] = 0
 
         csequence, nosequences = 0, 0
         for i in range(histogram.shape[0]):
@@ -221,8 +222,10 @@ class TestUtils(unittest.TestCase):
             structure_factor=False,
             method="centroid",
             verbose=True)
+
         bins, histogram = utils.diffractogram(
-            diffraction_pattern > 1, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+            diffraction_pattern, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+        histogram[histogram < 0.5 * np.median(histogram)] = 0
 
         csequence, nosequences = 0, 0
         for i in range(histogram.shape[0]):

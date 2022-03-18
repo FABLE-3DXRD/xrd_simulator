@@ -108,9 +108,11 @@ class TestDetector(unittest.TestCase):
                                (2 * self.pixel_size_z)) + 2
         expected_y_pixel = int(self.detector_size /
                                (2 * self.pixel_size_y)) + 3
+        sz, sy = self.detector.point_spread_kernel_shape
+        active_det_part = diffraction_pattern[expected_z_pixel - sz//2:expected_z_pixel + sz//2 + 1,
+                                              expected_y_pixel - sy//2:expected_y_pixel + sy//2 + 1]
 
-        self.assertAlmostEqual(diffraction_pattern[expected_z_pixel,
-                                                   expected_y_pixel],
+        self.assertAlmostEqual(np.sum(active_det_part),
                                ch1.volume,
                                msg="detector rendering did not capture scatterer")
         self.assertAlmostEqual(
@@ -212,12 +214,14 @@ class TestDetector(unittest.TestCase):
         no_pixels_z = int(self.detector_size // self.pixel_size_z)
         no_pixels_y = int(self.detector_size // self.pixel_size_y)
 
+        sz,sy= self.detector.point_spread_kernel_shape
+        point_spread_padding = np.max([self.pixel_size_z*sz , self.pixel_size_y*sy ])
         for i in range(no_pixels_z):
             for j in range(no_pixels_y):
                 zd = i * self.pixel_size_z
                 yd = j * self.pixel_size_y
                 if (zd - self.detector_size / 2.)**2 + \
-                        (yd - self.detector_size / 2.)**2 > (1.01 * r)**2:
+                        (yd - self.detector_size / 2.)**2 > (1.01*r + point_spread_padding)**2 :
                     self.assertAlmostEqual(diffraction_pattern[i, j], 0)
                 elif (zd - self.detector_size / 2.)**2 + (yd - self.detector_size / 2.)**2 < (0.99 * r)**2:
                     self.assertGreater(diffraction_pattern[i, j], 0)
@@ -301,6 +305,41 @@ class TestDetector(unittest.TestCase):
             expected_angle,
             msg="detector off centered wrapping cone has opening angle")
 
+    def test_point_spread_kernel_shape(self):
+        bad_kernel_shape = (6, 3)
+        try:
+            self.detector.point_spread_kernel_shape = bad_kernel_shape
+        except ValueError:
+            pass
+        except:
+            raise ValueError("detector.point_spread_kernel_shape wrongly accepts even shapes.")
+
+        good_kernel_shape = (5, 7)
+        try:
+            self.detector.point_spread_kernel_shape = good_kernel_shape
+        except ValueError:
+            raise ValueError("detector.point_spread_kernel_shape wrongly rejects odd shapes.")
+        except:
+            pass
+
+    def test_point_spread_function(self):
+        default_kernel = self.detector._get_point_spread_function_kernel()
+        self.assertAlmostEqual(default_kernel[2, 2], np.max(default_kernel), msg="Default kernel appears to not be Gaussian")
+        self.assertAlmostEqual(default_kernel[0, 0], np.min(default_kernel), msg="Default kernel appears to not be Gaussian")
+        self.assertAlmostEqual(default_kernel[2, 3], default_kernel[2, 1], msg="Default kernel appears to not be Gaussian")
+        self.assertAlmostEqual(default_kernel[3, 2], default_kernel[1, 2], msg="Default kernel appears to not be Gaussian")
+        self.assertAlmostEqual(np.sum(default_kernel), 1, msg="Default kernel appears to not be Gaussian")
+
+        self.detector.point_spread_function = lambda z, y: np.abs(y)
+        self.detector.point_spread_kernel_shape = (5, 7)
+        kernel = self.detector._get_point_spread_function_kernel()
+
+        self.assertAlmostEqual(np.sum(kernel), 1, msg="Point spread function must be intensity preserving.")
+        for i in range(5):
+            self.assertAlmostEqual(kernel[i,3], 0, msg="Point spread function must be intensity preserving.")
+            self.assertAlmostEqual(kernel[i,4], 1./60., msg="Point spread function kernel does not match spread function")
+            self.assertAlmostEqual(kernel[i,5], 2./60., msg="Point spread function kernel does not match spread function")
+            self.assertAlmostEqual(kernel[i,6], 3./60., msg="Point spread function kernel does not match spread function")
 
 if __name__ == '__main__':
     unittest.main()

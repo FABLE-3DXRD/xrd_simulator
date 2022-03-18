@@ -2,6 +2,7 @@
 import numpy as np
 from xrd_simulator import utils
 from xrd_simulator._pickleable_object import PickleableObject
+from scipy.signal import convolve
 
 
 class Detector(PickleableObject):
@@ -29,6 +30,10 @@ class Detector(PickleableObject):
         normal (:obj:`numpy array`): Detector normal.
         zmax,ymax (:obj:`numpy array`): Detector width and height.
         pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
+        point_spread_function  (:obj:`callable`): Scalar point spread function called as point_spread_function(z, y). The
+            z and y coordinates are assumed to be in local units of pixels. I.e point_spread_function(0, 0) returns the
+            value of the pointspread function at the location of the point being spread. This is meant to model blurring
+            due to detector optics. Defaults to a Gaussian with standard deviation 1.0 and mean at (z,y)=(0,0).
 
     Examples:
         .. literalinclude:: examples/example_init_detector.py
@@ -46,6 +51,45 @@ class Detector(PickleableObject):
         self.normal = np.cross(self.zdhat, self.ydhat)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
+
+        self.point_spread_function = lambda y, z: np.exp(-0.5 * (z*z + y*y) / (1.0 * 1.0) )
+        self._point_spread_kernel_shape = (5, 5)
+
+    @property
+    def point_spread_kernel_shape(self):
+        """point_spread_kernel_shape  (:obj:`tuple`): Number of pixels in z and y over which to apply the pointspread function
+            for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction pattern. The
+            values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).
+
+            NOTE: The point_spread_function is automatically normalised over the point_spread_kernel_shape domain such that the
+                final convolution over the detector diffraction pattern is intensity preserving.
+        """
+        return self._point_spread_kernel_shape
+
+    @point_spread_kernel_shape.setter
+    def point_spread_kernel_shape(self, kernel_shape):
+
+        if kernel_shape[0] % 2 == 0 or kernel_shape[1] % 2 == 0:
+            raise ValueError("Point spread function kernel shape must be odd in both dimensions, but shape "+str(kernel_shape)+" was provided.")
+        else:
+            self._point_spread_kernel_shape = kernel_shape
+
+    def _get_point_spread_function_kernel(self):
+        """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape.
+        """
+        sz, sy = self.point_spread_kernel_shape
+        axz = np.linspace(-(sz - 1) / 2., (sz - 1) / 2., sz)
+        axy = np.linspace(-(sy - 1) / 2., (sy - 1) / 2., sy)
+        Z, Y = np.meshgrid(axz, axy, indexing='ij')
+        kernel = np.zeros(self.point_spread_kernel_shape)
+        for i in range(Z.shape[0]):
+            for j in range(Y.shape[1]):
+                kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
+
+        assert len( kernel[kernel<0] )==0, "Point spread function must be strictly positive, but negative values were found."
+        assert np.sum(kernel)>1e-8, "The integrated value of the point spread function over the defined kernel domain is close to zero."
+
+        return kernel / np.sum(kernel)
 
     def render(
             self,
@@ -83,18 +127,9 @@ class Detector(PickleableObject):
         """
         frame = np.zeros((int(self.zmax / self.pixel_size_z),
                          int(self.ymax / self.pixel_size_y)))
-        
-        # intens = []
-        # for si, scatterer in enumerate(self.frames[frame_number]):
-        #     intensity_scaling_factor = self._get_intensity_factor(
-        #         scatterer, lorentz, polarization, structure_factor)
-        #     intens.append( intensity_scaling_factor )
-        # intens = np.array(intens)
-        # mi = np.max(intens)
-        # mask = np.array([ I>mi*0.00025 for I in intens ])
 
         for si, scatterer in enumerate(self.frames[frame_number]):
-            
+
             if verbose:
                 progress_bar_message = "Rendering " + \
                     str(len(self.frames[frame_number])) + " scattering volumes unto the detector"
@@ -103,8 +138,6 @@ class Detector(PickleableObject):
                 utils._print_progress(
                     progress_fraction,
                     message=progress_bar_message)
-
-            #if not mask[si]: continue
 
             if method == 'project':
                 self._projection_render(
@@ -116,6 +149,10 @@ class Detector(PickleableObject):
                     lorentz,
                     polarization,
                     structure_factor)
+
+        if self.point_spread_function is not None:
+            kernel = self._get_point_spread_function_kernel()
+            frame = convolve(frame, kernel, mode='same', method='direct')
 
         return frame
 
@@ -204,24 +241,6 @@ class Detector(PickleableObject):
             row, col = self._detector_coordinate_to_pixel_index(zd, yd)
             frame[row, col] += scatterer.volume * intensity_scaling_factor
 
-
-            # side_length = 5
-            # sigma = 0.5
-            # kernel = self._gaussian_kernel(side_length, sigma) 
-            # kernel *= scatterer.volume * intensity_scaling_factor
-            # r1 = np.max([0, row - kernel.shape[0]//2])
-            # c1 = np.max([0, col - kernel.shape[1]//2])
-            # r2 = np.min([frame.shape[0], row + 1 + kernel.shape[0]//2])
-            # c2 = np.min([frame.shape[1], col + 1 + kernel.shape[1]//2 ])
-
-            # frame[r1:r2, c1:c2] += kernel[0:r2-r1,0:c2-c1] #/ (self.pixel_size_z * self.pixel_size_y)
-
-    def _gaussian_kernel(self, side_length, sigma):
-        ax = np.linspace(-(side_length - 1) / 2., (side_length - 1) / 2., side_length)
-        gauss = np.exp(-0.5 * np.square(ax) / np.square(sigma))
-        kernel = np.outer(gauss, gauss)
-        return kernel / np.sum(kernel)
-
     def _projection_render(
             self,
             scatterer,
@@ -274,23 +293,7 @@ class Detector(PickleableObject):
             else:
                 raise ValueError("Structure factors have not been set, .cif file is required at sample instantiation.")
 
-    #     # DEBUG:
-    #     path_length_attenuation = True
-    #     if path_length_attenuation:
-    #         intensity_factor *= self._get_path_length(scatterer)
-    #     #
-
         return intensity_factor
-
-    # def _get_path_length(self, scatterer):
-    #     """Compute the pathlength between detector and scatterer along the scattered ray direction.
-    #     """
-    #     ray_direction = scatterer.scattered_wave_vector / np.linalg.norm(scatterer.scattered_wave_vector)
-    #     path_length = (self.det_corner_0 - scatterer.centroid).dot(self.normal) / ray_direction.dot(self.normal)
-    #     xray = scatterer.incident_wave_vector / np.linalg.norm(scatterer.incident_wave_vector)
-    #     D = self.det_corner_0.dot(self.normal) / xray.dot(self.normal)
-    #     return np.exp( 200.*(D-path_length)/D )
-
 
     def _project(self, scatterer, box):
         """Compute parametric projection of scattering region unto detector.
