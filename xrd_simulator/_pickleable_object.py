@@ -1,4 +1,4 @@
-import pickle
+import dill
 
 
 class PickleableObject(object):
@@ -17,7 +17,7 @@ class PickleableObject(object):
 
         """
         with open(path, "wb") as f:
-            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
 
     @classmethod
     def load(cls, path):
@@ -33,4 +33,4 @@ class PickleableObject(object):
 
         """
         with open(path, 'rb') as f:
-            return pickle.load(f)
+            return dill.load(f)
