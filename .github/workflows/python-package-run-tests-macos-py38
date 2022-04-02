@@ -1,8 +1,10 @@
-name: macos conda-build
+name: tests ubuntu-linux
 
-on: [push]
-
-
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 jobs:
   build-mac:
     runs-on: macos-latest
@@ -23,7 +25,8 @@ jobs:
       run: |
         python --version
         sudo conda install python=3.8
-        sudo conda install -c conda-forge xrd_simulator
+        sudo conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab
+        python -m pip install .
     - name: Lint with flake8
       run: |
         sudo conda install flake8
