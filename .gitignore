@@ -148,4 +148,5 @@ extras/voroni_sample/
 cspell.json
 tmp_profile_dump
 pypi_release/
+extras/
 
