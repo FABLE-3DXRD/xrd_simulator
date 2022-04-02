@@ -147,5 +147,5 @@ extras/voroni_sample/
 
 cspell.json
 tmp_profile_dump
-conda/autorelease.py
+pypi_release/
 
