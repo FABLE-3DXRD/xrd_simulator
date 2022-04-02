@@ -1,5 +1,5 @@
 import numpy as np
-from xrd_simulator.xfab import tools
+from xfab import tools
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from xrd_simulator import laue

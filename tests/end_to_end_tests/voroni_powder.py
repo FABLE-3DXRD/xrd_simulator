@@ -7,7 +7,7 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
-from xrd_simulator.xfab import tools
+from xfab import tools
 import os
 import cProfile
 import pstats

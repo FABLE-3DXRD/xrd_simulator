@@ -30,5 +30,6 @@ setuptools.setup(
                       "scipy",
                       "numba",
                       "pycifrw",
-                      "dill"]
+                      "dill",
+                      "xfab"]
 )

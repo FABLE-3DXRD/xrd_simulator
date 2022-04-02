@@ -74,7 +74,7 @@ class TestDetector(unittest.TestCase):
         sgname = 'Fm-3m'  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
         phase.setup_diffracting_planes(
-            wavelength, 0, 20 * np.pi / 180, verbose=False)
+            wavelength, 0, 20 * np.pi / 180)
 
         scatterer1 = Scatterer(ch1,
                                scattered_wave_vector=scattered_wave_vector,
@@ -175,7 +175,7 @@ class TestDetector(unittest.TestCase):
         sgname = 'Fm-3m'  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
         phase.setup_diffracting_planes(
-            wavelength, 0, 20 * np.pi / 180, verbose=False)
+            wavelength, 0, 20 * np.pi / 180)
 
         scatterer = Scatterer(sphere_hull,
                               scattered_wave_vector=scattered_wave_vector,
