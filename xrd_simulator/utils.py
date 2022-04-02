@@ -3,8 +3,9 @@
 """
 
 import numpy as np
+import logging
 from numba import njit
-from xrd_simulator.xfab import tools
+from xfab import tools
 from CifFile import ReadCif
 from itertools import combinations
 
@@ -239,3 +240,33 @@ def _get_bounding_ball(points):
             radius.append(np.max(np.linalg.norm(points - centroids[-1], axis=1)))
     index = np.argmin(radius)
     return centroids[index], radius[index]
+
+def _set_xfab_logging(disabled):
+    """Disable/Enable all loging of xfab; it is very verbose!
+    """
+    xfab_modules = ['tools',
+                    'structure',
+                    'atomlib',
+                    'detector',
+                    'checks',
+                    'sg',
+                    'sglib',
+                    'symmetry']
+    for sub_module in xfab_modules:
+        logging.getLogger('xfab.'+sub_module).disabled = disabled
+
+class _verbose_manager(object):
+    """Manage global verbose options in with statements; to turn of
+    external package loggings easily inside xrd_simulator.
+    """
+
+    def __init__(self, verbose):
+        self.verbose = verbose
+
+    def __enter__(self):
+        if self.verbose:
+            _set_xfab_logging(disabled=False)
+
+    def __exit__(self, type, value, traceback):
+        if self.verbose:
+            _set_xfab_logging(disabled=True)

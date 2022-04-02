@@ -26,8 +26,7 @@ class TestPhase(unittest.TestCase):
         ph.setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
-            max_bragg_angle,
-            verbose=False)
+            max_bragg_angle)
 
         self.assertEqual(ph.miller_indices.shape[1], 3)
         self.assertTrue(ph.miller_indices.shape[0] > 10)
@@ -38,8 +37,7 @@ class TestPhase(unittest.TestCase):
         ph.setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
-            max_bragg_angle,
-            verbose=False)
+            max_bragg_angle)
         for i in range(ph.miller_indices.shape[0]):
             hkl = ph.miller_indices[i, :]
             # Only all even or all odd gives diffraction for a cubic crystal
@@ -69,8 +67,7 @@ class TestPhase(unittest.TestCase):
         ph.setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
-            max_bragg_angle,
-            verbose=False)
+            max_bragg_angle)
 
         for i in range(ph.structure_factors.shape[0]):
             self.assertGreaterEqual(ph.structure_factors[i, 0], 0)

@@ -5,7 +5,7 @@ from xrd_simulator import utils, laue
 from xrd_simulator._pickleable_object import PickleableObject
 import copy
 
-from xrd_simulator.xfab import tools
+from xfab import tools
 
 
 class Polycrystal(PickleableObject):
@@ -149,11 +149,11 @@ class Polycrystal(PickleableObject):
             detector, beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
-            phase.setup_diffracting_planes(
-                beam.wavelength,
-                min_bragg_angle,
-                max_bragg_angle,
-                verbose=verbose)
+            with utils._verbose_manager(verbose):
+                phase.setup_diffracting_planes(
+                    beam.wavelength,
+                    min_bragg_angle,
+                    max_bragg_angle)
 
         c_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
         c_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)

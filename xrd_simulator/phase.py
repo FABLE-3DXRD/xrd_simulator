@@ -1,7 +1,8 @@
 #TODO: Review docs.
+import logging
 import numpy as np
-from xrd_simulator.xfab import tools, structure
-from xrd_simulator.utils import cif_open
+from xfab import tools, structure
+from xrd_simulator import utils
 
 
 class Phase(object):
@@ -44,8 +45,7 @@ class Phase(object):
             self,
             wavelength,
             min_bragg_angle,
-            max_bragg_angle,
-            verbose=True):
+            max_bragg_angle):
         """Generates all Miller indices (h,k,l) that will diffract given wavelength and Bragg angle bounds.
 
         If self.path_to_cif_file is not None, structure factors are computed in addition to the hkls.
@@ -63,18 +63,17 @@ class Phase(object):
         self.miller_indices = tools.genhkl_all(
             self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
         if self.path_to_cif_file is not None:
-            self._set_structure_factors(self.miller_indices, verbose=verbose)
+            self._set_structure_factors(self.miller_indices)
 
-    def _set_structure_factors(self, miller_indices, verbose):
+    def _set_structure_factors(self, miller_indices):
         """Generate unit cell structure factors for all miller indices.
         """
         atom_factory = structure.build_atomlist()
-        cifblk = cif_open(self.path_to_cif_file)
+        cifblk = utils.cif_open(self.path_to_cif_file)
         atom_factory.CIFread(
             ciffile=None,
             cifblkname=None,
-            cifblk=cifblk,
-            verbose=verbose)
+            cifblk=cifblk)
         atoms = atom_factory.atomlist.atom
         self.structure_factors = np.zeros((miller_indices.shape[0], 2))
         for i, hkl in enumerate(miller_indices):
