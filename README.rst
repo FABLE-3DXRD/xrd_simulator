@@ -27,9 +27,6 @@
 .. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?
 	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
-	:target: https://anaconda.org/conda-forge/xrd_simulator/
-
 ===================================================================================================
 Simulate X-ray Diffraction from Polycrystals in 3D.
 ===================================================================================================
