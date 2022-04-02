@@ -3,6 +3,12 @@
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml
+
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?
 	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
 
