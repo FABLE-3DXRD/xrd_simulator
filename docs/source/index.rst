@@ -13,35 +13,35 @@ beam
 
 .. automodule:: xrd_simulator.beam
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 detector
 ======================================
 
 .. automodule:: xrd_simulator.detector
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 motion
 ======================================
 
 .. automodule:: xrd_simulator.motion
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 mesh
 ======================================
 
 .. automodule:: xrd_simulator.mesh
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 phase
 ======================================
 
 .. automodule:: xrd_simulator.phase
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 polycrystal
 ======================================
@@ -50,28 +50,28 @@ provided diffraction geometry which is specified via a :ref:`beam`, sample :ref:
 
 .. automodule:: xrd_simulator.polycrystal
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 scatterer
 ======================================
 
 .. automodule:: xrd_simulator.scatterer
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 laue
 ======================================
 
 .. automodule:: xrd_simulator.laue
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 utils
 ======================================
 
 .. automodule:: xrd_simulator.utils
     :members:
-    :show-inheritance:
+    :inherited-members:
 
 templates
 ======================================
@@ -80,4 +80,4 @@ worry about any of the "under the hood" scripting.
 
 .. automodule:: xrd_simulator.templates
     :members:
-    :show-inheritance:
+    :inherited-members:

@@ -233,8 +233,7 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
     """Draw orientation matrices form an ODF at spatial locations ``coordinates``.
     """
 
-    dalpha = maximum_sampling_bin_seperation / \
-        2.  # TODO: verify this analytically.
+    dalpha = maximum_sampling_bin_seperation / 2.  # TODO: verify this analytically.
     dalpha = np.pi / 2. / int(np.pi / (dalpha * 2.))
     alpha_1 = np.arange(
         0 +

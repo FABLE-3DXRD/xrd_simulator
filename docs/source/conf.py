@@ -58,6 +58,8 @@ exclude_patterns = ['raw_README.rst']
 #
 html_theme = "sphinx_rtd_theme"
 
+# do not sort by alphabet
+autodoc_member_order = 'bysource'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -76,3 +78,4 @@ def linkcode_resolve(domain, info):
         return None
     filename = info['module'].replace('.', '/')
     return "https://github.com/fable-3dxrd/xrd_simulator/blob/main/%s.py/" % filename
+

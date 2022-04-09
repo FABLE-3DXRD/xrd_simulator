@@ -12,7 +12,7 @@ bounding_radius = 25.0
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221',  # Quartz
 max_bin = np.radians(10.0)
-
+path_to_cif_file = None
 
 def strain_tensor(x): return np.array([[0, 0, 0.02 * x[2] / bounding_height],
                                        [0, 0, 0],
@@ -25,5 +25,6 @@ polycrystal = polycrystal_from_odf(ODF,
                                    bounding_radius,
                                    unit_cell,
                                    sgname,
+                                   path_to_cif_file,
                                    max_bin,
                                    strain_tensor)
