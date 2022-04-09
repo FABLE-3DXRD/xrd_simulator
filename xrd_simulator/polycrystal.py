@@ -162,7 +162,7 @@ class Polycrystal(PickleableObject):
 
         scatterers = []
 
-        proximity_intervals = beam.get_proximity_intervals(
+        proximity_intervals = beam._get_proximity_intervals(
             self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion)
 
         for ei in range(self.mesh_lab.number_of_elements):

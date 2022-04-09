@@ -61,7 +61,7 @@ class TestBeam(unittest.TestCase):
         ch = self.beam.intersect(vertices)
         self.assertTrue(ch is None)
 
-    def test_get_proximity_intervals(self):
+    def test__get_proximity_intervals(self):
 
         self.beam_vertices = np.array([
             [-500., -1., -1.],
@@ -92,7 +92,7 @@ class TestBeam(unittest.TestCase):
         sphere_centres = np.array([[400.0, 0.0, 0.0], [200.0, 0.0, 0.0]])
         sphere_radius = np.array([[2.0], [0.5]])
 
-        intervals = self.beam.get_proximity_intervals(
+        intervals = self.beam._get_proximity_intervals(
             sphere_centres, sphere_radius, motion)
 
         self.assertEqual(len(intervals[0]), 2,
@@ -122,7 +122,7 @@ class TestBeam(unittest.TestCase):
         # Now with rotation and translation
         motion.translation = np.array([-87.24, 34.6, 123.34])
 
-        intervals = self.beam.get_proximity_intervals(
+        intervals = self.beam._get_proximity_intervals(
             sphere_centres, sphere_radius, motion)
 
         self.assertEqual(len(intervals[0]), 1,

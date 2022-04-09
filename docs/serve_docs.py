@@ -1,8 +1,24 @@
 # custom bash script to build the docs and put them in a place that is
 # visible to github pages, which unfortunately cannot see into the
 # build folder.
+from multiprocessing.sharedctypes import Value
 import os
 import shutil
+
+print("Verifying example scripts")
+
+example_path = os.path.join("source", "examples")
+os.chdir(example_path)
+
+for file in os.listdir("."):
+    if file.startswith('example_') and file.endswith('.py'):
+        print("Running " + file)
+        out = os.system('python '+file)
+        if out!=0:
+            raise ValueError("Example "+ file+ " is broken")
+print("All example scripts executed without errors.")
+os.chdir("..")
+os.chdir("..")
 
 def render_example_code_in_readme( path_to_raw_readme, example_code_path, pattern):
     """Handle code inclusion from file in github readme. Any line in the raw .rst that

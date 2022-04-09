@@ -1,18 +1,24 @@
 """The beam module is used to represent a beam of xrays. The idea is to create a :class:`xrd_simulator.beam.Beam` object and
 pass it along to the :func:`xrd_simulator.polycrystal.Polycrystal.diffract` function to compute diffraction from the sample
-for the specified xray beam geometry.
+for the specified xray beam geometry. Here is a minimal example of how to instantiate a beam object and save it to disc:
+
+    Examples:
+        .. literalinclude:: examples/example_init_beam.py
+
+Below follows a detailed description of the beam class attributes and functions.
+
 """
-#TODO: Review docs.
 import numpy as np
+import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 from xrd_simulator import laue
 from scipy.optimize import root_scalar
-from xrd_simulator._pickleable_object import PickleableObject
 
-
-class Beam(PickleableObject):
+class Beam():
     """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.
+
+    The beam is described in the laboratory coordinate system.
 
     Args:
         beam_vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
@@ -25,11 +31,11 @@ class Beam(PickleableObject):
         vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
         wavelength (:obj:`float`): Xray wavelength in units of angstrom.
         wave_vector (:obj:`numpy array`): Beam wavevector with norm 2*pi/wavelength, ``shape=(3,)``
+        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
+            Must be orthogonal to the xray propagation direction.
         centroid (:obj:`numpy array`): Beam convex hull centroid ``shape=(3,)``
         halfspaces (:obj:`numpy array`): Beam halfspace equation coefficients ``shape=(N,3)``.
             A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
-        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
-            Must be orthogonal to the xray propagation direction.
 
     """
 
@@ -60,6 +66,84 @@ class Beam(PickleableObject):
         self.vertices = beam_vertices.copy()
         self.centroid = np.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull(self.vertices).equations
+
+    def contains(self, point):
+        """ Check if the beam contains a point.
+
+        Args:
+            point (:obj:`numpy array`): Point to evaluate ``shape=(3,)``.
+
+        Returns:
+            Boolean True if the beam contains the point.
+
+        """
+        return np.all(self.halfspaces[:, 0:3].dot(
+            point) + self.halfspaces[:, 3] < 0)
+
+    def intersect(self, vertices):
+        """Compute the beam intersection with a convex polyhedra.
+
+        Args:
+            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ``shape=(N,3)``.
+
+        Returns:
+            A :class:`scipy.spatial.ConvexHull` object formed from the vertices of the intersection between beam vertices and
+            input vertices.
+
+        """
+
+        vertices_contained_by_beam = [
+            self.contains(vertex) for vertex in vertices]
+        if np.all(vertices_contained_by_beam):
+            # The beam completely contains the input convex polyhedra
+            return ConvexHull(vertices)
+
+        poly_halfspace = ConvexHull(vertices).equations
+        combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces))
+
+        # Since _find_feasible_point() is expensive it is worth checking for if the polyhedra
+        # centroid is contained by the beam, being a potential cheaply computed interior_point.
+        centroid = np.mean(vertices, axis=0)
+        if self.contains(centroid):
+            interior_point = centroid
+        else:
+            interior_point = self._find_feasible_point(combined_halfspaces)
+
+        if interior_point is not None:
+            hs = HalfspaceIntersection(combined_halfspaces, interior_point)
+            return ConvexHull(hs.intersections)
+        else:
+            return None
+
+    def save(self, path):
+        """Save the xray beam to disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to save, ending with the desired filename.
+
+        """
+        if not path.endswith(".beam"):
+            path = path + ".beam"
+        with open(path, "wb") as f:
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load(cls, path):
+        """Load the xray beam from disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to load, ending with the desired filename.
+
+        .. warning::
+            This function will unpickle data from the provied path. The pickle module
+            is not intended to be secure against erroneous or maliciously constructed data.
+            Never unpickle data received from an untrusted or unauthenticated source.
+
+        """
+        if not path.endswith(".beam"):
+            raise ValueError("The loaded file must end with .beam")
+        with open(path, 'rb') as f:
+            return dill.load(f)
 
     def _find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
@@ -94,56 +178,7 @@ class Beam(PickleableObject):
         else:
             return None
 
-    def intersect(self, vertices):
-        """Compute the beam intersection with a convex polyhedra.
-
-        Args:
-            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ``shape=(N,3)``.
-
-        Returns:
-            A :class:`scipy.spatial.ConvexHull` object formed from the vertices of the intersection between beam vertices and
-            input vertices.
-
-        """
-
-        vertices_contained_by_beam = [
-            self.contains(vertex) for vertex in vertices]
-        if np.all(vertices_contained_by_beam):
-            # The beam completely contains the input convex polyhedra
-            return ConvexHull(vertices)
-
-        poly_halfspace = ConvexHull(vertices).equations
-        combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces))
-
-        # Since _find_feasible_point() is expensive it is worth checking for if the polyhedra
-        # centroid is contained by the beam, being a potential cheaply computed
-        # interior_point.
-        centroid = np.mean(vertices, axis=0)
-        if self.contains(centroid):
-            interior_point = centroid
-        else:
-            interior_point = self._find_feasible_point(combined_halfspaces)
-
-        if interior_point is not None:
-            hs = HalfspaceIntersection(combined_halfspaces, interior_point)
-            return ConvexHull(hs.intersections)
-        else:
-            return None
-
-    def contains(self, point):
-        """ Check if the beam contains a point.
-
-        Args:
-            point (:obj:`numpy array`): Point to evaluate ``shape=(3,)``.
-
-        Returns:
-            Boolean True if the beam contains the point.
-
-        """
-        return np.all(self.halfspaces[:, 0:3].dot(
-            point) + self.halfspaces[:, 3] < 0)
-
-    def get_proximity_intervals(
+    def _get_proximity_intervals(
             self,
             sphere_centres,
             sphere_radius,
