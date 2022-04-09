@@ -739,9 +739,20 @@ pixel size.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.detector.Detector.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.save" title="Permalink to this definition"></a></dt>
+<dd><p>Save the detector object to disc (via pickling).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.load" title="Permalink to this definition"></a></dt>
-<dd><p>Load object from disc.</p>
+<dd><p>Load the detector object from disc (via pickling).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to load, ending with the desired filename.</p>
@@ -753,17 +764,6 @@ pixel size.</p>
 is not intended to be secure against erroneous or maliciously constructed data.
 Never unpickle data received from an untrusted or unauthenticated source.</p>
 </aside>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="xrd_simulator.detector.Detector.save">
-<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.save" title="Permalink to this definition"></a></dt>
-<dd><p>Save object to disc.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p>
-</dd>
-</dl>
 </dd></dl>
 
 </dd></dl>
@@ -875,9 +875,20 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.save" title="Permalink to this definition"></a></dt>
+<dd><p>Save the motion object to disc (via pickling).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.load" title="Permalink to this definition"></a></dt>
-<dd><p>Load object from disc.</p>
+<dd><p>Load the motion object from disc (via pickling).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to load, ending with the desired filename.</p>
@@ -889,17 +900,6 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 is not intended to be secure against erroneous or maliciously constructed data.
 Never unpickle data received from an untrusted or unauthenticated source.</p>
 </aside>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.save">
-<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.save" title="Permalink to this definition"></a></dt>
-<dd><p>Save object to disc.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p>
-</dd>
-</dl>
 </dd></dl>
 
 </dd></dl>
@@ -1357,7 +1357,7 @@ polycrystal transformation as a function of time on the domain time=[0,1].</p></
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.save">
 <span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_mesh_as_xdmf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.save" title="Permalink to this definition"></a></dt>
-<dd><p>Save object to disc.</p>
+<dd><p>Save polycrystal to disc (via pickling).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1372,7 +1372,7 @@ strains and crystal orientations as a .xdmf for visualization (sample coordinate
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.load">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.load" title="Permalink to this definition"></a></dt>
-<dd><p>Load object from disc.</p>
+<dd><p>Load polycrystal from disc (via pickling).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to load, ending with the desired filename.</p>
