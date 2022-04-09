@@ -1,9 +1,8 @@
 #TODO: Review docs.
 import numpy as np
-from xrd_simulator._pickleable_object import PickleableObject
+import dill
 
-
-class RigidBodyMotion(PickleableObject):
+class RigidBodyMotion():
     """Rigid body transform euclidean points by an euler axis and translation representation.
 
     The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
@@ -85,6 +84,35 @@ class RigidBodyMotion(PickleableObject):
         return self.rotator(vectors, self.rotation_angle *
                             time) + translation * time
 
+    def save(self, path):
+        """Save the motion object to disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to save, ending with the desired filename.
+
+        """
+        if not path.endswith(".motion"):
+            path = path + ".motion"
+        with open(path, "wb") as f:
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load(cls, path):
+        """Load the motion object from disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to load, ending with the desired filename.
+
+        .. warning::
+            This function will unpickle data from the provied path. The pickle module
+            is not intended to be secure against erroneous or maliciously constructed data.
+            Never unpickle data received from an untrusted or unauthenticated source.
+
+        """
+        if not path.endswith(".motion"):
+            raise ValueError("The loaded motion file must end with .motion")
+        with open(path, 'rb') as f:
+            return dill.load(f)
 
 class _RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.

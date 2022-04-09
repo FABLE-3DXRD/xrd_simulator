@@ -78,13 +78,13 @@ class TestPhase(unittest.TestCase):
                 'data'),
             'my_motion')
         motion.save(path)
-        motion = RigidBodyMotion.load(path)
+        motion = RigidBodyMotion.load(path+'.motion')
         self.assertTrue(
             np.allclose(
                 motion.rotation_axis,
                 rotation_axis),
             msg='Data corrupted on save and load')
-        os.remove(path)
+        os.remove(path+'.motion')
 
 if __name__ == '__main__':
     unittest.main()

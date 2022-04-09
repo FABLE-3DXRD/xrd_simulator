@@ -349,11 +349,11 @@ class TestDetector(unittest.TestCase):
                 'data'),
             'my_detector')
         self.detector.save(path)
-        self.detector = Detector.load(path)
+        self.detector = Detector.load(path+'.det')
         self.assertAlmostEqual( self.detector.point_spread_function(-23., 2.0),
                                 1.0,
                                 msg='Data corrupted on save and load')
-        os.remove(path)
+        os.remove(path+'.det')
 
 if __name__ == '__main__':
     unittest.main()

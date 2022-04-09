@@ -2,13 +2,13 @@
 import numpy as np
 from xrd_simulator.scatterer import Scatterer
 from xrd_simulator import utils, laue
-from xrd_simulator._pickleable_object import PickleableObject
+import dill
 import copy
 
 from xfab import tools
 
 
-class Polycrystal(PickleableObject):
+class Polycrystal():
 
     """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
 
@@ -270,7 +270,7 @@ class Polycrystal(PickleableObject):
                     self.strain_lab[ei], Rot_mat.T))
 
     def save(self, path, save_mesh_as_xdmf=True):
-        """Save object to disc.
+        """Save polycrystal to disc (via pickling).
 
         Args:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
@@ -278,7 +278,10 @@ class Polycrystal(PickleableObject):
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
 
         """
-        super().save(path)
+        if not path.endswith(".pc"):
+            pickle_path = path + ".pc"
+        with open(pickle_path, "wb") as f:
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
         if save_mesh_as_xdmf:
             element_data = {}
             element_data['$\\epsilon_{11}$'] = self.strain_sample[:, 0, 0]
@@ -297,3 +300,21 @@ class Polycrystal(PickleableObject):
                 element_data['$\\varphi_{2}$'].append(phi_2)
             element_data['Phases'] = self.element_phase_map
             self.mesh_sample.save(path + ".xdmf", element_data=element_data)
+
+    @classmethod
+    def load(cls, path):
+        """Load polycrystal from disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to load, ending with the desired filename.
+
+        .. warning::
+            This function will unpickle data from the provied path. The pickle module
+            is not intended to be secure against erroneous or maliciously constructed data.
+            Never unpickle data received from an untrusted or unauthenticated source.
+
+        """
+        if not path.endswith(".pc"):
+            raise ValueError("The loaded polycrystal file must end with .pc")
+        with open(path, 'rb') as f:
+            return dill.load(f)
