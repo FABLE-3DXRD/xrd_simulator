@@ -124,13 +124,13 @@ class TestPolycrystal(unittest.TestCase):
                 'data'),
             'my_polycrystal')
         self.polycrystal.save(path, save_mesh_as_xdmf=True)
-        self.polycrystal = Polycrystal.load(path)
+        self.polycrystal = Polycrystal.load(path+'.pc')
         self.assertTrue(
             np.allclose(
                 orientation_lab,
                 self.polycrystal.orientation_lab),
             msg='Data corrupted on save and load')
-        os.remove(path)
+        os.remove(path + '.pc')
         os.remove(path + ".xdmf")
         os.remove(path + ".h5")
 

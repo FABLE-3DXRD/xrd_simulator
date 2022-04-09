@@ -1,11 +1,11 @@
 #TODO: Review docs.
 import numpy as np
 from xrd_simulator import utils
-from xrd_simulator._pickleable_object import PickleableObject
+import dill
 from scipy.signal import convolve
 
 
-class Detector(PickleableObject):
+class Detector():
 
     """Represents a rectangular xray scattering flat area detection device.
 
@@ -211,6 +211,36 @@ class Detector(PickleableObject):
                 normalised_local_coord_geom_mat.T,
                 k / np.linalg.norm(k)))  # These are two time Bragg angles
         return np.max(cone_opening) / 2.
+
+    def save(self, path):
+        """Save the detector object to disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to save, ending with the desired filename.
+
+        """
+        if not path.endswith(".det"):
+            path = path + ".det"
+        with open(path, "wb") as f:
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load(cls, path):
+        """Load the detector object from disc (via pickling).
+
+        Args:
+            path (:obj:`str`): File path at which to load, ending with the desired filename.
+
+        .. warning::
+            This function will unpickle data from the provied path. The pickle module
+            is not intended to be secure against erroneous or maliciously constructed data.
+            Never unpickle data received from an untrusted or unauthenticated source.
+
+        """
+        if not path.endswith(".det"):
+            raise ValueError("The loaded motion file must end with .det")
+        with open(path, 'rb') as f:
+            return dill.load(f)
 
     def _get_pixel_coordinates(self):
         zds = np.arange(0, self.zmax, self.pixel_size_z)
