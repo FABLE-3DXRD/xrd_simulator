@@ -8,14 +8,14 @@ Here is a minimal example of how to instantiate a Phase object
     Examples:
         .. literalinclude:: examples/example_init_phase.py
 
-The .cif file used in the above example `can be found here.`_::
-
-.. _can be found here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/quartz.cif?raw=true
+`The .cif file used in the above example can be found here.`_
 
 Below follows a detailed description of the Phase class attributes and functions.
 
+.. _The .cif file used in the above example can be found here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/quartz.cif?raw=true
+
+
 """
-import logging
 import numpy as np
 from xfab import tools, structure
 from xrd_simulator import utils
