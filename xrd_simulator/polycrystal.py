@@ -1,44 +1,57 @@
-#TODO: Review docs.
+"""The polycrystal module is used to represent a polycrystalline sample. The :class:`xrd_simulator.polycrystal.Polycrystal`
+object holds the function :func:`xrd_simulator.polycrystal.Polycrystal.diffract` which may be used to compute diffraction.
+To move the sample spatially, the function :func:`xrd_simulator.polycrystal.Polycrystal.transform` can be used.
+Here is a minimal example of how to instantiate a polycrystal object and save it to disc:
+
+    Examples:
+        .. literalinclude:: examples/example_init_polycrystal.py
+
+Below follows a detailed description of the polycrystal class attributes and functions.
+
+"""
 import numpy as np
-from xrd_simulator.scatterer import Scatterer
-from xrd_simulator import utils, laue
 import dill
 import copy
-
 from xfab import tools
+from xrd_simulator.scatterer import Scatterer
+from xrd_simulator import utils, laue
 
 
 class Polycrystal():
 
     """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
 
+    The polycrystal is created in laboratory coordinates. At instantiation it is assumed that the sample and
+    lab coordinate systems are aligned.
+
     Args:
         mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample. At instantiation it is assumed that the sample and lab coordinate systems
-            are aligned.
+            geometry of the sample. (At instantiation it is assumed that the sample and lab coordinate systems
+            are aligned.)
         orientation (:obj:`numpy array`): Per element orientation matrices (sometimes known by the capital letter U),
-            (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is uniform between elements. At instantiation it
-            is assumed that the sample and lab coordinate systems are aligned.
-        strain (:obj:`numpy array`): Per element strain tensor, (``shape=(N,3,3)``) or (``shape=(3,3)``) if the strain is
-            uniform between elements.
-        phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
+            (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is the same for all elements. The orientation
+            matrix maps from crystal coordinates to sample coordinates.
+        strain (:obj:`numpy array`): Per element strain tensor, in lab coordinates, (``shape=(N,3,3)``) or (``shape=(3,3)``)
+            if the strain is the same for all elements elements.
+        phases (:obj:`xrd_simulator.phase.Phase` or :obj:`list` of :obj:`xrd_simulator.phase.Phase`): Phase of the
+            polycrystal, or for multiphase samples, a list of all phases present in the polycrystal.
         element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
             gives the xrd_simulator.phase.Phase object of element number i. None if the sample is composed of a single phase.
             (Defaults to None)
 
     Attributes:
         mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a fixed lab frame coordinate system.
+            geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.
         mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a sample coordinate system.
-        orientation_lab (:obj:`numpy array`): Per element orientation matrices in a fixed lab frame coordinate
-            system, (``shape=(N,3,3)``). (sometimes known by the capital letter U)
-        orientation_sample (:obj:`numpy array`): Per element orientation matrices in a sample coordinate
-            system., (``shape=(N,3,3)``). (sometimes known by the capital letter U)
+            geometry of the sample in a sample coordinate system. This quantity is not updated when the sample transforms.
+        orientation_lab (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the lab coordinate
+            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
+        orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
+            coordinate system.,  this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
         strain_lab (:obj:`numpy array`): Per element strain tensor in a fixed lab frame coordinate
-            system, (``shape=(N,3,3)``).
+            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
         strain_sample (:obj:`numpy array`): Per element strain tensor in a sample coordinate
-            system., (``shape=(N,3,3)``).
+            system., this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
         element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
             gives the xrd_simulator.phase.Phase object of element number i.
@@ -64,59 +77,6 @@ class Polycrystal():
         self.strain_sample = np.copy(self.strain_lab)
         self.orientation_sample = np.copy(self.orientation_lab)
 
-    def _instantiate_orientation(self, orientation, mesh):
-        """Instantiate the orientations using for smart multi shape handling.
-
-        """
-        if orientation.shape==(3,3):
-            orientation_lab = np.repeat(
-                orientation.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
-        elif orientation.shape==(mesh.number_of_elements,3,3):
-            orientation_lab = np.copy(orientation)
-        else:
-            raise ValueError("orientation input is of incompatible shape")
-        return orientation_lab
-
-    def _instantiate_strain(self, strain, mesh):
-        """Instantiate the strain using for smart multi shape handling.
-
-        """
-        if strain.shape==(3,3):
-            strain_lab = np.repeat(strain.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
-        elif strain.shape==(mesh.number_of_elements,3,3):
-            strain_lab = np.copy(strain)
-        else:
-            raise ValueError("strain input is of incompatible shape")
-        return strain_lab
-
-    def _instantiate_phase(self, phases, element_phase_map, mesh):
-        """Instantiate the phases using for smart multi shape handling.
-
-        """
-        if not isinstance(phases, list):
-            phases = [phases]
-        if element_phase_map is None:
-            if len(phases)>1:
-                raise ValueError("element_phase_map not set for multiphase polycrystal")
-            element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
-        return element_phase_map, phases
-
-    def _instantiate_eB(self, orientation_lab, strain_lab, phases, element_phase_map, mesh):
-        """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
-
-            (These are upper triangular matrices such that
-                G_s = U * B G_hkl
-            where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
-            and U are the crystal element orientation matrices.)
-
-        """
-        _eB = np.zeros((mesh.number_of_elements, 3, 3))
-        for i in range(mesh.number_of_elements):
-            _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
-                                                      orientation_lab[i,:,:],
-                                                      phases[element_phase_map[i]].unit_cell)
-        return _eB
-
     def diffract(
             self,
             beam,
@@ -125,20 +85,21 @@ class Polycrystal():
             min_bragg_angle=0,
             max_bragg_angle=None,
             verbose=True):
-        """Compute diffraction from the rotating and translating polycrystal sample while illuminated by an xray beam.
+        """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
-        The xray beam interacts with the polycrystal producing scattering regions which are stored in a detector frame.
-        The scattering regions may be rendered as pixelated patterns on the detector by using a detector rendering
+        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
+        The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
         option.
 
         Args:
             beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
             detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
+                polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
+                computed.
             min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
                 Defaults to 0.
-            max_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) after which to not compute diffraction. By default
+            max_bragg_angle (:obj:`float`): Maximum Bragg angle (radians) after which to not compute diffraction. By default
                 the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
                 centroid.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
@@ -219,36 +180,12 @@ class Polycrystal():
                                 scatterers.append(scatterer)
         detector.frames.append(scatterers)
 
-    def _get_bragg_angle_bounds(
-            self,
-            detector,
-            beam,
-            min_bragg_angle,
-            max_bragg_angle):
-        """Compute a maximum Bragg angle cut of based on the beam sample interection region centroid and detector corners.
-
-        If the beam graces or misses the sample, the sample centroid is used.
-        """
-        if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = np.array(
-                [c for c in self.mesh_lab.coord if beam.contains(c)])
-            if len(mesh_nodes_contained_by_beam) != 0:
-                source_point = np.mean(
-                    np.array([c for c in self.mesh_lab.coord if beam.contains(c)]), axis=0)
-            else:
-                source_point = self.mesh_lab.centroid
-            max_bragg_angle = detector.get_wrapping_cone(
-                beam.wave_vector, source_point)
-        assert min_bragg_angle >= 0, "min_bragg_angle must be greater or equal than zero"
-        assert max_bragg_angle > min_bragg_angle, "max_bragg_angle must be greater than min_bragg_angle"
-        return min_bragg_angle, max_bragg_angle
-
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
 
         This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
-        such as face normals etc. Likewise, it will update the per element crystallite orientation
-        matrices (U) and the lab frame description of strain.
+        such as face normals etc. Likewise, it will update the per element crystal orientation
+        matrices (U) as well as the lab frame description of strain tensors.
 
         Args:
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
@@ -276,6 +213,7 @@ class Polycrystal():
             path (:obj:`str`): File path at which to save, ending with the desired filename.
             save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycyrystal mesh with associated
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
+                The results can be vizualised with for instance paraview (https://www.paraview.org/).
 
         """
         if not path.endswith(".pc"):
@@ -318,3 +256,80 @@ class Polycrystal():
             raise ValueError("The loaded polycrystal file must end with .pc")
         with open(path, 'rb') as f:
             return dill.load(f)
+
+    def _instantiate_orientation(self, orientation, mesh):
+        """Instantiate the orientations using for smart multi shape handling.
+
+        """
+        if orientation.shape==(3,3):
+            orientation_lab = np.repeat(
+                orientation.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
+        elif orientation.shape==(mesh.number_of_elements,3,3):
+            orientation_lab = np.copy(orientation)
+        else:
+            raise ValueError("orientation input is of incompatible shape")
+        return orientation_lab
+
+    def _instantiate_strain(self, strain, mesh):
+        """Instantiate the strain using for smart multi shape handling.
+
+        """
+        if strain.shape==(3,3):
+            strain_lab = np.repeat(strain.reshape(1, 3, 3), mesh.number_of_elements, axis=0)
+        elif strain.shape==(mesh.number_of_elements,3,3):
+            strain_lab = np.copy(strain)
+        else:
+            raise ValueError("strain input is of incompatible shape")
+        return strain_lab
+
+    def _instantiate_phase(self, phases, element_phase_map, mesh):
+        """Instantiate the phases using for smart multi shape handling.
+
+        """
+        if not isinstance(phases, list):
+            phases = [phases]
+        if element_phase_map is None:
+            if len(phases)>1:
+                raise ValueError("element_phase_map not set for multiphase polycrystal")
+            element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
+        return element_phase_map, phases
+
+    def _instantiate_eB(self, orientation_lab, strain_lab, phases, element_phase_map, mesh):
+        """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
+
+            (These are upper triangular matrices such that
+                G_s = U * B G_hkl
+            where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
+            and U are the crystal element orientation matrices.)
+
+        """
+        _eB = np.zeros((mesh.number_of_elements, 3, 3))
+        for i in range(mesh.number_of_elements):
+            _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
+                                                      orientation_lab[i,:,:],
+                                                      phases[element_phase_map[i]].unit_cell)
+        return _eB
+
+    def _get_bragg_angle_bounds(
+            self,
+            detector,
+            beam,
+            min_bragg_angle,
+            max_bragg_angle):
+        """Compute a maximum Bragg angle cut of based on the beam sample interection region centroid and detector corners.
+
+        If the beam graces or misses the sample, the sample centroid is used.
+        """
+        if max_bragg_angle is None:
+            mesh_nodes_contained_by_beam = np.array(
+                [c for c in self.mesh_lab.coord if beam.contains(c)])
+            if len(mesh_nodes_contained_by_beam) != 0:
+                source_point = np.mean(
+                    np.array([c for c in self.mesh_lab.coord if beam.contains(c)]), axis=0)
+            else:
+                source_point = self.mesh_lab.centroid
+            max_bragg_angle = detector.get_wrapping_cone(
+                beam.wave_vector, source_point)
+        assert min_bragg_angle >= 0, "min_bragg_angle must be greater or equal than zero"
+        assert max_bragg_angle > min_bragg_angle, "max_bragg_angle must be greater than min_bragg_angle"
+        return min_bragg_angle, max_bragg_angle

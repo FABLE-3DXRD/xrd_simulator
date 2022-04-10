@@ -45,8 +45,6 @@ phase
 
 polycrystal
 ======================================
-The polycrystal is your sample. Once created it supports diffraction computations for a
-provided diffraction geometry which is specified via a :ref:`beam`, sample :ref:`motion` and :ref:`detector`.
 
 .. automodule:: xrd_simulator.polycrystal
     :members:
@@ -75,8 +73,6 @@ utils
 
 templates
 ======================================
-The ``templates`` module allows for fast creation of a few select sample types and diffraction geometries without having to 
-worry about any of the "under the hood" scripting.
 
 .. automodule:: xrd_simulator.templates
     :members:
