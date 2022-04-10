@@ -50,7 +50,7 @@ polycrystal
     :members:
     :inherited-members:
 
-scatterer
+scattering_unit
 ======================================
 
 .. automodule:: xrd_simulator.scattering_unit

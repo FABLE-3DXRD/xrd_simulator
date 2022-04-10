@@ -1,9 +1,24 @@
-#TODO: Review docs.
+"""The motion module is used to represent a rigid body motion. During diffraction from a
+:class:`xrd_simulator.polycrystal.Polycrystal` the :class:`xrd_simulator.motion.RigidBodyMotion`
+object describes how the sample is translating and rotating. The motion can be used to update the
+polycrystal position via the :func:`xrd_simulator.polycrystal.Polycrystal.transform` function.
+
+Here is a minimal example of how to instantiate a rigid body motion object, apply the motion to a pointcloud
+and save the motion to disc:
+
+    Examples:
+        .. literalinclude:: examples/example_init_motion.py
+
+Below follows a detailed description of the RigidBodyMotion class attributes and functions.
+
+"""
 import numpy as np
 import dill
 
 class RigidBodyMotion():
-    """Rigid body transform euclidean points by an euler axis and translation representation.
+    """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
+
+    A rigid body motion is defined in the laboratory coordinates system.
 
     The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
     of a point x by linearly uniformly rotating it from [0, rotation_angle] and translating [0, translation].
@@ -28,6 +43,25 @@ class RigidBodyMotion():
         self.rotation_axis = rotation_axis
         self.rotation_angle = rotation_angle
         self.translation = translation
+
+    def __call__(self, vectors, time):
+        """Find the transformation of a set of points at a prescribed time.
+
+        Args:
+            vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)``)
+            time (:obj:`float`): Time to compute for.
+
+        Returns:
+            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
+
+        """
+        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        if len(vectors.shape) > 1:
+            translation = self.translation.reshape(3, 1)
+        else:
+            translation = self.translation
+        return self.rotator(vectors, self.rotation_angle *
+                            time) + translation * time
 
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
@@ -64,25 +98,6 @@ class RigidBodyMotion():
         else:
             translation = self.translation
         return vectors + translation * time
-
-    def __call__(self, vectors, time):
-        """Find the transformation of a set of points at a prescribed time.
-
-        Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
-            time (:obj:`float`): Time to compute for.
-
-        Returns:
-            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
-
-        """
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        if len(vectors.shape) > 1:
-            translation = self.translation.reshape(3, 1)
-        else:
-            translation = self.translation
-        return self.rotator(vectors, self.rotation_angle *
-                            time) + translation * time
 
     def save(self, path):
         """Save the motion object to disc (via pickling).

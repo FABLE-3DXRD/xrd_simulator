@@ -10,4 +10,4 @@ detector = Detector(pixel_size_z=75.0,
 
 # The detector may be saved to disc for later usage.
 detector.save('my_detector')
-detector_loaded_from_disc = detector.load('my_detector.pc')
+detector_loaded_from_disc = detector.load('my_detector.det')

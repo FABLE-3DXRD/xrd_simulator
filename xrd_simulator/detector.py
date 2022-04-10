@@ -11,7 +11,6 @@ Here is a minimal example of how to instantiate a detector object and save it to
 Below follows a detailed description of the detector class attributes and functions.
 
 """
-#TODO: Review docs.
 import numpy as np
 from xrd_simulator import utils
 import dill
