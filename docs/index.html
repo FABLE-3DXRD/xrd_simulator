@@ -200,7 +200,7 @@ and the strain is uniformly zero in the sample:</p>
                           <span class="n">strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
                           <span class="n">phases</span><span class="o">=</span><span class="n">quartz</span><span class="p">,</span>
                           <span class="n">element_phase_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-<span class="c1"># The polycrystal can be saved to file using: polycrystal.save()</span>
+<span class="c1"># The polycrystal can be saved to file using: Polycrystal.save()</span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -342,7 +342,7 @@ Here is a minimal example of how to instantiate a polycrystal object and save it
 
 <span class="c1"># The polycrystal may be saved to disc for later usage.</span>
 <span class="n">polycrystal</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_polycrystal&#39;</span><span class="p">,</span> <span class="n">save_mesh_as_xdmf</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">polycrystal_loaded_from_disc</span> <span class="o">=</span> <span class="n">polycrystal</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_polycrystal.pc&#39;</span><span class="p">)</span>
+<span class="n">polycrystal_loaded_from_disc</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_polycrystal.pc&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
@@ -567,7 +567,7 @@ to instantiate a mesh and save it to disc:</p>
 
 <span class="c1"># The mesh may be saved to disc for later usage or visualization.</span>
 <span class="n">mesh</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_mesh&#39;</span><span class="p">)</span>
-<span class="n">mesh_loaded_from_disc</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_mesh.xdmf&#39;</span><span class="p">)</span>
+<span class="n">mesh_loaded_from_disc</span> <span class="o">=</span> <span class="n">TetraMesh</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_mesh.xdmf&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
@@ -580,7 +580,8 @@ to instantiate a mesh and save it to disc:</p>
 <dt class="sig sig-object py" id="xrd_simulator.mesh.TetraMesh">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.mesh.</span></span><span class="sig-name descname"><span class="pre">TetraMesh</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh" title="Permalink to this definition"></a></dt>
 <dd><p>Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.</p>
-<p>For advanced mesh generation the TetraMesh uses <a class="reference external" href="https://github.com/nschloe/meshio">the meshio package</a>:</p>
+<p>For level-set mesh generation the TetraMesh uses <a class="reference external" href="https://github.com/nschloe/meshio">the meshio package</a>: For more meshing tools
+please see this package directly (which itself is a wrapper of CGAL)</p>
 <blockquote>
 <div></div></blockquote>
 <dl class="py attribute">
@@ -735,21 +736,6 @@ the nodal indices of element i.</p></li>
 <li><p><strong>level_set</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">callable</span></code>) – Level set, level_set(x) should give a negative output on the exterior
 of the mesh and positive on the interior.</p></li>
 <li><p><strong>bounding_radius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Bounding radius of mesh.</p></li>
-<li><p><strong>max_cell_circumradius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Bound for element radii.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">generate_mesh_from_numpy_array</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cell_circumradius</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_facet_distance</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/mesh.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.mesh.TetraMesh.generate_mesh_from_numpy_array" title="Permalink to this definition"></a></dt>
-<dd><p>Generate a mesh from a numpy array using <a class="reference external" href="https://github.com/nschloe/pygalmesh">the pygalmesh package</a>:</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>array</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Numpy array to generate mesh from.</p></li>
-<li><p><strong>voxel_size</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Dimension of array voxels.</p></li>
 <li><p><strong>max_cell_circumradius</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Bound for element radii.</p></li>
 </ul>
 </dd>
@@ -949,7 +935,7 @@ for the specified xray beam geometry. Here is a minimal example of how to instan
 
 <span class="c1"># The xray beam may be saved to disc for later usage.</span>
 <span class="n">beam</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_xray_beam&#39;</span><span class="p">)</span>
-<span class="n">beam_loaded_from_disc</span> <span class="o">=</span> <span class="n">beam</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_xray_beam.beam&#39;</span><span class="p">)</span>
+<span class="n">beam_loaded_from_disc</span> <span class="o">=</span> <span class="n">Beam</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_xray_beam.beam&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
@@ -1132,7 +1118,7 @@ function.</p>
 
 <span class="c1"># The detector may be saved to disc for later usage.</span>
 <span class="n">detector</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_detector&#39;</span><span class="p">)</span>
-<span class="n">detector_loaded_from_disc</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_detector.det&#39;</span><span class="p">)</span>
+<span class="n">detector_loaded_from_disc</span> <span class="o">=</span> <span class="n">Detector</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_detector.det&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>
@@ -1442,7 +1428,7 @@ and save the motion to disc:</p>
 
 <span class="c1"># The motion may be saved to disc for later usage.</span>
 <span class="n">motion</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_motion&#39;</span><span class="p">)</span>
-<span class="n">motion_loaded_from_disc</span> <span class="o">=</span> <span class="n">motion</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_motion.motion&#39;</span><span class="p">)</span>
+<span class="n">motion_loaded_from_disc</span> <span class="o">=</span> <span class="n">RigidBodyMotion</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_motion.motion&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd>

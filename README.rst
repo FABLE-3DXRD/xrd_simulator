@@ -132,7 +132,7 @@ and the strain is uniformly zero in the sample:
                                 strain=np.zeros((3, 3)),
                                 phases=quartz,
                                 element_phase_map=None)
-      # The polycrystal can be saved to file using: polycrystal.save()
+      # The polycrystal can be saved to file using: Polycrystal.save()
 
 We can visualize the sample by saving to file and opening it in your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
