@@ -22,4 +22,4 @@ beam = Beam(
 
 # The xray beam may be saved to disc for later usage.
 beam.save('my_xray_beam')
-beam_loaded_from_disc = beam.load('my_xray_beam.beam')
+beam_loaded_from_disc = Beam.load('my_xray_beam.beam')
