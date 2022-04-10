@@ -45,7 +45,8 @@
 <li><a class="reference internal" href="#">Simulate X-ray Diffraction from Polycrystals in 3D.</a></li>
 <li><a class="reference internal" href="#introduction">Introduction</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
-<li><a class="reference internal" href="#anaconda-installation">Anaconda installation</a></li>
+<li><a class="reference internal" href="#anaconda-installation-linux-and-macos">Anaconda installation (Linux and Macos)</a></li>
+<li><a class="reference internal" href="#anaconda-installation-windows">Anaconda installation (Windows)</a></li>
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
 <li><a class="reference internal" href="#source-installation">Source installation</a></li>
 <li><a class="reference internal" href="#credits">Credits</a></li>
@@ -93,6 +94,8 @@
 </div>
 <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" src="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?" /></a>
+<a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-macos-py38.yml/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
@@ -251,15 +254,14 @@ The above example code can be found as a <a class="reference external" href="htt
 </section>
 <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
-<section id="anaconda-installation">
-<h2>Anaconda installation<a class="headerlink" href="#anaconda-installation" title="Permalink to this headline"></a></h2>
+<section id="anaconda-installation-linux-and-macos">
+<h2>Anaconda installation (Linux and Macos)<a class="headerlink" href="#anaconda-installation-linux-and-macos" title="Permalink to this headline"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> is distributed on the <a class="reference external" href="https://anaconda.org/conda-forge/xrd_simulator">conda-forge channel</a> and the preferred way to install
 the xrd_simulator package is via <a class="reference external" href="https://www.anaconda.com/products/individual">Anaconda</a>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="n">xrd_simulator</span>
 </pre></div>
 </div>
-<p>This is meant work across OS-systems and requires no prerequisites except, of course,
-that of <a class="reference external" href="https://www.anaconda.com/products/individual">Anaconda</a> itself.</p>
+<p>This is meant work across OS-systems and requires an <a class="reference external" href="https://www.anaconda.com/products/individual">Anaconda</a> itself installation.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> works on python versions =&gt;3.8&lt;3.9. Make sure your conda environment has the right
@@ -271,6 +273,11 @@ python version before installation. For instance, creating a new conda python 3.
 <p>before to installing can be a good idea.</p>
 </aside>
 <p>(The conda-forge feedstock of <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> <a class="reference external" href="https://github.com/conda-forge/xrd_simulator-feedstock">can be found here.</a>)</p>
+</section>
+<section id="anaconda-installation-windows">
+<h2>Anaconda installation (Windows)<a class="headerlink" href="#anaconda-installation-windows" title="Permalink to this headline"></a></h2>
+<p>To install with anaconda on windows you must make sure that external dependencies of <a class="reference external" href="https://github.com/nschloe/pygalmesh">pygalmesh</a> are preinstalled
+on your system. Documentation on installing these package <a class="reference external" href="https://github.com/nschloe/pygalmesh#installation">can be found elsewhere.</a></p>
 </section>
 <section id="pip-installation">
 <h2>Pip Installation<a class="headerlink" href="#pip-installation" title="Permalink to this headline"></a></h2>
