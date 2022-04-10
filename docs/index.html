@@ -57,11 +57,11 @@
 <li><a class="reference internal" href="#module-xrd_simulator.motion">motion</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.mesh">mesh</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.phase">phase</a></li>
-<li><a class="reference internal" href="#polycrystal">polycrystal</a></li>
-<li><a class="reference internal" href="#module-xrd_simulator.scatterer">scatterer</a></li>
+<li><a class="reference internal" href="#module-xrd_simulator.polycrystal">polycrystal</a></li>
+<li><a class="reference internal" href="#scatterer">scatterer</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.laue">laue</a></li>
 <li><a class="reference internal" href="#module-xrd_simulator.utils">utils</a></li>
-<li><a class="reference internal" href="#templates">templates</a></li>
+<li><a class="reference internal" href="#module-xrd_simulator.templates">templates</a></li>
 </ul>
 </li>
 </ul>
@@ -560,7 +560,7 @@ The origin of the detector is at det_corner_0.</p>
 <dd><p>Analytical diffraction patterns which</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">scatterer.Scatterer</span></code></p>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">scattering_unit.ScatteringUnit</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -666,9 +666,9 @@ the pixel area.</p>
 <li><p><strong>polarization</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Polarization factor. Defaults to False.</p></li>
 <li><p><strong>structure_factor</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Weight scattered intensity by Structure Factor factor. Defaults to False.</p></li>
 <li><p><strong>method</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – Rendering method, must be one of <code class="docutils literal notranslate"><span class="pre">`project`</span></code> or <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">`centroid`</span></code>.
-The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
+The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit onto the detector by
 tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
-into a single detector pixel regardless of the geometrical shape of the scatterer. If instead
+into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
 <code class="docutils literal notranslate"><span class="pre">`method=project`</span></code> the scattering regions are projected onto the detector depositing a intensity over
 possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
 region.</p></li>
@@ -1190,26 +1190,72 @@ factor vanishing, i.e forbidden reflections, such as a 100 in an fcc for instanc
 </dd></dl>
 
 </section>
-<section id="polycrystal">
-<h2>polycrystal<a class="headerlink" href="#polycrystal" title="Permalink to this headline"></a></h2>
-<p>The polycrystal is your sample. Once created it supports diffraction computations for a
-provided diffraction geometry which is specified via a <a class="reference internal" href="#module-xrd_simulator.beam"><span class="std std-ref">beam</span></a>, sample <a class="reference internal" href="#module-xrd_simulator.motion"><span class="std std-ref">motion</span></a> and <a class="reference internal" href="#module-xrd_simulator.detector"><span class="std std-ref">detector</span></a>.</p>
-<span class="target" id="module-xrd_simulator.polycrystal"></span><dl class="py class">
+<section id="module-xrd_simulator.polycrystal">
+<span id="polycrystal"></span><h2>polycrystal<a class="headerlink" href="#module-xrd_simulator.polycrystal" title="Permalink to this headline"></a></h2>
+<p>The polycrystal module is used to represent a polycrystalline sample. The <a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal" title="xrd_simulator.polycrystal.Polycrystal"><code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal</span></code></a>
+object holds the function <a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal.diffract" title="xrd_simulator.polycrystal.Polycrystal.diffract"><code class="xref py py-func docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal.diffract()</span></code></a> which may be used to compute diffraction.
+To move the sample spatially, the function <a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal.transform" title="xrd_simulator.polycrystal.Polycrystal.transform"><code class="xref py py-func docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal.transform()</span></code></a> can be used.
+Here is a minimal example of how to instantiate a polycrystal object and save it to disc:</p>
+<blockquote>
+<div><dl>
+<dt>Examples:</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.mesh</span> <span class="kn">import</span> <span class="n">TetraMesh</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.polycrystal</span> <span class="kn">import</span> <span class="n">Polycrystal</span>
+
+<span class="c1"># The toplogy of the polycrystal is described by a tetrahedral mesh,</span>
+<span class="c1"># xrd_simulator supports several ways to generate a mesh, here we</span>
+<span class="c1"># generate meshed solid sphere using a level set.</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">TetraMesh</span><span class="o">.</span><span class="n">generate_mesh_from_levelset</span><span class="p">(</span>
+    <span class="n">level_set</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">768.0</span><span class="p">,</span>
+    <span class="n">bounding_radius</span><span class="o">=</span><span class="mf">769.0</span><span class="p">,</span>
+    <span class="n">max_cell_circumradius</span><span class="o">=</span><span class="mf">450.</span><span class="p">)</span>
+
+<span class="c1"># Each element of the mesh is a single crystal with properties defined</span>
+<span class="c1"># by an xrd_simulator.phase.Phase object.</span>
+<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span><span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">90.</span><span class="p">,</span> <span class="mf">120.</span><span class="p">],</span>
+               <span class="n">sgname</span><span class="o">=</span><span class="s1">&#39;P3221&#39;</span><span class="p">,</span>  <span class="c1"># (Quartz)</span>
+               <span class="n">path_to_cif_file</span><span class="o">=</span><span class="kc">None</span>  <span class="c1"># phases can be defined from crystalographic information files</span>
+               <span class="p">)</span>
+
+<span class="c1"># The polycrystal can now map phase(s) (only quartz here), orientations and</span>
+<span class="c1"># strains to the tetrahedral mesh elements.</span>
+<span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">number_of_elements</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+<span class="n">polycrystal</span> <span class="o">=</span> <span class="n">Polycrystal</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span>
+                          <span class="n">orientation</span><span class="p">,</span>
+                          <span class="n">strain</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+                          <span class="n">phases</span><span class="o">=</span><span class="n">quartz</span><span class="p">,</span>
+                          <span class="n">element_phase_map</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># The polycrystal may be saved to disc for later usage.</span>
+<span class="n">polycrystal</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s1">&#39;my_polycrystal&#39;</span><span class="p">,</span> <span class="n">save_mesh_as_xdmf</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">polycrystal_loaded_from_disc</span> <span class="o">=</span> <span class="n">polycrystal</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;my_polycrystal.pc&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</div></blockquote>
+<p>Below follows a detailed description of the polycrystal class attributes and functions.</p>
+<dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.polycrystal.</span></span><span class="sig-name descname"><span class="pre">Polycrystal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phases</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element_phase_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal" title="Permalink to this definition"></a></dt>
 <dd><p>Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal</p>
+<p>The polycrystal is created in laboratory coordinates. At instantiation it is assumed that the sample and
+lab coordinate systems are aligned.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mesh</strong> (<a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a>) – Object representing a tetrahedral mesh which defines the
-geometry of the sample. At instantiation it is assumed that the sample and lab coordinate systems
-are aligned.</p></li>
+geometry of the sample. (At instantiation it is assumed that the sample and lab coordinate systems
+are aligned.)</p></li>
 <li><p><strong>orientation</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element orientation matrices (sometimes known by the capital letter U),
-(<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>) or (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>) if the orientation is uniform between elements. At instantiation it
-is assumed that the sample and lab coordinate systems are aligned.</p></li>
-<li><p><strong>strain</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element strain tensor, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>) or (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>) if the strain is
-uniform between elements.</p></li>
-<li><p><strong>phases</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a>) – List of all unique phases present in the polycrystal.</p></li>
+(<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>) or (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>) if the orientation is the same for all elements. The orientation
+matrix maps from crystal coordinates to sample coordinates.</p></li>
+<li><p><strong>strain</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Per element strain tensor, in lab coordinates, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>) or (<code class="docutils literal notranslate"><span class="pre">shape=(3,3)</span></code>)
+if the strain is the same for all elements elements.</p></li>
+<li><p><strong>phases</strong> (<a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a> or <code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code> of <a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.phase.Phase</span></code></a>) – Phase of the
+polycrystal, or for multiphase samples, a list of all phases present in the polycrystal.</p></li>
 <li><p><strong>element_phase_map</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Index of phase that elements belong to such that phases[element_phase_map[i]]
 gives the xrd_simulator.phase.Phase object of element number i. None if the sample is composed of a single phase.
 (Defaults to None)</p></li>
@@ -1220,7 +1266,7 @@ gives the xrd_simulator.phase.Phase object of element number i. None if the samp
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.mesh_lab">
 <span class="sig-name descname"><span class="pre">mesh_lab</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.mesh_lab" title="Permalink to this definition"></a></dt>
 <dd><p>Object representing a tetrahedral mesh which defines the
-geometry of the sample in a fixed lab frame coordinate system.</p>
+geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a></p>
@@ -1232,7 +1278,7 @@ geometry of the sample in a fixed lab frame coordinate system.</p>
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.mesh_sample">
 <span class="sig-name descname"><span class="pre">mesh_sample</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.mesh_sample" title="Permalink to this definition"></a></dt>
 <dd><p>Object representing a tetrahedral mesh which defines the
-geometry of the sample in a sample coordinate system.</p>
+geometry of the sample in a sample coordinate system. This quantity is not updated when the sample transforms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#xrd_simulator.mesh.TetraMesh" title="xrd_simulator.mesh.TetraMesh"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.mesh.TetraMesh</span></code></a></p>
@@ -1243,8 +1289,8 @@ geometry of the sample in a sample coordinate system.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.orientation_lab">
 <span class="sig-name descname"><span class="pre">orientation_lab</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.orientation_lab" title="Permalink to this definition"></a></dt>
-<dd><p>Per element orientation matrices in a fixed lab frame coordinate
-system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>). (sometimes known by the capital letter U)</p>
+<dd><p>Per element orientation matrices mapping from the crystal to the lab coordinate
+system, this quantity is updated when the sample transforms. (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -1255,8 +1301,8 @@ system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3
 <dl class="py attribute">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.orientation_sample">
 <span class="sig-name descname"><span class="pre">orientation_sample</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.orientation_sample" title="Permalink to this definition"></a></dt>
-<dd><p>Per element orientation matrices in a sample coordinate
-system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>). (sometimes known by the capital letter U)</p>
+<dd><p>Per element orientation matrices mapping from the crystal to the sample
+coordinate system.,  this quantity is not updated when the sample transforms. (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -1268,7 +1314,7 @@ system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.strain_lab">
 <span class="sig-name descname"><span class="pre">strain_lab</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.strain_lab" title="Permalink to this definition"></a></dt>
 <dd><p>Per element strain tensor in a fixed lab frame coordinate
-system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
+system, this quantity is updated when the sample transforms. (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -1280,7 +1326,7 @@ system, (<code class="docutils literal notranslate"><span class="pre">shape=(N,3
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.strain_sample">
 <span class="sig-name descname"><span class="pre">strain_sample</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.strain_sample" title="Permalink to this definition"></a></dt>
 <dd><p>Per element strain tensor in a sample coordinate
-system., (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
+system., this quantity is not updated when the sample transforms. (<code class="docutils literal notranslate"><span class="pre">shape=(N,3,3)</span></code>).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
@@ -1314,9 +1360,9 @@ gives the xrd_simulator.phase.Phase object of element number i.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.diffract">
 <span class="sig-name descname"><span class="pre">diffract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bragg_angle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_bragg_angle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.diffract" title="Permalink to this definition"></a></dt>
-<dd><p>Compute diffraction from the rotating and translating polycrystal sample while illuminated by an xray beam.</p>
-<p>The xray beam interacts with the polycrystal producing scattering regions which are stored in a detector frame.
-The scattering regions may be rendered as pixelated patterns on the detector by using a detector rendering
+<dd><p>Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.</p>
+<p>The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
+The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
 option.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1324,10 +1370,11 @@ option.</p>
 <li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.beam.Beam</span></code></a>) – Object representing a monochromatic beam of xrays.</p></li>
 <li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.detector.Detector</span></code></a>) – Object representing a flat rectangular detector.</p></li>
 <li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><code class="xref py py-obj docutils literal notranslate"><span class="pre">xrd_simulator.motion.RigidBodyMotion</span></code></a>) – Rigid body motion object describing the
-polycrystal transformation as a function of time on the domain time=[0,1].</p></li>
+polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
+computed.</p></li>
 <li><p><strong>min_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) below which to not compute diffraction.
 Defaults to 0.</p></li>
-<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Minimum Bragg angle (radians) after which to not compute diffraction. By default
+<li><p><strong>max_bragg_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Maximum Bragg angle (radians) after which to not compute diffraction. By default
 the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
 centroid.</p></li>
 <li><p><strong>verbose</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – Prints progress. Defaults to True.</p></li>
@@ -1341,8 +1388,8 @@ centroid.</p></li>
 <span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.transform" title="Permalink to this definition"></a></dt>
 <dd><p>Transform the polycrystal by performing a rigid body motion (translation + rotation)</p>
 <p>This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
-such as face normals etc. Likewise, it will update the per element crystallite orientation
-matrices (U) and the lab frame description of strain.</p>
+such as face normals etc. Likewise, it will update the per element crystal orientation
+matrices (U) as well as the lab frame description of strain tensors.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1363,7 +1410,8 @@ polycrystal transformation as a function of time on the domain time=[0,1].</p></
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code>) – File path at which to save, ending with the desired filename.</p></li>
 <li><p><strong>save_mesh_as_xdmf</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code>) – If true, saves the polycyrystal mesh with associated
-strains and crystal orientations as a .xdmf for visualization (sample coordinates).</p></li>
+strains and crystal orientations as a .xdmf for visualization (sample coordinates).
+The results can be vizualised with for instance paraview (<a class="reference external" href="https://www.paraview.org/">https://www.paraview.org/</a>).</p></li>
 </ul>
 </dd>
 </dl>
@@ -1389,129 +1437,8 @@ Never unpickle data received from an untrusted or unauthenticated source.</p>
 </dd></dl>
 
 </section>
-<section id="module-xrd_simulator.scatterer">
-<span id="scatterer"></span><h2>scatterer<a class="headerlink" href="#module-xrd_simulator.scatterer" title="Permalink to this headline"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.scatterer.</span></span><span class="sig-name descname"><span class="pre">Scatterer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">convex_hull</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scattered_wave_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">incident_wave_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">incident_polarization_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hkl_indx</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer" title="Permalink to this definition"></a></dt>
-<dd><p>Defines a scattering single crystal as a convex polyhedra.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>convex_hull</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">scipy.spatial.ConvexHull</span></code>) – Object describing the convex hull of the self.</p></li>
-<li><p><strong>kprime</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code>) – Scattering vector, i.e the wavevector pointing in the direction of diffraction.</p></li>
-<li><p><strong>s</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
-while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
-position is applicable during diffraction.</p></li>
-<li><p><strong>phase</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">Phase</span></code>) – The Phase object representing the material of the self.</p></li>
-<li><p><strong>hkl_indx</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code>) – Index of Miller index in the <cite>phase.miller_indices</cite> list.</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.convex_hull">
-<span class="sig-name descname"><span class="pre">convex_hull</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.convex_hull" title="Permalink to this definition"></a></dt>
-<dd><p>Object describing the convex hull of the self.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">scipy.spatial.ConvexHull</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.kprime">
-<span class="sig-name descname"><span class="pre">kprime</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.kprime" title="Permalink to this definition"></a></dt>
-<dd><p>Scattering vector, i.e the wavevector pointing in the direction of diffraction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">string</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.s">
-<span class="sig-name descname"><span class="pre">s</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.s" title="Permalink to this definition"></a></dt>
-<dd><p>Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
-while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
-position is applicable during diffraction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.hkl">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">hkl</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.hkl" title="Permalink to this definition"></a></dt>
-<dd><p>Miller indices [h,k,l] <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.real_structure_factor">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">real_structure_factor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.real_structure_factor" title="Permalink to this definition"></a></dt>
-<dd><p>Real part of unit cell structure factor</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.imaginary_structure_factor">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">imaginary_structure_factor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.imaginary_structure_factor" title="Permalink to this definition"></a></dt>
-<dd><p>Imaginary part of unit cell structure factor</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>hkl (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.lorentz_factor">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">lorentz_factor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.lorentz_factor" title="Permalink to this definition"></a></dt>
-<dd><p>Compute the Lorentz intensity factor for a scatterer.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.polarization_factor">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">polarization_factor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.polarization_factor" title="Permalink to this definition"></a></dt>
-<dd><p>Compute the Polarization intensity factor for a scatterer.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.centroid">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">centroid</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.centroid" title="Permalink to this definition"></a></dt>
-<dd><p>centroid of the scattering region. <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>centroid (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="xrd_simulator.scatterer.Scatterer.volume">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">volume</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/scatterer.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.scatterer.Scatterer.volume" title="Permalink to this definition"></a></dt>
-<dd><p>volume of the scattering region volume</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>volume (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>)</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+<section id="scatterer">
+<h2>scatterer<a class="headerlink" href="#scatterer" title="Permalink to this headline"></a></h2>
 </section>
 <section id="module-xrd_simulator.laue">
 <span id="laue"></span><h2>laue<a class="headerlink" href="#module-xrd_simulator.laue" title="Permalink to this headline"></a></h2>
@@ -1723,11 +1650,11 @@ radially around the azimuth)</p></li>
 </dd></dl>
 
 </section>
-<section id="templates">
-<h2>templates<a class="headerlink" href="#templates" title="Permalink to this headline"></a></h2>
+<section id="module-xrd_simulator.templates">
+<span id="templates"></span><h2>templates<a class="headerlink" href="#module-xrd_simulator.templates" title="Permalink to this headline"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">templates</span></code> module allows for fast creation of a few select sample types and diffraction geometries without having to
 worry about any of the “under the hood” scripting.</p>
-<span class="target" id="module-xrd_simulator.templates"></span><dl class="py function">
+<dl class="py function">
 <dt class="sig sig-object py" id="xrd_simulator.templates.s3dxrd">
 <span class="sig-prename descclassname"><span class="pre">xrd_simulator.templates.</span></span><span class="sig-name descname"><span class="pre">s3dxrd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/templates.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.templates.s3dxrd" title="Permalink to this definition"></a></dt>
 <dd><p>Construct a scaning-three-dimensional-xray diffraction experiment.</p>
