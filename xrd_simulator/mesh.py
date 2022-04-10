@@ -21,14 +21,13 @@ import meshio
 from xrd_simulator import utils
 
 
-class TetraMesh(object):  # TODO: add unit tests
+class TetraMesh(object):
     """Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.
 
-    For level-set mesh generation the TetraMesh uses `the meshio package`_:
+    For level-set mesh generation the TetraMesh uses `the meshio package`_: For more meshing tools
+    please see this package directly (which itself is a wrapper of CGAL)
 
-         .. _the meshio package: https://github.com/nschloe/meshio
-
-    for a more meshing tools please see this package directly (which itself is a wrapper of CGAL)
+     .. _the meshio package: https://github.com/nschloe/meshio
 
     Attributes:
         coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
