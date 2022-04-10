@@ -17,7 +17,6 @@ Below follows a detailed description of the mesh class attributes and functions.
 """
 #TODO: Review docs.
 import numpy as np
-from numba import njit
 import pygalmesh
 import meshio
 from xrd_simulator import utils
@@ -45,9 +44,6 @@ class TetraMesh(object):  # TODO: add unit tests
         eradius (:obj:`numpy array`): Per element bounding ball radius, shape=(nelm, 1).
         espherecentroids (:obj:`numpy array`): Per element bounding ball centroids, shape=(nelm, 3).
         evolumes (:obj:`numpy array`): Per element volume, shape=(nelm,).
-        ecmat (:obj:`numpy array`): Per element interpolation matrix, shape=(nelm, 4, 4). When
-            multiplied on a coordinate array, :obj:`np.array([1,x,y,z])`, the interpolated value
-            at x,y,z is found, given that x,y,z is contained by the corresponding element.
         centroid (:obj:`numpy array`): Global centroid of the entire mesh, shape=(3,)
         number_of_elements (:obj:`int`): Number of tetrahedral elements in the mesh.
 
@@ -64,7 +60,6 @@ class TetraMesh(object):  # TODO: add unit tests
         self.eradius = None
         self.espherecentroids = None
         self.evolumes = None
-        self.ecmat = None
         self.centroid = None
         self.number_of_elements = None
 
@@ -138,51 +133,14 @@ class TetraMesh(object):  # TODO: add unit tests
 
     def update(self, new_nodal_coordinates):
         """Update the mesh coordinates and any dependent quantities by changing the node coordinates.
+
+        Args:
+            new_nodal_coordinates (:obj:`numpy array`): new coordinates of mesh nodes.
+
         """
         self._mesh.points = new_nodal_coordinates
         self._set_fem_matrices()
         self._expand_mesh_data()
-
-    def get_bounding_sphere_radius(self, node):
-        """This method overrides :meth:`Basis.get_bounding_sphere_radius`.
-        """
-        elements = np.where(self.enod == node)[0]
-        nodes = np.unique(self.enod[elements, :])
-        return np.max(np.linalg.norm(
-            self.coord[nodes, :] - self.coord[node, :], axis=1)) + 1e-8
-
-    def __call__(self, X, Y, Z, dim='all'):
-        """This method overrides :meth:`Basis.__call__`.
-        """
-        shape = X.shape
-        xs, ys, zs = X.flatten().astype(
-            np.float64), Y.flatten().astype(
-            np.float64), Z.flatten().astype(
-            np.float64)
-
-        if dim == 'all':
-            values = _get_interpolation_values_nd(xs, ys, zs,
-                                                  self.ecentroids.astype(np.float64),
-                                                  self.eradius.astype(np.float64),
-                                                  self.enormals,
-                                                  self.coord.astype(np.float64),
-                                                  self.efaces,
-                                                  self.ecmat,
-                                                  self.enod,
-                                                  self.coefficients.astype(np.float64))
-            return values.reshape(shape + (3,))
-        else:
-            values = _get_interpolation_values_1d(xs, ys, zs,
-                                                  self.ecentroids.astype(np.float64),
-                                                  self.eradius.astype(np.float64),
-                                                  self.enormals,
-                                                  self.coord.astype(np.float64),
-                                                  self.efaces,
-                                                  self.ecmat,
-                                                  self.enod,
-                                                  self.coefficients.astype(np.float64),
-                                                  dim)
-            return values.reshape(shape)
 
     def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualization.
@@ -225,28 +183,6 @@ class TetraMesh(object):  # TODO: add unit tests
         tetmesh._set_fem_matrices()
         tetmesh._expand_mesh_data()
         return tetmesh
-
-    def _compute_mesh_interpolation_matrices(self, enod, coord):
-        """compute tetra element inverse C matrices.
-        """
-        interpolation_matrices = np.zeros((enod.shape[0], 4, 4))
-        for element in range(enod.shape[0]):
-            ec = coord[enod[element], :]
-            V = np.ones((ec.shape[0], ec.shape[0]))
-            V[1:, :] = ec.T[:, :]
-            interpolation_matrices[element, :, :] = np.linalg.inv(V).T
-        return interpolation_matrices
-
-    def _compute_interpolation_matrices(self, enod, coord):
-        """compute tetra element inverse C matrices.
-        """
-        interpolation_matrices = np.zeros((enod.shape[0], 4, 4))
-        for element in range(enod.shape[0]):
-            ec = coord[enod[element], :]
-            V = np.ones((ec.shape[0], ec.shape[0]))
-            V[1:, :] = ec.T[:, :]
-            interpolation_matrices[element, :, :] = np.linalg.inv(V).T
-        return interpolation_matrices
 
     def _compute_mesh_faces(self, enod):
         """Compute all element faces nodal numbers.
@@ -325,7 +261,6 @@ class TetraMesh(object):  # TODO: add unit tests
             3).reshape(
             self.coord.shape[0],
             3)
-        self.coefficients = np.zeros(self.coord.shape)
         self.number_of_elements = self.enod.shape[0]
 
     def _expand_mesh_data(self):
@@ -337,124 +272,8 @@ class TetraMesh(object):  # TODO: add unit tests
         self.ecentroids = self._compute_mesh_centroids(self.coord, self.enod)
         self.eradius, self.espherecentroids = self._compute_mesh_spheres(
             self.coord, self.enod)
-        self.ecmat = self._compute_mesh_interpolation_matrices(
-            self.enod, self.coord)
         self.centroid = np.mean(self.ecentroids, axis=0)
         self.evolumes = self._compute_mesh_volumes(self.enod, self.coord)
 
         # TODO: considering leveraging this in beam.py for speed
         # self.econvexhulls    = [ ConvexHull( self.coord[nodes,:] ) for nodes in self.enod ]
-
-@njit
-def _get_candidate_elements(point, ecentroids, eradius):
-    """Find all elements that could contain a point based on their bounding radii.
-    This is a just in time compiled helper function for :obj:`TetraMesh` used for fast interpolation.
-    """
-    distance_vectors = ecentroids - point
-    euclidean_distances = np.sum(distance_vectors * distance_vectors, axis=1)
-    candidate_elements = np.where(euclidean_distances <= eradius**2)[0]
-    return candidate_elements[np.argsort(
-        euclidean_distances[candidate_elements])]
-
-
-@njit
-def _is_in_element(element, point, efaces, enormals, coord):
-    """Check if a point is contained by an element.
-    This is a just in time compiled helper function for :obj:`TetraMesh` used for fast interpolation.
-    """
-    for face in range(efaces.shape[1]):
-        face_node = efaces[element, face, 0]
-        if (coord[face_node, :] - point).dot(enormals[element, face, :]) < 0:
-            break
-        if face == efaces.shape[1] - 1:
-            return True
-    return False
-
-
-@njit
-def _find_element_owner(
-        point,
-        ecentroids,
-        eradius,
-        enormals,
-        coord,
-        efaces,
-        enod,
-        element_guess):
-    """Find the element that contains a point.
-    This is a just in time compiled helper function for :obj:`TetraMesh` used for  fast interpolation.
-    """
-    if _is_in_element(element_guess, point, efaces, enormals, coord):
-        return element_guess
-
-    candidate_elements = _get_candidate_elements(point, ecentroids, eradius)
-    for element in candidate_elements:
-        if _is_in_element(element, point, efaces, enormals, coord):
-            return element
-
-    return -1
-
-
-@njit
-def _get_interpolation_values_nd(
-        xs,
-        ys,
-        zs,
-        ecentroids,
-        eradius,
-        enormals,
-        coord,
-        efaces,
-        ecmat,
-        enod,
-        coefficients):
-    """Compute mesh interpolated vector values at a series of coordinates.
-    This is a just in time compiled helper function for :obj:`TetraMesh` used for fast interpolation.
-    """
-    values = np.zeros((len(xs), 3))
-    element_guess = 0
-    for i, (x, y, z) in enumerate(zip(xs, ys, zs)):
-        element = _find_element_owner(np.array(
-            [x, y, z]), ecentroids, eradius, enormals, coord, efaces, enod, element_guess)
-        if element < 0:
-            values[i, :] = 0
-        else:
-            element_nodes = enod[element, :]
-            element_coefficients = coefficients[element_nodes, :]
-            values[i, :] = element_coefficients.T.dot(
-                ecmat[element, :, :].T.dot(np.array([1, x, y, z])))
-            element_guess = element
-    return values
-
-
-@njit
-def _get_interpolation_values_1d(
-        xs,
-        ys,
-        zs,
-        ecentroids,
-        eradius,
-        enormals,
-        coord,
-        efaces,
-        ecmat,
-        enod,
-        coefficients,
-        dim):
-    """Compute mesh interpolated scalar values at a series of coordinates.
-    This is a just in time compiled helper function for :obj:`TetraMesh` used for fast interpolation.
-    """
-    values = np.zeros((len(xs),))
-    element_guess = 0
-    for i, (x, y, z) in enumerate(zip(xs, ys, zs)):
-        element = _find_element_owner(np.array(
-            [x, y, z]), ecentroids, eradius, enormals, coord, efaces, enod, element_guess)
-        if element < 0:
-            values[i] = 0
-        else:
-            element_nodes = enod[element, :]
-            element_coefficients = coefficients[element_nodes, dim]
-            values[i] = element_coefficients.T.dot(
-                ecmat[element, :, :].T.dot(np.array([1, x, y, z])))
-            element_guess = element
-    return values
