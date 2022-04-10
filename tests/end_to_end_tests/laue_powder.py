@@ -43,10 +43,10 @@ for ii in range(50):  # sample of 10 crystals
                     rotation_axis = np.array([0, 0, 1])
                     rotator = _RodriguezRotator(rotation_axis)
                     rotation_angle = omega[i + 1] - omega[i]
-                    c_0, c_1, c_2 = laue.get_tangens_half_angle_equation(
+                    rho_0, rho_1, rho_2 = laue.get_tangens_half_angle_equation(
                         ks[i], theta, G, rotation_axis)
                     s1, s2 = laue.find_solutions_to_tangens_half_angle_equation(
-                        c_0, c_1, c_2, rotation_angle)
+                        rho_0, rho_1, rho_2, rotation_angle)
 
                     for j, s in enumerate([s1, s2]):
                         if s is not None:
