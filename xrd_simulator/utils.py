@@ -1,7 +1,6 @@
-#TODO: Review docs.
-"""General package internal utility functions.
-"""
+"""General internal package utility functions.
 
+""" # TODO: Move some of these back into their classes where they are used.
 import numpy as np
 import logging
 from numba import njit
@@ -10,7 +9,45 @@ from CifFile import ReadCif
 from itertools import combinations
 
 
-def contained_by_intervals(value, intervals):
+def _diffractogram(
+        diffraction_pattern,
+        det_centre_z,
+        det_centre_y,
+        binsize=1.0):
+    """Compute diffractogram from pixelated diffraction pattern.
+
+    Args:
+        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
+        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
+                 beam centroid line and detector along z-axis.
+        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
+                 beam centroid line and detector along y-axis.
+        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
+            radially around the azimuth)
+
+    Returns:
+        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
+
+    """
+    m, n = diffraction_pattern.shape
+    max_radius = np.max([m, n])
+    bin_centres = np.arange(0, int(max_radius + 1), binsize)
+    histogram = np.zeros((len(bin_centres), ))
+    for i in range(m):
+        for j in range(n):
+            radius = np.sqrt((i - det_centre_z)**2 + (j - det_centre_y)**2)
+            bin_index = np.argmin(np.abs(bin_centres - radius))
+            histogram[bin_index] += diffraction_pattern[i, j]
+    clip_index = len(histogram) - 1
+    for k in range(len(histogram) - 1, 0, -1):
+        if histogram[k] != 0:
+            break
+        else:
+            clip_index = k
+    clip_index = np.min([clip_index + m // 10, len(histogram) - 1])
+    return bin_centres[0:clip_index], histogram[0:clip_index]
+
+def _contained_by_intervals(value, intervals):
     """Assert if a float ``value`` is contained by any of a number of ``intervals``.
     """
     for bracket in intervals:
@@ -19,7 +56,7 @@ def contained_by_intervals(value, intervals):
     return False
 
 
-def cif_open(cif_file):
+def _cif_open(cif_file):
     """Helper function to be able to use the ``.CIFread`` of ``xfab``.
     """
     cif_dict = ReadCif(cif_file)
@@ -52,7 +89,7 @@ def _print_progress(progress_fraction, message):
 
 
 @njit
-def clip_line_with_convex_polyhedron(
+def _clip_line_with_convex_polyhedron(
         line_points,
         line_direction,
         plane_points,
@@ -152,45 +189,6 @@ def lab_strain_to_B_matrix(
                                          crystal_strain[2, 2]],
                                         unit_cell)
     return lattice_matrix
-
-
-def diffractogram(
-        diffraction_pattern,
-        det_centre_z,
-        det_centre_y,
-        binsize=1.0):
-    """Compute diffractogram from pixelated diffraction pattern.
-
-    Args:
-        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
-        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
-                 beam centroid line and detector along z-axis.
-        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
-                 beam centroid line and detector along y-axis.
-        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
-            radially around the azimuth)
-
-    Returns:
-        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
-
-    """
-    m, n = diffraction_pattern.shape
-    max_radius = np.max([m, n])
-    bin_centres = np.arange(0, int(max_radius + 1), binsize)
-    histogram = np.zeros((len(bin_centres), ))
-    for i in range(m):
-        for j in range(n):
-            radius = np.sqrt((i - det_centre_z)**2 + (j - det_centre_y)**2)
-            bin_index = np.argmin(np.abs(bin_centres - radius))
-            histogram[bin_index] += diffraction_pattern[i, j]
-    clip_index = len(histogram) - 1
-    for k in range(len(histogram) - 1, 0, -1):
-        if histogram[k] != 0:
-            break
-        else:
-            clip_index = k
-    clip_index = np.min([clip_index + m // 10, len(histogram) - 1])
-    return bin_centres[0:clip_index], histogram[0:clip_index]
 
 
 def _get_circumscribed_sphere_centroid(subset_of_points):

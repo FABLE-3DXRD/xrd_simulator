@@ -18,7 +18,7 @@ class TestUtils(unittest.TestCase):
                                             0.5, 0.5, 1.], [0.5, 0, 0.5], [0.5, 1., 0.5]])
         plane_normals = np.ascontiguousarray(
             [[-1., 0., 0.], [1., 0., 0.], [0., 0., -1.], [0., 0., 1.], [0., -1., 0.], [0., 1., 0.]])
-        clip_lengths = utils.clip_line_with_convex_polyhedron(
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
             line_points, line_direction, plane_points, plane_normals)
         for clip_length in clip_lengths:
             self.assertAlmostEqual(
@@ -28,7 +28,7 @@ class TestUtils(unittest.TestCase):
 
         line_direction = np.ascontiguousarray([1.0, 0.2, 0.1])
         line_direction = line_direction / np.linalg.norm(line_direction)
-        clip_lengths = utils.clip_line_with_convex_polyhedron(
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
             line_points, line_direction, plane_points, plane_normals)
         for clip_length in clip_lengths:
             self.assertGreater(
@@ -91,7 +91,7 @@ class TestUtils(unittest.TestCase):
                 if np.abs(np.sqrt((i - det_c_z)**2 +
                           (j - det_c_y)**2) - R) < 0.5:
                     diffraction_pattern[i, j] += 1
-        bin_centres, histogram = utils.diffractogram(
+        bin_centres, histogram = utils._diffractogram(
             diffraction_pattern, det_c_z, det_c_y, 1.0)
         self.assertEqual(
             np.sum(

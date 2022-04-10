@@ -14,7 +14,6 @@ Below follows a detailed description of the Phase class attributes and functions
 
 .. _The .cif file used in the above example can be found here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/quartz.cif?raw=true
 
-
 """
 import numpy as np
 from xfab import tools, structure
@@ -86,7 +85,7 @@ class Phase(object):
         """Generate unit cell structure factors for all miller indices.
         """
         atom_factory = structure.build_atomlist()
-        cifblk = utils.cif_open(self.path_to_cif_file)
+        cifblk = utils._cif_open(self.path_to_cif_file)
         atom_factory.CIFread(
             ciffile=None,
             cifblkname=None,

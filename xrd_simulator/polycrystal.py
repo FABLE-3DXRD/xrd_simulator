@@ -153,7 +153,7 @@ class Polycrystal():
                 for time in laue.find_solutions_to_tangens_half_angle_equation(
                         rho_0s[hkl_indx], rho_1s[hkl_indx], rho_2s[hkl_indx], rigid_body_motion.rotation_angle):
                     if time is not None:
-                        if utils.contained_by_intervals(
+                        if utils._contained_by_intervals(
                                 time, proximity_intervals[ei]):
                             element_vertices = rigid_body_motion(
                                 element_vertices_0.T, time).T
