@@ -1,13 +1,14 @@
-name: tests ubuntu-linux
+name: tests windows
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 jobs:
-  build-mac:
-    runs-on: macos-latest
+  build:
+    runs-on: windows-latest
     strategy:
       max-parallel: 5
 
@@ -24,8 +25,8 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
-        sudo conda install python=3.8
-        sudo conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab
+        conda install python=3.8
+        conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab
         python -m pip install .
     - name: Lint with flake8
       run: |
@@ -36,5 +37,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=xfab
     - name: Test with pytest
       run: |
-        sudo conda install pytest
+        conda install pytest
         pytest
