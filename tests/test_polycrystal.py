@@ -92,11 +92,11 @@ class TestPolycrystal(unittest.TestCase):
                 subsum = np.sum(diffraction_pattern[i - w:i + w, j - w:j + w])
                 self.assertGreaterEqual(subsum, 0)
 
-        # Scatterers should be confined to rings
+        # ScatteringUnits should be confined to rings
         bragg_angles = []
-        for scatterer in self.detector.frames[0]:
-            kprime = scatterer.scattered_wave_vector
-            k = scatterer.incident_wave_vector
+        for scattering_unit in self.detector.frames[0]:
+            kprime = scattering_unit.scattered_wave_vector
+            k = scattering_unit.incident_wave_vector
             normfactor = np.linalg.norm(k) * np.linalg.norm(kprime)
             tth = np.arccos(np.dot(k, kprime) / normfactor)
             bragg_angles.append(tth / 2.)

@@ -91,12 +91,12 @@ ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
 
-for scatterer in detector.frames[-1]:
-    print(scatterer.hkl, scatterer.time)
-    k = scatterer.incident_wave_vector / \
-        np.linalg.norm(scatterer.incident_wave_vector)
-    kp = scatterer.scattered_wave_vector / \
-        np.linalg.norm(scatterer.scattered_wave_vector)
+for scattering_unit in detector.frames[-1]:
+    print(scattering_unit.hkl, scattering_unit.time)
+    k = scattering_unit.incident_wave_vector / \
+        np.linalg.norm(scattering_unit.incident_wave_vector)
+    kp = scattering_unit.scattered_wave_vector / \
+        np.linalg.norm(scattering_unit.scattered_wave_vector)
     print(np.degrees(k.dot(kp) / 2.))
     print(" ")
 
