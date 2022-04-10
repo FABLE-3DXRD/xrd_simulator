@@ -211,7 +211,7 @@ class Detector():
         plane_points = np.ascontiguousarray(plane_points)
         plane_normals = np.ascontiguousarray(plane_normals)
 
-        clip_lengths = utils.clip_line_with_convex_polyhedron(
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
             ray_points, ray_direction, plane_points, plane_normals)
         clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
 
