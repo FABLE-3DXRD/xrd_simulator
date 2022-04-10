@@ -9,6 +9,7 @@ to instantiate a mesh and save it to disc:
 This should look somethign like this in a 3D viewer like paraview:
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/mesh_example.png?raw=true
+   :width: 300
    :align: center
 
 Below follows a detailed description of the mesh class attributes and functions.
