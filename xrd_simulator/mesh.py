@@ -24,9 +24,11 @@ from xrd_simulator import utils
 class TetraMesh(object):  # TODO: add unit tests
     """Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.
 
-    For advanced mesh generation the TetraMesh uses `the meshio package`_:
+    For level-set mesh generation the TetraMesh uses `the meshio package`_:
 
          .. _the meshio package: https://github.com/nschloe/meshio
+
+    for a more meshing tools please see this package directly (which itself is a wrapper of CGAL)
 
     Attributes:
         coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
@@ -107,27 +109,6 @@ class TetraMesh(object):  # TODO: add unit tests
             max_cell_circumradius=max_cell_circumradius,
             verbose=False)
 
-        return cls._build_tetramesh(mesh)
-
-    @classmethod
-    def generate_mesh_from_numpy_array(
-            cls, array, voxel_size, max_cell_circumradius, max_facet_distance):
-        """Generate a mesh from a numpy array using `the pygalmesh package`_:
-
-        .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
-
-        Args:
-            array (:obj:`numpy array`): Numpy array to generate mesh from.
-            voxel_size (:obj:`float`): Dimension of array voxels.
-            max_cell_circumradius (:obj:`float`): Bound for element radii.
-
-        """
-        mesh = pygalmesh.generate_from_array(
-            array,
-            (voxel_size, voxel_size, voxel_size),
-            max_cell_circumradius=max_cell_circumradius,
-            max_facet_distance=max_facet_distance,
-            verbose=False)
         return cls._build_tetramesh(mesh)
 
     def update(self, new_nodal_coordinates):

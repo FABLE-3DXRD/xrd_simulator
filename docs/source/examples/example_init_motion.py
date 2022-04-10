@@ -12,4 +12,4 @@ transformed_points = motion( points, time=0.421 )
 
 # The motion may be saved to disc for later usage.
 motion.save('my_motion')
-motion_loaded_from_disc = motion.load('my_motion.motion')
+motion_loaded_from_disc = RigidBodyMotion.load('my_motion.motion')

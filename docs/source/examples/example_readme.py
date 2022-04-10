@@ -57,7 +57,7 @@ polycrystal = Polycrystal(mesh,
                           strain=np.zeros((3, 3)),
                           phases=quartz,
                           element_phase_map=None)
-# The polycrystal can be saved to file using: polycrystal.save()
+# The polycrystal can be saved to file using: Polycrystal.save()
 ##example:
 
 import os

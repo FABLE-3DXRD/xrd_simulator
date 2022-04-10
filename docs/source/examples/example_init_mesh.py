@@ -8,4 +8,4 @@ mesh = TetraMesh.generate_mesh_from_vertices(nodal_coordinates, element_node_map
 
 # The mesh may be saved to disc for later usage or visualization.
 mesh.save('my_mesh')
-mesh_loaded_from_disc = mesh.load('my_mesh.xdmf')
+mesh_loaded_from_disc = TetraMesh.load('my_mesh.xdmf')
