@@ -15,7 +15,6 @@ This should look somethign like this in a 3D viewer like paraview:
 Below follows a detailed description of the mesh class attributes and functions.
 
 """
-#TODO: Review docs.
 import numpy as np
 import pygalmesh
 import meshio

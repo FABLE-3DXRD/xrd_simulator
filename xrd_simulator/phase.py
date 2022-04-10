@@ -1,4 +1,20 @@
-#TODO: Review docs.
+"""The phase module is used to represent material phase. Each element of the
+:class:`xrd_simulator.polycrystal.Polycrystal` mesh is linked to a :class:`xrd_simulator.phase.Phase`
+describing things like the lattice reference unit cell and generating Miller indices of scattering planes.
+By providing a crystalographic information file (.cif) structure factors can be computed.
+
+Here is a minimal example of how to instantiate a Phase object
+
+    Examples:
+        .. literalinclude:: examples/example_init_phase.py
+
+The .cif file used in the above example `can be found here.`_::
+
+.. _can be found here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/quartz.cif?raw=true
+
+Below follows a detailed description of the Phase class attributes and functions.
+
+"""
 import logging
 import numpy as np
 from xfab import tools, structure
@@ -31,6 +47,7 @@ class Phase(object):
         structure_factors (:obj:`numpy array`): Structure factors of allowable Miller indices (```miller_indices```)
             of ``shape=(n,2)``. `structure_factors[i,0]` gives the real structure factor of `hkl=miller_indices[i,:]`
             while `structure_factors[i,0]` gives the corresponding imaginary part of the structure factor.
+        path_to_cif_file (:obj:`string`): Path to CIF file.
 
     """
 
