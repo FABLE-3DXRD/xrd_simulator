@@ -116,9 +116,9 @@ class Polycrystal():
                     min_bragg_angle,
                     max_bragg_angle)
 
-        c_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
-        c_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-        c_2_factor = beam.wave_vector.dot(
+        rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
+        rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
+        rho_2_factor = beam.wave_vector.dot(
             np.eye(3, 3) + rigid_body_motion.rotator.K2)
 
         scattering_units = []
@@ -145,13 +145,13 @@ class Polycrystal():
             G_0 = laue.get_G(self.orientation_lab[ei], self._eB[ei],
                              self.phases[self.element_phase_map[ei]].miller_indices.T)
 
-            c_0s = c_0_factor.dot(G_0)
-            c_1s = c_1_factor.dot(G_0)
-            c_2s = c_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
+            rho_0s = rho_0_factor.dot(G_0)
+            rho_1s = rho_1_factor.dot(G_0)
+            rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
 
             for hkl_indx in range(G_0.shape[1]):
                 for time in laue.find_solutions_to_tangens_half_angle_equation(
-                        c_0s[hkl_indx], c_1s[hkl_indx], c_2s[hkl_indx], rigid_body_motion.rotation_angle):
+                        rho_0s[hkl_indx], rho_1s[hkl_indx], rho_2s[hkl_indx], rigid_body_motion.rotation_angle):
                     if time is not None:
                         if utils.contained_by_intervals(
                                 time, proximity_intervals[ei]):

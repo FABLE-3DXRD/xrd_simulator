@@ -1,12 +1,16 @@
-#TODO: Review docs.
-"""Collection of functions for solving the Laue equations for package specific parametrization.
+"""Collection of functions for solving time dependent Laue equations for arbitrary rigid body motions.
+This module is mainly used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
+for the advanced user, access to these functions may be of interest.
 """
 
 import numpy as np
 
 
 def get_G(U, B, G_hkl):
-    """Compute the diffraction vector G=UBG_HKL
+    """Compute the diffraction vector
+
+    .. math::
+        \\boldsymbol{G} = \\boldsymbol{U}\\boldsymbol{B}\\boldsymbol{G}_{hkl}
 
     Args:
         U (:obj:`numpy array`) Orientation matrix of ``shape=(3,3)`` (unitary).
@@ -54,50 +58,55 @@ def get_tangens_half_angle_equation(k1, theta, G, rhat):
     """Find coefficient to the equation
 
     .. math::
-        c_0 \\cos(s \\alpha) + c_1 \\sin(s \\alpha) + c_2 = 0. \\quad\\quad (1)
+        \\rho_0 \\cos(s \\Delta \\omega) + \\rho_1 \\sin(s \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
 
     """
-    c_0 = np.dot(k1, G)
-    c_1 = np.dot(np.cross(rhat, k1), G)
-    c_2 = np.linalg.norm(k1) * np.linalg.norm(G) * np.sin(theta)
-    return c_0, c_1, c_2
+    rho_0 = np.dot(k1, G)
+    rho_1 = np.dot(np.cross(rhat, k1), G)
+    rho_2 = np.linalg.norm(k1) * np.linalg.norm(G) * np.sin(theta)
+    return rho_0, rho_1, rho_2
 
 
-def find_solutions_to_tangens_half_angle_equation(c_0, c_1, c_2, alpha):
+def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
     """Find all solutions, :obj:`s`, to the equation (maximum 2 solutions exists)
 
     .. math::
-        c_0 \\cos(s \\alpha) + c_1 \\sin(s \\alpha) + c_2 = 0. \\quad\\quad (1)
+        \\rho_0 \\cos(s \\Delta \\omega) + \\rho_1 \\sin(s \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
 
     by rewriting as
 
     .. math::
-        (c_2 - c_0) t^2 + 2 c_1 t + (c_0 + c_2) = 0. \\quad\\quad (2)
+        (\\rho_2 - \\rho_0) t^2 + 2 \\rho_1 t + (\\rho_0 + \\rho_2) = 0. \\quad\\quad (2)
 
     where
 
     .. math::
-        t = \\tan(s \\alpha / 2). \\quad\\quad (3)
+        t = \\tan(s \\Delta \\omega / 2). \\quad\\quad (3)
 
-    and .. math::\\alpha is the angle between k1 and k2
+    and
+
+        .. math:: \\Delta \\omega
+
+    is a rotation angle
 
     Args:
-        c_0,c_1,c_2 (:obj:`float`): Coefficients c_0,c_1 and c_2 of equation (1).
+        \\rho_0,\\rho_1,\\rho_2 (:obj:`float`): Coefficients \\rho_0,\\rho_1 and \\rho_2 of equation (1).
+        delta_omega (:obj:`float`): Radians of rotation.
 
     Returns:
         (:obj:`tuple` of :obj:`float` or :obj:`None`): solutions if existing otherwise returns None.
 
     """
 
-    if c_0 == c_2:
-        if c_1 == 0:
+    if rho_0 == rho_2:
+        if rho_1 == 0:
             t1 = t2 = None
         else:
-            t1 = -c_0 / c_1
+            t1 = -rho_0 / rho_1
             t2 = None
     else:
-        rootval = (c_1 / (c_2 - c_0))**2 - (c_0 + c_2) / (c_2 - c_0)
-        leadingterm = (-c_1 / (c_2 - c_0))
+        rootval = (rho_1 / (rho_2 - rho_0))**2 - (rho_0 + rho_2) / (rho_2 - rho_0)
+        leadingterm = (-rho_1 / (rho_2 - rho_0))
         if rootval < 0:
             t1, t2 = None, None
         else:
@@ -107,12 +116,12 @@ def find_solutions_to_tangens_half_angle_equation(c_0, c_1, c_2, alpha):
     s1, s2 = None, None
 
     if t1 is not None:
-        s1 = 2 * np.arctan(t1) / alpha
+        s1 = 2 * np.arctan(t1) / delta_omega
         if s1 > 1 or s1 < 0:
             s1 = None
 
     if t2 is not None:
-        s2 = 2 * np.arctan(t2) / alpha
+        s2 = 2 * np.arctan(t2) / delta_omega
         if s2 > 1 or s2 < 0:
             s2 = None
 

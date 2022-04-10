@@ -286,11 +286,11 @@ class Beam():
     def _find_brackets_of_roots(self, q_0, q_1, q_2, rotation_angle, function):
         """Find all sub domains on time=[0,1] which are guaranteed to hold a root of function.
         """
-        c_0 = rotation_angle * q_0
-        c_1 = -rotation_angle * q_1
-        c_2 = q_2
+        rho_0 = rotation_angle * q_0
+        rho_1 = -rotation_angle * q_1
+        rho_2 = q_2
         time_1, time_2 = laue.find_solutions_to_tangens_half_angle_equation(
-            c_0, c_1, c_2, rotation_angle)
+            rho_0, rho_1, rho_2, rotation_angle)
         search_intervals = np.array(
             [s for s in [0, time_1, time_2, 1] if s is not None])
         f = function(search_intervals)
