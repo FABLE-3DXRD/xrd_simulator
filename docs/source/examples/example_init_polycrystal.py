@@ -29,5 +29,5 @@ polycrystal = Polycrystal(mesh,
                           element_phase_map=None)
 
 # The polycrystal may be saved to disc for later usage.
-polycrystal.save('my_polycrystal')
-polycrystal_loaded_from_disc = polycrystal.load('my_polycrystal.pc', save_mesh_as_xdmf=True)
+polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
+polycrystal_loaded_from_disc = polycrystal.load('my_polycrystal.pc')
