@@ -1,3 +1,19 @@
+"""The mesh module is used to represent the morphology of a polycrystalline sample.
+Once created and linked to a polycrystal the mesh can be accessed directly through
+the :class:`xrd_simulator.polycrystal.Polycrystal`. Here is a minimal example of how
+to instantiate a mesh and save it to disc:
+
+    Examples:
+        .. literalinclude:: examples/example_init_mesh.py
+
+This should look somethign like this in a 3D viewer like paraview:
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/mesh_example.png?raw=true
+   :align: center
+
+Below follows a detailed description of the mesh class attributes and functions.
+
+"""
 #TODO: Review docs.
 import numpy as np
 from numba import njit
@@ -7,7 +23,11 @@ from xrd_simulator import utils
 
 
 class TetraMesh(object):  # TODO: add unit tests
-    """Defines a 3D tetrahedral finite element type basis by subclassing :obj:`Basis`.
+    """Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.
+
+    For advanced mesh generation the TetraMesh uses `the meshio package`_:
+
+         .. _the meshio package: https://github.com/nschloe/meshio
 
     Attributes:
         coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
@@ -21,10 +41,14 @@ class TetraMesh(object):  # TODO: add unit tests
         enormals (:obj:`numpy array`): Element faces outwards normals (nelm, nefaces, 3).
             e.g enormals[i,j,:] gives the normal of face j of element i.
         ecentroids (:obj:`numpy array`): Per element centroids, shape=(nelm, 3).
-        eradius (:obj:`numpy array`): Per element bounding radius, shape=(nelm, 1).
+        eradius (:obj:`numpy array`): Per element bounding ball radius, shape=(nelm, 1).
+        espherecentroids (:obj:`numpy array`): Per element bounding ball centroids, shape=(nelm, 3).
+        evolumes (:obj:`numpy array`): Per element volume, shape=(nelm,).
         ecmat (:obj:`numpy array`): Per element interpolation matrix, shape=(nelm, 4, 4). When
             multiplied on a coordinate array, :obj:`np.array([1,x,y,z])`, the interpolated value
             at x,y,z is found, given that x,y,z is contained by the corresponding element.
+        centroid (:obj:`numpy array`): Global centroid of the entire mesh, shape=(3,)
+        number_of_elements (:obj:`int`): Number of tetrahedral elements in the mesh.
 
     """
 
@@ -42,27 +66,6 @@ class TetraMesh(object):  # TODO: add unit tests
         self.ecmat = None
         self.centroid = None
         self.number_of_elements = None
-
-    @classmethod
-    def _build_tetramesh(cls, mesh):
-        tetmesh = cls()
-        tetmesh._mesh = mesh
-        tetmesh._set_fem_matrices()
-        tetmesh._expand_mesh_data()
-        return tetmesh
-
-    @classmethod
-    def load(cls, path):
-        """Load a mesh from a saved mesh file set using `the meshio package`_:
-
-        .. _the meshio package: https://github.com/nschloe/meshio
-
-        Args:
-            file (:obj:`str`): Absolute path to save the mesh at (without .xdmf extension)
-
-        """
-        mesh = meshio.read(path)
-        return cls._build_tetramesh(mesh)
 
     @classmethod
     def generate_mesh_from_vertices(cls, coord, enod):
@@ -132,37 +135,6 @@ class TetraMesh(object):  # TODO: add unit tests
             verbose=False)
         return cls._build_tetramesh(mesh)
 
-    def _set_fem_matrices(self):
-        """Extract and set mesh FEM matrices from pygalmesh object.
-        """
-        self.coord = np.array(self._mesh.points)
-        self.enod = np.array(self._mesh.cells_dict['tetra'])
-        self.dof = np.arange(
-            0,
-            self.coord.shape[0] *
-            3).reshape(
-            self.coord.shape[0],
-            3)
-        self.coefficients = np.zeros(self.coord.shape)
-        self.number_of_elements = self.enod.shape[0]
-
-    def _expand_mesh_data(self):
-        """Compute extended mesh quantities such as element faces and normals.
-        """
-        self.efaces = self._compute_mesh_faces(self.enod)
-        self.enormals = self._compute_mesh_normals(
-            self.coord, self.enod, self.efaces)
-        self.ecentroids = self._compute_mesh_centroids(self.coord, self.enod)
-        self.eradius, self.espherecentroids = self._compute_mesh_spheres(
-            self.coord, self.enod)
-        self.ecmat = self._compute_mesh_interpolation_matrices(
-            self.enod, self.coord)
-        self.centroid = np.mean(self.ecentroids, axis=0)
-        self.evolumes = self._compute_mesh_volumes(self.enod, self.coord)
-
-        # TODO: considering leveraging this in beam.py for speed
-        # self.econvexhulls    = [ ConvexHull( self.coord[nodes,:] ) for nodes in self.enod ]
-
     def update(self, new_nodal_coordinates):
         """Update the mesh coordinates and any dependent quantities by changing the node coordinates.
         """
@@ -177,6 +149,81 @@ class TetraMesh(object):  # TODO: add unit tests
         nodes = np.unique(self.enod[elements, :])
         return np.max(np.linalg.norm(
             self.coord[nodes, :] - self.coord[node, :], axis=1)) + 1e-8
+
+    def __call__(self, X, Y, Z, dim='all'):
+        """This method overrides :meth:`Basis.__call__`.
+        """
+        shape = X.shape
+        xs, ys, zs = X.flatten().astype(
+            np.float64), Y.flatten().astype(
+            np.float64), Z.flatten().astype(
+            np.float64)
+
+        if dim == 'all':
+            values = _get_interpolation_values_nd(xs, ys, zs,
+                                                  self.ecentroids.astype(np.float64),
+                                                  self.eradius.astype(np.float64),
+                                                  self.enormals,
+                                                  self.coord.astype(np.float64),
+                                                  self.efaces,
+                                                  self.ecmat,
+                                                  self.enod,
+                                                  self.coefficients.astype(np.float64))
+            return values.reshape(shape + (3,))
+        else:
+            values = _get_interpolation_values_1d(xs, ys, zs,
+                                                  self.ecentroids.astype(np.float64),
+                                                  self.eradius.astype(np.float64),
+                                                  self.enormals,
+                                                  self.coord.astype(np.float64),
+                                                  self.efaces,
+                                                  self.ecmat,
+                                                  self.enod,
+                                                  self.coefficients.astype(np.float64),
+                                                  dim)
+            return values.reshape(shape)
+
+    def save(self, file, element_data=None):
+        """Save the tetra mesh to .xdmf paraview readable format for visualization.
+
+        Args:
+            file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
+            element_data (:obj:`dict` of :obj:`list` or :obj:`numpy array`): Data associated to the elements.
+
+        """
+        if not file.endswith(".xdmf"):
+            save_path = file + ".xdmf"
+        else:
+            save_path = file
+
+        if element_data is not None:
+            for key in element_data:
+                element_data[key] = [list(element_data[key])]
+
+        meshio.write_points_cells(
+            save_path, self.coord, [
+                ("tetra", self.enod)], cell_data=element_data)
+
+    @classmethod
+    def load(cls, path):
+        """Load a mesh from a saved mesh file set using `the meshio package`_:
+
+        .. _the meshio package: https://github.com/nschloe/meshio
+
+        Args:
+            file (:obj:`str`): Absolute path to the mesh file.
+
+        """
+        mesh = meshio.read(path)
+        return cls._build_tetramesh(mesh)
+
+    @classmethod
+    def _build_tetramesh(cls, mesh):
+        tetmesh = cls()
+        tetmesh._mesh = mesh
+        tetmesh._set_fem_matrices()
+        tetmesh._expand_mesh_data()
+        return tetmesh
 
     def _compute_mesh_interpolation_matrices(self, enod, coord):
         """compute tetra element inverse C matrices.
@@ -266,60 +313,36 @@ class TetraMesh(object):  # TODO: add unit tests
             espherecentroids[i], eradius[i] = utils._get_bounding_ball(ec)
         return eradius, espherecentroids
 
-    def __call__(self, X, Y, Z, dim='all'):
-        """This method overrides :meth:`Basis.__call__`.
+    def _set_fem_matrices(self):
+        """Extract and set mesh FEM matrices from pygalmesh object.
         """
-        shape = X.shape
-        xs, ys, zs = X.flatten().astype(
-            np.float64), Y.flatten().astype(
-            np.float64), Z.flatten().astype(
-            np.float64)
+        self.coord = np.array(self._mesh.points)
+        self.enod = np.array(self._mesh.cells_dict['tetra'])
+        self.dof = np.arange(
+            0,
+            self.coord.shape[0] *
+            3).reshape(
+            self.coord.shape[0],
+            3)
+        self.coefficients = np.zeros(self.coord.shape)
+        self.number_of_elements = self.enod.shape[0]
 
-        if dim == 'all':
-            values = _get_interpolation_values_nd(xs, ys, zs,
-                                                  self.ecentroids.astype(np.float64),
-                                                  self.eradius.astype(np.float64),
-                                                  self.enormals,
-                                                  self.coord.astype(np.float64),
-                                                  self.efaces,
-                                                  self.ecmat,
-                                                  self.enod,
-                                                  self.coefficients.astype(np.float64))
-            return values.reshape(shape + (3,))
-        else:
-            values = _get_interpolation_values_1d(xs, ys, zs,
-                                                  self.ecentroids.astype(np.float64),
-                                                  self.eradius.astype(np.float64),
-                                                  self.enormals,
-                                                  self.coord.astype(np.float64),
-                                                  self.efaces,
-                                                  self.ecmat,
-                                                  self.enod,
-                                                  self.coefficients.astype(np.float64),
-                                                  dim)
-            return values.reshape(shape)
-
-    def save(self, file, element_data=None):
-        """Save the tetra mesh to .xdmf paraview readable format for visualization.
-
-        Args:
-            file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
-            element_data (:obj:`dict` of :obj:`list` or :obj:`numpy array`): Data associated to the elements.
-
+    def _expand_mesh_data(self):
+        """Compute extended mesh quantities such as element faces and normals.
         """
-        if not file.endswith(".xdmf"):
-            save_path = file + ".xdmf"
-        else:
-            save_path = file
+        self.efaces = self._compute_mesh_faces(self.enod)
+        self.enormals = self._compute_mesh_normals(
+            self.coord, self.enod, self.efaces)
+        self.ecentroids = self._compute_mesh_centroids(self.coord, self.enod)
+        self.eradius, self.espherecentroids = self._compute_mesh_spheres(
+            self.coord, self.enod)
+        self.ecmat = self._compute_mesh_interpolation_matrices(
+            self.enod, self.coord)
+        self.centroid = np.mean(self.ecentroids, axis=0)
+        self.evolumes = self._compute_mesh_volumes(self.enod, self.coord)
 
-        if element_data is not None:
-            for key in element_data:
-                element_data[key] = [list(element_data[key])]
-
-        meshio.write_points_cells(
-            save_path, self.coord, [
-                ("tetra", self.enod)], cell_data=element_data)
-
+        # TODO: considering leveraging this in beam.py for speed
+        # self.econvexhulls    = [ ConvexHull( self.coord[nodes,:] ) for nodes in self.enod ]
 
 @njit
 def _get_candidate_elements(point, ecentroids, eradius):
