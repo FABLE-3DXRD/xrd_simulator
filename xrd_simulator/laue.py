@@ -58,7 +58,7 @@ def get_tangens_half_angle_equation(k1, theta, G, rhat):
     """Find coefficient to the equation
 
     .. math::
-        \\rho_0 \\cos(s \\Delta \\omega) + \\rho_1 \\sin(s \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
+        \\rho_0 \\cos(t \\Delta \\omega) + \\rho_1 \\sin(t \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
 
     """
     rho_0 = np.dot(k1, G)
@@ -68,20 +68,20 @@ def get_tangens_half_angle_equation(k1, theta, G, rhat):
 
 
 def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
-    """Find all solutions, :obj:`s`, to the equation (maximum 2 solutions exists)
+    """Find all solutions, :obj:`t`, to the equation (maximum 2 solutions exists)
 
     .. math::
-        \\rho_0 \\cos(s \\Delta \\omega) + \\rho_1 \\sin(s \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
+        \\rho_0 \\cos(t \\Delta \\omega) + \\rho_1 \\sin(t \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
 
     by rewriting as
 
     .. math::
-        (\\rho_2 - \\rho_0) t^2 + 2 \\rho_1 t + (\\rho_0 + \\rho_2) = 0. \\quad\\quad (2)
+        (\\rho_2 - \\rho_0) s^2 + 2 \\rho_1 s + (\\rho_0 + \\rho_2) = 0. \\quad\\quad (2)
 
     where
 
     .. math::
-        t = \\tan(s \\Delta \\omega / 2). \\quad\\quad (3)
+        s = \\tan(t \\Delta \\omega / 2). \\quad\\quad (3)
 
     and
 
@@ -100,29 +100,29 @@ def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_ome
 
     if rho_0 == rho_2:
         if rho_1 == 0:
-            t1 = t2 = None
+            s1 = s2 = None
         else:
-            t1 = -rho_0 / rho_1
-            t2 = None
+            s1 = -rho_0 / rho_1
+            s2 = None
     else:
         rootval = (rho_1 / (rho_2 - rho_0))**2 - (rho_0 + rho_2) / (rho_2 - rho_0)
         leadingterm = (-rho_1 / (rho_2 - rho_0))
         if rootval < 0:
-            t1, t2 = None, None
+            s1, s2 = None, None
         else:
-            t1 = leadingterm + np.sqrt(rootval)
-            t2 = leadingterm - np.sqrt(rootval)
+            s1 = leadingterm + np.sqrt(rootval)
+            s2 = leadingterm - np.sqrt(rootval)
 
-    s1, s2 = None, None
+    t1, t2 = None, None
 
-    if t1 is not None:
-        s1 = 2 * np.arctan(t1) / delta_omega
-        if s1 > 1 or s1 < 0:
-            s1 = None
+    if s1 is not None:
+        t1 = 2 * np.arctan(s1) / delta_omega
+        if t1 > 1 or t1 < 0:
+            t1 = None
 
-    if t2 is not None:
-        s2 = 2 * np.arctan(t2) / delta_omega
-        if s2 > 1 or s2 < 0:
-            s2 = None
+    if s2 is not None:
+        t2 = 2 * np.arctan(s2) / delta_omega
+        if t2 > 1 or t2 < 0:
+            t2 = None
 
-    return s1, s2
+    return t1, t2
