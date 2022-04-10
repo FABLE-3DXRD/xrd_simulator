@@ -1,3 +1,16 @@
+"""The detector module is used to represent a 2D area detector. After diffraction from a
+:class:`xrd_simulator.polycrystal.Polycrystal` has been computed, the detector can render
+the scattering as a pixelated image via the :func:`xrd_simulator.detector.Detector.render`
+function.
+
+Here is a minimal example of how to instantiate a detector object and save it to disc:
+
+    Examples:
+        .. literalinclude:: examples/example_init_detector.py
+
+Below follows a detailed description of the detector class attributes and functions.
+
+"""
 #TODO: Review docs.
 import numpy as np
 from xrd_simulator import utils
@@ -7,16 +20,18 @@ from scipy.signal import convolve
 
 class Detector():
 
-    """Represents a rectangular xray scattering flat area detection device.
+    """Represents a rectangular 2D area detector.
 
-    The detector can collect scattering as abstract objects and map them to frame numbers.
-    Using a render function these abstract representation can be rendered into pixelated frames.
-    The detector is described by a 3 x 3 geometry matrix which columns contain vectors that attach
-    to three of the four corners of the detector.
+    The detector collects :class:`xrd_simulator.scattering_unit.ScatteringUnit` during diffraction from a
+    :class:`xrd_simulator.polycrystal.Polycrystal`. The detector implements various rendering of the scattering
+    as 2D pixelated images. The detector geometry is described by specifying the locations of three detector
+    corners. The detector is described in the laboratory coordinate system.
 
     Args:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+            (zdhat is the unit vector from det_corner_0 towards det_corner_2)
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
+            (ydhat is the unit vector from det_corner_0 towards det_corner_1)
         det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
 
@@ -27,7 +42,7 @@ class Detector():
             The origin of the detector is at det_corner_0.
         frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction patterns which
         zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
-        normal (:obj:`numpy array`): Detector normal.
+        normal (:obj:`numpy array`): Detector normal, fromed as the cross product: numpy.cross(self.zdhat, self.ydhat)
         zmax,ymax (:obj:`numpy array`): Detector width and height.
         pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
         point_spread_function  (:obj:`callable`): Scalar point spread function called as point_spread_function(z, y). The
@@ -35,8 +50,6 @@ class Detector():
             value of the pointspread function at the location of the point being spread. This is meant to model blurring
             due to detector optics. Defaults to a Gaussian with standard deviation 1.0 and mean at (z,y)=(0,0).
 
-    Examples:
-        .. literalinclude:: examples/example_init_detector.py
 
     """
 
@@ -57,9 +70,9 @@ class Detector():
 
     @property
     def point_spread_kernel_shape(self):
-        """point_spread_kernel_shape  (:obj:`tuple`): Number of pixels in z and y over which to apply the pointspread function
-            for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction pattern. The
-            values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).
+        """point_spread_kernel_shape  (:obj:`tuple`): Number of pixels in zdhat and ydhat over which to apply the pointspread
+            function for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction
+            pattern. The values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).
 
             NOTE: The point_spread_function is automatically normalised over the point_spread_kernel_shape domain such that the
                 final convolution over the detector diffraction pattern is intensity preserving.
@@ -73,23 +86,6 @@ class Detector():
             raise ValueError("Point spread function kernel shape must be odd in both dimensions, but shape "+str(kernel_shape)+" was provided.")
         else:
             self._point_spread_kernel_shape = kernel_shape
-
-    def _get_point_spread_function_kernel(self):
-        """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape.
-        """
-        sz, sy = self.point_spread_kernel_shape
-        axz = np.linspace(-(sz - 1) / 2., (sz - 1) / 2., sz)
-        axy = np.linspace(-(sy - 1) / 2., (sy - 1) / 2., sy)
-        Z, Y = np.meshgrid(axz, axy, indexing='ij')
-        kernel = np.zeros(self.point_spread_kernel_shape)
-        for i in range(Z.shape[0]):
-            for j in range(Y.shape[1]):
-                kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
-
-        assert len( kernel[kernel<0] )==0, "Point spread function must be strictly positive, but negative values were found."
-        assert np.sum(kernel)>1e-8, "The integrated value of the point spread function over the defined kernel domain is close to zero."
-
-        return kernel / np.sum(kernel)
 
     def render(
             self,
@@ -187,12 +183,47 @@ class Detector():
         """
         return zd >= 0 and zd <= self.zmax and yd >= 0 and yd <= self.ymax
 
+    def project(self, scattering_unit, box):
+        """Compute parametric projection of scattering region unto detector.
+
+        Args:
+            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
+            box (:obj:`tuple` of :obj:`int`): indices of the detector frame over which to compute the projection.
+                i.e the subgrid of the detector is taken as: array[[box[0]:box[1], box[2]:box[3]].
+
+        Returns:
+            (:obj:`numpy array`) clip lengths between scattering_unit polyhedron and rays traced from the detector.
+
+        """
+
+        ray_points = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :].reshape(
+            (box[1] - box[0]) * (box[3] - box[2]), 3)
+
+        plane_normals = scattering_unit.convex_hull.equations[:, 0:3]
+        plane_ofsets = scattering_unit.convex_hull.equations[:, 3].reshape(
+            scattering_unit.convex_hull.equations.shape[0], 1)
+        plane_points = -np.multiply(plane_ofsets, plane_normals)
+
+        ray_points = np.ascontiguousarray(ray_points)
+        ray_direction = np.ascontiguousarray(
+            scattering_unit.scattered_wave_vector /
+            np.linalg.norm(
+                scattering_unit.scattered_wave_vector))
+        plane_points = np.ascontiguousarray(plane_points)
+        plane_normals = np.ascontiguousarray(plane_normals)
+
+        clip_lengths = utils.clip_line_with_convex_polyhedron(
+            ray_points, ray_direction, plane_points, plane_normals)
+        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
+
+        return clip_lengths
+
     def get_wrapping_cone(self, k, source_point):
         """Compute the cone around a wavevector such that the cone wraps the detector corners.
 
         Args:
-            k (:obj:`numpy array`): Wavevector forming the central axis of cone ´´´shape=(3,)´´´.
-            source_point (:obj:`numpy array`): Origin of the wavevector ´´´shape=(3,)´´´.
+            k (:obj:`numpy array`): Wavevector forming the central axis of cone ```shape=(3,)```.
+            source_point (:obj:`numpy array`): Origin of the wavevector ```shape=(3,)```.
 
         Returns:
             (:obj:`float`) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after
@@ -242,6 +273,23 @@ class Detector():
         with open(path, 'rb') as f:
             return dill.load(f)
 
+    def _get_point_spread_function_kernel(self):
+        """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape.
+        """
+        sz, sy = self.point_spread_kernel_shape
+        axz = np.linspace(-(sz - 1) / 2., (sz - 1) / 2., sz)
+        axy = np.linspace(-(sy - 1) / 2., (sy - 1) / 2., sy)
+        Z, Y = np.meshgrid(axz, axy, indexing='ij')
+        kernel = np.zeros(self.point_spread_kernel_shape)
+        for i in range(Z.shape[0]):
+            for j in range(Y.shape[1]):
+                kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
+
+        assert len( kernel[kernel<0] )==0, "Point spread function must be strictly positive, but negative values were found."
+        assert np.sum(kernel)>1e-8, "The integrated value of the point spread function over the defined kernel domain is close to zero."
+
+        return kernel / np.sum(kernel)
+
     def _get_pixel_coordinates(self):
         zds = np.arange(0, self.zmax, self.pixel_size_z)
         yds = np.arange(0, self.ymax, self.pixel_size_y)
@@ -287,7 +335,7 @@ class Detector():
         """
         box = self._get_projected_bounding_box(scattering_unit)
         if box is not None:
-            projection = self._project(scattering_unit, box)
+            projection = self.project(scattering_unit, box)
             if np.sum(projection) == 0:
                 # The projection of the scattering_unit did not hit any pixel centroids of the detector.
                 # i.e the scattering_unit is small in comparison to the detector
@@ -325,32 +373,6 @@ class Detector():
 
         return intensity_factor
 
-    def _project(self, scattering_unit, box):
-        """Compute parametric projection of scattering region unto detector.
-        """
-
-        ray_points = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :].reshape(
-            (box[1] - box[0]) * (box[3] - box[2]), 3)
-
-        plane_normals = scattering_unit.convex_hull.equations[:, 0:3]
-        plane_ofsets = scattering_unit.convex_hull.equations[:, 3].reshape(
-            scattering_unit.convex_hull.equations.shape[0], 1)
-        plane_points = -np.multiply(plane_ofsets, plane_normals)
-
-        ray_points = np.ascontiguousarray(ray_points)
-        ray_direction = np.ascontiguousarray(
-            scattering_unit.scattered_wave_vector /
-            np.linalg.norm(
-                scattering_unit.scattered_wave_vector))
-        plane_points = np.ascontiguousarray(plane_points)
-        plane_normals = np.ascontiguousarray(plane_normals)
-
-        clip_lengths = utils.clip_line_with_convex_polyhedron(
-            ray_points, ray_direction, plane_points, plane_normals)
-        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
-
-        return clip_lengths
-
     def _detector_coordinate_to_pixel_index(self, zd, yd):
         row_index = int(zd / self.pixel_size_z)
         col_index = int(yd / self.pixel_size_y)
@@ -363,7 +385,7 @@ class Detector():
             scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
 
         Returns:
-            (:obj:`float`) indices that can be used to slice the detector frame array and get the pixels that
+            (:obj:`tuple` of :obj:`int`) indices that can be used to slice the detector frame array and get the pixels that
                 are within the bounding box.
 
         """
