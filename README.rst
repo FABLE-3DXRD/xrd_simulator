@@ -3,6 +3,12 @@
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-macos-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml
+
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?
 	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
 
@@ -189,15 +195,14 @@ The above example code can be found as a `single .py file here.`_
 Installation
 ======================================
 
-Anaconda installation
-===============================
+Anaconda installation (Linux and Macos)
+=============================================
 ``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install
 the xrd_simulator package is via `Anaconda`_::
 
    conda install -c conda-forge xrd_simulator
 
-This is meant work across OS-systems and requires no prerequisites except, of course,
-that of `Anaconda`_ itself.
+This is meant work across OS-systems and requires an `Anaconda`_ itself installation.
 
 .. note::
 
@@ -211,6 +216,11 @@ that of `Anaconda`_ itself.
 
 
 (The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
+
+Anaconda installation (Windows)
+======================================
+To install with anaconda on windows you must make sure that external dependencies of `pygalmesh`_ are preinstalled
+on your system. Documentation on installing these package `can be found elsewhere.`_
 
 Pip Installation
 ======================================
