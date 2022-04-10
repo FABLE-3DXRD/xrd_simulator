@@ -8,6 +8,27 @@
 Documentation
 ======================================
 
+polycrystal
+======================================
+
+.. automodule:: xrd_simulator.polycrystal
+    :members:
+    :inherited-members:
+
+mesh
+======================================
+
+.. automodule:: xrd_simulator.mesh
+    :members:
+    :inherited-members:
+
+phase
+======================================
+
+.. automodule:: xrd_simulator.phase
+    :members:
+    :inherited-members:
+
 beam
 ======================================
 
@@ -29,24 +50,10 @@ motion
     :members:
     :inherited-members:
 
-mesh
+templates
 ======================================
 
-.. automodule:: xrd_simulator.mesh
-    :members:
-    :inherited-members:
-
-phase
-======================================
-
-.. automodule:: xrd_simulator.phase
-    :members:
-    :inherited-members:
-
-polycrystal
-======================================
-
-.. automodule:: xrd_simulator.polycrystal
+.. automodule:: xrd_simulator.templates
     :members:
     :inherited-members:
 
@@ -61,19 +68,5 @@ laue
 ======================================
 
 .. automodule:: xrd_simulator.laue
-    :members:
-    :inherited-members:
-
-utils
-======================================
-
-.. automodule:: xrd_simulator.utils
-    :members:
-    :inherited-members:
-
-templates
-======================================
-
-.. automodule:: xrd_simulator.templates
     :members:
     :inherited-members:
