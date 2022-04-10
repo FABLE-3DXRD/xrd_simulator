@@ -2,7 +2,7 @@
 import numpy as np
 
 
-class Scatterer(object):
+class ScatteringUnit(object):
 
     """Defines a scattering single crystal as a convex polyhedra.
 
@@ -10,7 +10,7 @@ class Scatterer(object):
         convex_hull (:obj:`scipy.spatial.ConvexHull`): Object describing the convex hull of the self.
         kprime (:obj:`string`): Scattering vector, i.e the wavevector pointing in the direction of diffraction.
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
-            while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
+            while s=1 to a beam with wavevector k2. The s value of the scattering_unit implies what detector
             position is applicable during diffraction.
         phase (:obj:`Phase`): The Phase object representing the material of the self.
         hkl_indx (:obj:`int`): Index of Miller index in the `phase.miller_indices` list.
@@ -19,7 +19,7 @@ class Scatterer(object):
         convex_hull (:obj:`scipy.spatial.ConvexHull`): Object describing the convex hull of the self.
         kprime (:obj:`string`): Scattering vector, i.e the wavevector pointing in the direction of diffraction.
         s (:obj:`float`): Parametric value in range [0,1] where 0 corresponds to a beam with wavevector k1
-            while s=1 to a beam with wavevector k2. The s value of the scatterer implies what detector
+            while s=1 to a beam with wavevector k2. The s value of the scattering_unit implies what detector
             position is applicable during diffraction.
 
     """
@@ -68,7 +68,7 @@ class Scatterer(object):
 
     @property
     def lorentz_factor(self):
-        """Compute the Lorentz intensity factor for a scatterer.
+        """Compute the Lorentz intensity factor for a scattering_unit.
         """
         k = self.incident_wave_vector
         kp = self.scattered_wave_vector
@@ -85,7 +85,7 @@ class Scatterer(object):
 
     @property
     def polarization_factor(self):
-        """Compute the Polarization intensity factor for a scatterer.
+        """Compute the Polarization intensity factor for a scattering_unit.
         """
         khatp = self.scattered_wave_vector / \
             np.linalg.norm(self.scattered_wave_vector)

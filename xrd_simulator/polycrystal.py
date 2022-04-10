@@ -13,7 +13,7 @@ import numpy as np
 import dill
 import copy
 from xfab import tools
-from xrd_simulator.scatterer import Scatterer
+from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 
 
@@ -121,7 +121,7 @@ class Polycrystal():
         c_2_factor = beam.wave_vector.dot(
             np.eye(3, 3) + rigid_body_motion.rotator.K2)
 
-        scatterers = []
+        scattering_units = []
 
         proximity_intervals = beam._get_proximity_intervals(
             self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion)
@@ -168,7 +168,7 @@ class Polycrystal():
                                 G = rigid_body_motion.rotate(
                                     G_0[:, hkl_indx], time)
                                 scattered_wave_vector = G + beam.wave_vector
-                                scatterer = Scatterer(scattering_region,
+                                scattering_unit = ScatteringUnit(scattering_region,
                                                       scattered_wave_vector,
                                                       beam.wave_vector,
                                                       beam.wavelength,
@@ -177,8 +177,8 @@ class Polycrystal():
                                                       time,
                                                       self.phases[self.element_phase_map[ei]],
                                                       hkl_indx)
-                                scatterers.append(scatterer)
-        detector.frames.append(scatterers)
+                                scattering_units.append(scattering_unit)
+        detector.frames.append(scattering_units)
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)

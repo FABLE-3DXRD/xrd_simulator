@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from xrd_simulator.detector import Detector
 from xrd_simulator.phase import Phase
-from xrd_simulator.scatterer import Scatterer
+from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
 import os
 
@@ -76,7 +76,7 @@ class TestDetector(unittest.TestCase):
         phase.setup_diffracting_planes(
             wavelength, 0, 20 * np.pi / 180)
 
-        scatterer1 = Scatterer(ch1,
+        scattering_unit1 = ScatteringUnit(ch1,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
                                wavelength=wavelength,
@@ -85,7 +85,7 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0)
-        scatterer2 = Scatterer(ch2,
+        scattering_unit2 = ScatteringUnit(ch2,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
                                wavelength=wavelength,
@@ -95,7 +95,7 @@ class TestDetector(unittest.TestCase):
                                phase=phase,
                                hkl_indx=0)
 
-        self.detector.frames.append([scatterer1, scatterer2])
+        self.detector.frames.append([scattering_unit1, scattering_unit2])
         diffraction_pattern = self.detector.render(
             frame_number=0,
             lorentz=False,
@@ -114,11 +114,11 @@ class TestDetector(unittest.TestCase):
 
         self.assertAlmostEqual(np.sum(active_det_part),
                                ch1.volume,
-                               msg="detector rendering did not capture scatterer")
+                               msg="detector rendering did not capture scattering_unit")
         self.assertAlmostEqual(
             np.sum(diffraction_pattern),
             ch1.volume,
-            msg="detector rendering captured out of bounds scatterer")
+            msg="detector rendering captured out of bounds scattering_unit")
 
         # Try rendering with advanced intensity model
         diffraction_pattern = self.detector.render(
@@ -157,14 +157,14 @@ class TestDetector(unittest.TestCase):
             self.detector_size /
             2.)
 
-        # The spherical scatterer forward scatters.
+        # The spherical scattering_unit forward scatters.
         wavelength = 1.0
         incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / wavelength
         scattered_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / wavelength
         scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
             (np.linalg.norm(scattered_wave_vector) * wavelength)
 
-        # The spherical scatterer is composed of Fe_mp-150 (a pure iron
+        # The spherical scattering_unit is composed of Fe_mp-150 (a pure iron
         # crystal)
         data = os.path.join(
             os.path.join(
@@ -177,7 +177,7 @@ class TestDetector(unittest.TestCase):
         phase.setup_diffracting_planes(
             wavelength, 0, 20 * np.pi / 180)
 
-        scatterer = Scatterer(sphere_hull,
+        scattering_unit = ScatteringUnit(sphere_hull,
                               scattered_wave_vector=scattered_wave_vector,
                               incident_wave_vector=incident_wave_vector,
                               wavelength=wavelength,
@@ -187,7 +187,7 @@ class TestDetector(unittest.TestCase):
                               phase=phase,
                               hkl_indx=0)
 
-        self.detector.frames.append([scatterer])
+        self.detector.frames.append([scattering_unit])
         diffraction_pattern = self.detector.render(
             frame_number=0,
             lorentz=False,
@@ -197,7 +197,7 @@ class TestDetector(unittest.TestCase):
 
         projected_summed_intensity = np.sum(diffraction_pattern)
         relative_error = np.abs(
-            scatterer.volume - projected_summed_intensity) / scatterer.volume
+            scattering_unit.volume - projected_summed_intensity) / scattering_unit.volume
         self.assertLessEqual(
             relative_error,
             1e-4,

@@ -1,12 +1,12 @@
 import unittest
 import numpy as np
-from xrd_simulator.scatterer import Scatterer
+from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
 from xrd_simulator.phase import Phase
 import os
 
 
-class TestScatterer(unittest.TestCase):
+class TestScatteringUnit(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(10)
@@ -39,7 +39,7 @@ class TestScatterer(unittest.TestCase):
         self.incident_polarization_vector = np.array([0., 1., 0])
         self.rotation_axis = np.array([0., 0, 1.])
 
-        self.scatterer = Scatterer(self.ch,
+        self.scattering_unit = ScatteringUnit(self.ch,
                                    self.scattered_wave_vector,
                                    self.incident_wave_vector,
                                    self.wavelength,
@@ -51,46 +51,46 @@ class TestScatterer(unittest.TestCase):
 
     def test_lorentz(self):
         z = np.array([0, 1, 1.])
-        self.scatterer.scattered_wave_vector = 2 * np.pi * \
+        self.scattering_unit.scattered_wave_vector = 2 * np.pi * \
             z / (np.linalg.norm(z) * self.wavelength)
-        L = self.scatterer.lorentz_factor
+        L = self.scattering_unit.lorentz_factor
         self.assertAlmostEqual(L, np.sqrt(2.))
 
         z = np.array([0, 0, 1.])
-        self.scatterer.scattered_wave_vector = 2 * \
+        self.scattering_unit.scattered_wave_vector = 2 * \
             np.pi * z / (self.wavelength)
-        L = self.scatterer.lorentz_factor
+        L = self.scattering_unit.lorentz_factor
         self.assertTrue(L is np.inf)
 
         #TODO: Add some more complex testing of this.
 
     def test_polarization(self):
-        self.scatterer.scattered_wave_vector = np.array([0, 1.0, 0])
-        P = self.scatterer.polarization_factor
+        self.scattering_unit.scattered_wave_vector = np.array([0, 1.0, 0])
+        P = self.scattering_unit.polarization_factor
         self.assertAlmostEqual(P, 0)
 
-        self.scatterer.scattered_wave_vector = np.array(
+        self.scattering_unit.scattered_wave_vector = np.array(
             [1. / np.sqrt(2), 0, -1. / np.sqrt(2)])
-        P = self.scatterer.polarization_factor
+        P = self.scattering_unit.polarization_factor
         self.assertAlmostEqual(P, 1.0)
 
     def test_hkl(self):
-        hkl = self.scatterer.hkl
+        hkl = self.scattering_unit.hkl
         for i in range(3):
             self.assertAlmostEqual(hkl[i], -1, msg="hkl is wrong")
 
     def test_structure_factor(self):
-        structure_factor = self.scatterer.real_structure_factor
+        structure_factor = self.scattering_unit.real_structure_factor
         self.assertGreaterEqual(
             structure_factor, 0, msg="structure factor is wrong")
 
     def test_centroid(self):
-        centroidet_corner_2 = self.scatterer.centroid
+        centroidet_corner_2 = self.scattering_unit.centroid
         for c1, c2 in zip(np.array([0.25, 0.25, 0.25]), centroidet_corner_2):
             self.assertAlmostEqual(c1, c2, msg="centroid is wrong")
 
     def test_volume(self):
-        vol = self.scatterer.volume
+        vol = self.scattering_unit.volume
         self.assertAlmostEqual(vol, 1 / 6., msg="volume is wrong")
 
 

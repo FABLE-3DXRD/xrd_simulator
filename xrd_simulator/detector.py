@@ -25,7 +25,7 @@ class Detector():
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
         det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        frames (:obj:`list` of :obj:`list` of :obj:`scatterer.Scatterer`): Analytical diffraction patterns which
+        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction patterns which
         zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
         normal (:obj:`numpy array`): Detector normal.
         zmax,ymax (:obj:`numpy array`): Detector width and height.
@@ -110,9 +110,9 @@ class Detector():
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
             structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
             method (:obj:`str`): Rendering method, must be one of ```project``` or ```centroid```. Defaults to ```centroid```.
-                The default,```method=centroid```, is a simple deposit of intensity for each scatterer onto the detector by
+                The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit onto the detector by
                 tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
-                into a single detector pixel regardless of the geometrical shape of the scatterer. If instead
+                into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
                 ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
                 possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
                 region.
@@ -128,7 +128,7 @@ class Detector():
         frame = np.zeros((int(self.zmax / self.pixel_size_z),
                          int(self.ymax / self.pixel_size_y)))
 
-        for si, scatterer in enumerate(self.frames[frame_number]):
+        for si, scattering_unit in enumerate(self.frames[frame_number]):
 
             if verbose:
                 progress_bar_message = "Rendering " + \
@@ -141,10 +141,10 @@ class Detector():
 
             if method == 'project':
                 self._projection_render(
-                    scatterer, frame, lorentz, polarization, structure_factor)
+                    scattering_unit, frame, lorentz, polarization, structure_factor)
             elif method == 'centroid':
                 self._centroid_render(
-                    scatterer,
+                    scattering_unit,
                     frame,
                     lorentz,
                     polarization,
@@ -254,26 +254,26 @@ class Detector():
 
     def _centroid_render(
             self,
-            scatterer,
+            scattering_unit,
             frame,
             lorentz,
             polarization,
             structure_factor):
-        """Simple deposit of intensity for each scatterer onto the detector by tracing a line from the
+        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
         sample scattering region centroid to the detector plane. The intensity is deposited into a single
-        detector pixel regardless of the geometrical shape of the scatterer.
+        detector pixel regardless of the geometrical shape of the scattering_unit.
         """
         zd, yd = self.get_intersection(
-            scatterer.scattered_wave_vector, scatterer.centroid)
+            scattering_unit.scattered_wave_vector, scattering_unit.centroid)
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
-                scatterer, lorentz, polarization, structure_factor)
+                scattering_unit, lorentz, polarization, structure_factor)
             row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            frame[row, col] += scatterer.volume * intensity_scaling_factor
+            frame[row, col] += scattering_unit.volume * intensity_scaling_factor
 
     def _projection_render(
             self,
-            scatterer,
+            scattering_unit,
             frame,
             lorentz,
             polarization,
@@ -282,66 +282,66 @@ class Detector():
         This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
         function.
 
-        NOTE: If the projection of the scatterer does not hit any pixel centroids of the detector fallback to
+        NOTE: If the projection of the scattering_unit does not hit any pixel centroids of the detector fallback to
         the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
         """
-        box = self._get_projected_bounding_box(scatterer)
+        box = self._get_projected_bounding_box(scattering_unit)
         if box is not None:
-            projection = self._project(scatterer, box)
+            projection = self._project(scattering_unit, box)
             if np.sum(projection) == 0:
-                # The projection of the scatterer did not hit any pixel centroids of the detector.
-                # i.e the scatterer is small in comparison to the detector
+                # The projection of the scattering_unit did not hit any pixel centroids of the detector.
+                # i.e the scattering_unit is small in comparison to the detector
                 # pixels.
                 self._centroid_render(
-                    scatterer,
+                    scattering_unit,
                     frame,
                     lorentz,
                     polarization,
                     structure_factor)
             else:
                 intensity_scaling_factor = self._get_intensity_factor(
-                    scatterer, lorentz, polarization, structure_factor)
+                    scattering_unit, lorentz, polarization, structure_factor)
                 frame[box[0]:box[1], box[2]:box[3]] += projection * \
                     intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
 
     def _get_intensity_factor(
             self,
-            scatterer,
+            scattering_unit,
             lorentz,
             polarization,
             structure_factor):
         intensity_factor = 1.0
         # TODO: Consider solid angle intensity rescaling and air scattering.
         if lorentz:
-            intensity_factor *= scatterer.lorentz_factor
+            intensity_factor *= scattering_unit.lorentz_factor
         if polarization:
-            intensity_factor *= scatterer.polarization_factor
+            intensity_factor *= scattering_unit.polarization_factor
         if structure_factor:
-            if scatterer.phase.structure_factors is not None:
-                intensity_factor *= (scatterer.real_structure_factor **
-                                    2 + scatterer.imaginary_structure_factor**2)
+            if scattering_unit.phase.structure_factors is not None:
+                intensity_factor *= (scattering_unit.real_structure_factor **
+                                    2 + scattering_unit.imaginary_structure_factor**2)
             else:
                 raise ValueError("Structure factors have not been set, .cif file is required at sample instantiation.")
 
         return intensity_factor
 
-    def _project(self, scatterer, box):
+    def _project(self, scattering_unit, box):
         """Compute parametric projection of scattering region unto detector.
         """
 
         ray_points = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :].reshape(
             (box[1] - box[0]) * (box[3] - box[2]), 3)
 
-        plane_normals = scatterer.convex_hull.equations[:, 0:3]
-        plane_ofsets = scatterer.convex_hull.equations[:, 3].reshape(
-            scatterer.convex_hull.equations.shape[0], 1)
+        plane_normals = scattering_unit.convex_hull.equations[:, 0:3]
+        plane_ofsets = scattering_unit.convex_hull.equations[:, 3].reshape(
+            scattering_unit.convex_hull.equations.shape[0], 1)
         plane_points = -np.multiply(plane_ofsets, plane_normals)
 
         ray_points = np.ascontiguousarray(ray_points)
         ray_direction = np.ascontiguousarray(
-            scatterer.scattered_wave_vector /
+            scattering_unit.scattered_wave_vector /
             np.linalg.norm(
-                scatterer.scattered_wave_vector))
+                scattering_unit.scattered_wave_vector))
         plane_points = np.ascontiguousarray(plane_points)
         plane_normals = np.ascontiguousarray(plane_normals)
 
@@ -356,20 +356,20 @@ class Detector():
         col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
 
-    def _get_projected_bounding_box(self, scatterer):
+    def _get_projected_bounding_box(self, scattering_unit):
         """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
 
         Args:
-            scatterer (:obj:`xrd_simulator.Scatterer`): The scattering region.
+            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
 
         Returns:
             (:obj:`float`) indices that can be used to slice the detector frame array and get the pixels that
                 are within the bounding box.
 
         """
-        vertices = scatterer.convex_hull.points[scatterer.convex_hull.vertices]
+        vertices = scattering_unit.convex_hull.points[scattering_unit.convex_hull.vertices]
         projected_vertices = np.array([self.get_intersection(
-            scatterer.scattered_wave_vector, v) for v in vertices])
+            scattering_unit.scattered_wave_vector, v) for v in vertices])
 
         min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
             projected_vertices[:, 0])
