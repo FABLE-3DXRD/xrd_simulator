@@ -168,7 +168,7 @@ interact with the sample:
                                               structure_factor=False,
                                               method="project")
 
-The resulting rendered detector frame looks something like this:
+The resulting rendered detector frame will look something like the below. Note that the positions of the diffraction spots may vary as the crystal orientations were randomly generated!:
 
    .. code:: python
 

@@ -103,7 +103,7 @@ interact with the sample:
 
    ##example: diffract
 
-The resulting rendered detector frame looks something like this:
+The resulting rendered detector frame will look something like the below. Note that the positions of the diffraction spots may vary as the crystal orientations were randomly generated!:
 
    ##example: plot
 
