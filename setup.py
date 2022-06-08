@@ -31,5 +31,7 @@ setuptools.setup(
                       "numba",
                       "pycifrw",
                       "dill",
-                      "xfab"]
+                      "xfab",
+                      "netcdf4",
+                      "h5py"]
 )
