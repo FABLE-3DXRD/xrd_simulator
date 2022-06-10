@@ -211,9 +211,13 @@ class Polycrystal():
 
         Args:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
-            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycyrystal mesh with associated
+            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycrystal mesh with associated
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
                 The results can be vizualised with for instance paraview (https://www.paraview.org/).
+                The resulting data fields of the mesh data are the 6 unique components of the small strain 
+                tensor (in sample coordinates) and the 3 Bunge Euler angles (Bunge, H. J. (1982). Texture
+                Analysis in Materials Science. London: Butterworths.). Additionally a single field specifying
+                the material phases of the sample will be saved.
 
         """
         if not path.endswith(".pc"):
@@ -222,21 +226,21 @@ class Polycrystal():
             dill.dump(self, f, dill.HIGHEST_PROTOCOL)
         if save_mesh_as_xdmf:
             element_data = {}
-            element_data['$\\epsilon_{11}$'] = self.strain_sample[:, 0, 0]
-            element_data['$\\epsilon_{22}$'] = self.strain_sample[:, 1, 1]
-            element_data['$\\epsilon_{33}$'] = self.strain_sample[:, 2, 2]
-            element_data['$\\epsilon_{12}$'] = self.strain_sample[:, 0, 1]
-            element_data['$\\epsilon_{13}$'] = self.strain_sample[:, 0, 2]
-            element_data['$\\epsilon_{23}$'] = self.strain_sample[:, 1, 2]
-            element_data['$\\varphi_{1}$'] = []
-            element_data['$\\Phi$'] = []
-            element_data['$\\varphi_{2}$'] = []
+            element_data['Small Strain Tensor Component xx'] = self.strain_sample[:, 0, 0]
+            element_data['Small Strain Tensor Component yy'] = self.strain_sample[:, 1, 1]
+            element_data['Small Strain Tensor Component zz'] = self.strain_sample[:, 2, 2]
+            element_data['Small Strain Tensor Component xy'] = self.strain_sample[:, 0, 1]
+            element_data['Small Strain Tensor Component xz'] = self.strain_sample[:, 0, 2]
+            element_data['Small Strain Tensor Component yz'] = self.strain_sample[:, 1, 2]
+            element_data['Bunge Euler Angle phi_1'] = []
+            element_data['Bunge Euler Angle Phi'] = []
+            element_data['Bunge Euler Angle phi_2'] = []
             for U in self.orientation_sample:
                 phi_1, PHI, phi_2 = tools.u_to_euler(U)
-                element_data['$\\varphi_{1}$'].append(phi_1)
-                element_data['$\\Phi$'].append(PHI)
-                element_data['$\\varphi_{2}$'].append(phi_2)
-            element_data['Phases'] = self.element_phase_map
+                element_data['Bunge Euler Angle phi_1'].append(phi_1)
+                element_data['Bunge Euler Angle Phi'].append(PHI)
+                element_data['Bunge Euler Angle phi_2'].append(phi_2)
+            element_data['Material Phase Index'] = self.element_phase_map
             self.mesh_sample.save(path + ".xdmf", element_data=element_data)
 
     @classmethod

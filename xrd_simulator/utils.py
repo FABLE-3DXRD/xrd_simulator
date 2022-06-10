@@ -75,9 +75,9 @@ def _print_progress(progress_fraction, message):
         message) <= 55., "Message to print is too long, max 55 characters allowed."
     progress_in_precent = np.round(100 * progress_fraction, 1)
     progress_bar_length = int(progress_fraction * 40)
-    print("\r{0}{1} | {2}>{3} |".format(message, " " *
+    print("\r{0}{1} |{2}{3}|".format(message, " " *
                                                    (55 -
-                                                    len(message)), "=" *
+                                                    len(message)), "█" *
                                                    progress_bar_length, " " *
                                                    (40 -
                                                        progress_bar_length)) +
