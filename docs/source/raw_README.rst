@@ -135,7 +135,7 @@ the xrd_simulator package is via `Anaconda`_::
    conda create -n xrd_simulator python=3.8
    conda activate xrd_simulator
 
-This is meant to work across OS-systems and requires an `Anaconda`_ itself installation.
+This is meant to work across OS-systems and requires an `Anaconda`_ installation.
 
 (The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
 
