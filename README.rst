@@ -138,9 +138,14 @@ and the strain is uniformly zero in the sample:
                                 strain=np.zeros((3, 3)),
                                 phases=quartz,
                                 element_phase_map=None)
-      # The polycrystal can be saved to file using: Polycrystal.save()
 
-We can visualize the sample by saving to file and opening it in your favorite 3D rendering program.
+We may save the polycrystal to disc by using the builtin ``save()`` command as
+
+   .. code:: python
+
+      polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
+
+We can visualize the sample by loading the .xdmf file into your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/example_polycrystal_readme.png?raw=true
@@ -154,7 +159,6 @@ We can now define some motion of the sample over which to integrate the diffract
       motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
                                rotation_angle=np.radians(1.0),
                                translation=np.array([123, -153.3, 3.42]))
-
 
 Now that we have an experimental setup we may collect diffraction by letting the beam and detector
 interact with the sample:
@@ -201,19 +205,10 @@ Anaconda installation (Linux and Macos)
 the xrd_simulator package is via `Anaconda`_::
 
    conda install -c conda-forge xrd_simulator
+   conda create -n xrd_simulator python=3.8
+   conda activate xrd_simulator
 
-This is meant work across OS-systems and requires an `Anaconda`_ itself installation.
-
-.. note::
-
-   ``xrd_simulator`` works on python versions =>3.8<3.9. Make sure your conda environment has the right
-   python version before installation. For instance, creating a new conda python 3.8 environment as::
-
-      conda create -n xrd_simulator python=3.8
-      conda activate xrd_simulator
-
-   before to installing can be a good idea.
-
+This is meant to work across OS-systems and requires an `Anaconda`_ itself installation.
 
 (The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
 
@@ -270,7 +265,7 @@ Credits
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
-.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/example_readme.py
+.. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/readme_tutorial.py
 
 .. _paraview: https://www.paraview.org/
 
