@@ -291,11 +291,13 @@ class Detector():
     def _get_pixel_coordinates(self):
         zds = np.arange(0, self.zmax, self.pixel_size_z)
         yds = np.arange(0, self.ymax, self.pixel_size_y)
-        pixel_coordinates = np.zeros((len(zds), len(yds), 3))
-        for i, z in enumerate(zds):
-            for j, y in enumerate(yds):
-                pixel_coordinates[i, j, :] = self.det_corner_0 + \
-                    y * self.ydhat + z * self.zdhat
+        Z, Y = np.meshgrid(zds, yds, indexing='ij')
+        Zds = np.zeros((len(zds), len(yds), 3))
+        Yds = np.zeros((len(zds), len(yds), 3))
+        for i in range(3):
+            Zds[:,:,i] = Z
+            Yds[:,:,i] = Y
+        pixel_coordinates = self.det_corner_0.reshape(1,1,3) + Zds*self.zdhat.reshape(1,1,3) + Yds*self.ydhat.reshape(1,1,3)
         return pixel_coordinates
 
     def _centroid_render(
