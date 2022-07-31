@@ -120,8 +120,7 @@ class Detector():
         NOTE: This function can be overwitten to do more advanced models for intensity.
 
         """
-        frame = np.zeros((int(self.zmax / self.pixel_size_z),
-                         int(self.ymax / self.pixel_size_y)))
+        frame = np.zeros( (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]) )
 
         for si, scattering_unit in enumerate(self.frames[frame_number]):
 
