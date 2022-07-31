@@ -222,6 +222,10 @@ class Polycrystal():
         """
         if not path.endswith(".pc"):
             pickle_path = path + ".pc"
+            xdmf_path = path + ".xdmf"
+        else:
+            pickle_path = path
+            xdmf_path = path.split('.')[0]+ ".xdmf"
         with open(pickle_path, "wb") as f:
             dill.dump(self, f, dill.HIGHEST_PROTOCOL)
         if save_mesh_as_xdmf:
@@ -241,7 +245,7 @@ class Polycrystal():
                 element_data['Bunge Euler Angle Phi'].append(PHI)
                 element_data['Bunge Euler Angle phi_2'].append(phi_2)
             element_data['Material Phase Index'] = self.element_phase_map
-            self.mesh_sample.save(path + ".xdmf", element_data=element_data)
+            self.mesh_sample.save(xdmf_path, element_data=element_data)
 
     @classmethod
     def load(cls, path):
