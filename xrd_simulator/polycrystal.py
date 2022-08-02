@@ -130,6 +130,10 @@ class Polycrystal():
 
         for ei in range(self.mesh_lab.number_of_elements):
 
+            # skip elements not illuminated
+            if proximity_intervals[ei][0] is None:
+                continue
+
             if verbose and ei % progress_update_rate == 0:
                 progress_bar_message = "Computing scattering from a total of " + \
                     str(self.mesh_lab.number_of_elements) + " elements"
@@ -138,10 +142,6 @@ class Polycrystal():
                 utils._print_progress(
                     progress_fraction,
                     message=progress_bar_message)
-
-            # skip elements not illuminated
-            if proximity_intervals[ei][0] is None:
-                continue
 
             element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
             G_0 = laue.get_G(self.orientation_lab[ei], self._eB[ei],
