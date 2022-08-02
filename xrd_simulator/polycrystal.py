@@ -126,9 +126,11 @@ class Polycrystal():
         proximity_intervals = beam._get_proximity_intervals(
             self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion)
 
+        progress_update_rate = np.max([int(self.mesh_lab.number_of_elements/1000), 1])
+
         for ei in range(self.mesh_lab.number_of_elements):
 
-            if verbose:
+            if verbose and ei % progress_update_rate == 0:
                 progress_bar_message = "Computing scattering from a total of " + \
                     str(self.mesh_lab.number_of_elements) + " elements"
                 progress_fraction = float(
