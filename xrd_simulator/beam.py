@@ -202,6 +202,12 @@ class Beam():
 
         """
 
+        #TODO: Add a cheap pre-checker to sort out elements that are very far away from the beam.
+
+        #mask = self.get_approximate_distances(sphere_centres,
+        #                                      sphere_radius,
+        #                                      rigid_body_motion)
+        # 
         beam_halfplane_normals = self.halfspaces[:, 0:3]
         beam_halfplane_offsets = self.halfspaces[:, 3]
 
@@ -214,7 +220,9 @@ class Beam():
         all_intersections = []
 
         for i in range(sphere_centres.shape[0]):
-
+            
+            #if not mask:
+            #    continue
             # Here we will store all intersections for the current sphere.
             merged_intersections = [[0., 1.]]
 
