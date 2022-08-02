@@ -126,3 +126,18 @@ def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_ome
             t2 = None
 
     return t1, t2
+
+
+
+def _vectorized_find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
+    rootval = (rho_1 / (rho_2 - rho_0))**2 - (rho_0 + rho_2) / (rho_2 - rho_0)
+    leadingterm = (-rho_1 / (rho_2 - rho_0))
+    rootval[rootval<0] = np.inf
+    s1 = leadingterm + np.sqrt(rootval)
+    s2 = leadingterm - np.sqrt(rootval)
+    t1 = 2 * np.arctan(s1) / delta_omega
+    t2 = 2 * np.arctan(s2) / delta_omega
+    t1[(t1>1)*(t1<0)]=np.nan
+    t2[(t2>1)*(t2<0)]=np.nan
+    return t1, t2
+    

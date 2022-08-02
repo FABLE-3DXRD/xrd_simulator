@@ -10,6 +10,7 @@ Below follows a detailed description of the polycrystal class attributes and fun
 
 """
 import numpy as np
+from scipy.spatial import ConvexHull
 import dill
 import copy
 from xfab import tools
@@ -149,7 +150,6 @@ class Polycrystal():
                     progress_fraction,
                     message=progress_bar_message)
 
-            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
             G_0 = laue.get_G(self.orientation_lab[ei], self._eB[ei],
                              self.phases[self.element_phase_map[ei]].miller_indices.T)
 
@@ -157,21 +157,24 @@ class Polycrystal():
             rho_1s = rho_1_factor.dot(G_0)
             rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
 
+            t1,t2 = laue._vectorized_find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
+
             for hkl_indx in range(G_0.shape[1]):
-                for time in laue.find_solutions_to_tangens_half_angle_equation(
-                        rho_0s[hkl_indx], rho_1s[hkl_indx], rho_2s[hkl_indx], rigid_body_motion.rotation_angle):
-                    if time is not None:
-                        if utils._contained_by_intervals(
-                                time, proximity_intervals[ei]):
+                for time in (t1[hkl_indx],t2[hkl_indx]):
+                    if ~np.isnan(time):
+
+            # for hkl_indx in range(G_0.shape[1]):
+            #     for time in laue.find_solutions_to_tangens_half_angle_equation(
+            #             rho_0s[hkl_indx], rho_1s[hkl_indx], rho_2s[hkl_indx], rigid_body_motion.rotation_angle):
+            #         if time is not None:
+                        if utils._contained_by_intervals(time, proximity_intervals[ei]):
+
+                            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
 
                             element_vertices = rigid_body_motion(
                                 element_vertices_0.T, time).T
 
-                            # TODO: Consider plane equations representation of
-                            # elements avoiding ConvexHull calls in
-                            # beam.intersect()
-                            scattering_region = beam.intersect(
-                                element_vertices)
+                            scattering_region = beam.intersect(element_vertices)
 
                             if scattering_region is not None:
                                 G = rigid_body_motion.rotate(
