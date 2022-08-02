@@ -144,6 +144,7 @@ dmypy.json
 
 # extra saved files
 extras/voroni_sample/
+extras/bench/*
 
 cspell.json
 tmp_profile_dump
