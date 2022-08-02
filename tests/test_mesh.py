@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from xrd_simulator.mesh import TetraMesh
+from xrd_simulator.motion import RigidBodyMotion
 import os
 
 class TestBeam(unittest.TestCase):
@@ -50,7 +51,7 @@ class TestBeam(unittest.TestCase):
         for r in mesh.eradius:
             self.assertLessEqual(r, max_cell_circumradius*1.001)
 
-    def test_update(self):
+    def test_move_mesh(self):
         R = 769.0
         max_cell_circumradius = 450.
         mesh = TetraMesh.generate_mesh_from_levelset(
@@ -58,12 +59,70 @@ class TestBeam(unittest.TestCase):
             bounding_radius=769.0,
             max_cell_circumradius=max_cell_circumradius)
         translation = np.array([1.0, 769.0, -5678.0])
-        mesh.update( mesh.coord + translation )
+        new_nodal_coordinates = mesh.coord + translation
+        mesh._mesh.points = new_nodal_coordinates
+        mesh._set_fem_matrices()
+        mesh._expand_mesh_data()
         for c in mesh.coord:
             r = np.linalg.norm(c-translation)
             self.assertLessEqual(r, R*1.001)
         for r in mesh.eradius:
             self.assertLessEqual(r, max_cell_circumradius*1.001)
+
+    def test_update(self):
+        rotation_axis=np.array([0,0,1.0])
+        rotation_angle=np.pi/4.37
+        translation = np.array([1.0, 769.0, -5678.0])
+        rbm = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+        Rmat = rbm.rotator.get_rotation_matrix(rotation_angle)
+
+        R = 769.0
+        max_cell_circumradius = 450.
+
+        mesh1 = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.linalg.norm(x) - R,
+            bounding_radius=769.0,
+            max_cell_circumradius=max_cell_circumradius)
+
+        new_nodal_coordinates = Rmat.dot( mesh1.coord.T ).T + translation
+        mesh1._mesh.points = new_nodal_coordinates
+        mesh1._set_fem_matrices()
+        mesh1._expand_mesh_data()
+
+        mesh2 = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.linalg.norm(x) - R,
+            bounding_radius=769.0,
+            max_cell_circumradius=max_cell_circumradius)
+        
+        mesh2.update(rbm, time=1.0)
+
+        tol = 1e-3
+
+        for c1,c2 in zip(mesh1.coord, mesh2.coord):
+            for i in range(3):
+                self.assertLessEqual(np.abs(c1[i]-c2[i]), tol)
+
+        for c1,c2 in zip(mesh1.ecentroids, mesh2.ecentroids):
+            for i in range(3):
+                self.assertLessEqual(np.abs(c1[i]-c2[i]), tol)
+
+        for c1,c2 in zip(mesh1.espherecentroids, mesh2.espherecentroids):
+            for i in range(3):
+                self.assertLessEqual(np.abs(c1[i]-c2[i]), tol)
+
+        for i in range(mesh1.enormals.shape[0]):
+            for j in range(mesh1.enormals.shape[1]):
+                for k in range(3):
+                    c1 = mesh1.enormals[i,j,k]
+                    c2 = mesh2.enormals[i,j,k]
+                    self.assertLessEqual(np.abs(c1-c2), tol)
+
+        for c1,c2 in zip(mesh1.eradius, mesh2.eradius):
+            self.assertLessEqual(np.abs(c1-c2), tol)
+
+        c1,c2 = mesh1.centroid, mesh2.centroid
+        for i in range(3):
+            self.assertLessEqual(np.abs(c1[i]-c2[i]), tol)
 
 if __name__ == '__main__':
     unittest.main()
