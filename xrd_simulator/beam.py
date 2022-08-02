@@ -178,11 +178,53 @@ class Beam():
         else:
             return None
 
-    def _get_proximity_intervals(
+
+    def _get_candidate_spheres(
             self,
             sphere_centres,
             sphere_radius,
             rigid_body_motion):
+        """Mask spheres which are close to intersecting a given convex beam hull undergoing a prescribed motion.
+
+        NOTE: This function is approximate in the sense that the motion path is sampled at discrete moments in time
+        at which the spheres are checked against the union of the sampled convex hulls. The sampling rate is choosen
+        such that the motion translation maximally moves any sphere by half it's radius. Furthermore, the sampling is
+        selected to always be less than or equal to a rotation stepsize of 1 degree.
+
+        Args:
+            sphere_centres (:obj:`numpy array`): Centroids of a spheres ``shape=(3,n)``.
+            sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a function of time on the domain time=[0,1].
+
+        Returns:
+            (:obj:`list` of :obj:`bool`): Mask with True if the sphere has a high intersection probability
+
+        """
+
+        # TODO: compute angle that guarantees r/2 movement of any sphere.
+
+        inverse_rigid_body_motion = rigid_body_motion.inverse()
+        dx = np.min(sphere_radius) / 2.
+        translation = np.abs( rigid_body_motion.translation / dx )
+        number_of_sampling_points = int( np.max( [np.max(translation), np.degrees(rigid_body_motion.rotation_angle), 2] ) + 1 )
+        sample_times  = np.linspace(0, 1, number_of_sampling_points)
+        beam_series_vertices = np.vstack([inverse_rigid_body_motion( self.vertices.T, time=time ).T for time in sample_times])
+        beam_series_halfspaces = ConvexHull( beam_series_vertices, qhull_options='QJ' ).equations
+
+        planes_origin_distances = beam_series_halfspaces[:, 3].reshape(beam_series_halfspaces.shape[0],1)
+        sphere_beam_distances   = beam_series_halfspaces[:,0:3].dot(sphere_centres.T) + planes_origin_distances
+        R = sphere_radius.reshape(1, sphere_radius.shape[0])
+        mask = np.any( np.abs(sphere_beam_distances)<R, axis=0) + np.all( sphere_beam_distances<R, axis=0)
+
+        return mask
+
+    def _get_proximity_intervals(
+            self,
+            sphere_centres,
+            sphere_radius,
+            rigid_body_motion,
+            collision_detection='approximate'):
         """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are interesecting beam.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
@@ -193,6 +235,8 @@ class Beam():
             sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
             rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
+            collision_detection (:obj:`string`): Optional keyword specifying the use of fast approximate collision detection. 
+                One of either exact or approximate. Defaults to approximate.
 
         Returns:
             (:obj:`list` of :obj:`list` of :obj:`list`): Parametric ranges in which the spheres
@@ -201,13 +245,16 @@ class Beam():
             intersection interval of sphere number i with the beam.
 
         """
+        if collision_detection=='approximate':
+            candidate_mask = self._get_candidate_spheres(sphere_centres,
+                                                         sphere_radius,
+                                                         rigid_body_motion)
+        elif collision_detection=='exact':
+            candidate_mask = np.ones(sphere_centres.shape[0], dtype=bool)
+            print(candidate_mask)
+        else:
+            raise ValueError("collision_detection must be one of -approximate- or -exact-")
 
-        #TODO: Add a cheap pre-checker to sort out elements that are very far away from the beam.
-
-        #mask = self.get_approximate_distances(sphere_centres,
-        #                                      sphere_radius,
-        #                                      rigid_body_motion)
-        # 
         beam_halfplane_normals = self.halfspaces[:, 0:3]
         beam_halfplane_offsets = self.halfspaces[:, 3]
 
@@ -221,8 +268,11 @@ class Beam():
 
         for i in range(sphere_centres.shape[0]):
             
-            #if not mask:
-            #    continue
+            if not candidate_mask[i]:
+                merged_intersections = [None]
+                all_intersections.append(merged_intersections)
+                continue
+
             # Here we will store all intersections for the current sphere.
             merged_intersections = [[0., 1.]]
 

@@ -77,13 +77,23 @@ class TestPolycrystal(unittest.TestCase):
         translation = np.array([0, 0, 0])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-        self.polycrystal.diffract(self.beam, self.detector, motion)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact')
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate')
 
-        # The rendered diffraction pattern should have intensity
         diffraction_pattern = self.detector.render(
             frame_number=0, lorentz=True, polarization=True, structure_factor=False)
 
+        # The rendered diffraction pattern should have intensity
         self.assertGreater(np.sum(diffraction_pattern), 0)
+
+        # For this geometry the rendered diffraction pattern should not be 
+        # affected by approximate collision detection
+        diffraction_pattern_approximate = self.detector.render(
+            frame_number=1, lorentz=True, polarization=True, structure_factor=False)
+
+        for i in range(diffraction_pattern.shape[0]):
+            for j in range(diffraction_pattern.shape[1]):
+                self.assertAlmostEqual(diffraction_pattern[i,j], diffraction_pattern_approximate[i,j])
 
         # .. and the intensity should be scattered over the image
         w = int(self.detector_size / 5.)

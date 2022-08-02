@@ -85,6 +85,30 @@ class TestPhase(unittest.TestCase):
                 rotation_axis),
             msg='Data corrupted on save and load')
         os.remove(path+'.motion')
+    
+    def test_inverse(self):
+        rotation_axis = np.random.rand(3,)
+        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
+        rotation_angle = np.random.rand() * np.pi
+        translation = np.random.rand(3,)
+
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+        inverse_motion = motion.inverse()
+
+        self.assertTrue( inverse_motion!=motion )
+        for i in range(3):
+            self.assertAlmostEqual( inverse_motion.rotation_axis[i], -motion.rotation_axis[i] )
+            self.assertAlmostEqual( inverse_motion.translation[i], -motion.translation[i] )
+        self.assertAlmostEqual( inverse_motion.rotation_angle, motion.rotation_angle )
+
+        points_0 = np.random.rand(3, 22)
+        points = motion.rotate(points_0, time=0.243687)
+        points = inverse_motion.rotate(points, time=0.243687)
+
+        for i in range(points.shape[0]):
+            for j in range(points.shape[1]):
+                self.assertAlmostEqual( points_0[i,j], points[i,j] )
+
 
 if __name__ == '__main__':
     unittest.main()
