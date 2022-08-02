@@ -91,12 +91,11 @@ class Beam():
             input vertices.
 
         """
-
-        vertices_contained_by_beam = [
-            self.contains(vertex) for vertex in vertices]
-        if np.all(vertices_contained_by_beam):
-            # The beam completely contains the input convex polyhedra
-            return ConvexHull(vertices)
+        for vertex in vertices:
+            if not self.contains(vertex):
+                break
+        else:
+            return ConvexHull(vertices) # Tetra completely contained by beam
 
         poly_halfspace = ConvexHull(vertices).equations
         combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces))
@@ -106,6 +105,14 @@ class Beam():
         centroid = np.mean(vertices, axis=0)
         if self.contains(centroid):
             interior_point = centroid
+        elif self.contains(centroid + (vertices[0,:]-centroid)/2.):
+            interior_point = centroid + (vertices[0,:]-centroid)/2.
+        elif self.contains(centroid + (vertices[1,:]-centroid)/2.):
+            interior_point = centroid + (vertices[1,:]-centroid)/2.
+        elif self.contains(centroid + (vertices[2,:]-centroid)/2.):
+            interior_point = centroid + (vertices[2,:]-centroid)/2.
+        elif self.contains(centroid + (vertices[3,:]-centroid)/2.):
+            interior_point = centroid + (vertices[3,:]-centroid)/2.
         else:
             interior_point = self._find_feasible_point(combined_halfspaces)
 
@@ -205,6 +212,7 @@ class Beam():
         # TODO: compute angle that guarantees r/2 movement of any sphere.
 
         inverse_rigid_body_motion = rigid_body_motion.inverse()
+
         dx = np.min(sphere_radius) / 2.
         translation = np.abs( rigid_body_motion.translation / dx )
         number_of_sampling_points = int( np.max( [np.max(translation), np.degrees(rigid_body_motion.rotation_angle), 2] ) + 1 )
