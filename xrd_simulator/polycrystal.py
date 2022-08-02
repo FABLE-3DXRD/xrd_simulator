@@ -84,7 +84,8 @@ class Polycrystal():
             rigid_body_motion,
             min_bragg_angle=0,
             max_bragg_angle=None,
-            verbose=True):
+            verbose=True,
+            collision_detection='approximate'):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
         The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
@@ -103,6 +104,8 @@ class Polycrystal():
                 the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
                 centroid.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
+            collision_detection (:obj:`string`): Optional keyword specifying the use of fast approximate collision detection. 
+                One of either exact or approximate. Defaults to approximate.
 
         """
 
@@ -124,7 +127,10 @@ class Polycrystal():
         scattering_units = []
 
         proximity_intervals = beam._get_proximity_intervals(
-            self.mesh_lab.espherecentroids, self.mesh_lab.eradius, rigid_body_motion)
+                                            self.mesh_lab.espherecentroids, 
+                                            self.mesh_lab.eradius, 
+                                            rigid_body_motion, 
+                                            collision_detection=collision_detection)
 
         progress_update_rate = np.max([int(self.mesh_lab.number_of_elements/1000), 1])
 
@@ -157,6 +163,7 @@ class Polycrystal():
                     if time is not None:
                         if utils._contained_by_intervals(
                                 time, proximity_intervals[ei]):
+
                             element_vertices = rigid_body_motion(
                                 element_vertices_0.T, time).T
 
@@ -180,6 +187,7 @@ class Polycrystal():
                                                       self.phases[self.element_phase_map[ei]],
                                                       hkl_indx)
                                 scattering_units.append(scattering_unit)
+
         detector.frames.append(scattering_units)
 
     def transform(self, rigid_body_motion, time):

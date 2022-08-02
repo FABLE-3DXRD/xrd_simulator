@@ -99,6 +99,15 @@ class RigidBodyMotion():
             translation = self.translation
         return vectors + translation * time
 
+    def inverse(self):
+        """Create an instance of the inverse motion, defined by negative translation- and rotation-axis vectors.
+
+        Returns:
+            (:obj:`xrd_simulator.RigidBodyMotion`) The inverse motion with a reversed rotation and translation.
+
+        """
+        return RigidBodyMotion(-self.rotation_axis.copy(), self.rotation_angle, -self.translation.copy())
+
     def save(self, path):
         """Save the motion object to disc (via pickling).
 
