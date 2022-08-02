@@ -110,16 +110,26 @@ class TetraMesh(object):
 
         return cls._build_tetramesh(mesh)
 
-    def update(self, new_nodal_coordinates):
-        """Update the mesh coordinates and any dependent quantities by changing the node coordinates.
+    def update(self, rigid_body_motion, time):
+        """Apply a rigid body motion transformation to the mesh.
 
         Args:
-            new_nodal_coordinates (:obj:`numpy array`): new coordinates of mesh nodes.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a function of time on the domain time=[0,1].
+            time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        self._mesh.points = new_nodal_coordinates
-        self._set_fem_matrices()
-        self._expand_mesh_data()
+        self._mesh.points = rigid_body_motion(self._mesh.points.T, time=time).T
+        self.coord = np.array(self._mesh.points)
+
+        s1,s2,s3 = self.enormals.shape
+        self.enormals = self.enormals.reshape(s1*s2, 3)
+        self.enormals = rigid_body_motion.rotate( self.enormals.T, time=time).T
+        self.enormals = self.enormals.reshape(s1, s2, s3)
+
+        self.ecentroids = rigid_body_motion(self.ecentroids.T, time=time).T
+        self.espherecentroids = rigid_body_motion(self.espherecentroids.T, time=time).T
+        self.centroid = rigid_body_motion(self.centroid.reshape(3,1), time=time).reshape(3,)
 
     def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualization.

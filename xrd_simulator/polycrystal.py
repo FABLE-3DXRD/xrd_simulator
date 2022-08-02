@@ -195,12 +195,11 @@ class Polycrystal():
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        angle_to_rotate = rigid_body_motion.rotation_angle * time
         Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
-            angle_to_rotate)
-        new_nodal_coordinates = rigid_body_motion(
-            self.mesh_lab.coord.T, time=time).T
-        self.mesh_lab.update(new_nodal_coordinates)
+            rigid_body_motion.rotation_angle * time)
+
+        self.mesh_lab.update(rigid_body_motion, time)
+
         for ei in range(self.mesh_lab.number_of_elements):
             self.orientation_lab[ei] = np.dot(
                 Rot_mat, self.orientation_lab[ei])
