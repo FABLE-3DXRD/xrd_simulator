@@ -30,6 +30,22 @@ class TestBeam(unittest.TestCase):
             self.wavelength,
             self.polarization_vector)
 
+    def test_contains(self):
+        is_contained = self.beam.contains(self.beam.centroid)
+        self.assertTrue(is_contained==1,msg='Beam centroid appears to not be contained by beam.')
+
+        is_contained = self.beam.contains(self.beam.centroid + 5.5)
+        self.assertTrue(is_contained==0,msg='Beam centroid appears to not be contained by beam.')
+
+        points = np.random.rand(3,10)*0.1 + 0.5
+        for ic in self.beam.contains(points):
+            self.assertTrue(ic==1,msg='Expected interior point of beam is not contained by beam.')
+
+        points[0,:] = 100
+        for ic in self.beam.contains(points):
+            self.assertTrue(ic==0,msg='Expected exterior point of beam is appears to be contained by beam.')
+
+
     def test_intersect(self):
         vertices = self.beam_vertices
         ch = self.beam.intersect(vertices)

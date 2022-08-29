@@ -12,7 +12,7 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator import laue
+from xrd_simulator import laue, utils
 from scipy.optimize import root_scalar
 
 class Beam():
@@ -67,18 +67,22 @@ class Beam():
         self.centroid = np.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull(self.vertices).equations
 
-    def contains(self, point):
-        """ Check if the beam contains a point.
+    def contains(self, points):
+        """ Check if the beam contains a number of point(s).
 
         Args:
-            point (:obj:`numpy array`): Point to evaluate ``shape=(3,)``.
+            points (:obj:`numpy array`): Point(s) to evaluate ``shape=(3,n)`` or ``shape=(3,)``.
 
         Returns:
-            Boolean True if the beam contains the point.
+            numpy array with 1 if the point is contained by the beam and 0 otherwise, if single point is passed this returns
+            scalar 1 or 0.
 
         """
-        return np.all(self.halfspaces[:, 0:3].dot(
-            point) + self.halfspaces[:, 3] < 0)
+        normal_distances = self.halfspaces[:, 0:3].dot(points)
+        if len(points.shape) == 1:
+            return np.all(normal_distances + self.halfspaces[:, 3] < 0)
+        else:
+            return np.sum( (normal_distances + self.halfspaces[:, 3].reshape(self.halfspaces.shape[0], 1)) >= 0, axis=0) == 0
 
     def intersect(self, vertices):
         """Compute the beam intersection with a convex polyhedra.
@@ -102,19 +106,19 @@ class Beam():
 
         # Since _find_feasible_point() is expensive it is worth checking for if the polyhedra
         # centroid is contained by the beam, being a potential cheaply computed interior_point.
+
         centroid = np.mean(vertices, axis=0)
         if self.contains(centroid):
             interior_point = centroid
-        elif self.contains(centroid + (vertices[0,:]-centroid)/2.):
-            interior_point = centroid + (vertices[0,:]-centroid)/2.
-        elif self.contains(centroid + (vertices[1,:]-centroid)/2.):
-            interior_point = centroid + (vertices[1,:]-centroid)/2.
-        elif self.contains(centroid + (vertices[2,:]-centroid)/2.):
-            interior_point = centroid + (vertices[2,:]-centroid)/2.
-        elif self.contains(centroid + (vertices[3,:]-centroid)/2.):
-            interior_point = centroid + (vertices[3,:]-centroid)/2.
         else:
-            interior_point = self._find_feasible_point(combined_halfspaces)
+            trial_points = centroid + (vertices - centroid)*0.99
+
+            for i, is_contained in enumerate(self.contains(trial_points.T)):
+                if is_contained:
+                    interior_point = trial_points[i,:].flatten()
+                    break
+            else:
+                interior_point = self._find_feasible_point(combined_halfspaces)
 
         if interior_point is not None:
             hs = HalfspaceIntersection(combined_halfspaces, interior_point)
