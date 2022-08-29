@@ -84,7 +84,8 @@ class TestDetector(unittest.TestCase):
                                rotation_axis=np.array([0, 0, 1]),
                                time=0,
                                phase=phase,
-                               hkl_indx=0)
+                               hkl_indx=0,
+                               element_index=0)
         scattering_unit2 = ScatteringUnit(ch2,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -93,7 +94,8 @@ class TestDetector(unittest.TestCase):
                                rotation_axis=np.array([0, 0, 1]),
                                time=0,
                                phase=phase,
-                               hkl_indx=0)
+                               hkl_indx=0,
+                               element_index=0)
 
         self.detector.frames.append([scattering_unit1, scattering_unit2])
         diffraction_pattern = self.detector.render(
@@ -185,7 +187,8 @@ class TestDetector(unittest.TestCase):
                               rotation_axis=np.array([0, 0, 1]),
                               time=0,
                               phase=phase,
-                              hkl_indx=0)
+                              hkl_indx=0,
+                              element_index=0)
 
         self.detector.frames.append([scattering_unit])
         diffraction_pattern = self.detector.render(

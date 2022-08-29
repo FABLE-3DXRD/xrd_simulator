@@ -3,6 +3,7 @@ This module is mainly used internally by the :class:`xrd_simulator.polycrystal.P
 for the advanced user, access to these functions may be of interest.
 """
 
+from re import A
 import numpy as np
 
 
@@ -53,20 +54,6 @@ def get_sin_theta_and_norm_G(G, wavelength):
     normG = np.linalg.norm(G, axis=0)
     return normG * wavelength / (4 * np.pi), normG
 
-
-def get_tangens_half_angle_equation(k1, theta, G, rhat):
-    """Find coefficient to the equation
-
-    .. math::
-        \\rho_0 \\cos(t \\Delta \\omega) + \\rho_1 \\sin(t \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
-
-    """
-    rho_0 = np.dot(k1, G)
-    rho_1 = np.dot(np.cross(rhat, k1), G)
-    rho_2 = np.linalg.norm(k1) * np.linalg.norm(G) * np.sin(theta)
-    return rho_0, rho_1, rho_2
-
-
 def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
     """Find all solutions, :obj:`t`, to the equation (maximum 2 solutions exists)
 
@@ -94,50 +81,20 @@ def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_ome
         delta_omega (:obj:`float`): Radians of rotation.
 
     Returns:
-        (:obj:`tuple` of :obj:`float` or :obj:`None`): solutions if existing otherwise returns None.
+        (:obj:`tuple` of :obj:`numpy.array`): 2 Arrays of solutions of matching shape to input. if no solutions exist on
+        an interval the corresponding instances in the solution array holds np.nan values.
 
     """
-
-    if rho_0 == rho_2:
-        if rho_1 == 0:
-            s1 = s2 = None
-        else:
-            s1 = -rho_0 / rho_1
-            s2 = None
-    else:
-        rootval = (rho_1 / (rho_2 - rho_0))**2 - (rho_0 + rho_2) / (rho_2 - rho_0)
-        leadingterm = (-rho_1 / (rho_2 - rho_0))
-        if rootval < 0:
-            s1, s2 = None, None
-        else:
-            s1 = leadingterm + np.sqrt(rootval)
-            s2 = leadingterm - np.sqrt(rootval)
-
-    t1, t2 = None, None
-
-    if s1 is not None:
-        t1 = 2 * np.arctan(s1) / delta_omega
-        if t1 > 1 or t1 < 0:
-            t1 = None
-
-    if s2 is not None:
-        t2 = 2 * np.arctan(s2) / delta_omega
-        if t2 > 1 or t2 < 0:
-            t2 = None
-
-    return t1, t2
-
-
-
-def _vectorized_find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
-    rootval = (rho_1 / (rho_2 - rho_0))**2 - (rho_0 + rho_2) / (rho_2 - rho_0)
-    leadingterm = (-rho_1 / (rho_2 - rho_0))
-    rootval[rootval<0] = np.inf
+    denominator = rho_2 - rho_0
+    a = np.divide(rho_1, denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
+    b = np.divide(rho_0 + rho_2, denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
+    rootval = a**2 - b
+    leadingterm = -a
+    rootval[rootval<0] = np.nan
     s1 = leadingterm + np.sqrt(rootval)
     s2 = leadingterm - np.sqrt(rootval)
     t1 = 2 * np.arctan(s1) / delta_omega
     t2 = 2 * np.arctan(s2) / delta_omega
-    t1[(t1>1)*(t1<0)]=np.nan
-    t2[(t2>1)*(t2<0)]=np.nan
+    t1[(t1>1)|(t1<0)]=np.nan
+    t2[(t2>1)|(t2<0)]=np.nan
     return t1, t2
-    

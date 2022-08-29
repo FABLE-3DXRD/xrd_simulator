@@ -128,9 +128,9 @@ class Polycrystal():
         scattering_units = []
 
         proximity_intervals = beam._get_proximity_intervals(
-                                            self.mesh_lab.espherecentroids, 
-                                            self.mesh_lab.eradius, 
-                                            rigid_body_motion, 
+                                            self.mesh_lab.espherecentroids,
+                                            self.mesh_lab.eradius,
+                                            rigid_body_motion,
                                             collision_detection=collision_detection)
 
         progress_update_rate = np.max([int(self.mesh_lab.number_of_elements/1000), 1])
@@ -157,16 +157,12 @@ class Polycrystal():
             rho_1s = rho_1_factor.dot(G_0)
             rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
 
-            t1,t2 = laue._vectorized_find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
+            t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
 
             for hkl_indx in range(G_0.shape[1]):
                 for time in (t1[hkl_indx],t2[hkl_indx]):
                     if ~np.isnan(time):
 
-            # for hkl_indx in range(G_0.shape[1]):
-            #     for time in laue.find_solutions_to_tangens_half_angle_equation(
-            #             rho_0s[hkl_indx], rho_1s[hkl_indx], rho_2s[hkl_indx], rigid_body_motion.rotation_angle):
-            #         if time is not None:
                         if utils._contained_by_intervals(time, proximity_intervals[ei]):
 
                             element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
@@ -188,7 +184,9 @@ class Polycrystal():
                                                       rigid_body_motion.rotation_axis,
                                                       time,
                                                       self.phases[self.element_phase_map[ei]],
-                                                      hkl_indx)
+                                                      hkl_indx,
+                                                      ei)
+
                                 scattering_units.append(scattering_unit)
 
         detector.frames.append(scattering_units)

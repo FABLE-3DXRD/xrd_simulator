@@ -243,7 +243,7 @@ class TestBeam(unittest.TestCase):
         self.assertTrue( np.allclose(np.mean(new_vertices,axis=0), self.beam.centroid), msg="centroid incorrect")
         self.assertTrue( np.allclose(self.beam.halfspaces.shape, (4,4)))
         self.assertTrue( np.allclose(self.beam.vertices, new_vertices))
-    
+
     def test__get_candidate_spheres(self):
         rotation_angle = 10 * np.pi / 180.
         rotation_axis = np.array([0, 0, 1])

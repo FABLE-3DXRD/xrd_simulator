@@ -3,6 +3,7 @@ import numpy as np
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.motion import RigidBodyMotion
 import os
+import copy
 
 class TestBeam(unittest.TestCase):
 
@@ -83,17 +84,13 @@ class TestBeam(unittest.TestCase):
             level_set=lambda x: np.linalg.norm(x) - R,
             bounding_radius=769.0,
             max_cell_circumradius=max_cell_circumradius)
+        mesh2 = copy.deepcopy(mesh1)
 
         new_nodal_coordinates = Rmat.dot( mesh1.coord.T ).T + translation
         mesh1._mesh.points = new_nodal_coordinates
         mesh1._set_fem_matrices()
         mesh1._expand_mesh_data()
 
-        mesh2 = TetraMesh.generate_mesh_from_levelset(
-            level_set=lambda x: np.linalg.norm(x) - R,
-            bounding_radius=769.0,
-            max_cell_circumradius=max_cell_circumradius)
-        
         mesh2.update(rbm, time=1.0)
 
         tol = 1e-3

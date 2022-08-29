@@ -259,7 +259,6 @@ class Beam():
                                                          rigid_body_motion)
         elif collision_detection=='exact':
             candidate_mask = np.ones(sphere_centres.shape[0], dtype=bool)
-            print(candidate_mask)
         else:
             raise ValueError("collision_detection must be one of -approximate- or -exact-")
 
@@ -275,7 +274,7 @@ class Beam():
         all_intersections = []
 
         for i in range(sphere_centres.shape[0]):
-            
+
             if not candidate_mask[i]:
                 merged_intersections = [None]
                 all_intersections.append(merged_intersections)
@@ -352,13 +351,13 @@ class Beam():
     def _find_brackets_of_roots(self, q_0, q_1, q_2, rotation_angle, function):
         """Find all sub domains on time=[0,1] which are guaranteed to hold a root of function.
         """
-        rho_0 = rotation_angle * q_0
-        rho_1 = -rotation_angle * q_1
-        rho_2 = q_2
+        rho_0 = np.array([rotation_angle * q_0])
+        rho_1 = np.array([-rotation_angle * q_1])
+        rho_2 = np.array([q_2])
         time_1, time_2 = laue.find_solutions_to_tangens_half_angle_equation(
-            rho_0, rho_1, rho_2, rotation_angle)
+            rho_0, rho_1, rho_2, np.array([rotation_angle]))
         search_intervals = np.array(
-            [s for s in [0, time_1, time_2, 1] if s is not None])
+            [s for s in [0, time_1[0], time_2[0], 1] if ~np.isnan(s)])
         f = function(search_intervals)
         indx = 0
         brackets = []
