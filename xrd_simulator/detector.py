@@ -64,8 +64,10 @@ class Detector():
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
 
-        self.point_spread_function = lambda z, y: np.exp(-0.5 * (z*z + y*y) / (1.0 * 1.0) )
         self._point_spread_kernel_shape = (5, 5)
+
+    def point_spread_function(self, z, y):
+        return np.exp(-0.5 * (z*z + y*y) / (1.0 * 1.0) )
 
     @property
     def point_spread_kernel_shape(self):

@@ -16,7 +16,83 @@ import copy
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
+from multiprocessing import Pool
 
+
+def _diffract(dict):
+
+    beam = dict['beam']
+    detector = dict['detector']
+    rigid_body_motion = dict['rigid_body_motion']
+    min_bragg_angle = dict['min_bragg_angle']
+    max_bragg_angle = dict['max_bragg_angle']
+    phases = dict['phases']
+    collision_detection = dict['collision_detection']
+    espherecentroids = dict['espherecentroids']
+    eradius = dict['eradius']
+    orientation_lab = dict['orientation_lab']
+    eB = dict['eB']
+    element_phase_map = dict['element_phase_map']
+    ecoord = dict['ecoord']
+    number_of_elements = ecoord.shape[0]
+
+    rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
+    rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
+    rho_2_factor = beam.wave_vector.dot(
+        np.eye(3, 3) + rigid_body_motion.rotator.K2)
+
+    scattering_units = []
+
+    proximity_intervals = beam._get_proximity_intervals(
+                                        espherecentroids,
+                                        eradius,
+                                        rigid_body_motion,
+                                        collision_detection=collision_detection)
+
+    for ei in range(number_of_elements):
+
+        # skip elements not illuminated
+        if proximity_intervals[ei][0] is None:
+            continue
+        G_0 = laue.get_G(orientation_lab[ei], eB[ei],
+                            phases[element_phase_map[ei]].miller_indices.T)
+
+        rho_0s = rho_0_factor.dot(G_0)
+        rho_1s = rho_1_factor.dot(G_0)
+        rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
+
+        t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
+
+        for hkl_indx in range(G_0.shape[1]):
+            for time in (t1[hkl_indx],t2[hkl_indx]):
+                if ~np.isnan(time):
+
+                    if utils._contained_by_intervals(time, proximity_intervals[ei]):
+
+                        element_vertices_0 = ecoord[ei]
+
+                        element_vertices = rigid_body_motion(
+                            element_vertices_0.T, time).T
+
+                        scattering_region = beam.intersect(element_vertices)
+
+                        if scattering_region is not None:
+                            G = rigid_body_motion.rotate(
+                                G_0[:, hkl_indx], time)
+                            scattered_wave_vector = G + beam.wave_vector
+                            scattering_unit = ScatteringUnit(scattering_region,
+                                                    scattered_wave_vector,
+                                                    beam.wave_vector,
+                                                    beam.wavelength,
+                                                    beam.polarization_vector,
+                                                    rigid_body_motion.rotation_axis,
+                                                    time,
+                                                    phases[element_phase_map[ei]],
+                                                    hkl_indx,
+                                                    ei)
+
+                            scattering_units.append(scattering_unit)
+    return scattering_units
 
 class Polycrystal():
 
@@ -77,6 +153,62 @@ class Polycrystal():
         self.mesh_sample = copy.deepcopy(mesh)
         self.strain_sample = np.copy(self.strain_lab)
         self.orientation_sample = np.copy(self.orientation_lab)
+
+    def diffract_in_parallel(
+                            self,
+                            beam,
+                            detector,
+                            rigid_body_motion,
+                            min_bragg_angle=0,
+                            max_bragg_angle=None,
+                            collision_detection='approximate',
+                            number_of_threads=2):
+
+        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
+            detector, beam, min_bragg_angle, max_bragg_angle)
+
+        for phase in self.phases:
+            with utils._verbose_manager(False):
+                phase.setup_diffracting_planes(
+                    beam.wavelength,
+                    min_bragg_angle,
+                    max_bragg_angle)
+
+        espherecentroids = np.array_split(self.mesh_lab.espherecentroids, number_of_threads, axis=0)
+        eradius = np.array_split(self.mesh_lab.eradius,  number_of_threads, axis=0)
+        orientation_lab = np.array_split(self.orientation_lab, number_of_threads, axis=0)
+        eB = np.array_split(self._eB,  number_of_threads, axis=0)
+        element_phase_map = np.array_split(self.element_phase_map,  number_of_threads, axis=0)
+        enod = np.array_split(self.mesh_lab.enod,  number_of_threads, axis=0)
+
+        args = []
+        for i in range(number_of_threads):
+            ecoord = np.zeros((enod[i].shape[0], 4, 3))
+            for k,en in enumerate(enod[i]):
+                ecoord[k,:,:] = self.mesh_lab.coord[en]
+            args.append( {
+                        'beam': beam ,
+                        'detector': detector ,
+                        'rigid_body_motion': rigid_body_motion ,
+                        'min_bragg_angle': min_bragg_angle ,
+                        'max_bragg_angle': max_bragg_angle ,
+                        'phases': self.phases,
+                        'collision_detection': collision_detection,
+                        'espherecentroids': espherecentroids[i],
+                        'eradius': eradius[i],
+                        'orientation_lab': orientation_lab[i],
+                        'eB': eB[i],
+                        'element_phase_map': element_phase_map[i],
+                        'ecoord': ecoord
+                        } )
+
+        with Pool(number_of_threads) as p:
+            scattering_units = p.map( _diffract, args )
+
+        all_scattering_units = []
+        for su in scattering_units:
+            all_scattering_units.extend(su)
+        detector.frames.append(all_scattering_units)
 
     def diffract(
             self,
