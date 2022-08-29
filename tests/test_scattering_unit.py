@@ -47,7 +47,8 @@ class TestScatteringUnit(unittest.TestCase):
                                    self.rotation_axis,
                                    self.time,
                                    self.phase,
-                                   hkl_indx=0)
+                                   hkl_indx=0,
+                                   element_index=0)
 
     def test_lorentz(self):
         z = np.array([0, 1, 1.])

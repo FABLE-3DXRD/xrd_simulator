@@ -46,20 +46,6 @@ class TestLaue(unittest.TestCase):
             self.assertAlmostEqual(Gnorm[i], np.linalg.norm(
                 G[:, i]), msg="error in norm of G")
 
-    def test_get_tangens_half_angle_equation(self):
-        wavelength = self.get_pseudorandom_wavelength()
-        U, B, cell, strain = self.get_pseudorandom_crystal()
-        k = self.get_pseudorandom_wave_vector(wavelength)
-        rotation_axis = np.random.rand(3,)
-        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
-        G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
-        theta = laue.get_bragg_angle(G, wavelength)
-        rho_0, rho_1, rho_2 = laue.get_tangens_half_angle_equation(
-            k, theta, G, rotation_axis)
-        self.assertTrue(np.isreal(rho_0))
-        self.assertTrue(np.isreal(rho_1))
-        self.assertTrue(np.isreal(rho_2))
-
     def test_find_solutions_to_tangens_half_angle_equation(self):
         U, B, cell, strain = self.get_pseudorandom_crystal()
         wavelength = cell[0] / \
@@ -69,32 +55,38 @@ class TestLaue(unittest.TestCase):
         rotation_axis = np.random.rand(3,)
         rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
         rotation_angle = np.pi / 2.
-        # let the crystal be aligned to assure 100 to be in its Bragg condition
+        # let the crystal be aligned to assure hkl=100 to be in its Bragg condition
         # for the k-intervall
         U = np.eye(3, 3)
-        G = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0]))
-        theta = laue.get_bragg_angle(G, wavelength)
-        rho_0, rho_1, rho_2 = laue.get_tangens_half_angle_equation(
-            k, theta, G, rotation_axis)
-        t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(
+        G_0 = laue.get_G(U, B, G_hkl=np.array([-1, 0, 0])).reshape(3,1)
+
+        rx, ry, rz = rotation_axis
+        K = np.array([[0, -rz, ry],
+                        [rz, 0, -rx],
+                        [-ry, rx, 0]])
+        rho_0 = -k.dot( K.dot(K) ).dot(G_0)
+        rho_1 =  k.dot( K ).dot(G_0)
+        rho_2 =  k.dot( np.eye(3, 3) + K.dot(K) ).dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
+        t1s, t2s = laue.find_solutions_to_tangens_half_angle_equation(
             rho_0, rho_1, rho_2, rotation_angle)
 
-        # Check that at least one solution has been found and that it satisfies
-        # the half angle equation.
-        self.assertTrue(((t1 is not None) or (t2 is not None)),
-                        msg="Tangens half angle equation could not be solved")
-        if t1 is not None:
-            self.assertLessEqual(t1, 1, msg="s>1")
-            self.assertGreaterEqual(t1, 0, msg="s>1")
-            t1 = np.tan(t1 * rotation_angle / 2.)
-            self.assertAlmostEqual((rho_2 - rho_0) * t1**2 + 2 * rho_1 *
-                                   t1 + (rho_0 + rho_2), 0, msg="Parametric solution wrong")
-        if t2 is not None:
-            self.assertLessEqual(t2, 1, msg="s>1")
-            self.assertGreaterEqual(t2, 0, msg="s<0")
-            t2 = np.tan(t1 * rotation_angle / 2.)
-            self.assertAlmostEqual((rho_2 - rho_0) * t2**2 + 2 * rho_1 *
-                                   t2 + (rho_0 + rho_2), 0, msg="Parametric solution wrong")
+        for i,(t1,t2) in enumerate(zip(t1s,t2s)):
+            # Check that at least one solution has been found and that it satisfies
+            # the half angle equation.
+            self.assertTrue((~np.isnan(t1) or ~np.isnan(t2)),
+                            msg="Tangens half angle equation could not be solved")
+            if ~np.isnan(t1):
+                self.assertLessEqual(t1, 1, msg="s>1")
+                self.assertGreaterEqual(t1, 0, msg="s>1")
+                t1 = np.tan(t1 * rotation_angle / 2.)
+                self.assertAlmostEqual((rho_2[i] - rho_0[i]) * t1**2 + 2 * rho_1[i] *
+                                    t1 + (rho_0[i] + rho_2[i]), 0, msg="Parametric solution wrong")
+            if ~np.isnan(t2):
+                self.assertLessEqual(t2, 1, msg="s>1")
+                self.assertGreaterEqual(t2, 0, msg="s<0")
+                t2 = np.tan(t1 * rotation_angle / 2.)
+                self.assertAlmostEqual((rho_2[i] - rho_0[i]) * t2**2 + 2 * rho_1[i] *
+                                    t2 + (rho_0[i] + rho_2[i]), 0, msg="Parametric solution wrong")
 
     def get_pseudorandom_crystal(self):
         phi1, PHI, phi2 = np.random.rand(3,) * 2 * np.pi

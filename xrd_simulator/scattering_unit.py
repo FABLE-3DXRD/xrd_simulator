@@ -36,6 +36,8 @@ class ScatteringUnit(object):
             motion the scattering occured.
         phase (:obj:`xrd_simulator.phase.Phase`): The phase of the scattering unit.
         hkl_indx (:obj:`int`): Index of Miller index in the `phase.miller_indices` list.
+        element_index (:obj:`int`): Index of mesh tetrahedral element refering to a `xrd_simulator.polycrystal.Polycrystal`
+            object from which the scattering unit originated.
 
     """
 
@@ -49,7 +51,8 @@ class ScatteringUnit(object):
             rotation_axis,
             time,
             phase,
-            hkl_indx):
+            hkl_indx,
+            element_index):
         self.convex_hull = convex_hull
         self.scattered_wave_vector = scattered_wave_vector
         self.incident_wave_vector = incident_wave_vector
@@ -59,6 +62,7 @@ class ScatteringUnit(object):
         self.time = time
         self.phase = phase
         self.hkl_indx = hkl_indx
+        self.element_index = element_index
 
     @property
     def hkl(self):
