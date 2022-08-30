@@ -95,6 +95,7 @@ class Beam():
             input vertices.
 
         """
+
         for vertex in vertices:
             if not self.contains(vertex):
                 break

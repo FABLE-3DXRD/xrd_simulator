@@ -70,15 +70,15 @@ class TestPolycrystal(unittest.TestCase):
             wavelength,
             polarization_vector)
 
-    def test_diffract_in_parallel(self):
+    def test_diffract(self):
 
         rotation_angle = 10 * np.pi / 180.
         rotation_axis = np.array([0, 0, 1])
         translation = np.array([0, 0, 0])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-        self.polycrystal.diffract_in_parallel(self.beam, self.detector, motion, collision_detection='exact', number_of_threads=2)
-        self.polycrystal.diffract_in_parallel(self.beam, self.detector, motion, collision_detection='approximate', number_of_threads=2)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', verbose=True)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', verbose=True)
 
         diffraction_pattern = self.detector.render(
             frame_number=0, lorentz=True, polarization=True, structure_factor=False)
@@ -126,62 +126,16 @@ class TestPolycrystal(unittest.TestCase):
             20,
             msg="Few or no rings appeared from diffraction.")
 
-    # def test_diffract(self):
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', number_of_threads=2)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', number_of_threads=2)
 
-    #     rotation_angle = 10 * np.pi / 180.
-    #     rotation_axis = np.array([0, 0, 1])
-    #     translation = np.array([0, 0, 0])
-    #     motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+        diffraction_pattern1 = self.detector.render(
+            frame_number=2, lorentz=True, polarization=True, structure_factor=False)
+        diffraction_pattern_approximate1 = self.detector.render(
+            frame_number=3, lorentz=True, polarization=True, structure_factor=False)
 
-    #     self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact')
-    #     self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate')
-
-    #     diffraction_pattern = self.detector.render(
-    #         frame_number=0, lorentz=True, polarization=True, structure_factor=False)
-
-    #     # The rendered diffraction pattern should have intensity
-    #     self.assertGreater(np.sum(diffraction_pattern), 0)
-
-    #     # For this geometry the rendered diffraction pattern should not be 
-    #     # affected by approximate collision detection
-    #     diffraction_pattern_approximate = self.detector.render(
-    #         frame_number=1, lorentz=True, polarization=True, structure_factor=False)
-
-    #     for i in range(diffraction_pattern.shape[0]):
-    #         for j in range(diffraction_pattern.shape[1]):
-    #             self.assertAlmostEqual(diffraction_pattern[i,j], diffraction_pattern_approximate[i,j])
-
-    #     # .. and the intensity should be scattered over the image
-    #     w = int(self.detector_size / 5.)
-    #     for i in range(w, diffraction_pattern.shape[0] - w, w):
-    #         for j in range(w, diffraction_pattern.shape[0] - w, w):
-    #             subsum = np.sum(diffraction_pattern[i - w:i + w, j - w:j + w])
-    #             self.assertGreaterEqual(subsum, 0)
-
-    #     # ScatteringUnits should be confined to rings
-    #     bragg_angles = []
-    #     for scattering_unit in self.detector.frames[0]:
-    #         kprime = scattering_unit.scattered_wave_vector
-    #         k = scattering_unit.incident_wave_vector
-    #         normfactor = np.linalg.norm(k) * np.linalg.norm(kprime)
-    #         tth = np.arccos(np.dot(k, kprime) / normfactor)
-    #         bragg_angles.append(tth / 2.)
-
-    #     # count the number of non-overlaing rings there should be quite a few.
-    #     bragg_angles = np.degrees(bragg_angles)
-    #     hist = np.histogram(bragg_angles, bins=np.linspace(0, 20, 360))[0]
-    #     csequence, nosequences = 0, 0
-    #     for i in range(hist.shape[0]):
-    #         if hist[i] > 0:
-    #             csequence += 1
-    #         elif csequence >= 1:
-    #             nosequences += 1
-    #             csequence = 0
-    #     self.assertGreaterEqual(
-    #         nosequences,
-    #         20,
-    #         msg="Few or no rings appeared from diffraction.")
-
+        self.assertTrue(np.allclose(diffraction_pattern, diffraction_pattern1))
+        self.assertTrue(np.allclose(diffraction_pattern_approximate, diffraction_pattern_approximate1))
 
     def test_save_and_load(self):
         orientation_lab = self.polycrystal.orientation_lab.copy()
