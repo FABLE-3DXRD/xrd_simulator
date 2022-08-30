@@ -71,7 +71,7 @@ class TestBeam(unittest.TestCase):
             self.assertLessEqual(r, max_cell_circumradius*1.001)
 
     def test_update(self):
-        rotation_axis=np.array([0,0,1.0])
+        rotation_axis=np.array([0, 0, 1.0])
         rotation_angle=np.pi/4.37
         translation = np.array([1.0, 769.0, -5678.0])
         rbm = RigidBodyMotion(rotation_axis, rotation_angle, translation)

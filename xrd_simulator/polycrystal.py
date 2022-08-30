@@ -21,20 +21,19 @@ from multiprocessing import Pool
 
 def _diffract(dict):
 
-    beam = dict['beam']
-    detector = dict['detector']
-    rigid_body_motion = dict['rigid_body_motion']
-    min_bragg_angle = dict['min_bragg_angle']
-    max_bragg_angle = dict['max_bragg_angle']
-    phases = dict['phases']
+    beam                = dict['beam']
+    detector            = dict['detector']
+    rigid_body_motion   = dict['rigid_body_motion']
+    phases              = dict['phases']
     collision_detection = dict['collision_detection']
-    espherecentroids = dict['espherecentroids']
-    eradius = dict['eradius']
-    orientation_lab = dict['orientation_lab']
-    eB = dict['eB']
-    element_phase_map = dict['element_phase_map']
-    ecoord = dict['ecoord']
-    number_of_elements = ecoord.shape[0]
+    espherecentroids    = dict['espherecentroids']
+    eradius             = dict['eradius']
+    orientation_lab     = dict['orientation_lab']
+    eB                  = dict['eB']
+    element_phase_map   = dict['element_phase_map']
+    ecoord              = dict['ecoord']
+    verbose             = dict['verbose']
+    number_of_elements  = ecoord.shape[0]
 
     rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
     rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
@@ -49,11 +48,23 @@ def _diffract(dict):
                                         rigid_body_motion,
                                         collision_detection=collision_detection)
 
+    if verbose: progress_update_rate = np.max([int(number_of_elements/1000.), 1])
+
     for ei in range(number_of_elements):
 
         # skip elements not illuminated
         if proximity_intervals[ei][0] is None:
             continue
+
+        if verbose and ei % progress_update_rate == 0:
+            progress_bar_message = "Computing scattering from a total of " + \
+                str(number_of_elements) + " elements"
+            progress_fraction = float(
+                ei + 1) / number_of_elements
+            utils._print_progress(
+                progress_fraction,
+                message=progress_bar_message)
+
         G_0 = laue.get_G(orientation_lab[ei], eB[ei],
                             phases[element_phase_map[ei]].miller_indices.T)
 
@@ -69,29 +80,36 @@ def _diffract(dict):
 
                     if utils._contained_by_intervals(time, proximity_intervals[ei]):
 
-                        element_vertices_0 = ecoord[ei]
+                        G = rigid_body_motion.rotate(
+                            G_0[:, hkl_indx], time)
+                        scattered_wave_vector = G + beam.wave_vector
 
-                        element_vertices = rigid_body_motion(
-                            element_vertices_0.T, time).T
+                        source = rigid_body_motion(espherecentroids[ei], time)
+                        zd, yd = detector.get_intersection(scattered_wave_vector, source)
 
-                        scattering_region = beam.intersect(element_vertices)
+                        if detector.contains(zd, yd):
 
-                        if scattering_region is not None:
-                            G = rigid_body_motion.rotate(
-                                G_0[:, hkl_indx], time)
-                            scattered_wave_vector = G + beam.wave_vector
-                            scattering_unit = ScatteringUnit(scattering_region,
-                                                    scattered_wave_vector,
-                                                    beam.wave_vector,
-                                                    beam.wavelength,
-                                                    beam.polarization_vector,
-                                                    rigid_body_motion.rotation_axis,
-                                                    time,
-                                                    phases[element_phase_map[ei]],
-                                                    hkl_indx,
-                                                    ei)
+                            element_vertices_0 = ecoord[ei]
 
-                            scattering_units.append(scattering_unit)
+                            element_vertices = rigid_body_motion(
+                                element_vertices_0.T, time).T
+
+                            scattering_region = beam.intersect(element_vertices)
+
+                            if scattering_region is not None:
+
+                                scattering_unit = ScatteringUnit(scattering_region,
+                                                        scattered_wave_vector,
+                                                        beam.wave_vector,
+                                                        beam.wavelength,
+                                                        beam.polarization_vector,
+                                                        rigid_body_motion.rotation_axis,
+                                                        time,
+                                                        phases[element_phase_map[ei]],
+                                                        hkl_indx,
+                                                        ei)
+
+                                scattering_units.append(scattering_unit)
     return scattering_units
 
 class Polycrystal():
@@ -154,21 +172,48 @@ class Polycrystal():
         self.strain_sample = np.copy(self.strain_lab)
         self.orientation_sample = np.copy(self.orientation_lab)
 
-    def diffract_in_parallel(
-                            self,
-                            beam,
-                            detector,
-                            rigid_body_motion,
-                            min_bragg_angle=0,
-                            max_bragg_angle=None,
-                            collision_detection='approximate',
-                            number_of_threads=2):
+    def diffract(
+                self,
+                beam,
+                detector,
+                rigid_body_motion,
+                min_bragg_angle=0,
+                max_bragg_angle=None,
+                verbose=False,
+                collision_detection='approximate',
+                number_of_threads=1):
+        """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
+
+        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
+        The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
+        option.
+
+        Args:
+            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
+            detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
+                computed.
+            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
+                Defaults to 0.
+            max_bragg_angle (:obj:`float`): Maximum Bragg angle (radians) after which to not compute diffraction. By default
+                the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample-beam
+                intersection centroid for time=0 in the rigid_body_motion.
+            verbose (:obj:`bool`): Prints progress. Defaults to True.
+            collision_detection (:obj:`string`): Optional keyword specifying the use of fast approximate collision detection.
+                One of either exact or approximate. Defaults to approximate.
+            number_of_threads (:obj:`int`): Optional keyword specifying the number of desired threads to use for diffraction
+                computation. Defaults to 1, i.e a single thread.
+
+        """
+        if verbose and number_of_threads!=1:
+            raise NotImplemented('Verbose mode is not implemented for multithread computations')
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
-            with utils._verbose_manager(False):
+            with utils._verbose_manager(verbose):
                 phase.setup_diffracting_planes(
                     beam.wavelength,
                     min_bragg_angle,
@@ -188,10 +233,8 @@ class Polycrystal():
                 ecoord[k,:,:] = self.mesh_lab.coord[en]
             args.append( {
                         'beam': beam ,
-                        'detector': detector ,
+                        'detector': detector,
                         'rigid_body_motion': rigid_body_motion ,
-                        'min_bragg_angle': min_bragg_angle ,
-                        'max_bragg_angle': max_bragg_angle ,
                         'phases': self.phases,
                         'collision_detection': collision_detection,
                         'espherecentroids': espherecentroids[i],
@@ -199,129 +242,20 @@ class Polycrystal():
                         'orientation_lab': orientation_lab[i],
                         'eB': eB[i],
                         'element_phase_map': element_phase_map[i],
-                        'ecoord': ecoord
+                        'ecoord': ecoord,
+                        'verbose':verbose
                         } )
 
-        with Pool(number_of_threads) as p:
-            scattering_units = p.map( _diffract, args )
+        if number_of_threads == 1:
+            all_scattering_units = _diffract(args[0])
+        else:
+            with Pool(number_of_threads) as p:
+                scattering_units = p.map( _diffract, args )
+            all_scattering_units = []
+            for su in scattering_units:
+                all_scattering_units.extend(su)
 
-        all_scattering_units = []
-        for su in scattering_units:
-            all_scattering_units.extend(su)
         detector.frames.append(all_scattering_units)
-
-    def diffract(
-            self,
-            beam,
-            detector,
-            rigid_body_motion,
-            min_bragg_angle=0,
-            max_bragg_angle=None,
-            verbose=True,
-            collision_detection='approximate'):
-        """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
-
-        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
-        The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
-        option.
-
-        Args:
-            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
-            detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
-                computed.
-            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
-                Defaults to 0.
-            max_bragg_angle (:obj:`float`): Maximum Bragg angle (radians) after which to not compute diffraction. By default
-                the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample
-                centroid.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            collision_detection (:obj:`string`): Optional keyword specifying the use of fast approximate collision detection. 
-                One of either exact or approximate. Defaults to approximate.
-
-        """
-
-        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
-            detector, beam, min_bragg_angle, max_bragg_angle)
-
-        for phase in self.phases:
-            with utils._verbose_manager(verbose):
-                phase.setup_diffracting_planes(
-                    beam.wavelength,
-                    min_bragg_angle,
-                    max_bragg_angle)
-
-        rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
-        rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-        rho_2_factor = beam.wave_vector.dot(
-            np.eye(3, 3) + rigid_body_motion.rotator.K2)
-
-        scattering_units = []
-
-        proximity_intervals = beam._get_proximity_intervals(
-                                            self.mesh_lab.espherecentroids,
-                                            self.mesh_lab.eradius,
-                                            rigid_body_motion,
-                                            collision_detection=collision_detection)
-
-        progress_update_rate = np.max([int(self.mesh_lab.number_of_elements/1000), 1])
-
-        for ei in range(self.mesh_lab.number_of_elements):
-
-            # skip elements not illuminated
-            if proximity_intervals[ei][0] is None:
-                continue
-
-            if verbose and ei % progress_update_rate == 0:
-                progress_bar_message = "Computing scattering from a total of " + \
-                    str(self.mesh_lab.number_of_elements) + " elements"
-                progress_fraction = float(
-                    ei + 1) / self.mesh_lab.number_of_elements
-                utils._print_progress(
-                    progress_fraction,
-                    message=progress_bar_message)
-
-            G_0 = laue.get_G(self.orientation_lab[ei], self._eB[ei],
-                             self.phases[self.element_phase_map[ei]].miller_indices.T)
-
-            rho_0s = rho_0_factor.dot(G_0)
-            rho_1s = rho_1_factor.dot(G_0)
-            rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
-
-            t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
-
-            for hkl_indx in range(G_0.shape[1]):
-                for time in (t1[hkl_indx],t2[hkl_indx]):
-                    if ~np.isnan(time):
-
-                        if utils._contained_by_intervals(time, proximity_intervals[ei]):
-
-                            element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[ei], :]
-
-                            element_vertices = rigid_body_motion(
-                                element_vertices_0.T, time).T
-
-                            scattering_region = beam.intersect(element_vertices)
-
-                            if scattering_region is not None:
-                                G = rigid_body_motion.rotate(
-                                    G_0[:, hkl_indx], time)
-                                scattered_wave_vector = G + beam.wave_vector
-                                scattering_unit = ScatteringUnit(scattering_region,
-                                                      scattered_wave_vector,
-                                                      beam.wave_vector,
-                                                      beam.wavelength,
-                                                      beam.polarization_vector,
-                                                      rigid_body_motion.rotation_axis,
-                                                      time,
-                                                      self.phases[self.element_phase_map[ei]],
-                                                      hkl_indx,
-                                                      ei)
-
-                                scattering_units.append(scattering_unit)
-
-        detector.frames.append(scattering_units)
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
@@ -336,17 +270,14 @@ class Polycrystal():
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
-            rigid_body_motion.rotation_angle * time)
 
         self.mesh_lab.update(rigid_body_motion, time)
 
-        for ei in range(self.mesh_lab.number_of_elements):
-            self.orientation_lab[ei] = np.dot(
-                Rot_mat, self.orientation_lab[ei])
-            self.strain_lab[ei] = np.dot(
-                Rot_mat, np.dot(
-                    self.strain_lab[ei], Rot_mat.T))
+        Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
+            rigid_body_motion.rotation_angle * time)
+
+        self.orientation_lab = np.dot(Rot_mat, self.orientation_lab).swapaxes(0,1)
+        self.strain_lab = np.dot( np.dot(Rot_mat, self.strain_lab), Rot_mat.T ).swapaxes(0,1)
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
@@ -471,11 +402,9 @@ class Polycrystal():
         If the beam graces or misses the sample, the sample centroid is used.
         """
         if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = np.array(
-                [c for c in self.mesh_lab.coord if beam.contains(c)])
-            if len(mesh_nodes_contained_by_beam) != 0:
-                source_point = np.mean(
-                    np.array([c for c in self.mesh_lab.coord if beam.contains(c)]), axis=0)
+            mesh_nodes_contained_by_beam = self.mesh_lab.coord[ beam.contains(self.mesh_lab.coord.T), : ]
+            if mesh_nodes_contained_by_beam.shape[0] != 0:
+                source_point = np.mean(mesh_nodes_contained_by_beam, axis=0)
             else:
                 source_point = self.mesh_lab.centroid
             max_bragg_angle = detector.get_wrapping_cone(

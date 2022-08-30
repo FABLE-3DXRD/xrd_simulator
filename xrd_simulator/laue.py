@@ -2,10 +2,7 @@
 This module is mainly used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
 for the advanced user, access to these functions may be of interest.
 """
-
-from re import A
 import numpy as np
-
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -53,6 +50,7 @@ def get_sin_theta_and_norm_G(G, wavelength):
     """
     normG = np.linalg.norm(G, axis=0)
     return normG * wavelength / (4 * np.pi), normG
+
 
 def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
     """Find all solutions, :obj:`t`, to the equation (maximum 2 solutions exists)
