@@ -214,21 +214,27 @@ class Beam():
 
         """
 
-        # TODO: compute angle that guarantees r/2 movement of any sphere.
-
         inverse_rigid_body_motion = rigid_body_motion.inverse()
 
         dx = np.min(sphere_radius) / 2.
         translation = np.abs( rigid_body_motion.translation / dx )
         number_of_sampling_points = int( np.max( [np.max(translation), np.degrees(rigid_body_motion.rotation_angle), 2] ) + 1 )
         sample_times  = np.linspace(0, 1, number_of_sampling_points)
+    
         beam_series_vertices = np.vstack([inverse_rigid_body_motion( self.vertices.T, time=time ).T for time in sample_times])
         beam_series_halfspaces = ConvexHull( beam_series_vertices, qhull_options='QJ' ).equations
-
         planes_origin_distances = beam_series_halfspaces[:, 3].reshape(beam_series_halfspaces.shape[0],1)
         sphere_beam_distances   = beam_series_halfspaces[:,0:3].dot(sphere_centres.T) + planes_origin_distances
         R = sphere_radius.reshape(1, sphere_radius.shape[0])
-        mask = np.any( np.abs(sphere_beam_distances)<R, axis=0) + np.all( sphere_beam_distances<R, axis=0)
+        mask = np.all( sphere_beam_distances<R, axis=0)
+        
+        # for plane in beam:
+        # if centroid inside : add
+        # compute sphere_beam_distances
+        # if np.abs(sphere_beam_distances) < R :
+        # projected_points_interior = sphere_centres - sphere_beam_distances * beam_series_halfspaces[:,0:3] - beam_series_halfspaces[:,0:3]*(R/1000.)
+        # if self.contains(projected_points_interior): add
+        # np.min( np.abs( beam_series_halfspaces[:,0:3].dot(projected_points.T) + planes_origin_distances ) ) == 0
 
         return mask
 
