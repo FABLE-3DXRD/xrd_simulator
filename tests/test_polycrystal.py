@@ -126,8 +126,8 @@ class TestPolycrystal(unittest.TestCase):
             20,
             msg="Few or no rings appeared from diffraction.")
 
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', number_of_threads=2)
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', number_of_threads=2)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', number_of_processes=2)
+        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', number_of_processes=2)
 
         diffraction_pattern1 = self.detector.render(
             frame_number=2, lorentz=True, polarization=True, structure_factor=False)

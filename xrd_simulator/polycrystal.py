@@ -42,16 +42,18 @@ def _diffract(dict):
 
     scattering_units = []
 
+    
+
     proximity_intervals = beam._get_proximity_intervals(
                                         espherecentroids,
                                         eradius,
                                         rigid_body_motion,
                                         collision_detection=collision_detection)
-
+    print('Done')
     if verbose: progress_update_rate = np.max([int(number_of_elements/1000.), 1])
 
     for ei in range(number_of_elements):
-
+    
         # skip elements not illuminated
         if proximity_intervals[ei][0] is None:
             continue
@@ -181,7 +183,7 @@ class Polycrystal():
                 max_bragg_angle=None,
                 verbose=False,
                 collision_detection='approximate',
-                number_of_threads=1):
+                number_of_processes=1):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
         The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
@@ -202,12 +204,12 @@ class Polycrystal():
             verbose (:obj:`bool`): Prints progress. Defaults to True.
             collision_detection (:obj:`string`): Optional keyword specifying the use of fast approximate collision detection.
                 One of either exact or approximate. Defaults to approximate.
-            number_of_threads (:obj:`int`): Optional keyword specifying the number of desired threads to use for diffraction
-                computation. Defaults to 1, i.e a single thread.
+            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
+                computation. Defaults to 1, i.e a single processes.
 
         """
-        if verbose and number_of_threads!=1:
-            raise NotImplemented('Verbose mode is not implemented for multithread computations')
+        if verbose and number_of_processes!=1:
+            raise NotImplemented('Verbose mode is not implemented for multiprocesses computations')
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle)
@@ -218,16 +220,17 @@ class Polycrystal():
                     beam.wavelength,
                     min_bragg_angle,
                     max_bragg_angle)
+         
 
-        espherecentroids = np.array_split(self.mesh_lab.espherecentroids, number_of_threads, axis=0)
-        eradius = np.array_split(self.mesh_lab.eradius,  number_of_threads, axis=0)
-        orientation_lab = np.array_split(self.orientation_lab, number_of_threads, axis=0)
-        eB = np.array_split(self._eB,  number_of_threads, axis=0)
-        element_phase_map = np.array_split(self.element_phase_map,  number_of_threads, axis=0)
-        enod = np.array_split(self.mesh_lab.enod,  number_of_threads, axis=0)
+        espherecentroids  = np.array_split(self.mesh_lab.espherecentroids, number_of_processes, axis=0)
+        eradius           = np.array_split(self.mesh_lab.eradius,  number_of_processes, axis=0)
+        orientation_lab   = np.array_split(self.orientation_lab, number_of_processes, axis=0)
+        eB                = np.array_split(self._eB,  number_of_processes, axis=0)
+        element_phase_map = np.array_split(self.element_phase_map,  number_of_processes, axis=0)
+        enod              = np.array_split(self.mesh_lab.enod,  number_of_processes, axis=0)
 
         args = []
-        for i in range(number_of_threads):
+        for i in range(number_of_processes):
             ecoord = np.zeros((enod[i].shape[0], 4, 3))
             for k,en in enumerate(enod[i]):
                 ecoord[k,:,:] = self.mesh_lab.coord[en]
@@ -245,11 +248,12 @@ class Polycrystal():
                         'ecoord': ecoord,
                         'verbose':verbose
                         } )
+        
 
-        if number_of_threads == 1:
+        if number_of_processes == 1:
             all_scattering_units = _diffract(args[0])
         else:
-            with Pool(number_of_threads) as p:
+            with Pool(number_of_processes) as p:
                 scattering_units = p.map( _diffract, args )
             all_scattering_units = []
             for su in scattering_units:
