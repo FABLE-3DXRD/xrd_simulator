@@ -262,13 +262,13 @@ class Polycrystal():
             detector.frames.append(all_scattering_units)
         else:
             #TODO: unit test
-            all_scattering_units.sort(key=lambda scattering_unit: scattering_unit.time)
+            all_scattering_units.sort(key=lambda scattering_unit: scattering_unit.time, reverse=True)
             dt = 1./number_of_frames
             start_time_of_current_frame = 0
             while(start_time_of_current_frame <= 1 - 1e-8):
                 frame = []
-                while( len(all_scattering_units)>0 and all_scattering_units[0].time < start_time_of_current_frame + dt):
-                    frame.append( all_scattering_units.pop(0) )
+                while( len(all_scattering_units)>0 and all_scattering_units[-1].time < start_time_of_current_frame + dt):
+                    frame.append( all_scattering_units.pop() )
                 start_time_of_current_frame += dt
                 detector.frames.append( frame )
             assert len(all_scattering_units)==0
