@@ -104,7 +104,7 @@ print("Detector centroid rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern1 = detector.render(
-    frame_number=0,
+    frames_to_render=0,
     lorentz=False,
     polarization=False,
     structure_factor=False,
@@ -119,7 +119,7 @@ print("Detector project rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern2 = detector.render(
-    frame_number=0,
+    frames_to_render=0,
     lorentz=False,
     polarization=False,
     structure_factor=False,

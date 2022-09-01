@@ -99,7 +99,7 @@ class TestDetector(unittest.TestCase):
 
         self.detector.frames.append([scattering_unit1, scattering_unit2])
         diffraction_pattern = self.detector.render(
-            frame_number=0,
+            frames_to_render=0,
             lorentz=False,
             polarization=False,
             structure_factor=False,
@@ -124,19 +124,19 @@ class TestDetector(unittest.TestCase):
 
         # Try rendering with advanced intensity model
         diffraction_pattern = self.detector.render(
-            frame_number=0, lorentz=True, polarization=False, structure_factor=False)
+            frames_to_render=0, lorentz=True, polarization=False, structure_factor=False)
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use lorentz factor")
 
         diffraction_pattern = self.detector.render(
-            frame_number=0, lorentz=False, polarization=True, structure_factor=False)
+            frames_to_render=0, lorentz=False, polarization=True, structure_factor=False)
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use polarization factor")
 
         diffraction_pattern = self.detector.render(
-            frame_number=0, lorentz=False, polarization=False, structure_factor=True)
+            frames_to_render=0, lorentz=False, polarization=False, structure_factor=True)
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use structure_factor factor")
@@ -192,7 +192,7 @@ class TestDetector(unittest.TestCase):
 
         self.detector.frames.append([scattering_unit])
         diffraction_pattern = self.detector.render(
-            frame_number=0,
+            frames_to_render=0,
             lorentz=False,
             polarization=False,
             structure_factor=False,
