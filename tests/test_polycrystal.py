@@ -77,23 +77,19 @@ class TestPolycrystal(unittest.TestCase):
         translation = np.array([0, 0, 0])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', verbose=True)
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', verbose=True)
+        self.polycrystal.diffract(self.beam, self.detector, motion, verbose=True)
+        self.polycrystal.diffract(self.beam, self.detector, motion, number_of_processes=2, verbose=False)
 
         diffraction_pattern = self.detector.render(
-            frame_number=0, lorentz=True, polarization=True, structure_factor=False)
+            frames_to_render=0, lorentz=True, polarization=True, structure_factor=False)
+
+        diffraction_pattern1 = self.detector.render(
+            frames_to_render=0, lorentz=True, polarization=True, structure_factor=False)
 
         # The rendered diffraction pattern should have intensity
         self.assertGreater(np.sum(diffraction_pattern), 0)
 
-        # For this geometry the rendered diffraction pattern should not be
-        # affected by approximate collision detection
-        diffraction_pattern_approximate = self.detector.render(
-            frame_number=1, lorentz=True, polarization=True, structure_factor=False)
-
-        for i in range(diffraction_pattern.shape[0]):
-            for j in range(diffraction_pattern.shape[1]):
-                self.assertAlmostEqual(diffraction_pattern[i,j], diffraction_pattern_approximate[i,j])
+        self.assertTrue(np.allclose(diffraction_pattern, diffraction_pattern1), msg='Multiproccessing is broken')
 
         # .. and the intensity should be scattered over the image
         w = int(self.detector_size / 5.)
@@ -125,17 +121,6 @@ class TestPolycrystal(unittest.TestCase):
             nosequences,
             20,
             msg="Few or no rings appeared from diffraction.")
-
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='exact', number_of_processes=2)
-        self.polycrystal.diffract(self.beam, self.detector, motion, collision_detection='approximate', number_of_processes=2)
-
-        diffraction_pattern1 = self.detector.render(
-            frame_number=2, lorentz=True, polarization=True, structure_factor=False)
-        diffraction_pattern_approximate1 = self.detector.render(
-            frame_number=3, lorentz=True, polarization=True, structure_factor=False)
-
-        self.assertTrue(np.allclose(diffraction_pattern, diffraction_pattern1))
-        self.assertTrue(np.allclose(diffraction_pattern_approximate, diffraction_pattern_approximate1))
 
     def test_save_and_load(self):
         orientation_lab = self.polycrystal.orientation_lab.copy()

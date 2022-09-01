@@ -90,7 +90,7 @@ class Detector():
 
     def render(
             self,
-            frame_number,
+            frames_to_render,
             lorentz=True,
             polarization=True,
             structure_factor=True,
@@ -102,7 +102,8 @@ class Detector():
         the pixel area.
 
         Args:
-            frame_number (:obj:`int`): Index of the frame in the :obj:`frames` list to be rendered.
+            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
+                to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
             structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
@@ -122,35 +123,46 @@ class Detector():
         NOTE: This function can be overwitten to do more advanced models for intensity.
 
         """
-        frame = np.zeros( (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]) )
 
-        for si, scattering_unit in enumerate(self.frames[frame_number]):
+        if frames_to_render=='all':
+            frames_to_render = list(range(len(self.frames)))
+        elif isinstance(frames_to_render, int):
+            frames_to_render = [frames_to_render]
 
-            if verbose:
-                progress_bar_message = "Rendering " + \
-                    str(len(self.frames[frame_number])) + " scattering volumes unto the detector"
-                progress_fraction = float(
-                    si + 1) / len(self.frames[frame_number])
-                utils._print_progress(
-                    progress_fraction,
-                    message=progress_bar_message)
+        rendered_frames = np.zeros( (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1], len(frames_to_render)) )
 
-            if method == 'project':
-                self._projection_render(
-                    scattering_unit, frame, lorentz, polarization, structure_factor)
-            elif method == 'centroid':
-                self._centroid_render(
-                    scattering_unit,
-                    frame,
-                    lorentz,
-                    polarization,
-                    structure_factor)
+        for i,frame_index in enumerate(frames_to_render):
 
-        if self.point_spread_function is not None:
-            kernel = self._get_point_spread_function_kernel()
-            frame = convolve(frame, kernel, mode='same', method='direct')
+            for si, scattering_unit in enumerate(self.frames[frame_index]):
 
-        return frame
+                if verbose:
+                    progress_bar_message = "Rendering " + \
+                        str(len(self.frames[frame_index])) + " scattering volumes unto the detector"
+                    progress_fraction = float(
+                        si + 1) / len(self.frames[frame_index])
+                    utils._print_progress(
+                        progress_fraction,
+                        message=progress_bar_message)
+
+                if method == 'project':
+                    self._projection_render(
+                        scattering_unit, rendered_frames[:,:,i], lorentz, polarization, structure_factor)
+                elif method == 'centroid':
+                    self._centroid_render(
+                        scattering_unit,
+                        rendered_frames[:,:,i],
+                        lorentz,
+                        polarization,
+                        structure_factor)
+
+            if self.point_spread_function is not None:
+                kernel = self._get_point_spread_function_kernel()
+                rendered_frames[:,:,i] = convolve(rendered_frames[:,:,i], kernel, mode='same', method='direct')
+
+        if len(frames_to_render)==1:
+            return rendered_frames[:,:,0]
+        else:
+            return rendered_frames
 
     def get_intersection(self, ray_direction, source_point):
         """Get detector intersection in detector coordinates of a single ray originating from source_point.

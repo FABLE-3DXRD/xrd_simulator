@@ -80,7 +80,7 @@ polycrystal.diffract(beam, detector, motion)
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern = detector.render(
-    frame_number=0,
+    frames_to_render=0,
     lorentz=False,
     polarization=False,
     structure_factor=False,

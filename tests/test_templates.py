@@ -153,7 +153,7 @@ class TestUtils(unittest.TestCase):
             max_bragg_angle=None,
             verbose=True)
         diffraction_pattern = detector.render(
-            frame_number=0,
+            frames_to_render=0,
             lorentz=False,
             polarization=False,
             structure_factor=False,
@@ -216,7 +216,7 @@ class TestUtils(unittest.TestCase):
             max_bragg_angle=None,
             verbose=True)
         diffraction_pattern = detector.render(
-            frame_number=0,
+            frames_to_render=0,
             lorentz=False,
             polarization=False,
             structure_factor=False,
