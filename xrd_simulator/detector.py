@@ -14,8 +14,8 @@ Below follows a detailed description of the detector class attributes and functi
 import numpy as np
 from xrd_simulator import utils
 import dill
-from scipy.signal import convolve
-
+from scipy.signal import convolve2d
+from multiprocessing import Pool
 
 class Detector():
 
@@ -95,7 +95,8 @@ class Detector():
             polarization=True,
             structure_factor=True,
             method="centroid",
-            verbose=True):
+            verbose=True,
+            number_of_processes=1):
         """Render a pixelated diffraction pattern onto the detector plane .
 
         NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
@@ -115,7 +116,8 @@ class Detector():
                 possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
                 region.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
-
+            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
+                computation. Defaults to 1, i.e a single processes.
         Returns:
             A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
             pixel size.
@@ -124,17 +126,47 @@ class Detector():
 
         """
 
+        if verbose and number_of_processes!=1:
+            raise NotImplemented('Verbose mode is not implemented for multiprocesses computations')
+
         if frames_to_render=='all':
             frames_to_render = list(range(len(self.frames)))
         elif isinstance(frames_to_render, int):
             frames_to_render = [frames_to_render]
 
-        rendered_frames = np.zeros( (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1], len(frames_to_render)) )
+        if method == 'project':
+            renderer = self._projection_render
+        elif method == 'centroid':
+            renderer = self._centroid_render
+        else:
+            raise ValueError('No such method: '+method+' exist, method should be one of project or centroid')
 
-        for i,frame_index in enumerate(frames_to_render):
+        kernel = self._get_point_spread_function_kernel()
 
+        if number_of_processes==1:
+            rendered_frames = self._render_and_convolve( (frames_to_render, kernel, renderer, lorentz, polarization, structure_factor, verbose) )
+        else:
+            args = []
+            for frames_bundle in np.array_split(np.array(frames_to_render), number_of_processes):
+                args.append( (frames_bundle, kernel, renderer, lorentz, polarization, structure_factor, verbose) )
+            with Pool(number_of_processes) as p: #TODO: better unit tests
+                nested_frame_bundles = p.map(self._render_and_convolve, args)
+            rendered_frames = []
+            for frames_bundle in nested_frame_bundles:
+                rendered_frames.extend(frames_bundle)
+        rendered_frames = np.array(rendered_frames)
+
+        if len(frames_to_render)==1:
+            return rendered_frames[0,:,:]
+        else:
+            return rendered_frames
+
+    def _render_and_convolve(self, args):
+        frames_bundle, kernel, renderer, lorentz, polarization, structure_factor, verbose = args
+        rendered_frames = []
+        for frame_index in frames_bundle:
+            frame = np.zeros( (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]) )
             for si, scattering_unit in enumerate(self.frames[frame_index]):
-
                 if verbose:
                     progress_bar_message = "Rendering " + \
                         str(len(self.frames[frame_index])) + " scattering volumes unto the detector"
@@ -143,27 +175,27 @@ class Detector():
                     utils._print_progress(
                         progress_fraction,
                         message=progress_bar_message)
+                renderer(scattering_unit, frame, lorentz, polarization, structure_factor)
+            frame = self._apply_point_spread_function( frame, kernel )
+            rendered_frames.append(frame)
+        return rendered_frames
 
-                if method == 'project':
-                    self._projection_render(
-                        scattering_unit, rendered_frames[:,:,i], lorentz, polarization, structure_factor)
-                elif method == 'centroid':
-                    self._centroid_render(
-                        scattering_unit,
-                        rendered_frames[:,:,i],
-                        lorentz,
-                        polarization,
-                        structure_factor)
+    def _apply_point_spread_function(self, frame, kernel):
+        """Apply the point spread function to a rendered pixelated frame by convolution.
 
-            if self.point_spread_function is not None:
-                kernel = self._get_point_spread_function_kernel()
-                rendered_frames[:,:,i] = convolve(rendered_frames[:,:,i], kernel, mode='same', method='direct')
+        np.inf values due to approximate lorentz factors are preserved but treated as zeros
+        during convolution.
 
-        if len(frames_to_render)==1:
-            return rendered_frames[:,:,0]
-        else:
-            return rendered_frames
+        """
+        if self.point_spread_function is not None:
+            infmask = np.isinf(frame) # Due to approximate Lorentz factors
+            frame[infmask] = 0
+            if not np.all(frame==0):
+                frame = convolve2d(frame, kernel, mode='same' )
+            frame[infmask] = np.inf
+        return frame
 
+    
     def get_intersection(self, ray_direction, source_point):
         """Get detector intersection in detector coordinates of a single ray originating from source_point.
 

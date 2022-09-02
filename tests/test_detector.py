@@ -110,9 +110,10 @@ class TestDetector(unittest.TestCase):
                                (2 * self.pixel_size_z)) + 2
         expected_y_pixel = int(self.detector_size /
                                (2 * self.pixel_size_y)) + 3
-        sz, sy = self.detector.point_spread_kernel_shape
-        active_det_part = diffraction_pattern[expected_z_pixel - sz//2:expected_z_pixel + sz//2 + 1,
-                                              expected_y_pixel - sy//2:expected_y_pixel + sy//2 + 1]
+
+        dy = self.detector._point_spread_kernel_shape[0]
+        dz = self.detector._point_spread_kernel_shape[1]
+        active_det_part = diffraction_pattern[expected_z_pixel-dy+1:expected_z_pixel+dy, expected_y_pixel-dz+1:expected_y_pixel+dz]
 
         self.assertAlmostEqual(np.sum(active_det_part),
                                ch1.volume,
@@ -125,6 +126,7 @@ class TestDetector(unittest.TestCase):
         # Try rendering with advanced intensity model
         diffraction_pattern = self.detector.render(
             frames_to_render=0, lorentz=True, polarization=False, structure_factor=False)
+        
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use lorentz factor")
@@ -197,6 +199,18 @@ class TestDetector(unittest.TestCase):
             polarization=False,
             structure_factor=False,
             method="project")
+
+        diffraction_pattern_parallel = self.detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="project",
+            number_of_processes=2,
+            verbose=False)
+
+        self.assertTrue(np.allclose(diffraction_pattern,diffraction_pattern_parallel),msg='parallel rendering is broken')
+
 
         projected_summed_intensity = np.sum(diffraction_pattern)
         relative_error = np.abs(
