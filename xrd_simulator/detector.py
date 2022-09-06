@@ -187,15 +187,12 @@ class Detector():
         during convolution.
 
         """
-        return frame
         if self.point_spread_function is not None:
-            print(np.sum( np.isinf(frame)))
             infmask = np.isinf(frame) # Due to approximate Lorentz factors
             frame[infmask] = 0
             if not np.all(frame==0):
                 frame = convolve2d(frame, kernel, mode='same' )
             frame[infmask] = np.inf
-            print(np.sum( np.isinf(frame)))
         return frame
 
     
