@@ -187,12 +187,15 @@ class Detector():
         during convolution.
 
         """
+        return frame
         if self.point_spread_function is not None:
+            print(np.sum( np.isinf(frame)))
             infmask = np.isinf(frame) # Due to approximate Lorentz factors
             frame[infmask] = 0
             if not np.all(frame==0):
                 frame = convolve2d(frame, kernel, mode='same' )
             frame[infmask] = np.inf
+            print(np.sum( np.isinf(frame)))
         return frame
 
     
@@ -363,7 +366,11 @@ class Detector():
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor)
             row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            frame[row, col] += scattering_unit.volume * intensity_scaling_factor
+            if np.isinf(intensity_scaling_factor):
+                frame[row, col] += np.inf
+            else:
+                frame[row, col] += scattering_unit.volume * intensity_scaling_factor
+            
 
     def _projection_render(
             self,
@@ -395,8 +402,11 @@ class Detector():
             else:
                 intensity_scaling_factor = self._get_intensity_factor(
                     scattering_unit, lorentz, polarization, structure_factor)
-                frame[box[0]:box[1], box[2]:box[3]] += projection * \
-                    intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
+                if np.isinf(intensity_scaling_factor):
+                    frame[box[0]:box[1], box[2]:box[3]] += np.inf
+                else:
+                    frame[box[0]:box[1], box[2]:box[3]] += projection * \
+                        intensity_scaling_factor * self.pixel_size_z * self.pixel_size_y
 
     def _get_intensity_factor(
             self,
@@ -446,6 +456,8 @@ class Detector():
 
         min_zd, max_zd = np.max([min_zd, 0]), np.min([max_zd, self.zmax])
         min_yd, max_yd = np.max([min_yd, 0]), np.min([max_yd, self.ymax])
+
+        
 
         if min_zd > max_zd or min_yd > max_yd:
             return None

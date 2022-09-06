@@ -10,6 +10,7 @@ import os
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
+        np.random.seed(10)
         self.pixel_size_z = 50.
         self.pixel_size_y = 40.
         self.detector_size = 10000.
@@ -355,7 +356,7 @@ class TestDetector(unittest.TestCase):
         for i in range(5):
             self.assertAlmostEqual(kernel[i,3], 0, msg="Point spread function must be intensity preserving.")
             self.assertAlmostEqual(kernel[i,4], 1./60., msg="Point spread function kernel does not match spread function")
-            self.assertAlmostEqual(kernel[i,5], 2./60., msg="Point spread function kernel does not match spread function")
+            self.assertAlmostEqual(kernel[i,5], 2./60., msg="Point spread fframeunction kernel does not match spread function")
             self.assertAlmostEqual(kernel[i,6], 3./60., msg="Point spread function kernel does not match spread function")
 
     def test_save_and_load(self):
@@ -371,6 +372,58 @@ class TestDetector(unittest.TestCase):
                                 1.0,
                                 msg='Data corrupted on save and load')
         os.remove(path+'.det')
+
+
+
+    def test_eta0_render(self):
+        v = self.detector.ydhat + self.detector.zdhat
+        v = v / np.linalg.norm(v)
+        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])*0.0000001 + \
+            v * np.sqrt(2) * self.detector_size / 2. + 0.001*self.detector.ydhat + 0.001*self.detector.zdhat# tetra at detector centre
+            # 
+        ch = ConvexHull(verts1)
+
+        wavelength = 1.0
+
+        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
+        scattered_wave_vector = 2 * np.pi * np.array([1, 0, 0.1]) / (np.sqrt(0.1*0.1 + 1.0)*wavelength)
+
+        data = os.path.join(
+            os.path.join(
+                os.path.dirname(__file__),
+                'data'),
+            'Fe_mp-150_conventional_standard.cif')
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m'  # Iron
+        phase = Phase(unit_cell, sgname, path_to_cif_file=data)
+        phase.setup_diffracting_planes(
+            wavelength, 0, 20 * np.pi / 180)
+
+        scattering_unit = ScatteringUnit(ch,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+
+        self.detector.frames.append([scattering_unit])
+
+        for method in ["project", "centroid"]:
+            diffraction_pattern = self.detector.render(
+                frames_to_render=0,
+                lorentz=True,
+                polarization=False,
+                structure_factor=False,
+                method=method)
+
+            self.assertTrue(np.sum(np.isinf(diffraction_pattern))==1)
+            self.assertTrue(np.sum(diffraction_pattern[~np.isinf(diffraction_pattern)])==0)
+
+
 
 if __name__ == '__main__':
     unittest.main()
