@@ -1,4 +1,5 @@
 from scipy.special import iv
+import numpy as np
 # Von Mises-Fisher orientation distribution function.
 # https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution
 def ODF(x, q):
