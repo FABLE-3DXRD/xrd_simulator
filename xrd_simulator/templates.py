@@ -138,7 +138,7 @@ def polycrystal_from_odf(orientation_density_function,
     More complicated ODFs are also possible to use. Why not use a von-Mises-Fisher distribution for instance:
 
     Examples:
-        .. literalinclude:: example_polycrystal_from_vmisesfisher_odf
+        .. literalinclude:: example_polycrystal_from_vmisesfisher_odf.py
 
     """
     # Sample topology
