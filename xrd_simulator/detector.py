@@ -195,7 +195,44 @@ class Detector():
             frame[infmask] = np.inf
         return frame
 
-    
+    def pixel_index_to_theta_eta(self, incoming_wavevector, pixel_zd_index, pixel_yd_index, scattering_origin=np.array([0, 0, 0]) ):
+        """Compute bragg angle and azimuth angle for a detector pixel index.
+
+        Args:
+            pixel_zd_index (:obj:`float`): Coordinate in microns along detector zd axis.
+            pixel_yd_index (:obj:`float`): Coordinate in microns along detector yd axis.
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
+
+        Returns:
+            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
+        """
+        # TODO: unit test
+        pixel_zd_coord = pixel_zd_index*self.pixel_size_z
+        pixel_yd_coord = pixel_yd_index*self.pixel_size_y
+        theta, eta = self.pixel_coord_to_theta_eta(incoming_wavevector, pixel_zd_coord, pixel_yd_coord, scattering_origin=np.array([0, 0, 0]) )
+        return theta, eta
+
+    def pixel_coord_to_theta_eta(self, incoming_wavevector, pixel_zd_coord, pixel_yd_coord, scattering_origin=np.array([0, 0, 0]) ):
+        """Compute bragg angle and azimuth angle  for a detector coordinate.
+
+        Args:
+            pixel_zd_coord (:obj:`float`): Coordinate in microns along detector zd axis.
+            pixel_yd_coord (:obj:`float`): Coordinate in microns along detector yd axis.
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
+
+        Returns:
+            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
+        """
+        # TODO: unit test
+        khat = incoming_wavevector / np.linalg.norm(incoming_wavevector)
+        kp = self.det_corner_0 + pixel_zd_coord*self.zdhat + pixel_yd_coord*self.ydhat - scattering_origin
+        kprimehat = kp / np.linalg.norm(kp)
+        theta = np.arccos(khat.dot(kprimehat)) / 2.
+        korthogonal = kprimehat - (khat * kprimehat.dot(khat))
+        eta  = np.arccos( self.zdhat.dot(korthogonal) / np.linalg.norm(korthogonal) )
+        eta *= np.sign(  (np.cross( self.zdhat, korthogonal )).dot(-incoming_wavevector) )
+        return theta, eta
+
     def get_intersection(self, ray_direction, source_point):
         """Get detector intersection in detector coordinates of a single ray originating from source_point.
 
