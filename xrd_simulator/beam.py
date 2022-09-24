@@ -45,7 +45,7 @@ class Beam():
             xray_propagation_direction,
             wavelength,
             polarization_vector):
-        
+
         self.wave_vector = (2 * np.pi / wavelength) * xray_propagation_direction / \
             np.linalg.norm(xray_propagation_direction)
         self.wavelength = wavelength
@@ -69,7 +69,7 @@ class Beam():
         self.halfspaces = ConvexHull(self.vertices, qhull_options='QJ').equations
 
         # ConvexHull triangulates, this removes hull triangles positioned the same plane
-        self.halfspaces = np.unique(self.halfspaces.round(decimals=6), axis=0) 
+        self.halfspaces = np.unique(self.halfspaces.round(decimals=6), axis=0)
 
 
     def contains(self, points):
@@ -108,7 +108,7 @@ class Beam():
             return ConvexHull(vertices) # Tetra completely contained by beam
 
         poly_halfspace = ConvexHull(vertices).equations
-        poly_halfspace = np.unique(poly_halfspace.round(decimals=6), axis=0) 
+        poly_halfspace = np.unique(poly_halfspace.round(decimals=6), axis=0)
         combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces))
 
         # Since _find_feasible_point() is expensive it is worth checking for if the polyhedra
@@ -125,7 +125,7 @@ class Beam():
                     interior_point = trial_points[i,:].flatten()
                     break
             else:
-                interior_point = self._find_feasible_point(combined_halfspaces, centroid)
+                interior_point = self._find_feasible_point(combined_halfspaces)
 
         if interior_point is not None:
             hs = HalfspaceIntersection(combined_halfspaces, interior_point)
@@ -163,7 +163,7 @@ class Beam():
         with open(path, 'rb') as f:
             return dill.load(f)
 
-    def _find_feasible_point(self, halfspaces, element_centroid):
+    def _find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
 
         Args:
@@ -181,9 +181,14 @@ class Beam():
             method  = 'highs',
             options = {"maxiter": 5000, 'time_limit':0.1} # typical solve time is ~1-2 ms
             )
-        if res.success: 
-            trial = res.x - (element_centroid-res.x)*0.999
-            if np.all( (halfspaces[:, :-1].dot(trial) + halfspaces[:, -1]) < -1e8 ): 
+        if res.success:
+            if np.any(res.slack==0):
+                A     =  halfspaces[res.slack==0, :-1]
+                dx    = np.linalg.solve(A.T.dot(A), A.T.dot( -np.ones((A.shape[0],))*1e-5 ) )
+                trial = res.x + dx
+            else:
+                trial = res.x
+            if np.all( (halfspaces[:, :-1].dot(trial) + halfspaces[:, -1]) < -1e-8 ):
                 return trial
             else:
                 return None
@@ -224,7 +229,7 @@ class Beam():
         not_candidates = np.zeros((len(sample_times), R.shape[1]), dtype=bool)
         for i,time in enumerate(sample_times):
             halfspaces = ConvexHull( inverse_rigid_body_motion( self.vertices.T, time=time ).T ).equations
-            halfspaces = np.unique(halfspaces.round(decimals=6), axis=0) 
+            halfspaces = np.unique(halfspaces.round(decimals=6), axis=0)
             normals    = halfspaces[:, 0:3]
             distances  = halfspaces[:, 3].reshape(normals.shape[0],1)
             sphere_beam_distances  = normals.dot(sphere_centres.T) + distances

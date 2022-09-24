@@ -76,6 +76,24 @@ class TestBeam(unittest.TestCase):
         ch = self.beam.intersect(vertices)
         self.assertTrue(ch is None)
 
+    def test__find_feasible_point(self):
+        # Corner case when the presolver will find edge interior points that are not clearly inside the 
+        # intersection hull.
+        voxel_verts = np.array([
+            [-1., 0., 0.],
+            [-1., 10., 0.],
+            [-1., 0., 10.],
+            [-1., 10., 10.],
+            [1., 0., 0.],
+            [1., 10., 0.],
+            [1., 0., 10.],
+            [1., 10., 10.]])
+        poly_halfspace = ConvexHull(voxel_verts).equations
+        poly_halfspace = np.unique(poly_halfspace.round(decimals=6), axis=0)
+        combined_halfspaces = np.vstack((poly_halfspace, self.beam.halfspaces))
+        point = self.beam._find_feasible_point(combined_halfspaces)
+        self.assertTrue(point is not None)
+
     def test__get_proximity_intervals(self):
 
         self.beam_vertices = np.array([
@@ -184,6 +202,7 @@ class TestBeam(unittest.TestCase):
         mask = np.sum(mask, axis=0)>0
         self.assertTrue( np.allclose(mask[0:9], True) )
         self.assertTrue( np.allclose(mask[9], False) )
+
 
 
 if __name__ == '__main__':
