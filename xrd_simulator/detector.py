@@ -136,12 +136,15 @@ class Detector():
 
         if method == 'project':
             renderer = self._projection_render
+            kernel = self._get_point_spread_function_kernel()
         elif method == 'centroid':
             renderer = self._centroid_render
+            kernel = self._get_point_spread_function_kernel()
+        elif method == 'centroid_with_scintilator':
+            renderer = self._centroid_render_with_scintilator
+            kernel = None
         else:
             raise ValueError('No such method: '+method+' exist, method should be one of project or centroid')
-
-        kernel = self._get_point_spread_function_kernel()
 
         if number_of_processes==1:
             rendered_frames = self._render_and_convolve( (frames_to_render, kernel, renderer, lorentz, polarization, structure_factor, verbose) )
@@ -176,7 +179,7 @@ class Detector():
                         progress_fraction,
                         message=progress_bar_message)
                 renderer(scattering_unit, frame, lorentz, polarization, structure_factor)
-            frame = self._apply_point_spread_function( frame, kernel )
+            if kernel is not None: frame = self._apply_point_spread_function( frame, kernel )
             rendered_frames.append(frame)
         return rendered_frames
 
@@ -404,7 +407,47 @@ class Detector():
                 frame[row, col] += np.inf
             else:
                 frame[row, col] += scattering_unit.volume * intensity_scaling_factor
-            
+
+    def _centroid_render_with_scintilator(
+            self,
+            scattering_unit,
+            frame,
+            lorentz,
+            polarization,
+            structure_factor):
+        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
+        sample scattering region centroid to the detector plane. The intensity is deposited by placing the detector
+        point spread function at the hit location and rendering it unto the detector grid.
+
+        NOTE: this is different from self._centroid_render which applies the point spread function as a post-proccessing
+        step using convolution. Here the point spread is simulated to take place in the scintilator, before reaching the
+        chip.
+        """
+        zd, yd = self.get_intersection(
+            scattering_unit.scattered_wave_vector, scattering_unit.centroid)
+        if self.contains(zd, yd):
+            intensity_scaling_factor = self._get_intensity_factor(
+                scattering_unit, lorentz, polarization, structure_factor)
+
+            a, b = self.point_spread_kernel_shape
+            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
+            zd_in_pixels = zd / self.pixel_size_z
+            yd_in_pixels = yd / self.pixel_size_y
+            rl, rh = row - a//2 - 1, row + a//2 + 1
+            cl, ch = col - b//2 - 1, col + b//2 + 1
+            rl, rh = np.max([rl, 0]), np.min([rh, self.pixel_coordinates.shape[0]-1])
+            cl, ch = np.max([cl, 0]), np.min([ch, self.pixel_coordinates.shape[1]-1])
+            zg = np.linspace(rl, rh, rh-rl+1 )
+            yg = np.linspace(cl, ch, ch-cl+1 )
+            Z, Y = np.meshgrid(zg, yg, indexing='ij')
+            drifted_kernel = self.point_spread_function(Z-zd_in_pixels, Y-yd_in_pixels)
+            drifted_kernel = drifted_kernel / np.sum(drifted_kernel)
+
+            if np.isinf(intensity_scaling_factor):
+                frame[rl:rh+1, cl:ch+1] = np.inf
+            else:
+                frame[rl:rh+1, cl:ch+1] += scattering_unit.volume * intensity_scaling_factor * drifted_kernel
+
 
     def _projection_render(
             self,
