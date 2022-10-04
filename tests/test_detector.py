@@ -144,6 +144,186 @@ class TestDetector(unittest.TestCase):
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use structure_factor factor")
 
+
+    def test_centroid_render_with_scintilator(self):
+        v = self.detector.ydhat + self.detector.zdhat
+        v = v / np.linalg.norm(v)
+        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
+            v * np.sqrt(2) * self.detector_size / 2. # tetra at detector center
+        ch1 = ConvexHull(verts1)
+        verts2 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + 2 * \
+            v * np.sqrt(2) * self.detector_size  # tetra out of detector bounds
+        ch2 = ConvexHull(verts2)
+        wavelength = 1.0
+
+        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
+        scattered_wave_vector = self.det_corner_0 + self.pixel_size_y * 3 * \
+            self.detector.ydhat + self.pixel_size_z * 2 * self.detector.zdhat
+        scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
+            (np.linalg.norm(scattered_wave_vector) * wavelength)
+
+        data = os.path.join(
+            os.path.join(
+                os.path.dirname(__file__),
+                'data'),
+            'Fe_mp-150_conventional_standard.cif')
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = 'Fm-3m'  # Iron
+        phase = Phase(unit_cell, sgname, path_to_cif_file=data)
+        phase.setup_diffracting_planes(
+            wavelength, 0, 20 * np.pi / 180)
+
+        scattering_unit1 = ScatteringUnit(ch1,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+        scattering_unit2 = ScatteringUnit(ch2,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+
+        self.detector.frames.append([scattering_unit1, scattering_unit2])
+        self.detector.point_spread_kernel_shape = (3,3)
+        diffraction_pattern = self.detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="centroid_with_scintilator")
+
+        v = self.detector.ydhat + self.detector.zdhat
+        v = v / np.linalg.norm(v)
+        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
+            v * np.sqrt(2) * self.detector_size / 2.  + self.pixel_size_z*0.1 # tetra at detector center perturbed
+        ch1 = ConvexHull(verts1)
+        scattering_unit1 = ScatteringUnit(ch1,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+        self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
+        diffraction_pattern_2 = self.detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="centroid_with_scintilator")
+
+
+
+        v = self.detector.ydhat + self.detector.zdhat
+        v = v / np.linalg.norm(v)
+        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) - np.array([0, 1.5, 2.0 ])*self.pixel_size_z
+        ch1 = ConvexHull(verts1)
+        scattering_unit1 = ScatteringUnit(ch1,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+        self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
+        diffraction_pattern_3 = self.detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="centroid_with_scintilator")
+
+
+        v = self.detector.ydhat + self.detector.zdhat
+        v = v / np.linalg.norm(v)
+        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + np.array([0, 246*self.pixel_size_y, 196   *self.pixel_size_z ])
+        ch1 = ConvexHull(verts1)
+        scattering_unit1 = ScatteringUnit(ch1,
+                               scattered_wave_vector=scattered_wave_vector,
+                               incident_wave_vector=incident_wave_vector,
+                               wavelength=wavelength,
+                               incident_polarization_vector=np.array([0, 1, 0]),
+                               rotation_axis=np.array([0, 0, 1]),
+                               time=0,
+                               phase=phase,
+                               hkl_indx=0,
+                               element_index=0)
+        self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
+        diffraction_pattern_3 = self.detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="centroid_with_scintilator")
+
+
+        pixels = diffraction_pattern[diffraction_pattern!=0]
+        self.assertEqual( len(pixels.flatten()), (self.detector.point_spread_kernel_shape[0]+2)*(self.detector.point_spread_kernel_shape[1]+2) )
+
+        # the sample sits at the centre of the detector.
+        expected_z_pixel = int(self.detector_size /
+                               (2 * self.pixel_size_z)) + 2
+        expected_y_pixel = int(self.detector_size /
+                               (2 * self.pixel_size_y)) + 3
+        self.assertNotEqual( diffraction_pattern[expected_z_pixel, expected_y_pixel], diffraction_pattern_2[expected_z_pixel, expected_y_pixel])
+
+        self.assertEqual( np.max(diffraction_pattern), diffraction_pattern[expected_z_pixel, expected_y_pixel] )
+
+        self.assertEqual( np.max(diffraction_pattern), diffraction_pattern[expected_z_pixel, expected_y_pixel] )
+
+        self.assertEqual( np.max(diffraction_pattern), diffraction_pattern[expected_z_pixel, expected_y_pixel] )
+
+        dy = self.detector._point_spread_kernel_shape[0]
+        dz = self.detector._point_spread_kernel_shape[1]
+        active_det_part = diffraction_pattern[expected_z_pixel-dy+1:expected_z_pixel+dy, expected_y_pixel-dz+1:expected_y_pixel+dz]
+
+        self.assertAlmostEqual(np.sum(active_det_part),
+                               ch1.volume,
+                               msg="detector rendering did not capture scattering_unit")
+        self.assertAlmostEqual(
+            np.sum(diffraction_pattern),
+            ch1.volume,
+            msg="detector rendering captured out of bounds scattering_unit")
+
+        # Try rendering with advanced intensity model
+        diffraction_pattern = self.detector.render(
+            frames_to_render=0, lorentz=True, polarization=False, structure_factor=False, method="centroid_with_scintilator")
+
+        self.assertTrue(diffraction_pattern[expected_z_pixel,
+                                            expected_y_pixel] != ch1.volume,
+                        msg="detector rendering did not use lorentz factor")
+
+        diffraction_pattern = self.detector.render(
+            frames_to_render=0, lorentz=False, polarization=True, structure_factor=False, method="centroid_with_scintilator")
+        self.assertTrue(diffraction_pattern[expected_z_pixel,
+                                            expected_y_pixel] != ch1.volume,
+                        msg="detector rendering did not use polarization factor")
+
+        diffraction_pattern = self.detector.render(
+            frames_to_render=0, lorentz=False, polarization=False, structure_factor=True, method="centroid_with_scintilator")
+        self.assertTrue(diffraction_pattern[expected_z_pixel,
+                                            expected_y_pixel] != ch1.volume,
+                        msg="detector rendering did not use structure_factor factor")
+        self.detector.point_spread_kernel_shape = (5,5)
+
+
     def test_projection_render(self):
 
         # Convex hull of a sphere placed at the centre of the detector
