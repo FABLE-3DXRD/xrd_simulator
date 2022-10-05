@@ -145,7 +145,7 @@ class TestDetector(unittest.TestCase):
                         msg="detector rendering did not use structure_factor factor")
 
 
-    def test_centroid_render_with_scintilator(self):
+    def test_centroid_render_with_scintillator(self):
         v = self.detector.ydhat + self.detector.zdhat
         v = v / np.linalg.norm(v)
         verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
@@ -201,7 +201,7 @@ class TestDetector(unittest.TestCase):
             lorentz=False,
             polarization=False,
             structure_factor=False,
-            method="centroid_with_scintilator")
+            method="centroid_with_scintillator")
 
         v = self.detector.ydhat + self.detector.zdhat
         v = v / np.linalg.norm(v)
@@ -224,7 +224,7 @@ class TestDetector(unittest.TestCase):
             lorentz=False,
             polarization=False,
             structure_factor=False,
-            method="centroid_with_scintilator")
+            method="centroid_with_scintillator")
 
 
 
@@ -248,7 +248,7 @@ class TestDetector(unittest.TestCase):
             lorentz=False,
             polarization=False,
             structure_factor=False,
-            method="centroid_with_scintilator")
+            method="centroid_with_scintillator")
 
 
         v = self.detector.ydhat + self.detector.zdhat
@@ -271,7 +271,7 @@ class TestDetector(unittest.TestCase):
             lorentz=False,
             polarization=False,
             structure_factor=False,
-            method="centroid_with_scintilator")
+            method="centroid_with_scintillator")
 
 
         pixels = diffraction_pattern[diffraction_pattern!=0]
@@ -304,20 +304,20 @@ class TestDetector(unittest.TestCase):
 
         # Try rendering with advanced intensity model
         diffraction_pattern = self.detector.render(
-            frames_to_render=0, lorentz=True, polarization=False, structure_factor=False, method="centroid_with_scintilator")
+            frames_to_render=0, lorentz=True, polarization=False, structure_factor=False, method="centroid_with_scintillator")
 
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use lorentz factor")
 
         diffraction_pattern = self.detector.render(
-            frames_to_render=0, lorentz=False, polarization=True, structure_factor=False, method="centroid_with_scintilator")
+            frames_to_render=0, lorentz=False, polarization=True, structure_factor=False, method="centroid_with_scintillator")
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use polarization factor")
 
         diffraction_pattern = self.detector.render(
-            frames_to_render=0, lorentz=False, polarization=False, structure_factor=True, method="centroid_with_scintilator")
+            frames_to_render=0, lorentz=False, polarization=False, structure_factor=True, method="centroid_with_scintillator")
         self.assertTrue(diffraction_pattern[expected_z_pixel,
                                             expected_y_pixel] != ch1.volume,
                         msg="detector rendering did not use structure_factor factor")
