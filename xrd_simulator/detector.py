@@ -108,13 +108,14 @@ class Detector():
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
             structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
-            method (:obj:`str`): Rendering method, must be one of ```project``` or ```centroid```. Defaults to ```centroid```.
-                The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit onto the detector by
-                tracing a line from the sample scattering region centroid to the detector plane. The intensity is deposited
-                into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
+            method (:obj:`str`): Rendering method, must be one of ```project``` , ```centroid``` or ```centroid_with_scintillator```. 
+                Defaults to ```centroid```. The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit
+                onto the detector by tracing a line from the sample scattering region centroid to the detector plane. The intensity 
+                is deposited into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
                 ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
                 possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
-                region.
+                region. If ```method=centroid_with_scintillator`` a centroid type raytracing is used, but the scintillator
+                point spread is applied before deposition unto the pixel grid, revealing sub pixel shifts in the scattering events.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
             number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
                 computation. Defaults to 1, i.e a single processes.
@@ -140,8 +141,8 @@ class Detector():
         elif method == 'centroid':
             renderer = self._centroid_render
             kernel = self._get_point_spread_function_kernel()
-        elif method == 'centroid_with_scintilator':
-            renderer = self._centroid_render_with_scintilator
+        elif method == 'centroid_with_scintillator':
+            renderer = self._centroid_render_with_scintillator
             kernel = None
         else:
             raise ValueError('No such method: '+method+' exist, method should be one of project or centroid')
@@ -408,7 +409,7 @@ class Detector():
             else:
                 frame[row, col] += scattering_unit.volume * intensity_scaling_factor
 
-    def _centroid_render_with_scintilator(
+    def _centroid_render_with_scintillator(
             self,
             scattering_unit,
             frame,
@@ -420,7 +421,7 @@ class Detector():
         point spread function at the hit location and rendering it unto the detector grid.
 
         NOTE: this is different from self._centroid_render which applies the point spread function as a post-proccessing
-        step using convolution. Here the point spread is simulated to take place in the scintilator, before reaching the
+        step using convolution. Here the point spread is simulated to take place in the scintillator, before reaching the
         chip.
         """
         zd, yd = self.get_intersection(
@@ -437,8 +438,8 @@ class Detector():
             cl, ch = col - b//2 - 1, col + b//2 + 1
             rl, rh = np.max([rl, 0]), np.min([rh, self.pixel_coordinates.shape[0]-1])
             cl, ch = np.max([cl, 0]), np.min([ch, self.pixel_coordinates.shape[1]-1])
-            zg = np.linspace(rl, rh, rh-rl+1 )
-            yg = np.linspace(cl, ch, ch-cl+1 )
+            zg = np.linspace(rl, rh, rh-rl+1 ) + 0.5 # pixel centre coordinates in z
+            yg = np.linspace(cl, ch, ch-cl+1 ) + 0.5 # pixel centre coordinates in y
             Z, Y = np.meshgrid(zg, yg, indexing='ij')
             drifted_kernel = self.point_spread_function(Z-zd_in_pixels, Y-yd_in_pixels)
             drifted_kernel = drifted_kernel / np.sum(drifted_kernel)
