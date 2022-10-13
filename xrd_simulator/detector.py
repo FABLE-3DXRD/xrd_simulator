@@ -61,6 +61,7 @@ class Detector():
         self.zdhat = (det_corner_2 - det_corner_0) / self.zmax
         self.ydhat = (det_corner_1 - det_corner_0) / self.ymax
         self.normal = np.cross(self.zdhat, self.ydhat)
+        self.normal = self.normal / np.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
 
