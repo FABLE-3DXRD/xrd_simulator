@@ -121,5 +121,33 @@ class TestBeam(unittest.TestCase):
         for i in range(3):
             self.assertLessEqual(np.abs(c1[i]-c2[i]), tol)
 
+    def test_translate(self):
+        R = 769.0
+        max_cell_circumradius = 450.
+        mesh = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.sqrt( (x[0] - 2.0)**2 + (x[1] - 1.0)**2  + (x[2] + 1.4)**2 ) - R,
+            bounding_radius=769.0,
+            max_cell_circumradius=max_cell_circumradius)
+
+        mesh.translate( -np.mean(mesh.coord, axis=0) )
+        for i in range(3):
+            self.assertLessEqual(np.abs(np.mean(mesh.coord, axis=0)[i]), 1e-4)
+
+    def test_rotate(self):
+        R = 769.0
+        max_cell_circumradius = 450.
+        mesh = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.sqrt( (x[0] - 2.0)**2 + (x[1] - 1.0)**2  + (x[2] + 1.4)**2 ) - R,
+            bounding_radius=769.0,
+            max_cell_circumradius=max_cell_circumradius)
+
+        mesh.translate( -np.mean(mesh.coord, axis=0) )
+        for i in range(3):
+            self.assertLessEqual(np.abs(np.mean(mesh.coord, axis=0)[i]), 1e-4)
+
+        mesh.rotate( np.array([0, 1, 0]), np.pi / 3. )
+        for i in range(3):
+            self.assertLessEqual(np.abs(np.mean(mesh.coord, axis=0)[i]), 1e-4)
+
 if __name__ == '__main__':
     unittest.main()
