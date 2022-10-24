@@ -19,6 +19,7 @@ import numpy as np
 import pygalmesh
 import meshio
 from xrd_simulator import utils
+from xrd_simulator import motion
 
 
 class TetraMesh(object):
@@ -109,6 +110,30 @@ class TetraMesh(object):
             verbose=False)
 
         return cls._build_tetramesh(mesh)
+
+    def translate(self, translation_vector):
+        """Translate the mesh.
+
+        Args:
+            translation_vector (:obj:`numpy.array`): [x,y,z] translation vector, shape=(3,)
+
+        """
+        self._mesh.points += translation_vector
+        self.coord = np.array(self._mesh.points)
+        self.ecentroids += translation_vector
+        self.espherecentroids += translation_vector
+        self.centroid += translation_vector
+
+    def rotate(self, rotation_axis, angle):
+        """Rotate the mesh.
+
+        Args:
+            rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
+            rotation_angle (:obj:`float`): Radians for rotation.
+
+        """
+        rbm = motion.RigidBodyMotion(rotation_axis, angle, np.array([0, 0, 0]))
+        self.update(rbm, time=1)
 
     def update(self, rigid_body_motion, time):
         """Apply a rigid body motion transformation to the mesh.
