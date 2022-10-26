@@ -2,7 +2,7 @@ import numpy as np
 from xfab import tools
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
-from xrd_simulator import laue
+from xrd_simulator import laue, utils
 from xrd_simulator.motion import _RodriguezRotator
 
 """Simple simulation of 50 random quartz grains in powder diffraction style only using laue.py
@@ -14,7 +14,7 @@ np.random.seed(5)
 U = np.eye(3, 3)
 strain_tensor = np.zeros((6,))
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
-B = tools.epsilon_to_b(strain_tensor, unit_cell)
+B = utils._epsilon_to_b(strain_tensor, unit_cell)
 wavelength = 0.285227
 D = 142938.28756189224  # microns
 detector = np.zeros((1024, 1024))

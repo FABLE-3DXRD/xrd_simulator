@@ -37,10 +37,8 @@ class TestUtils(unittest.TestCase):
                 msg="Tilted projection through unity cube should give greater than unity clip length")
 
     def test_lab_strain_to_B_matrix(self):
-
         U = Rotation.random().as_matrix()
-        strain_tensor = (np.random.rand(3, 3) - 0.5) / \
-            100.  # random small strain tensor
+        strain_tensor = (np.random.rand(3, 3) - 0.5) * 1e-2  # random strain tensor
         strain_tensor = (strain_tensor.T + strain_tensor) / 2.
         unit_cell = [5.028, 5.028, 5.519, 90., 90., 120.]
         B = utils.lab_strain_to_B_matrix(strain_tensor, U, unit_cell)
@@ -51,7 +49,7 @@ class TestUtils(unittest.TestCase):
 
         # strain along n_l described in lab frame
         strain_l = np.dot(np.dot(n_l, strain_tensor), n_l)
-        s = tools.b_to_epsilon(B, unit_cell)
+        s = utils._b_to_epsilon(B, unit_cell)
         crystal_strain = np.array(
             [[s[0], s[1], s[2]], [s[1], s[3], s[4]], [s[2], s[4], s[5]]])
 
@@ -135,6 +133,30 @@ class TestUtils(unittest.TestCase):
             0.9,
             msg="Averag radius decrease less than 10%")
 
+    def test_epsilon_to_b(self):
+        unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
+        eps1 = 25 * 1e-4 * (np.random.rand(6,)-0.5)
+        B = utils._epsilon_to_b(eps1, unit_cell)
+        eps2 = utils._b_to_epsilon(B, unit_cell)
+        self.assertTrue( np.allclose( eps1, eps2 ) )
+
+    def test_get_misorientations(self):
+        orientations = np.zeros((2, 3, 3))
+        orientations[0,:,:] = np.eye(3)
+        c,s = np.cos(np.radians(10)), np.sin(np.radians(10))
+        orientations[1,:,:] = np.array([[c, -s, 0],[s, c, 0], [0, 0, 1]])
+        misorientations = utils.get_misorientations(orientations)
+        self.assertEqual( misorientations.shape[0], 2 )
+        self.assertAlmostEqual( misorientations[0], np.radians(5.0))
+        self.assertAlmostEqual( misorientations[1], np.radians(5.0))
+
+        orientations = np.zeros((2, 3, 3))
+        orientations[0,:,:] = np.eye(3)
+        orientations[1,:,:] = np.eye(3)
+        misorientations = utils.get_misorientations(orientations)
+        self.assertEqual( misorientations.shape[0], 2 )
+        self.assertAlmostEqual( misorientations[0], 0 )
+        self.assertAlmostEqual( misorientations[1], 0 )
 
 if __name__ == '__main__':
     unittest.main()
