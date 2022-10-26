@@ -21,8 +21,8 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
-        conda create -n xrd_simulator python=3.8
-        conda activate xrd_simulator
+        conda install python=3.8
+        conda install -c conda-forge netcdf4=1.6.1
         conda install -c conda-forge xrd_simulator
     - name: Lint with flake8
       run: |
