@@ -21,13 +21,10 @@
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?
+.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/version.svg?
 	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 .. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?
-	:target: https://anaconda.org/conda-forge/xrd_simulator/
-
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
 	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 ===================================================================================================
