@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from xfab import tools
-from xrd_simulator import laue
+from xrd_simulator import laue, utils
 
 
 class TestLaue(unittest.TestCase):
@@ -99,7 +99,7 @@ class TestLaue(unittest.TestCase):
             90.,
             90.,
             90.]
-        B = tools.epsilon_to_b(strain_tensor, unit_cell)
+        B = utils._epsilon_to_b(strain_tensor, unit_cell)
         return U, B, unit_cell, strain_tensor
 
     def get_pseudorandom_wavelength(self):

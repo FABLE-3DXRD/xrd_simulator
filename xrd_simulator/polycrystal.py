@@ -127,8 +127,8 @@ class Polycrystal():
         orientation (:obj:`numpy array`): Per element orientation matrices (sometimes known by the capital letter U),
             (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is the same for all elements. The orientation
             matrix maps from crystal coordinates to sample coordinates.
-        strain (:obj:`numpy array`): Per element strain tensor, in lab coordinates, (``shape=(N,3,3)``) or (``shape=(3,3)``)
-            if the strain is the same for all elements elements.
+        strain (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor, in lab coordinates, (``shape=(N,3,3)``)
+            or (``shape=(3,3)``) if the strain is the same for all elements elements.
         phases (:obj:`xrd_simulator.phase.Phase` or :obj:`list` of :obj:`xrd_simulator.phase.Phase`): Phase of the
             polycrystal, or for multiphase samples, a list of all phases present in the polycrystal.
         element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
@@ -144,9 +144,9 @@ class Polycrystal():
             system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
         orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
             coordinate system.,  this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_lab (:obj:`numpy array`): Per element strain tensor in a fixed lab frame coordinate
+        strain_lab (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a fixed lab frame coordinate
             system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_sample (:obj:`numpy array`): Per element strain tensor in a sample coordinate
+        strain_sample (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a sample coordinate
             system., this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
         phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
         element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
@@ -303,7 +303,7 @@ class Polycrystal():
             save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycrystal mesh with associated
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
                 The results can be vizualised with for instance paraview (https://www.paraview.org/).
-                The resulting data fields of the mesh data are the 6 unique components of the small strain 
+                The resulting data fields of the mesh data are the 6 unique components of the strain
                 tensor (in sample coordinates) and the 3 Bunge Euler angles (Bunge, H. J. (1982). Texture
                 Analysis in Materials Science. London: Butterworths.). Additionally a single field specifying
                 the material phases of the sample will be saved.
@@ -319,20 +319,27 @@ class Polycrystal():
             dill.dump(self, f, dill.HIGHEST_PROTOCOL)
         if save_mesh_as_xdmf:
             element_data = {}
-            element_data['Small Strain Tensor Component xx'] = self.strain_sample[:, 0, 0]
-            element_data['Small Strain Tensor Component yy'] = self.strain_sample[:, 1, 1]
-            element_data['Small Strain Tensor Component zz'] = self.strain_sample[:, 2, 2]
-            element_data['Small Strain Tensor Component xy'] = self.strain_sample[:, 0, 1]
-            element_data['Small Strain Tensor Component xz'] = self.strain_sample[:, 0, 2]
-            element_data['Small Strain Tensor Component yz'] = self.strain_sample[:, 1, 2]
-            element_data['Bunge Euler Angle phi_1'] = []
-            element_data['Bunge Euler Angle Phi'] = []
-            element_data['Bunge Euler Angle phi_2'] = []
-            for U in self.orientation_sample:
+            element_data['Strain Tensor Component xx'] = self.strain_sample[:, 0, 0]
+            element_data['Strain Tensor Component yy'] = self.strain_sample[:, 1, 1]
+            element_data['Strain Tensor Component zz'] = self.strain_sample[:, 2, 2]
+            element_data['Strain Tensor Component xy'] = self.strain_sample[:, 0, 1]
+            element_data['Strain Tensor Component xz'] = self.strain_sample[:, 0, 2]
+            element_data['Strain Tensor Component yz'] = self.strain_sample[:, 1, 2]
+            element_data['Bunge Euler Angle phi_1 [degrees]'] = []
+            element_data['Bunge Euler Angle Phi [degrees]'] = []
+            element_data['Bunge Euler Angle phi_2 [degrees]'] = []
+            element_data['Misorientation from mean orientation [degrees]'] = []
+
+            misorientations = utils.get_misorientations(self.orientation_sample)
+
+            for U, misorientation in zip(self.orientation_sample, misorientations):
                 phi_1, PHI, phi_2 = tools.u_to_euler(U)
-                element_data['Bunge Euler Angle phi_1'].append(phi_1)
-                element_data['Bunge Euler Angle Phi'].append(PHI)
-                element_data['Bunge Euler Angle phi_2'].append(phi_2)
+                element_data['Bunge Euler Angle phi_1 [degrees]'].append(np.degrees(phi_1))
+                element_data['Bunge Euler Angle Phi [degrees]'].append(np.degrees(PHI))
+                element_data['Bunge Euler Angle phi_2 [degrees]'].append(np.degrees(phi_2))
+
+                element_data['Misorientation from mean orientation [degrees]'].append(np.degrees(misorientation))
+
             element_data['Material Phase Index'] = self.element_phase_map
             self.mesh_sample.save(xdmf_path, element_data=element_data)
 

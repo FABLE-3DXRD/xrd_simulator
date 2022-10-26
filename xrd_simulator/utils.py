@@ -7,6 +7,7 @@ from numba import njit
 from xfab import tools
 from CifFile import ReadCif
 from itertools import combinations
+from scipy.spatial.transform import Rotation
 
 
 def _diffractogram(
@@ -181,7 +182,7 @@ def lab_strain_to_B_matrix(
     crystal_strain = np.dot(
         crystal_orientation.T, np.dot(
             strain_tensor, crystal_orientation))
-    lattice_matrix = tools.epsilon_to_b([crystal_strain[0, 0],
+    lattice_matrix = _epsilon_to_b([crystal_strain[0, 0],
                                          crystal_strain[0, 1],
                                          crystal_strain[0, 2],
                                          crystal_strain[1, 1],
@@ -268,3 +269,51 @@ class _verbose_manager(object):
     def __exit__(self, type, value, traceback):
         if self.verbose:
             _set_xfab_logging(disabled=True)
+
+def _strain_as_tensor(strain_vector):
+    e11, e12, e13, e22, e23, e33 = strain_vector
+    return np.asarray([ [e11, e12, e13],
+                        [e12, e22, e23],
+                        [e13, e23, e33] ], np.float64)
+
+def _strain_as_vector(strain_tensor):
+    return list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
+
+def _b_to_epsilon(B_matrix, unit_cell):
+    """Handle large deformations as opposed to current xfab.tools.b_to_epsilon
+    """
+    B = np.asarray(B_matrix, np.float64)
+    B0 = tools.form_b_mat(unit_cell)
+    F = np.dot(B0, np.linalg.inv(B))
+    strain_tensor = 0.5*(F.T.dot(F) - np.eye(3))  # large deformations
+    return _strain_as_vector(strain_tensor)
+
+def _epsilon_to_b(epsilon, unit_cell):
+    """Handle large deformations as opposed to current xfab.tools.epsilon_to_b
+    """
+    strain_tensor = _strain_as_tensor(epsilon)
+    C = 2*strain_tensor + np.eye(3, dtype=np.float64)
+    eigen_vals = np.linalg.eigvalsh(C)
+    if np.any( np.array(eigen_vals) < 0 ):
+        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(strain_tensor))+ \
+            ", will invert the unit cell with negative deformation gradient tensor determinant" )
+    F = np.linalg.cholesky(C).T
+    B0 = tools.form_b_mat(unit_cell)
+    B = np.linalg.inv(F).dot(B0)
+    return B
+
+def get_misorientations(orientations):
+    """Compute the minimal angles neccessary to rotate a series of SO3 elements back into their mean orientation.
+
+    Args:
+        orientations (:obj: `numpy.array`): Orientation matrices, shape=(N,3,3)
+
+    Returns:
+        (:obj: `numpy.array`): misorientations in units of radians, shape=(N,)
+    """
+    mean_orientation = Rotation.mean(Rotation.from_matrix(orientations)).as_matrix()
+    misorientations = np.zeros((orientations.shape[0],))
+    for i, U in enumerate(orientations):
+        difference_rotation = Rotation.from_matrix(U.dot(mean_orientation.T))
+        misorientations[i] = Rotation.magnitude(difference_rotation)
+    return misorientations
