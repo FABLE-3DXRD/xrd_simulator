@@ -26,7 +26,7 @@ jobs:
       run: |
         python --version
         conda install python=3.8
-        conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab netcdf4 h5py
+        conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab netcdf4=1.6.1 h5py
         python -m pip install .
     - name: Lint with flake8
       run: |
