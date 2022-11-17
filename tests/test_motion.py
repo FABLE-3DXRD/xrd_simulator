@@ -5,7 +5,7 @@ import numpy as np
 from xrd_simulator.motion import RigidBodyMotion
 
 
-class TestPhase(unittest.TestCase):
+class TestMotion(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(1)
@@ -91,8 +91,9 @@ class TestPhase(unittest.TestCase):
         rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
         rotation_angle = np.random.rand() * np.pi
         translation = np.random.rand(3,)
+        origin = np.array([1.23,-1234,3.1])
 
-        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin)
         inverse_motion = motion.inverse()
 
         self.assertTrue( inverse_motion!=motion )
@@ -109,6 +110,49 @@ class TestPhase(unittest.TestCase):
             for j in range(points.shape[1]):
                 self.assertAlmostEqual( points_0[i,j], points[i,j] )
 
+    def test_origin(self):
+        # TODO: implement
+        rotation_axis = np.array([1., 0, 0])
+        rotation_angle = np.pi / 2.
+        translation = np.array([1., 0, 0])
+        origin = np.array([0, 1, 0])
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin)
+
+        y = np.array([0, 1, 0])
+        v = motion(y, time=1)
+
+        self.assertAlmostEqual(np.linalg.norm(
+            v - np.array([1, 1, 0])), 0, msg='Error in rigid body transformation')
+
+        rotation_axis = np.array([1., 0, 0])
+        rotation_angle = np.pi / 2.
+        translation = np.random.rand(3,)
+        origin = np.array([0, 0, 1])
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin)
+
+        z = motion.rotate(np.array([0, 1, 0]), time=1)
+
+        self.assertAlmostEqual(np.linalg.norm(
+            z - np.array([0, 1, 2])), 0, msg='Error in rotator')
+
+
+        rotation_axis = np.random.rand(3,)
+        rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
+        rotation_angle = np.random.rand(1,)
+        translation = np.random.rand(3,) - 0.5
+        motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin = np.array([1.2, -1213, 1]))
+
+        v0 = np.random.rand(3,) - 0.5
+        v = motion.translate(v0, time=0.4323)
+
+        self.assertAlmostEqual(
+            np.linalg.norm(
+                v -
+                translation *
+                0.4323 -
+                v0),
+            0,
+            msg='Error in translation')
 
 if __name__ == '__main__':
     unittest.main()

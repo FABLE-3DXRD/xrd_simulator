@@ -29,20 +29,27 @@ class RigidBodyMotion():
         rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
         rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
         translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
+        origin (:obj:`numpy array`): Point in space about which the rigid body motion is
+            defined Defaults to the origin (0,0,0). All translations are executed in relation
+            to the origin and all rotation are rotations about the point of origin. ``shape=(3,)``
 
     Attributes:
         rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
         rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
         translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
+        origin (:obj:`numpy array`): Point in space about which the rigid body motion is
+            defined Defaults to the origin (0,0,0). All translations are executed in relation
+            to the origin and all rotation are rotations about the point of origin. ``shape=(3,)``
 
     """
 
-    def __init__(self, rotation_axis, rotation_angle, translation):
+    def __init__(self, rotation_axis, rotation_angle, translation, origin=np.zeros((3,))):
         assert rotation_angle < np.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
         self.rotation_axis = rotation_axis
         self.rotation_angle = rotation_angle
         self.translation = translation
+        self.origin = origin
 
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
@@ -58,11 +65,16 @@ class RigidBodyMotion():
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         if len(vectors.shape) > 1:
             translation = self.translation.reshape(3, 1)
+            origin = self.origin.reshape(3, 1)
         else:
             translation = self.translation
-        return self.rotator(vectors, self.rotation_angle *
-                            time) + translation * time
-
+            origin = self.origin
+        
+        centered_vectors = vectors - origin
+        centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time) 
+        rotated_vectors = centered_rotated_vectors + origin
+        return rotated_vectors + translation * time
+    
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
 
@@ -77,7 +89,14 @@ class RigidBodyMotion():
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        return self.rotator(vectors, self.rotation_angle * time)
+        if len(vectors.shape) > 1:
+            origin = self.origin.reshape(3, 1)
+        else:
+            origin = self.origin
+        centered_vectors = vectors - origin
+        centered_rotated_vectors  = self.rotator(centered_vectors, self.rotation_angle * time)
+        rotated_vectors = centered_rotated_vectors + origin
+        return rotated_vectors
 
     def translate(self, vectors, time):
         """Find the translational transformation of a set of points at a prescribed time.
@@ -95,8 +114,11 @@ class RigidBodyMotion():
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         if len(vectors.shape) > 1:
             translation = self.translation.reshape(3, 1)
+            origin = self.origin.reshape(3, 1)
         else:
             translation = self.translation
+            origin = self.origin
+
         return vectors + translation * time
 
     def inverse(self):
@@ -106,7 +128,7 @@ class RigidBodyMotion():
             (:obj:`xrd_simulator.RigidBodyMotion`) The inverse motion with a reversed rotation and translation.
 
         """
-        return RigidBodyMotion(-self.rotation_axis.copy(), self.rotation_angle, -self.translation.copy())
+        return RigidBodyMotion(-self.rotation_axis.copy(), self.rotation_angle, -self.translation.copy(), self.origin.copy())
 
     def save(self, path):
         """Save the motion object to disc (via pickling).
