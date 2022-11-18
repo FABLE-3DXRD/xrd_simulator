@@ -54,6 +54,9 @@ class RigidBodyMotion():
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
 
+        Calling this method will execute the rigid body motion with respect to the
+            currently set origin.
+
         Args:
             vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)``)
             time (:obj:`float`): Time to compute for.
@@ -78,7 +81,10 @@ class RigidBodyMotion():
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
 
-        NOTE: This function only applies the rigid body rotation
+        NOTE: This function only applies the rigid body rotation and will not respect the
+            origin of the motion! This function is intended for rotation of diffraction
+            and wavevectors. Use the __call__ method to perform a physical rigidbody motion
+            respecting the origin.
 
         Args:
             vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
@@ -89,19 +95,13 @@ class RigidBodyMotion():
 
         """
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        if len(vectors.shape) > 1:
-            origin = self.origin.reshape(3, 1)
-        else:
-            origin = self.origin
-        centered_vectors = vectors - origin
-        centered_rotated_vectors  = self.rotator(centered_vectors, self.rotation_angle * time)
-        rotated_vectors = centered_rotated_vectors + origin
+        rotated_vectors  = self.rotator(vectors, self.rotation_angle * time)
         return rotated_vectors
 
     def translate(self, vectors, time):
         """Find the translational transformation of a set of points at a prescribed time.
 
-        NOTE: This function only applies the rigid body translation
+        NOTE: This function only applies the rigid body translation.
 
         Args:
             vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
@@ -114,10 +114,8 @@ class RigidBodyMotion():
         assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         if len(vectors.shape) > 1:
             translation = self.translation.reshape(3, 1)
-            origin = self.origin.reshape(3, 1)
         else:
             translation = self.translation
-            origin = self.origin
 
         return vectors + translation * time
 
