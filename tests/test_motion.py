@@ -129,12 +129,9 @@ class TestMotion(unittest.TestCase):
         translation = np.random.rand(3,)
         origin = np.array([0, 0, 1])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin)
-
-        z = motion.rotate(np.array([0, 1, 0]), time=1)
-
+        z = motion.rotate(np.array([0, 1, 0]), time=1) # rotation should NOT respect the origin!
         self.assertAlmostEqual(np.linalg.norm(
-            z - np.array([0, 1, 2])), 0, msg='Error in rotator')
-
+            z - np.array([0, 0, 1])), 0, msg='Error in rotator')
 
         rotation_axis = np.random.rand(3,)
         rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
