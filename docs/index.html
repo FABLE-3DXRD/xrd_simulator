@@ -50,6 +50,7 @@
 <li><a class="reference internal" href="#pip-installation">Pip Installation</a></li>
 <li><a class="reference internal" href="#source-installation">Source installation</a></li>
 <li><a class="reference internal" href="#credits">Credits</a></li>
+<li><a class="reference internal" href="#citation">Citation</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#documentation">Documentation</a><ul>
@@ -100,15 +101,17 @@
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?" /></a>
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://badge.fury.io/py/xrd-simulator.svg?" src="https://badge.fury.io/py/xrd-simulator.svg?" /></a>
-<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?" /></a>
-<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?" /></a>
+<a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/vsc-install/badges/platforms.svg?" src="https://anaconda.org/conda-forge/vsc-install/badges/platforms.svg?" /></a>
 <a class="reference external image-reference" href="https://anaconda.org/conda-forge/xrd_simulator/"><img alt="https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?" src="https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?" /></a>
 <div class="section" id="simulate-x-ray-diffraction-from-polycrystals-in-3d">
 <h1>Simulate X-ray Diffraction from Polycrystals in 3D.<a class="headerlink" href="#simulate-x-ray-diffraction-from-polycrystals-in-3d" title="Permalink to this heading"></a></h1>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/"><img alt="https://img.shields.io/badge/stability-alpha-f4d03f.svg?" src="https://img.shields.io/badge/stability-alpha-f4d03f.svg?" /></a>
 <p>The <strong>X</strong>-<strong>R</strong> ay <strong>D</strong> iffraction <strong>SIMULATOR</strong> package defines polycrystals as a mesh of tetrahedral single crystals
 and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
-around an arbitrary rotation axis.</p>
+around an arbitrary rotation axis. The full journal paper associated to the release of this code can be found here:</p>
+<p><em>xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions
+Henningsson, A. &amp; Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.</em>
+<a class="reference external" href="https://doi.org/10.1107/S1600576722011001">https://doi.org/10.1107/S1600576722011001</a></p>
 <p><code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> was originally developed with the hope to answer questions about measurement optimization in
 scanning x-ray diffraction experiments. However, <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> can simulate a wide range of experimental
 diffraction setups. The essential idea is that the sample and beam topology can be arbitrarily specified,
@@ -302,6 +305,13 @@ on your system. Installation of these will be OS dependent and documentation
 <li><p><a class="reference external" href="https://github.com/FABLE-3DXRD/xfab">https://github.com/FABLE-3DXRD/xfab</a></p></li>
 <li><p><a class="reference external" href="https://github.com/nschloe/pygalmesh">https://github.com/nschloe/pygalmesh</a></p></li>
 </ul>
+</div>
+<div class="section" id="citation">
+<h2>Citation<a class="headerlink" href="#citation" title="Permalink to this heading"></a></h2>
+<p>If you feel that <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> was helpful in your research we would love for you to cite us.</p>
+<p><em>xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions
+Henningsson, A. &amp; Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.</em>
+<a class="reference external" href="https://doi.org/10.1107/S1600576722011001">https://doi.org/10.1107/S1600576722011001</a></p>
 </div>
 </div>
 <div class="section" id="documentation">
@@ -1521,7 +1531,7 @@ and save the motion to disc:</p>
 <p>Below follows a detailed description of the RigidBodyMotion class attributes and functions.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.motion.</span></span><span class="sig-name descname"><span class="pre">RigidBodyMotion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotation_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">array([0.,</span> <span class="pre">0.,</span> <span class="pre">0.])</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion" title="Permalink to this definition"></a></dt>
 <dd><p>Rigid body transformation of euclidean points by an euler axis rotation and a translation.</p>
 <p>A rigid body motion is defined in the laboratory coordinates system.</p>
 <p>The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
@@ -1534,6 +1544,9 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 <li><p><strong>rotation_axis</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Rotation axis <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p></li>
 <li><p><strong>rotation_angle</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code>) – Radians for final rotation, when time=1.</p></li>
 <li><p><strong>translation</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Translation vector <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p></li>
+<li><p><strong>origin</strong> (<code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code>) – Point in space about which the rigid body motion is
+defined Defaults to the origin (0,0,0). All translations are executed in relation
+to the origin and all rotation are rotations about the point of origin. <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p></li>
 </ul>
 </dd>
 </dl>
@@ -1570,10 +1583,27 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 </dl>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.origin">
+<span class="sig-name descname"><span class="pre">origin</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.origin" title="Permalink to this definition"></a></dt>
+<dd><p>Point in space about which the rigid body motion is
+defined Defaults to the origin (0,0,0). All translations are executed in relation
+to the origin and all rotation are rotations about the point of origin. <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">array</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.__call__">
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.__call__" title="Permalink to this definition"></a></dt>
 <dd><p>Find the transformation of a set of points at a prescribed time.</p>
+<dl class="simple">
+<dt>Calling this method will execute the rigid body motion with respect to the</dt><dd><p>currently set origin.</p>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -1591,7 +1621,12 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.rotate">
 <span class="sig-name descname"><span class="pre">rotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.rotate" title="Permalink to this definition"></a></dt>
 <dd><p>Find the rotational transformation of a set of vectors at a prescribed time.</p>
-<p>NOTE: This function only applies the rigid body rotation</p>
+<dl class="simple">
+<dt>NOTE: This function only applies the rigid body rotation and will not respect the</dt><dd><p>origin of the motion! This function is intended for rotation of diffraction
+and wavevectors. Use the __call__ method to perform a physical rigidbody motion
+respecting the origin.</p>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -1609,7 +1644,7 @@ around <code class="docutils literal notranslate"><span class="pre">rotation_axi
 <dt class="sig sig-object py" id="xrd_simulator.motion.RigidBodyMotion.translate">
 <span class="sig-name descname"><span class="pre">translate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/motion.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.motion.RigidBodyMotion.translate" title="Permalink to this definition"></a></dt>
 <dd><p>Find the translational transformation of a set of points at a prescribed time.</p>
-<p>NOTE: This function only applies the rigid body translation</p>
+<p>NOTE: This function only applies the rigid body translation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
