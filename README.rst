@@ -21,10 +21,7 @@
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/installer/conda.svg?
-	:target: https://anaconda.org/conda-forge/xrd_simulator/
-
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/platforms.svg?
+.. image:: https://anaconda.org/conda-forge/vsc-install/badges/platforms.svg?
 	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 .. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
@@ -39,7 +36,11 @@ Simulate X-ray Diffraction from Polycrystals in 3D.
 
 The **X**-**R** ay **D** iffraction **SIMULATOR** package defines polycrystals as a mesh of tetrahedral single crystals
 and simulates diffraction as collected by a 2D discretized detector array while the sample is rocked
-around an arbitrary rotation axis.
+around an arbitrary rotation axis. The full journal paper associated to the release of this code can be found here:
+
+*xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions
+Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
+`https://doi.org/10.1107/S1600576722011001`_
 
 ``xrd_simulator`` was originally developed with the hope to answer questions about measurement optimization in
 scanning x-ray diffraction experiments. However, ``xrd_simulator`` can simulate a wide range of experimental
@@ -242,6 +243,15 @@ Credits
 * `https://github.com/FABLE-3DXRD/xfab`_
 * `https://github.com/nschloe/pygalmesh`_
 
+Citation
+===============================
+If you feel that ``xrd_simulator`` was helpful in your research we would love for you to cite us.
+
+*xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions
+Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
+`https://doi.org/10.1107/S1600576722011001`_
+
+.. _https://doi.org/10.1107/S1600576722011001: https://doi.org/10.1107/S1600576722011001
 
 .. _https://github.com/FABLE-3DXRD/xfab: https://github.com/FABLE-3DXRD/xfab
 
