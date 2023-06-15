@@ -205,9 +205,9 @@ Anaconda installation (Linux and Macos)
 ``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install
 the xrd_simulator package is via `Anaconda`_::
 
-   conda install -c conda-forge xrd_simulator
    conda create -n xrd_simulator
    conda activate xrd_simulator
+   conda install -c conda-forge xrd_simulator
 
 This is meant to work across OS-systems and requires an `Anaconda`_ installation.
 
