@@ -74,8 +74,8 @@ class Phase(object):
         NOTE: This function will skip Miller indices that have a zero intensity due to the unit cell structure
         factor vanishing, i.e forbidden reflections, such as a 100 in an fcc for instance, will not be included.
         """
-        sintlmin = min_bragg_angle / wavelength
-        sintlmax = max_bragg_angle / wavelength
+        sintlmin = np.sin(min_bragg_angle) / wavelength
+        sintlmax = np.sin(max_bragg_angle) / wavelength
         self.miller_indices = tools.genhkl_all(
             self.unit_cell, sintlmin, sintlmax, sgname=self.sgname)
         if self.path_to_cif_file is not None:
