@@ -9,6 +9,7 @@ Here is a minimal example of how to instantiate a polycrystal object and save it
 Below follows a detailed description of the polycrystal class attributes and functions.
 
 """
+
 import numpy as np
 from scipy.spatial import ConvexHull
 import dill
@@ -17,6 +18,7 @@ from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 from multiprocessing import Pool
+
 
 
 def _diffract(dict):
@@ -51,7 +53,7 @@ def _diffract(dict):
 
     if verbose: 
         progress_update_rate = 10**int(len(str(int(number_of_elements/1000.)))-1)
-
+    breakpoint()
     for ei in range(number_of_elements):
 
         if verbose and ei % progress_update_rate == 0:

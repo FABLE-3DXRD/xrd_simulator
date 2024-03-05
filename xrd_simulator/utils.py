@@ -3,6 +3,7 @@
 """ # TODO: Move some of these back into their classes where they are used.
 import numpy as np
 import logging
+import plotly.graph_objects as go
 from numba import njit
 from xfab import tools
 from CifFile import ReadCif
@@ -191,7 +192,6 @@ def lab_strain_to_B_matrix(
                                         unit_cell)
     return lattice_matrix
 
-
 def _get_circumscribed_sphere_centroid(subset_of_points):
     """Compute circumscribed_sphere_centroid by solving linear systems of equations
     enforcing the centorid to be a linear combination of the subset_of_points space.
@@ -317,3 +317,65 @@ def get_misorientations(orientations):
         difference_rotation = Rotation.from_matrix(U.dot(mean_orientation.T))
         misorientations[i] = Rotation.magnitude(difference_rotation)
     return misorientations
+
+
+def compute_sides(points):
+    """Computes the length of the sides of n tetrahedrons given a nx4x3 array"""
+    # Reshape the points array to have shape (n, 1, 4, 3)
+    reshaped_points = points[:, np.newaxis, :, :]
+
+    # Compute the differences between each pair of points
+    differences = reshaped_points - reshaped_points.transpose(0, 2, 1, 3)
+
+    # Compute the squared distances along the last axis
+    squared_distances = np.sum(differences**2, axis=-1)
+
+    # Compute the distances by taking the square root of the squared distances
+    dist_mat = np.sqrt(squared_distances)
+    
+    # Extract the 1-to-1 values from the distance matrix
+    distances = np.hstack((dist_mat[:,0,1:],dist_mat[:,1,2:],dist_mat[:,2,3][:,np.newaxis]))
+    
+    return distances
+
+
+def circumsphere_of_segments(segments):
+    """Computes the minimum circumsphere of n segments given by a numpy array of vertices nx2x3"""
+    centers = np.mean(segments,axis=1)
+    radii = np.linalg.norm(centers-segments[:,0,:],axis=1)
+    return centers, radii
+
+def circumsphere_of_triangles(triangles):
+    """Computes the minimum circumsphere of n triangles given by a numpy array of vertices nx3x3. Prints a message if any tetrahedron has 0 volume."""
+    ab = triangles[:,1,:] - triangles[:,0,:]
+    ac = triangles[:,2,:] - triangles[:,0,:]
+    
+    abXac = np.cross(ab,ac) 
+    acXab = np.cross(ac,ab)
+
+    norm_abXac = np.linalg.norm(abXac,axis=1)
+    
+    a_to_centre = (np.cross(abXac,ab)*((np.linalg.norm(ac,axis=1)**2)[:,np.newaxis])+np.cross(acXab,ac)*((np.linalg.norm(ab,axis=1)**2)[:,np.newaxis]))/(2*(np.linalg.norm(abXac,axis=1)**2)[:,np.newaxis])
+
+    centers = triangles[:,0,:]+ a_to_centre    
+    radii = np.linalg.norm(a_to_centre,axis=1)
+    
+    return centers, radii
+
+def circumsphere_of_tetrahedrons(tetrahedra):
+    """Computes the circumcenter of n tetrahedrons given by a numpy array of vertices nx4x3"""
+    v0 = tetrahedra[:,0,:]
+    v1 = tetrahedra[:,1,:]
+    v2 = tetrahedra[:,2,:]
+    v3 = tetrahedra[:,3,:]
+
+    A = np.vstack(((v1-v0).T[np.newaxis,:],(v2-v0).T[np.newaxis,:],(v3-v0).T[np.newaxis,:])).transpose(2,0,1)
+    B = 0.5*np.vstack((np.linalg.norm(v1,axis=1)**2-np.linalg.norm(v0,axis=1)**2,
+                  np.linalg.norm(v2,axis=1)**2-np.linalg.norm(v0,axis=1)**2,
+                  np.linalg.norm(v3,axis=1)**2-np.linalg.norm(v0,axis=1)**2)).T
+
+    centers = np.matmul(np.linalg.inv(A),B[:,:,np.newaxis])[:,:,0]
+    radii = np.linalg.norm((tetrahedra.transpose(2,0,1)-centers.transpose(1,0)[:,:,np.newaxis])[:,:,0],axis=0)
+    
+    return centers, radii
+

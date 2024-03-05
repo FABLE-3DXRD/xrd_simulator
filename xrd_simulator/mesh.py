@@ -15,6 +15,7 @@ This should look somethign like this in a 3D viewer like paraview:
 Below follows a detailed description of the mesh class attributes and functions.
 
 """
+
 import numpy as np
 import pygalmesh
 import meshio
@@ -197,84 +198,98 @@ class TetraMesh(object):
         tetmesh._set_fem_matrices()
         tetmesh._expand_mesh_data()
         return tetmesh
-
+    
     def _compute_mesh_faces(self, enod):
-        """Compute all element faces nodal numbers.
+        """Compute all element faces nodal numbers. We create a matrix of all possible permutations and then we index the enod matrix.
         """
-        efaces = np.zeros((enod.shape[0], 4, 3), dtype=int)
-        for i in range(enod.shape[0]):
-            # nodal combinations defining 4 unique planes in a tet.
-            permutations = [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
-            for j, perm in enumerate(permutations):
-                efaces[i, j, :] = enod[i, perm]
+        permutations = np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]])
+        efaces = enod[:,permutations]
         return efaces
 
     def _compute_mesh_normals(self, coord, enod, efaces):
         """Compute all element faces outwards unit vector normals.
         """
-        enormals = np.zeros((enod.shape[0], 4, 3))
-        for i in range(enod.shape[0]):
-            ec = coord[enod[i, :], :]
-            ecentroid = np.mean(ec, axis=0)
-            for j in range(efaces.shape[1]):
-                ef = coord[efaces[i, j, :], :]
-                enormals[i, j, :] = self._compute_plane_normal(ef, ecentroid)
+        vertices = coord[efaces]
+        normals = np.cross(vertices[:,:,1,:]-vertices[:,:,0,:],vertices[:,:,2,:]-vertices[:,:,0,:])
+        enormals = normals / np.linalg.norm(normals, axis=2, keepdims=True)*np.array([-1,1,-1,1])[np.newaxis,:,np.newaxis]
+         # The signs are flipped [-1,1,-1,1] because that gives the direction out of the tetrahedron
         return enormals
-
-    def _compute_plane_normal(self, points, centroid):
-        """Compute plane normal (outwards refering to centroid).
-        """
-        v1 = points[1, :] - points[0, :]
-        v2 = points[2, :] - points[0, :]
-        # define a vector perpendicular to the plane.
-        n = np.cross(v1, v2)
-        # set vector direction outwards from centroid.
-        n = n * np.sign(n.dot(points[0, :] - centroid))
-        # normalised vector and return.
-        return n / np.linalg.norm(n)
-
+    
     def _compute_mesh_centroids(self, coord, enod):
         """Compute centroids of elements.
         """
-        ecentroids = np.zeros((enod.shape[0], 3))
-        for i in range(enod.shape[0]):
-            ec = coord[enod[i, :], :]
-            ecentroids[i, :] = np.sum(ec, axis=0) / ec.shape[0]
-        return ecentroids
-
+        ecentroids = np.mean(coord[enod],axis=1)
+        return ecentroids   
+    
     def _compute_mesh_volumes(self, enod, coord):
         """Compute per element enclosed volume.
         """
-        evolumes = np.zeros((enod.shape[0],))
-        for i in range(enod.shape[0]):
-            ec = coord[enod[i, :], :]
-            a = ec[1] - ec[0]
-            b = ec[2] - ec[0]
-            c = ec[3] - ec[0]
-            evolumes[i] = (1 / 6.) * np.dot(np.cross(a, b), c)
+        vertices = coord[enod]
+        a = vertices[:,1,:]-vertices[:,0,:]
+        b = vertices[:,2,:]-vertices[:,0,:]
+        c = vertices[:,3,:]-vertices[:,0,:]
+        evolumes = (1 / 6.) * np.sum((np.cross(a, b, axis=1) * c),axis=1)
         return evolumes
 
+   
     def _compute_mesh_spheres(self, coord, enod):
-        """Compute per element minimal bounding spheres.
+        """Compute per tetrahedron minimal bounding spheres
         """
-        eradius = np.zeros((enod.shape[0],))
-        espherecentroids = np.zeros((enod.shape[0], 3))
-        for i in range(enod.shape[0]):
-            ec = coord[enod[i, :], :]
-            espherecentroids[i], eradius[i] = utils._get_bounding_ball(ec)
+        
+        vertices = coord[enod]
+        n_tetra = enod.shape[0]
+        range_n_tetra = range(n_tetra)
+        
+        pairs = np.array([[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]])
+        all_pairs = np.tile([0,1,2,3],(n_tetra,1))
+        
+        # We compute the length of every tetrahedron side
+        sides= utils.compute_sides(vertices)     
+            
+        # We compute the vertices that are further apart
+        max_sides_index = np.argmax(sides,axis=1)
+        furthest2_indices = pairs[max_sides_index]
+
+        # We compute the other 2 vertices of the tetrahedra
+        mask = np.zeros((n_tetra,4),dtype=bool)
+        mask[range_n_tetra,furthest2_indices[:,0]]=1
+        mask[range_n_tetra,furthest2_indices[:,1]]=1
+        other2_indices = all_pairs[~mask].reshape(-1,2)
+
+
+        # We compute the smallest spheres that pass through the farthest-apart vertices and check if the other-2 vertices fall in
+        furthest2_vertices = vertices.transpose(1,0,2)[furthest2_indices.transpose(1,0),range_n_tetra].transpose(1,0,2)
+        other2_vertices = vertices.transpose(1,0,2)[other2_indices.transpose(1,0),range_n_tetra].transpose(1,0,2)
+        centers_1D, radii_1D = utils.circumsphere_of_segments(furthest2_vertices)   
+        dist_centers_1D_to_vertices =  np.linalg.norm(other2_vertices-centers_1D[:,np.newaxis,:],axis=2)
+        spheres_solved_with_1D = np.all((dist_centers_1D_to_vertices-radii_1D[:,np.newaxis])<=0,axis=1) 
+        
+                     
+        # We compute the smallest spheres that pass through the farthest 3 vertices and check if the remaining vertex falls in
+        next_furthest_index = np.argmax(dist_centers_1D_to_vertices,axis=1)
+        third_vertex =other2_vertices.transpose(1,0,2)[next_furthest_index,range_n_tetra]
+        largest_triangles = np.append(furthest2_vertices,third_vertex[:,np.newaxis,:],axis=1)
+        centers_2D, radii_2D = utils.circumsphere_of_triangles(largest_triangles)
+        dist_centers_2D_to_vertices =  np.linalg.norm(vertices-centers_2D[:,np.newaxis,:],axis=2)
+        spheres_solved_with_2D = np.all((dist_centers_2D_to_vertices-radii_2D[:,np.newaxis])<=0,axis=1)
+          
+        
+        # Finally we compute the spheres that contain the 4 points on the surfaces for the remaining tetrahedrons
+        centers_3D, radii_3D = utils.circumsphere_of_tetrahedrons(vertices)
+                
+        # We select the 1D case if possible, otherwise the 2D case, and finally the 3D case
+        espherecentroids = np.where(spheres_solved_with_1D[:,np.newaxis], centers_1D, np.where(spheres_solved_with_2D[:,np.newaxis], centers_2D, centers_3D))
+        eradius = np.where(spheres_solved_with_1D, radii_1D, np.where(spheres_solved_with_2D, radii_2D, radii_3D))
+       
         return eradius, espherecentroids
+
 
     def _set_fem_matrices(self):
         """Extract and set mesh FEM matrices from pygalmesh object.
         """
         self.coord = np.array(self._mesh.points)
         self.enod = np.array(self._mesh.cells_dict['tetra'])
-        self.dof = np.arange(
-            0,
-            self.coord.shape[0] *
-            3).reshape(
-            self.coord.shape[0],
-            3)
+        self.dof = np.arange(0,self.coord.shape[0]*3).reshape(self.coord.shape[0],3)
         self.number_of_elements = self.enod.shape[0]
 
     def _expand_mesh_data(self):

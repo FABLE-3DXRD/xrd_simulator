@@ -35,7 +35,7 @@ vscode
 .vscode/
 .vscode/*
 */.VSCodeCounter/*
-
+makefile
 *.pyc
 
 # Local History for Visual Studio Code
