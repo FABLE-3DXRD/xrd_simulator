@@ -56,7 +56,7 @@ def _diffract(dict):
     if verbose: 
         progress_update_rate = 10**int(len(str(int(number_of_elements/1000.)))-1)
         
-    grain_hkl_time_G0 = pd.DataFrame()
+    reflections_df = pd.DataFrame() # We create a dataframe to store all the relevant values for each individual reflection
     
     for i,phase in enumerate(phases):
         
@@ -90,16 +90,18 @@ def _diffract(dict):
                                'G_0y':G_0.transpose(0,2,1)[indices_t2][:,1],
                                 'G_0z':G_0.transpose(0,2,1)[indices_t2][:,2]})
         
-        grain_hkl_time_G0 = pd.concat([grain_hkl_time_G0,table1,table2],axis=0).sort_values(by='Grain')
+        reflections_df = pd.concat([reflections_df,table1,table2],axis=0).sort_values(by='Grain')
 
     
-    grain_hkl_time_G0['Grain'] += 1 # We add 1 to the indices of the grains so they start at 1
-    grain_hkl_time_G0 =grain_hkl_time_G0 [(0<grain_hkl_time_G0['time']) & (grain_hkl_time_G0['time']<1)] # We filter out the times which exceed 0 or 1
+    reflections_df['Grain'] += 1 # We add 1 to the indices of the grains so they start at 1
+    reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
+    reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
+    reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector
+    reflections_df[['Source_x','Source_y','Source_z']] = rigid_body_motion(espherecentroids[reflections_df['Grain']-1],reflections_df['time'].values)
+    reflections_df[['zd','yd']] = detector.get_intersection(reflections_df[["k'x","k'y","k'z"]].values,reflections_df[['Source_x','Source_y','Source_z']].values)
 
-    G = rigid_body_motion.rotate(grain_hkl_time_G0.iloc[:,-3:].values, grain_hkl_time_G0['time'].values)
-    
-    breakpoint()
-    
+
+    breakpoint()    
     for ei in range(number_of_elements):
 
         if verbose and ei % progress_update_rate == 0:

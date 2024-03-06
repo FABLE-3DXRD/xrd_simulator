@@ -251,10 +251,10 @@ class Detector():
         """
         s = (self.det_corner_0 - source_point).dot(self.normal) / \
             ray_direction.dot(self.normal)
-        intersection = source_point + ray_direction * s
+        intersection = source_point + ray_direction * s[:,np.newaxis]
         zd = np.dot(intersection - self.det_corner_0, self.zdhat)
         yd = np.dot(intersection - self.det_corner_0, self.ydhat)
-        return zd, yd
+        return np.array([zd, yd]).T
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.

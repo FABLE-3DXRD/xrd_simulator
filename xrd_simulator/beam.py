@@ -228,7 +228,8 @@ class Beam():
         R = sphere_radius.reshape(1, sphere_radius.shape[0])
         not_candidates = np.zeros((len(sample_times), R.shape[1]), dtype=bool)
         for i,time in enumerate(sample_times):
-            halfspaces = ConvexHull( inverse_rigid_body_motion( self.vertices.T, time=time ).T ).equations
+
+            halfspaces = ConvexHull( inverse_rigid_body_motion( self.vertices, time=time ) ).equations
             halfspaces = np.unique(halfspaces.round(decimals=6), axis=0)
             normals    = halfspaces[:, 0:3]
             distances  = halfspaces[:, 3].reshape(normals.shape[0],1)
