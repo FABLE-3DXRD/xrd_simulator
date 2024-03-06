@@ -11,14 +11,12 @@ Below follows a detailed description of the polycrystal class attributes and fun
 """
 
 import numpy as np
-import pandas as pd
 from scipy.spatial import ConvexHull
 import dill
-import pprint
 import copy
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
-from xrd_simulator import utils, laue, laue_original
+from xrd_simulator import utils, laue
 from multiprocessing import Pool
 
 
@@ -55,51 +53,7 @@ def _diffract(dict):
 
     if verbose: 
         progress_update_rate = 10**int(len(str(int(number_of_elements/1000.)))-1)
-        
-    grain_hkl_time_G0 = pd.DataFrame()
-    
-    for i,phase in enumerate(phases):
-        
-        indices = np.where(element_phase_map == i)[0]
-        miller_indices = phase.miller_indices.T
-
-        G_0 = laue.get_G(orientation_lab[indices], eB[indices],miller_indices)
-        
-    
-        rho_0s = rho_0_factor.dot(G_0)
-        rho_1s = rho_1_factor.dot(G_0)
-        rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=1) / 2.                            
-        t1, t2 = laue_original.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)  
-        indices_t1 = np.where(~np.isnan(t1))
-        values_t1 = t1[indices_t1]
-        indices_t2 = np.where(~np.isnan(t2))
-        values_t2 = t2[indices_t2]
-
-        # We now assemple the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
-        table1 = pd.DataFrame({'Grain':indices[indices_t1[0]],
-                               'hkl':indices_t1[1],
-                               'time':values_t1,
-                               'G_0x':G_0.transpose(0,2,1)[indices_t1][:,0],
-                               'G_0y':G_0.transpose(0,2,1)[indices_t1][:,1],
-                                'G_0z':G_0.transpose(0,2,1)[indices_t1][:,2]})
-        
-        table2 = pd.DataFrame({'Grain':indices[indices_t2[0]],
-                               'hkl':indices_t2[1],
-                               'time':values_t2,
-                               'G_0x':G_0.transpose(0,2,1)[indices_t2][:,0],
-                               'G_0y':G_0.transpose(0,2,1)[indices_t2][:,1],
-                                'G_0z':G_0.transpose(0,2,1)[indices_t2][:,2]})
-        
-        grain_hkl_time_G0 = pd.concat([grain_hkl_time_G0,table1,table2],axis=0).sort_values(by='Grain')
-
-    
-    grain_hkl_time_G0['Grain'] += 1 # We add 1 to the indices of the grains so they start at 1
-    grain_hkl_time_G0 =grain_hkl_time_G0 [(0<grain_hkl_time_G0['time']) & (grain_hkl_time_G0['time']<1)] # We filter out the times which exceed 0 or 1
-
-    G = rigid_body_motion.rotate(grain_hkl_time_G0.iloc[:,-3:].values, grain_hkl_time_G0['time'].values)
-    
     breakpoint()
-    
     for ei in range(number_of_elements):
 
         if verbose and ei % progress_update_rate == 0:
@@ -115,12 +69,21 @@ def _diffract(dict):
         if proximity_intervals[ei][0] is None:
             continue
         
+        G_0 = laue.get_G(orientation_lab[ei], eB[ei],
+                            phases[element_phase_map[ei]].miller_indices.T)
+
+        rho_0s = rho_0_factor.dot(G_0)
+        rho_1s = rho_1_factor.dot(G_0)
+        rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
+
+        t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
+
         for hkl_indx in range(G_0.shape[1]):
-            for time in (t1[ei,hkl_indx],t2[ei,hkl_indx]):
+            for time in (t1[hkl_indx],t2[hkl_indx]):
                 if ~np.isnan(time):
 
                     if utils._contained_by_intervals(time, proximity_intervals[ei]):
-                        breakpoint()
+
                         G = rigid_body_motion.rotate(
                             G_0[:, hkl_indx], time)
                         scattered_wave_vector = G + beam.wave_vector

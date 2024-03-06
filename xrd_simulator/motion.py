@@ -94,7 +94,8 @@ class RigidBodyMotion():
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        breakpoint()
         rotated_vectors  = self.rotator(vectors, self.rotation_angle * time)
         return rotated_vectors
 
@@ -183,8 +184,9 @@ class _RodriguezRotator(object):
         self.K2 = self.K.dot(self.K)
 
     def get_rotation_matrix(self, rotation_angle):
-        return np.eye(3, 3) + np.sin(rotation_angle) * self.K + \
-            (1 - np.cos(rotation_angle)) * self.K2
+
+        return (np.eye(3, 3)[:,:,np.newaxis] + np.sin(rotation_angle) * self.K[:,:,np.newaxis] + (1 - np.cos(rotation_angle)) * self.K2[:,:,np.newaxis]).transpose(2,0,1)
+            
 
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
@@ -197,5 +199,6 @@ class _RodriguezRotator(object):
             Rotated vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
+
         R = self.get_rotation_matrix(rotation_angle)
         return R.dot(vectors)
