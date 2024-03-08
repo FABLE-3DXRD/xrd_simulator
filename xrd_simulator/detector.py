@@ -267,7 +267,7 @@ class Detector():
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-        return zd >= 0 and zd <= self.zmax and yd >= 0 and yd <= self.ymax
+        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project(self, scattering_unit, box):
         """Compute parametric projection of scattering region unto detector.
@@ -399,8 +399,7 @@ class Detector():
         sample scattering region centroid to the detector plane. The intensity is deposited into a single
         detector pixel regardless of the geometrical shape of the scattering_unit.
         """
-        zd, yd = self.get_intersection(
-            scattering_unit.scattered_wave_vector, scattering_unit.centroid)
+        zd, yd = scattering_unit.zd, scattering_unit.yd
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor)

@@ -75,8 +75,9 @@ def _diffract(dict):
         indices_t2 = np.where(~np.isnan(t2))
         values_t2 = t2[indices_t2]
 
-        # We now assemple the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
+        # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
         table1 = pd.DataFrame({'Grain':indices[indices_t1[0]],
+                               'phase':i,
                                'hkl':indices_t1[1],
                                'time':values_t1,
                                'G_0x':G_0.transpose(0,2,1)[indices_t1][:,0],
@@ -84,74 +85,49 @@ def _diffract(dict):
                                 'G_0z':G_0.transpose(0,2,1)[indices_t1][:,2]})
         
         table2 = pd.DataFrame({'Grain':indices[indices_t2[0]],
+                               'phase':i,
                                'hkl':indices_t2[1],
                                'time':values_t2,
                                'G_0x':G_0.transpose(0,2,1)[indices_t2][:,0],
                                'G_0y':G_0.transpose(0,2,1)[indices_t2][:,1],
                                 'G_0z':G_0.transpose(0,2,1)[indices_t2][:,2]})
-        
+     
         reflections_df = pd.concat([reflections_df,table1,table2],axis=0).sort_values(by='Grain')
 
+
     
-    reflections_df['Grain'] += 1 # We add 1 to the indices of the grains so they start at 1
+    
     reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
     reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
     reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector
-    reflections_df[['Source_x','Source_y','Source_z']] = rigid_body_motion(espherecentroids[reflections_df['Grain']-1],reflections_df['time'].values)
+    reflections_df[['Source_x','Source_y','Source_z']] = rigid_body_motion(espherecentroids[reflections_df['Grain']],reflections_df['time'].values)
     reflections_df[['zd','yd']] = detector.get_intersection(reflections_df[["k'x","k'y","k'z"]].values,reflections_df[['Source_x','Source_y','Source_z']].values)
+    reflections_df = reflections_df[detector.contains(reflections_df['zd'], reflections_df ['yd'])]
+    
+    element_vertices_0 = ecoord[reflections_df['Grain']]
+    element_vertices = rigid_body_motion(element_vertices_0, reflections_df['time'].values)
+    
+  
+    scattering_units =[]
+    for ei in range(element_vertices.shape[0]):    
+        scattering_region = beam.intersect(element_vertices[ei])
 
+        if scattering_region is not None:
+            scattering_unit = ScatteringUnit(scattering_region,
+                                    reflections_df[["k'x","k'y","k'z"]].iloc[ei,:].values,
+                                    beam.wave_vector,
+                                    beam.wavelength,
+                                    beam.polarization_vector,
+                                    rigid_body_motion.rotation_axis,
+                                    reflections_df["time"].iloc[ei],
+                                    phases[reflections_df["phase"].iloc[ei]],
+                                    reflections_df['hkl'].iloc[ei],
+                                    reflections_df['zd'].iloc[ei],
+                                    reflections_df['yd'].iloc[ei],
+                                    ei)
 
-    breakpoint()    
-    for ei in range(number_of_elements):
+            scattering_units.append(scattering_unit)
 
-        if verbose and ei % progress_update_rate == 0:
-            progress_bar_message = "Found " + \
-                str(possible_scatterers) + " scatterers (mesh has "+str(number_of_elements)+" elements)"
-            progress_fraction = float(
-                ei + 1) / number_of_elements
-            utils._print_progress(
-                progress_fraction,
-                message=progress_bar_message)
-
-        # skip elements not illuminated
-        if proximity_intervals[ei][0] is None:
-            continue
-        
-        for hkl_indx in range(G_0.shape[1]):
-            for time in (t1[ei,hkl_indx],t2[ei,hkl_indx]):
-                if ~np.isnan(time):
-
-                    if utils._contained_by_intervals(time, proximity_intervals[ei]):
-                        breakpoint()
-                        G = rigid_body_motion.rotate(
-                            G_0[:, hkl_indx], time)
-                        scattered_wave_vector = G + beam.wave_vector
-
-                        source = rigid_body_motion(espherecentroids[ei], time)
-                        zd, yd = detector.get_intersection(scattered_wave_vector, source)
-
-                        if detector.contains(zd, yd):
-
-                            element_vertices_0 = ecoord[ei]
-
-                            element_vertices = rigid_body_motion(
-                                element_vertices_0.T, time).T
-
-                            scattering_region = beam.intersect(element_vertices)
-
-                            if scattering_region is not None:
-                                scattering_unit = ScatteringUnit(scattering_region,
-                                                        scattered_wave_vector,
-                                                        beam.wave_vector,
-                                                        beam.wavelength,
-                                                        beam.polarization_vector,
-                                                        rigid_body_motion.rotation_axis,
-                                                        time,
-                                                        phases[element_phase_map[ei]],
-                                                        hkl_indx,
-                                                        ei)
-
-                                scattering_units.append(scattering_unit)
     return scattering_units
 
 class Polycrystal():

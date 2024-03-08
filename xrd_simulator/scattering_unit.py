@@ -52,6 +52,8 @@ class ScatteringUnit(object):
             time,
             phase,
             hkl_indx,
+            zd,
+            yd,
             element_index):
         self.convex_hull = convex_hull
         self.scattered_wave_vector = scattered_wave_vector
@@ -62,6 +64,8 @@ class ScatteringUnit(object):
         self.time = time
         self.phase = phase
         self.hkl_indx = hkl_indx
+        self.zd = zd
+        self.yd = yd
         self.element_index = element_index
 
     @property

@@ -66,21 +66,46 @@ class RigidBodyMotion():
 
         """
         #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-
-        if len(vectors.shape) > 1:
-            translation = self.translation.reshape(1,3)
-            origin = self.origin.reshape(1,3)
-        else:
+        
+        if len(vectors.shape) == 1:
             translation = self.translation
             origin = self.origin
-            
-        centered_vectors = vectors - origin
-        centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
-        rotated_vectors = centered_rotated_vectors + origin
-
-        if np.isscalar(time):
+            centered_vectors = vectors - origin
+            centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
+            rotated_vectors = centered_rotated_vectors + origin
             return rotated_vectors + translation * time
-        return rotated_vectors + translation * np.array(time)[:,np.newaxis]
+        
+        elif len(vectors.shape) == 2:
+            translation = self.translation.reshape(1,3)
+            origin = self.origin.reshape(1,3)      
+            centered_vectors = vectors - origin
+            centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
+            rotated_vectors = centered_rotated_vectors + origin
+            if np.isscalar(time):
+                return rotated_vectors + translation * time
+            return rotated_vectors + translation * np.array(time)[:,np.newaxis]
+        
+        elif len(vectors.shape) == 3:
+            translation = self.translation.reshape(1,3)
+            origin = self.origin.reshape(1,3)
+            centered_vectors = vectors - origin
+            centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * np.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
+            rotated_vectors = centered_rotated_vectors + origin       
+            return rotated_vectors + translation * np.array(time)[:,np.newaxis,np.newaxis]
+            
+        # centered_vectors = vectors - origin
+
+        # if len(vectors.shape) > 2:
+        #     centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * np.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
+        #     rotated_vectors = centered_rotated_vectors + origin       
+        #     return rotated_vectors + translation * np.array(time)[:,np.newaxis,np.newaxis]
+        # else:
+        #     centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
+        # rotated_vectors = centered_rotated_vectors + origin
+
+        # if np.isscalar(time):
+        #     return rotated_vectors + translation * time
+        # return rotated_vectors + translation * np.array(time)[:,np.newaxis]
     
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
@@ -202,8 +227,5 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-
-        # if R.shape[0] == 1:
-        #     return R.dot(vectors) #Syntax valid for the rotation of the beam
         
         return np.matmul(R,vectors[:,:,np.newaxis])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains
