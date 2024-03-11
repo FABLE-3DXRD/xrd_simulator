@@ -211,8 +211,14 @@ class TetraMesh(object):
         """
         vertices = coord[efaces]
         normals = np.cross(vertices[:,:,1,:]-vertices[:,:,0,:],vertices[:,:,2,:]-vertices[:,:,0,:])
-        enormals = normals / np.linalg.norm(normals, axis=2, keepdims=True)*np.array([-1,1,-1,1])[np.newaxis,:,np.newaxis]
-         # The signs are flipped [-1,1,-1,1] because that gives the direction out of the tetrahedron
+        faces_centers = np.mean(vertices,axis=2)
+        centroids = np.mean(faces_centers,axis=1)
+        centroid_to_face = faces_centers-centroids[:,np.newaxis,:]
+        signs = np.sum(centroid_to_face * normals, axis=-1)
+        signs[signs>=0] = 1
+        signs[signs<0] = -1
+        enormals = normals / np.linalg.norm(normals, axis=2, keepdims=True)*signs[:,:,np.newaxis]
+
         return enormals
     
     def _compute_mesh_centroids(self, coord, enod):

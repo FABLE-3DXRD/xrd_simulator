@@ -12,9 +12,7 @@ Below follows a detailed description of the polycrystal class attributes and fun
 
 import numpy as np
 import pandas as pd
-from scipy.spatial import ConvexHull
 import dill
-import pprint
 import copy
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
@@ -107,23 +105,24 @@ def _diffract(dict):
     element_vertices_0 = ecoord[reflections_df['Grain']]
     element_vertices = rigid_body_motion(element_vertices_0, reflections_df['time'].values)
     
-  
+    reflections_np = reflections_df.values # We move from pandas to numpy for enhanced
     scattering_units =[]
+
     for ei in range(element_vertices.shape[0]):    
         scattering_region = beam.intersect(element_vertices[ei])
 
         if scattering_region is not None:
             scattering_unit = ScatteringUnit(scattering_region,
-                                    reflections_df[["k'x","k'y","k'z"]].iloc[ei,:].values,
+                                    reflections_np[ei,10:13], #outgoing wavevector
                                     beam.wave_vector,
                                     beam.wavelength,
                                     beam.polarization_vector,
                                     rigid_body_motion.rotation_axis,
-                                    reflections_df["time"].iloc[ei],
-                                    phases[reflections_df["phase"].iloc[ei]],
-                                    reflections_df['hkl'].iloc[ei],
-                                    reflections_df['zd'].iloc[ei],
-                                    reflections_df['yd'].iloc[ei],
+                                    reflections_np[ei,3], #time
+                                    phases[reflections_np[ei,1].astype(int)], #phase
+                                    reflections_np[ei,2].astype(int), #hkl index
+                                    reflections_np[ei,16], #zd
+                                    reflections_np[ei,17], #yd
                                     ei)
 
             scattering_units.append(scattering_unit)
@@ -348,7 +347,7 @@ class Polycrystal():
             element_data['Misorientation from mean orientation [degrees]'] = []
 
             misorientations = utils.get_misorientations(self.orientation_sample)
-
+            
             for U, misorientation in zip(self.orientation_sample, misorientations):
                 phi_1, PHI, phi_2 = tools.u_to_euler(U)
                 element_data['Bunge Euler Angle phi_1 [degrees]'].append(np.degrees(phi_1))

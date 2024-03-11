@@ -12,8 +12,8 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator import laue, utils
-from scipy.optimize import root_scalar
+# from xrd_simulator import laue, utils
+# from scipy.optimize import root_scalar
 
 class Beam():
     """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.

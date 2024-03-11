@@ -3,7 +3,6 @@
 """ # TODO: Move some of these back into their classes where they are used.
 import numpy as np
 import logging
-import plotly.graph_objects as go
 from numba import njit
 from xfab import tools
 from CifFile import ReadCif
