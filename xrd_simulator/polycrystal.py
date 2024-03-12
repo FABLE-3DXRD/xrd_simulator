@@ -408,11 +408,13 @@ class Polycrystal():
 
         """
         _eB = np.zeros((mesh.number_of_elements, 3, 3))
-        for i in range(mesh.number_of_elements):
-            breakpoint()
-            _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
-                                                      orientation_lab[i,:,:],
-                                                      phases[element_phase_map[i]].unit_cell)
+        B0s = np.zeros((len(phases),3,3))
+        for i,phase in enumerate(phases):
+            B0s[i] = tools.form_b_mat(phase.unit_cell)
+            grain_index = np.where(np.array(element_phase_map) == i)[0]
+            _eB[grain_index] = utils.lab_strain_to_B_matrix(strain_lab[grain_index],
+                                                      orientation_lab[grain_index],
+                                                      B0s[i])
 
         return _eB
 

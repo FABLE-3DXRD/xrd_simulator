@@ -163,7 +163,7 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
 def lab_strain_to_B_matrix(
         strain_tensor,
         crystal_orientation,
-        unit_cell):
+        B0):
     """Take a strain tensor in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
@@ -180,17 +180,8 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
-    breakpoint()
-    crystal_strain = np.dot(
-        crystal_orientation.T, np.dot(
-            strain_tensor, crystal_orientation))
-    lattice_matrix = _epsilon_to_b([crystal_strain[0, 0],
-                                         crystal_strain[0, 1],
-                                         crystal_strain[0, 2],
-                                         crystal_strain[1, 1],
-                                         crystal_strain[1, 2],
-                                         crystal_strain[2, 2]],
-                                        unit_cell)
+    crystal_strain = np.matmul(crystal_orientation.transpose(0,2,1), np.matmul(strain_tensor, crystal_orientation))
+    lattice_matrix = _epsilon_to_b(crystal_strain,B0)
     return lattice_matrix
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
@@ -289,18 +280,15 @@ def _b_to_epsilon(B_matrix, unit_cell):
     strain_tensor = 0.5*(F.T.dot(F) - np.eye(3))  # large deformations
     return _strain_as_vector(strain_tensor)
 
-def _epsilon_to_b(epsilon, unit_cell):
+def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b
     """
-    breakpoint()
-    strain_tensor = _strain_as_tensor(epsilon)
-    C = 2*strain_tensor + np.eye(3, dtype=np.float64)
+    C = 2*crystal_strain + np.eye(3, dtype=np.float32)
     eigen_vals = np.linalg.eigvalsh(C)
     if np.any( np.array(eigen_vals) < 0 ):
-        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(strain_tensor))+ \
+        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(crystal_strain))+ \
             ", will invert the unit cell with negative deformation gradient tensor determinant" )
-    F = np.linalg.cholesky(C).T
-    B0 = tools.form_b_mat(unit_cell)
+    F = np.linalg.cholesky(C).transpose(0,2,1)
     B = np.linalg.inv(F).dot(B0)
     return B
 
