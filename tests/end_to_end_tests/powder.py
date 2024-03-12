@@ -4,6 +4,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.templates import get_uniform_powder_sample
+import os
 
 pixel_size = 75.
 detector_size = pixel_size * 1024
@@ -14,12 +15,13 @@ det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size /
 
 detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
 sample_bounding_radius = 0.0001 * detector_size
+
 polycrystal = get_uniform_powder_sample(
     sample_bounding_radius=sample_bounding_radius,
     number_of_grains=500,
     unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
-    sgname='P3221'
-)
+    sgname='P3221',
+    path_to_cif_file= os.path.join(os.path.dirname(os.path.dirname(__file__)),'data/quartz.cif'))
 
 
 w = 2 * sample_bounding_radius  # full field beam

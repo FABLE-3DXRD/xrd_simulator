@@ -57,7 +57,7 @@ if 1:
                                                 strain_tensor)
 
     polycrystal.save(path, save_mesh_as_xdmf=True)
-polycrystal = Polycrystal.load(path)
+polycrystal = Polycrystal.load(path + '.pc')
 
 
 # Full field diffraction.
