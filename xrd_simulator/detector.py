@@ -524,8 +524,8 @@ class Detector():
 
         """
         vertices = scattering_unit.convex_hull.points[scattering_unit.convex_hull.vertices]
-        projected_vertices = np.array([self.get_intersection(
-            scattering_unit.scattered_wave_vector, v) for v in vertices])
+
+        projected_vertices = self.get_intersection(scattering_unit.scattered_wave_vector, vertices)
 
         min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
             projected_vertices[:, 0])

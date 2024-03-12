@@ -262,6 +262,7 @@ class Beam():
 
             """
             # TODO: better unit tests.
+
             candidate_mask, sample_times  = self._get_candidate_spheres(sphere_centres,
                                                          sphere_radius,
                                                          rigid_body_motion)

@@ -9,7 +9,7 @@ Here is a minimal example of how to instantiate a polycrystal object and save it
 Below follows a detailed description of the polycrystal class attributes and functions.
 
 """
-
+import sys
 import numpy as np
 import pandas as pd
 import dill
@@ -18,7 +18,6 @@ from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue, laue_original
 from multiprocessing import Pool
-
 
 
 def _diffract(dict):
@@ -37,64 +36,48 @@ def _diffract(dict):
     verbose             = dict['verbose']
     number_of_elements  = ecoord.shape[0]
 
-    rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
-    rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-    rho_2_factor = beam.wave_vector.dot(
-        np.eye(3, 3) + rigid_body_motion.rotator.K2)
-
-    scattering_units = []
-
+    rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
+    rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
+    rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
+        
+    # Grains with no chance to be hit by the beam are removed beforehand
     proximity_intervals = beam._get_proximity_intervals(
                                         espherecentroids,
                                         eradius,
                                         rigid_body_motion)
-
-    possible_scatterers = np.sum([pi[0] is not None for pi in proximity_intervals])
-
-    if verbose: 
-        progress_update_rate = 10**int(len(str(int(number_of_elements/1000.)))-1)
-        
-    reflections_df = pd.DataFrame() # We create a dataframe to store all the relevant values for each individual reflection
+    possible_scatterers_mask = np.array([pi[0] is not None for pi in proximity_intervals])
+    espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
+    eradius = np.float32(eradius[possible_scatterers_mask])
+    orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
+    eB = np.float32(eB[possible_scatterers_mask])
+    element_phase_map = element_phase_map[possible_scatterers_mask]
+    ecoord = np.float32(ecoord[possible_scatterers_mask])
     
+    reflections_df = pd.DataFrame() # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    scattering_units = [] # The output
+
     for i,phase in enumerate(phases):
         
-        indices = np.where(element_phase_map == i)[0]
-        miller_indices = phase.miller_indices.T
+        grain_index = np.where(element_phase_map == i)[0]
+        miller_indices = np.float32(phase.miller_indices.T)
 
-        G_0 = laue.get_G(orientation_lab[indices], eB[indices],miller_indices)
-        
-    
-        rho_0s = rho_0_factor.dot(G_0)
-        rho_1s = rho_1_factor.dot(G_0)
-        rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=1) / 2.                            
-        t1, t2 = laue_original.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)  
-        indices_t1 = np.where(~np.isnan(t1))
-        values_t1 = t1[indices_t1]
-        indices_t2 = np.where(~np.isnan(t2))
-        values_t2 = t2[indices_t2]
-
+        G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
+        reflection_index, time_values = laue_original.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
+        G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
+        del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
-        table1 = pd.DataFrame({'Grain':indices[indices_t1[0]],
+
+        table = pd.DataFrame({'Grain':grain_index[reflection_index[0]],
                                'phase':i,
-                               'hkl':indices_t1[1],
-                               'time':values_t1,
-                               'G_0x':G_0.transpose(0,2,1)[indices_t1][:,0],
-                               'G_0y':G_0.transpose(0,2,1)[indices_t1][:,1],
-                                'G_0z':G_0.transpose(0,2,1)[indices_t1][:,2]})
+                               'hkl':reflection_index[1],
+                               'time':time_values,
+                               'G_0x':G_0_reflected[:,0],
+                               'G_0y':G_0_reflected[:,1],
+                                'G_0z':G_0_reflected[:,2]})
         
-        table2 = pd.DataFrame({'Grain':indices[indices_t2[0]],
-                               'phase':i,
-                               'hkl':indices_t2[1],
-                               'time':values_t2,
-                               'G_0x':G_0.transpose(0,2,1)[indices_t2][:,0],
-                               'G_0y':G_0.transpose(0,2,1)[indices_t2][:,1],
-                                'G_0z':G_0.transpose(0,2,1)[indices_t2][:,2]})
-     
-        reflections_df = pd.concat([reflections_df,table1,table2],axis=0).sort_values(by='Grain')
-
-
-    
-    
+        del G_0_reflected, reflection_index, time_values
+        reflections_df = pd.concat([reflections_df,table],axis=0).sort_values(by='Grain')
+   
     reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
     reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
     reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector
@@ -126,6 +109,7 @@ def _diffract(dict):
                                     ei)
 
             scattering_units.append(scattering_unit)
+
 
     return scattering_units
 
@@ -425,9 +409,11 @@ class Polycrystal():
         """
         _eB = np.zeros((mesh.number_of_elements, 3, 3))
         for i in range(mesh.number_of_elements):
+            breakpoint()
             _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
                                                       orientation_lab[i,:,:],
                                                       phases[element_phase_map[i]].unit_cell)
+
         return _eB
 
     def _get_bragg_angle_bounds(

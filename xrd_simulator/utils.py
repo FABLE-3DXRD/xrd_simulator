@@ -1,6 +1,7 @@
 """General internal package utility functions.
 
 """ # TODO: Move some of these back into their classes where they are used.
+import sys
 import numpy as np
 import logging
 from numba import njit
@@ -179,6 +180,7 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
+    breakpoint()
     crystal_strain = np.dot(
         crystal_orientation.T, np.dot(
             strain_tensor, crystal_orientation))
@@ -290,6 +292,7 @@ def _b_to_epsilon(B_matrix, unit_cell):
 def _epsilon_to_b(epsilon, unit_cell):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b
     """
+    breakpoint()
     strain_tensor = _strain_as_tensor(epsilon)
     C = 2*strain_tensor + np.eye(3, dtype=np.float64)
     eigen_vals = np.linalg.eigvalsh(C)
@@ -378,3 +381,33 @@ def circumsphere_of_tetrahedrons(tetrahedra):
     
     return centers, radii
 
+
+def sizeof_fmt(num, suffix='B'):
+    ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'Yi', suffix)
+
+def printvars(vars):
+    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in list(vars.items())), key= lambda x: -x[1])[:10]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
+
+def u_to_rod_vect(U):
+    """
+    Get Rodrigues vector from U matrix (Busing Levy)
+    INPUT: U 3x3 matrix
+    OUTPUT: Rodrigues vector  
+
+    Function taken from GrainsSpotter by Soeren Schmidt
+    """
+
+    ttt = 1+U[0, 0]+U[1, 1]+U[2, 2]
+    if abs(ttt) < 1e-16: 
+        raise ValueError('Wrong trace of U')
+    a = 1/ttt
+    r1 = (U[1, 2]-U[2, 1])*a
+    r2 = (U[2, 0]-U[0, 2])*a
+    r3 = (U[0, 1]-U[1, 0])*a
+    return np.array([r1, r2, r3])
