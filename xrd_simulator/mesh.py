@@ -145,17 +145,19 @@ class TetraMesh(object):
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        self._mesh.points = rigid_body_motion(self._mesh.points.T, time=time).T
+        self._mesh.points = rigid_body_motion(self._mesh.points, time=time)
         self.coord = np.array(self._mesh.points)
 
         s1,s2,s3 = self.enormals.shape
         self.enormals = self.enormals.reshape(s1*s2, 3)
-        self.enormals = rigid_body_motion.rotate( self.enormals.T, time=time).T
+ 
+        self.enormals = rigid_body_motion.rotate( self.enormals, time=time)
         self.enormals = self.enormals.reshape(s1, s2, s3)
 
-        self.ecentroids = rigid_body_motion(self.ecentroids.T, time=time).T
-        self.espherecentroids = rigid_body_motion(self.espherecentroids.T, time=time).T
-        self.centroid = rigid_body_motion(self.centroid.reshape(3,1), time=time).reshape(3,)
+        self.ecentroids = rigid_body_motion(self.ecentroids, time=time)
+        self.espherecentroids = rigid_body_motion(self.espherecentroids, time=time)
+
+        self.centroid = rigid_body_motion(self.centroid.reshape(1,3), time=time)[0]
 
     def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualization.

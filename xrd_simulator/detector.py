@@ -178,7 +178,7 @@ class Detector():
                     progress_fraction = float(
                         si + 1) / len(self.frames[frame_index])
                     utils._print_progress(
-                        progress_fraction,
+                        progress_fracztion,
                         message=progress_bar_message)
                 renderer(scattering_unit, frame, lorentz, polarization, structure_factor)
             if kernel is not None: frame = self._apply_point_spread_function( frame, kernel )

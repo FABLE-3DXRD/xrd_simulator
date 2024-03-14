@@ -20,6 +20,7 @@ def get_G(U, B, miller_indices):
         G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
 
     """
+    
     return np.dot(np.matmul(U,B),miller_indices)
 
 
@@ -51,8 +52,7 @@ def get_sin_theta_and_norm_G(G, wavelength):
     normG = np.linalg.norm(G, axis=0)
     return normG * wavelength / (4 * np.pi), normG
 
-
-def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_omega):
+def find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, delta_omega):
     """Find all solutions, :obj:`t`, to the equation (maximum 2 solutions exists)
 
     .. math::
@@ -83,17 +83,32 @@ def find_solutions_to_tangens_half_angle_equation(rho_0, rho_1, rho_2, delta_ome
         an interval the corresponding instances in the solution array holds np.nan values.
 
     """
-    
-    a = rho_2 - rho_0
-    b = 2*rho_1
-    c = rho_2 + rho_0
-    
-    s1 = (-b+np.sqrt(b**2-4*a*c))/2*a
-    s2 = (-b-np.sqrt(b**2-4*a*c))/2*a
-    
-    t1 = 2 * np.arctan(s1) / delta_omega
-    t2 = 2 * np.arctan(s2) / delta_omega
+    rho_0 = rho_0_factor.dot(G_0) 
+    rho_2 = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=1) / 2.   
+    denominator = rho_2 - rho_0
+    numerator = rho_2 + rho_0
+    del rho_2
+    a = np.divide(rho_1_factor.dot(G_0), denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
+    b = np.divide(numerator, denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
+    del denominator, numerator, rho_0
+    rootval = a**2 - b
+    leadingterm = -a
+    del a, b
+    rootval[rootval<0] = np.nan
+    s1 = leadingterm + np.sqrt(rootval)
+    s2 = leadingterm - np.sqrt(rootval)
+    del rootval, leadingterm
 
-    t1[(t1>1)|(t1<0)]=np.nan
-    t2[(t2>1)|(t2<0)]=np.nan
-    return t1, t2
+    t1 = 2 * np.arctan(s1) / delta_omega
+    del s1  
+    indices_t1 = np.array(np.where(np.logical_and(t1 >= 0, t1 <= 1)))
+    values_t1 = t1[indices_t1[0,:],indices_t1[1,:]]
+    del t1    
+    
+    t2 = 2 * np.arctan(s2) / delta_omega
+    del s2, delta_omega
+    indices_t2 = np.array(np.where(np.logical_and(t2 >= 0, t2 <= 1)))
+    values_t2 = t2[indices_t2[0,:],indices_t2[1,:]]
+    del t2
+    
+    return np.concatenate((indices_t1,indices_t2),axis=1), np.concatenate((values_t1,values_t2),axis=0)

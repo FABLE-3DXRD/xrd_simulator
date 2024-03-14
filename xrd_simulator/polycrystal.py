@@ -9,14 +9,13 @@ Here is a minimal example of how to instantiate a polycrystal object and save it
 Below follows a detailed description of the polycrystal class attributes and functions.
 
 """
-import sys
 import numpy as np
 import pandas as pd
 import dill
 import copy
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
-from xrd_simulator import utils, laue, laue_original
+from xrd_simulator import utils, laue
 from multiprocessing import Pool
 
 
@@ -33,6 +32,7 @@ def _diffract(dict):
     eB                  = dict['eB']
     element_phase_map   = dict['element_phase_map']
     ecoord              = dict['ecoord']
+    proximity           = dict['proximity']
     verbose             = dict['verbose']
     number_of_elements  = ecoord.shape[0]
 
@@ -40,18 +40,20 @@ def _diffract(dict):
     rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
     rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
         
-    # Grains with no chance to be hit by the beam are removed beforehand
-    proximity_intervals = beam._get_proximity_intervals(
-                                        espherecentroids,
-                                        eradius,
-                                        rigid_body_motion)
-    possible_scatterers_mask = np.array([pi[0] is not None for pi in proximity_intervals])
-    espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
-    eradius = np.float32(eradius[possible_scatterers_mask])
-    orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
-    eB = np.float32(eB[possible_scatterers_mask])
-    element_phase_map = element_phase_map[possible_scatterers_mask]
-    ecoord = np.float32(ecoord[possible_scatterers_mask])
+    if proximity:
+        # Grains with no chance to be hit by the beam are removed beforehand
+        proximity_intervals = beam._get_proximity_intervals(
+                                            espherecentroids,
+                                            eradius,
+                                            rigid_body_motion)
+        possible_scatterers_mask = np.array([pi[0] is not None for pi in proximity_intervals])
+        espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
+        eradius = np.float32(eradius[possible_scatterers_mask])
+        
+        orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
+        eB = np.float32(eB[possible_scatterers_mask])
+        element_phase_map = element_phase_map[possible_scatterers_mask]
+        ecoord = np.float32(ecoord[possible_scatterers_mask])
     
     reflections_df = pd.DataFrame() # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     scattering_units = [] # The output
@@ -62,7 +64,7 @@ def _diffract(dict):
         miller_indices = np.float32(phase.miller_indices.T)
 
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
-        reflection_index, time_values = laue_original.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
+        reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
         G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
@@ -139,7 +141,12 @@ class Polycrystal():
         mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
             geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.
         mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a sample coordinate system. This quantity is not updated when the sample transforms.
+            geometry of the sample in a sample metadata={'angle':angle,
+                               'angles':n_angles,
+                               'steps':n_scans,
+                               'beam':beam_file,
+                               'sample':polycrystal_file,
+                               'detector':detector_file},coordinate system. This quantity is not updated when the sample transforms.
         orientation_lab (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the lab coordinate
             system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
         orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
@@ -182,7 +189,8 @@ class Polycrystal():
                 max_bragg_angle=None,
                 verbose=False,
                 number_of_processes=1,
-                number_of_frames=1 
+                number_of_frames=1,
+                proximity=True 
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -246,7 +254,8 @@ class Polycrystal():
                         'eB': eB[i],
                         'element_phase_map': element_phase_map[i],
                         'ecoord': ecoord,
-                        'verbose':verbose
+                        'verbose': verbose,
+                        'proximity': proximity
                         } )
 
         if number_of_processes == 1:
@@ -257,7 +266,7 @@ class Polycrystal():
             all_scattering_units = []
             for su in scattering_units:
                 all_scattering_units.extend(su)
-        
+                
         if number_of_frames==1:
             detector.frames.append(all_scattering_units)
         else:
@@ -286,14 +295,13 @@ class Polycrystal():
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-
         self.mesh_lab.update(rigid_body_motion, time)
 
         Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
             rigid_body_motion.rotation_angle * time)
 
-        self.orientation_lab = np.dot(Rot_mat, self.orientation_lab).swapaxes(0,1)
-        self.strain_lab = np.dot( np.dot(Rot_mat, self.strain_lab), Rot_mat.T ).swapaxes(0,1)
+        self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+        self.strain_lab = np.matmul( np.matmul(Rot_mat, self.strain_lab), Rot_mat[0].T )
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
