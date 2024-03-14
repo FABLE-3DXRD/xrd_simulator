@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import dill
 import copy
+from scipy.spatial import ConvexHull
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
@@ -32,8 +33,9 @@ def _diffract(dict):
     eB                  = dict['eB']
     element_phase_map   = dict['element_phase_map']
     ecoord              = dict['ecoord']
-    proximity           = dict['proximity']
     verbose             = dict['verbose']
+    proximity           = dict['proximity']
+    BB_intersection     = dict['BB_intersection']
     number_of_elements  = ecoord.shape[0]
 
     rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
@@ -92,25 +94,46 @@ def _diffract(dict):
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced
     scattering_units =[]
-
-    for ei in range(element_vertices.shape[0]):    
-        scattering_region = beam.intersect(element_vertices[ei])
-
-        if scattering_region is not None:
-            scattering_unit = ScatteringUnit(scattering_region,
-                                    reflections_np[ei,10:13], #outgoing wavevector
-                                    beam.wave_vector,
-                                    beam.wavelength,
-                                    beam.polarization_vector,
-                                    rigid_body_motion.rotation_axis,
-                                    reflections_np[ei,3], #time
-                                    phases[reflections_np[ei,1].astype(int)], #phase
-                                    reflections_np[ei,2].astype(int), #hkl index
-                                    reflections_np[ei,16], #zd
-                                    reflections_np[ei,17], #yd
-                                    ei)
-
+    
+    if BB_intersection:
+        reflections_np = reflections_np[(reflections_np[:,13]<beam.vertices[:,1].max()) & \
+        (reflections_np[:,13]>beam.vertices[:,1].min()) & \
+        (reflections_np[:,14]<beam.vertices[:,2].max()) & \
+        (reflections_np[:,14]>beam.vertices[:,2].min())]   
+        for ei in range(reflections_np.shape[0]):
+            scattering_unit = ScatteringUnit(ConvexHull(ecoord[int(reflections_np[ei,0])]),
+                        reflections_np[ei,10:13], #outgoing wavevector
+                        beam.wave_vector,
+                        beam.wavelength,
+                        beam.polarization_vector,
+                        rigid_body_motion.rotation_axis,
+                        reflections_np[ei,3], #time
+                        phases[reflections_np[ei,1].astype(int)], #phase
+                        reflections_np[ei,2].astype(int), #hkl index
+                        reflections_np[ei,16], #zd
+                        reflections_np[ei,17], #yd
+                        ei)
             scattering_units.append(scattering_unit)
+            
+    else:
+        for ei in range(element_vertices.shape[0]):    
+            scattering_region = beam.intersect(element_vertices[ei])
+
+            if scattering_region is not None:
+                scattering_unit = ScatteringUnit(scattering_region,
+                                        reflections_np[ei,10:13], #outgoing wavevector
+                                        beam.wave_vector,
+                                        beam.wavelength,
+                                        beam.polarization_vector,
+                                        rigid_body_motion.rotation_axis,
+                                        reflections_np[ei,3], #time
+                                        phases[reflections_np[ei,1].astype(int)], #phase
+                                        reflections_np[ei,2].astype(int), #hkl index
+                                        reflections_np[ei,16], #zd
+                                        reflections_np[ei,17], #yd
+                                        ei)
+
+                scattering_units.append(scattering_unit)
 
 
     return scattering_units
@@ -190,7 +213,8 @@ class Polycrystal():
                 verbose=False,
                 number_of_processes=1,
                 number_of_frames=1,
-                proximity=True 
+                proximity=True,
+                BB_intersection=True
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -255,7 +279,8 @@ class Polycrystal():
                         'element_phase_map': element_phase_map[i],
                         'ecoord': ecoord,
                         'verbose': verbose,
-                        'proximity': proximity
+                        'proximity': proximity,
+                        'BB_intersection': BB_intersection
                         } )
 
         if number_of_processes == 1:

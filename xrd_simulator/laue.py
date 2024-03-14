@@ -20,8 +20,8 @@ def get_G(U, B, miller_indices):
         G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
 
     """
-    
-    return np.dot(np.matmul(U,B),miller_indices)
+
+    return np.float32(np.matmul(np.matmul(U,B),miller_indices))
 
 
 def get_bragg_angle(G, wavelength):
@@ -83,12 +83,14 @@ def find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor
         an interval the corresponding instances in the solution array holds np.nan values.
 
     """
-    rho_0 = rho_0_factor.dot(G_0) 
-    rho_2 = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=1) / 2.   
+
+    rho_0 = np.matmul(rho_0_factor,G_0)
+    rho_2 = np.matmul(rho_2_factor,G_0)+ np.sum((G_0 * G_0), axis=1) / 2.   
+
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
     del rho_2
-    a = np.divide(rho_1_factor.dot(G_0), denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
+    a = np.divide(np.matmul(rho_1_factor,G_0), denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
     b = np.divide(numerator, denominator, out=np.full_like(rho_0, np.nan), where=denominator!=0)
     del denominator, numerator, rho_0
     rootval = a**2 - b
