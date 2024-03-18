@@ -69,6 +69,7 @@ def _diffract(dict):
         
         reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
         G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
+
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
@@ -82,7 +83,7 @@ def _diffract(dict):
         
         del G_0_reflected, reflection_index, time_values
         reflections_df = pd.concat([reflections_df,table],axis=0).sort_values(by='Grain')
-   
+    breakpoint()   
     reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
     reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
     reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector

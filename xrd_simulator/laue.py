@@ -105,13 +105,10 @@ def find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor
     del s1  
     indices_t1 = np.array(np.where(np.logical_and(t1 >= 0, t1 <= 1)))
     values_t1 = t1[indices_t1[0,:],indices_t1[1,:]]
-    breakpoint()
     del t1    
-    
     t2 = 2 * np.arctan(s2) / delta_omega
     del s2, delta_omega
     indices_t2 = np.array(np.where(np.logical_and(t2 >= 0, t2 <= 1)))
     values_t2 = t2[indices_t2[0,:],indices_t2[1,:]]
-    del t2
-    
+    del t2  
     return np.concatenate((indices_t1,indices_t2),axis=1), np.concatenate((values_t1,values_t2),axis=0)
