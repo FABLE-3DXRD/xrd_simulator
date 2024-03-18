@@ -21,7 +21,7 @@ def get_G(U, B, miller_indices):
 
     """
     breakpoint()
-    return np.float32(np.matmul(np.matmul(U,B),miller_indices))
+    return np.float32(np.matmul(np.matmul(U,B),miller_indices.T))
 
 
 def get_bragg_angle(G, wavelength):

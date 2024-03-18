@@ -66,7 +66,7 @@ def _diffract(dict):
         miller_indices = np.float32(phase.miller_indices)
 
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
-        breakpoint()
+        
         reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
         G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
         del G_0
