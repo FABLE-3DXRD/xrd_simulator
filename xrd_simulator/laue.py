@@ -20,8 +20,6 @@ def get_G(U, B, miller_indices):
         G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
 
     """
-    miller_indices=miller_indices.T
-    np.lexsort((miller_indices[:, 2], miller_indices[:, 1], miller_indices[:, 0]))
     breakpoint()
     return np.float32(np.matmul(np.matmul(U,B),miller_indices))
 

@@ -63,7 +63,7 @@ def _diffract(dict):
     for i,phase in enumerate(phases):
 
         grain_index = np.where(element_phase_map == i)[0]
-        miller_indices = np.float32(phase.miller_indices.T)
+        miller_indices = np.float32(phase.miller_indices)
 
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
         breakpoint()
