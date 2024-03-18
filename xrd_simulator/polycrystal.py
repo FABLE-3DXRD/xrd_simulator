@@ -255,7 +255,7 @@ class Polycrystal():
                     beam.wavelength,
                     min_bragg_angle,
                     max_bragg_angle)
-
+        breakpoint()
         espherecentroids  = np.array_split(self.mesh_lab.espherecentroids, number_of_processes, axis=0)
         eradius           = np.array_split(self.mesh_lab.eradius,  number_of_processes, axis=0)
         orientation_lab   = np.array_split(self.orientation_lab, number_of_processes, axis=0)
