@@ -20,7 +20,7 @@ def get_G(U, B, miller_indices):
         G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
 
     """
-    breakpoint()
+    
     return np.float32(np.matmul(np.matmul(U,B),miller_indices.T))
 
 
@@ -105,6 +105,7 @@ def find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor
     del s1  
     indices_t1 = np.array(np.where(np.logical_and(t1 >= 0, t1 <= 1)))
     values_t1 = t1[indices_t1[0,:],indices_t1[1,:]]
+    breakpoint()
     del t1    
     
     t2 = 2 * np.arctan(s2) / delta_omega
