@@ -98,11 +98,14 @@ def _diffract(dict):
     scattering_units =[]
 
     if BB_intersection:
-        
-        reflections_np = reflections_np[(reflections_np[:,13]<beam.vertices[:,1].max()) & \
-        (reflections_np[:,13]>beam.vertices[:,1].min()) & \
-        (reflections_np[:,14]<beam.vertices[:,2].max()) & \
-        (reflections_np[:,14]>beam.vertices[:,2].min())]  
+      
+        reflections_np = reflections_np[reflections_np[:,13]<=beam.vertices[:,1].max()+eradius.mean()]
+
+        reflections_np = reflections_np[reflections_np[:,13]>=beam.vertices[:,1].min()-eradius.mean()]
+
+        reflections_np = reflections_np[reflections_np[:,14]<=beam.vertices[:,2].max()+eradius.mean()]
+
+        reflections_np = reflections_np[reflections_np[:,14]>=beam.vertices[:,2].min()-eradius.mean()]
 
         for ei in range(reflections_np.shape[0]):
             scattering_unit = ScatteringUnit(ConvexHull(ecoord[int(reflections_np[ei,0])]),
@@ -139,7 +142,7 @@ def _diffract(dict):
 
                 scattering_units.append(scattering_unit)
 
-      
+    print(len(scattering_units)) 
     return scattering_units
 
 class Polycrystal():
@@ -218,7 +221,7 @@ class Polycrystal():
                 number_of_processes=1,
                 number_of_frames=1,
                 proximity=True,
-                BB_intersection=False
+                BB_intersection=True
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
