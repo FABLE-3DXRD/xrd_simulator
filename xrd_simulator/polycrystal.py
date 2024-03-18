@@ -61,7 +61,7 @@ def _diffract(dict):
     scattering_units = [] # The output
 
     for i,phase in enumerate(phases):
-        
+        breakpoint()
         grain_index = np.where(element_phase_map == i)[0]
         miller_indices = np.float32(phase.miller_indices.T)
 
