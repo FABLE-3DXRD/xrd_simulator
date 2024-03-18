@@ -61,7 +61,7 @@ def _diffract(dict):
     scattering_units = [] # The output
 
     for i,phase in enumerate(phases):
-        breakpoint()
+
         grain_index = np.where(element_phase_map == i)[0]
         miller_indices = np.float32(phase.miller_indices.T)
 
@@ -255,7 +255,7 @@ class Polycrystal():
                     beam.wavelength,
                     min_bragg_angle,
                     max_bragg_angle)
-        breakpoint()
+
         espherecentroids  = np.array_split(self.mesh_lab.espherecentroids, number_of_processes, axis=0)
         eradius           = np.array_split(self.mesh_lab.eradius,  number_of_processes, axis=0)
         orientation_lab   = np.array_split(self.orientation_lab, number_of_processes, axis=0)
