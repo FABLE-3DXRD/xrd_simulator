@@ -83,7 +83,7 @@ def _diffract(dict):
         
         del G_0_reflected, reflection_index, time_values
         reflections_df = pd.concat([reflections_df,table],axis=0).sort_values(by='Grain')
-    breakpoint()   
+
     reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
     reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
     reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector
@@ -96,12 +96,14 @@ def _diffract(dict):
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced
     scattering_units =[]
-    
+
     if BB_intersection:
+        
         reflections_np = reflections_np[(reflections_np[:,13]<beam.vertices[:,1].max()) & \
         (reflections_np[:,13]>beam.vertices[:,1].min()) & \
         (reflections_np[:,14]<beam.vertices[:,2].max()) & \
-        (reflections_np[:,14]>beam.vertices[:,2].min())]   
+        (reflections_np[:,14]>beam.vertices[:,2].min())]  
+
         for ei in range(reflections_np.shape[0]):
             scattering_unit = ScatteringUnit(ConvexHull(ecoord[int(reflections_np[ei,0])]),
                         reflections_np[ei,10:13], #outgoing wavevector
@@ -137,7 +139,7 @@ def _diffract(dict):
 
                 scattering_units.append(scattering_unit)
 
-
+      
     return scattering_units
 
 class Polycrystal():
@@ -216,7 +218,7 @@ class Polycrystal():
                 number_of_processes=1,
                 number_of_frames=1,
                 proximity=True,
-                BB_intersection=True
+                BB_intersection=False
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
