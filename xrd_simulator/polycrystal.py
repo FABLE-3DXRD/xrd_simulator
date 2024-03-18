@@ -99,13 +99,10 @@ def _diffract(dict):
 
     if BB_intersection:
       
-        reflections_np = reflections_np[reflections_np[:,13]<=beam.vertices[:,1].max()+eradius.mean()]
-
-        reflections_np = reflections_np[reflections_np[:,13]>=beam.vertices[:,1].min()-eradius.mean()]
-
-        reflections_np = reflections_np[reflections_np[:,14]<=beam.vertices[:,2].max()+eradius.mean()]
-
-        reflections_np = reflections_np[reflections_np[:,14]>=beam.vertices[:,2].min()-eradius.mean()]
+        reflections_np = reflections_np[reflections_np[:,14]<=beam.vertices[:,1].max()]
+        reflections_np = reflections_np[reflections_np[:,14]>=beam.vertices[:,1].min()]
+        reflections_np = reflections_np[reflections_np[:,15]<=beam.vertices[:,2].max()]
+        reflections_np = reflections_np[reflections_np[:,15]>=beam.vertices[:,2].min()]
 
         for ei in range(reflections_np.shape[0]):
             scattering_unit = ScatteringUnit(ConvexHull(ecoord[int(reflections_np[ei,0])]),
