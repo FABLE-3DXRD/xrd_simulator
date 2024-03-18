@@ -248,7 +248,7 @@ class Polycrystal():
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle)
-
+    
         for phase in self.phases:
             with utils._verbose_manager(verbose):
                 phase.setup_diffracting_planes(
