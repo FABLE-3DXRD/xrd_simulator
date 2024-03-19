@@ -18,6 +18,7 @@ from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 from multiprocessing import Pool
+import plotly.express as px
 
 
 def _diffract(dict):
@@ -96,16 +97,16 @@ def _diffract(dict):
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced
     scattering_units =[]
-
+    
     if BB_intersection:
-      
-        reflections_np = reflections_np[reflections_np[:,14]<=beam.vertices[:,1].max()]
-        reflections_np = reflections_np[reflections_np[:,14]>=beam.vertices[:,1].min()]
-        reflections_np = reflections_np[reflections_np[:,15]<=beam.vertices[:,2].max()]
-        reflections_np = reflections_np[reflections_np[:,15]>=beam.vertices[:,2].min()]
+        
+        reflections_np = reflections_np[reflections_np[:,14]<=(beam.vertices[:,1].max()+eradius[reflections_np[:,0].astype(int)])]
+        reflections_np = reflections_np[reflections_np[:,14]>=(beam.vertices[:,1].min()-eradius[reflections_np[:,0].astype(int)])]
+        reflections_np = reflections_np[reflections_np[:,15]<=(beam.vertices[:,2].max()+eradius[reflections_np[:,0].astype(int)])]
+        reflections_np = reflections_np[reflections_np[:,15]>=(beam.vertices[:,2].min()-eradius[reflections_np[:,0].astype(int)])]
 
         for ei in range(reflections_np.shape[0]):
-            scattering_unit = ScatteringUnit(ConvexHull(ecoord[int(reflections_np[ei,0])]),
+            scattering_unit = ScatteringUnit(ConvexHull(element_vertices[ei]),
                         reflections_np[ei,10:13], #outgoing wavevector
                         beam.wave_vector,
                         beam.wavelength,
@@ -138,8 +139,6 @@ def _diffract(dict):
                                         ei)
 
                 scattering_units.append(scattering_unit)
-
-    print(len(scattering_units)) 
     return scattering_units
 
 class Polycrystal():
