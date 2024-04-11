@@ -251,10 +251,10 @@ class Detector():
         """
         s = (self.det_corner_0 - source_point).dot(self.normal) / \
             ray_direction.dot(self.normal)
-        intersection = source_point + ray_direction * s
+        intersection = source_point + ray_direction * s[:,np.newaxis]
         zd = np.dot(intersection - self.det_corner_0, self.zdhat)
         yd = np.dot(intersection - self.det_corner_0, self.ydhat)
-        return zd, yd
+        return np.array([zd, yd]).T
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -267,7 +267,7 @@ class Detector():
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-        return zd >= 0 and zd <= self.zmax and yd >= 0 and yd <= self.ymax
+        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project(self, scattering_unit, box):
         """Compute parametric projection of scattering region unto detector.
@@ -399,8 +399,7 @@ class Detector():
         sample scattering region centroid to the detector plane. The intensity is deposited into a single
         detector pixel regardless of the geometrical shape of the scattering_unit.
         """
-        zd, yd = self.get_intersection(
-            scattering_unit.scattered_wave_vector, scattering_unit.centroid)
+        zd, yd = scattering_unit.zd, scattering_unit.yd
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor)
@@ -425,8 +424,7 @@ class Detector():
         step using convolution. Here the point spread is simulated to take place in the scintillator, before reaching the
         chip.
         """
-        zd, yd = self.get_intersection(
-            scattering_unit.scattered_wave_vector, scattering_unit.centroid)
+        zd, yd = scattering_unit.zd, scattering_unit.yd
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor)
@@ -525,8 +523,8 @@ class Detector():
 
         """
         vertices = scattering_unit.convex_hull.points[scattering_unit.convex_hull.vertices]
-        projected_vertices = np.array([self.get_intersection(
-            scattering_unit.scattered_wave_vector, v) for v in vertices])
+
+        projected_vertices = self.get_intersection(scattering_unit.scattered_wave_vector, vertices)
 
         min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
             projected_vertices[:, 0])

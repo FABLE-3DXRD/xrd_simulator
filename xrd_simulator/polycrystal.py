@@ -10,14 +10,14 @@ Below follows a detailed description of the polycrystal class attributes and fun
 
 """
 import numpy as np
-from scipy.spatial import ConvexHull
+import pandas as pd
 import dill
 import copy
+from scipy.spatial import ConvexHull
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 from multiprocessing import Pool
-
 
 def _diffract(dict):
 
@@ -32,85 +32,115 @@ def _diffract(dict):
     eB                  = dict['eB']
     element_phase_map   = dict['element_phase_map']
     ecoord              = dict['ecoord']
-    verbose             = dict['verbose']
+    verbose             = dict['verbose'] #should be deprecated or repurposed since computation now takes place phase by phase not by individual scatterer
+    proximity           = dict['proximity']
+    BB_intersection     = dict['BB_intersection']
     number_of_elements  = ecoord.shape[0]
 
-    rho_0_factor = -beam.wave_vector.dot(rigid_body_motion.rotator.K2)
-    rho_1_factor = beam.wave_vector.dot(rigid_body_motion.rotator.K)
-    rho_2_factor = beam.wave_vector.dot(
-        np.eye(3, 3) + rigid_body_motion.rotator.K2)
-
-    scattering_units = []
-
-    proximity_intervals = beam._get_proximity_intervals(
-                                        espherecentroids,
-                                        eradius,
-                                        rigid_body_motion)
-
-    possible_scatterers = np.sum([pi[0] is not None for pi in proximity_intervals])
-
-    if verbose: 
-        progress_update_rate = 10**int(len(str(int(number_of_elements/1000.)))-1)
-
-    for ei in range(number_of_elements):
-
-        if verbose and ei % progress_update_rate == 0:
-            progress_bar_message = "Found " + \
-                str(possible_scatterers) + " scatterers (mesh has "+str(number_of_elements)+" elements)"
-            progress_fraction = float(
-                ei + 1) / number_of_elements
-            utils._print_progress(
-                progress_fraction,
-                message=progress_bar_message)
-
-        # skip elements not illuminated
-        if proximity_intervals[ei][0] is None:
-            continue
+    rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
+    rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
+    rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
         
-        G_0 = laue.get_G(orientation_lab[ei], eB[ei],
-                            phases[element_phase_map[ei]].miller_indices.T)
+    if proximity:
+        # Grains with no chance to be hit by the beam are removed beforehand, if proximity is toggled as True
+        proximity_intervals = beam._get_proximity_intervals(
+                                            espherecentroids,
+                                            eradius,
+                                            rigid_body_motion)
+        possible_scatterers_mask = np.array([pi[0] is not None for pi in proximity_intervals])
+        espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
+        eradius = np.float32(eradius[possible_scatterers_mask])
+        
+        orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
+        eB = np.float32(eB[possible_scatterers_mask])
+        element_phase_map = element_phase_map[possible_scatterers_mask]
+        ecoord = np.float32(ecoord[possible_scatterers_mask])
+    
+    reflections_df = pd.DataFrame() # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    scattering_units = [] # The output
 
-        rho_0s = rho_0_factor.dot(G_0)
-        rho_1s = rho_1_factor.dot(G_0)
-        rho_2s = rho_2_factor.dot(G_0) + np.sum((G_0 * G_0), axis=0) / 2.
+    # For each phase of the sample, we compute all reflections at once in a vectorized manner
+    for i,phase in enumerate(phases):
 
-        t1, t2 = laue.find_solutions_to_tangens_half_angle_equation(rho_0s, rho_1s, rho_2s, rigid_body_motion.rotation_angle)
+        grain_index = np.where(element_phase_map == i)[0]
+        miller_indices = np.float32(phase.miller_indices)
 
-        for hkl_indx in range(G_0.shape[1]):
-            for time in (t1[hkl_indx],t2[hkl_indx]):
-                if ~np.isnan(time):
+        G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
+        
+        reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
+        G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
 
-                    if utils._contained_by_intervals(time, proximity_intervals[ei]):
+        del G_0
+        # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
-                        G = rigid_body_motion.rotate(
-                            G_0[:, hkl_indx], time)
-                        scattered_wave_vector = G + beam.wave_vector
+        table = pd.DataFrame({'Grain':grain_index[reflection_index[0]],
+                               'phase':i,
+                               'hkl':reflection_index[1],
+                               'time':time_values,
+                               'G_0x':G_0_reflected[:,0],
+                               'G_0y':G_0_reflected[:,1],
+                                'G_0z':G_0_reflected[:,2]})
+        
+        del G_0_reflected, reflection_index, time_values
+        reflections_df = pd.concat([reflections_df,table],axis=0).sort_values(by='Grain')
 
-                        source = rigid_body_motion(espherecentroids[ei], time)
-                        zd, yd = detector.get_intersection(scattered_wave_vector, source)
+    reflections_df = reflections_df[(0<reflections_df['time']) & (reflections_df['time']<1)] # We filter out the times which exceed 0 or 1
+    reflections_df[['Gx','Gy','Gz']] = rigid_body_motion.rotate(reflections_df[['G_0x','G_0y','G_0z']].values, reflections_df['time'].values)
+    reflections_df[["k'x","k'y","k'z"]] = reflections_df[['Gx','Gy','Gz']] + beam.wave_vector
+    reflections_df[['Source_x','Source_y','Source_z']] = rigid_body_motion(espherecentroids[reflections_df['Grain']],reflections_df['time'].values)
+    reflections_df[['zd','yd']] = detector.get_intersection(reflections_df[["k'x","k'y","k'z"]].values,reflections_df[['Source_x','Source_y','Source_z']].values)
+    reflections_df = reflections_df[detector.contains(reflections_df['zd'], reflections_df ['yd'])]
+    
+    element_vertices_0 = ecoord[reflections_df['Grain']]
+    element_vertices = rigid_body_motion(element_vertices_0, reflections_df['time'].values)
+    
+    reflections_np = reflections_df.values # We move from pandas to numpy for enhanced speed
+    scattering_units =[]
+    
+    if BB_intersection: 
+        """ A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed), 
+        simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism."""
+        reflections_np = reflections_np[reflections_np[:,14]<(beam.vertices[:,1].max())]#
+        reflections_np = reflections_np[reflections_np[:,14]>(beam.vertices[:,1].min())]#
+        reflections_np = reflections_np[reflections_np[:,15]<(beam.vertices[:,2].max())]#
+        reflections_np = reflections_np[reflections_np[:,15]>(beam.vertices[:,2].min())]#
 
-                        if detector.contains(zd, yd):
+        for ei in range(reflections_np.shape[0]):
+            scattering_unit = ScatteringUnit(ConvexHull(element_vertices[ei]),
+                        reflections_np[ei,10:13], #outgoing wavevector
+                        beam.wave_vector,
+                        beam.wavelength,
+                        beam.polarization_vector,
+                        rigid_body_motion.rotation_axis,
+                        reflections_np[ei,3], #time
+                        phases[reflections_np[ei,1].astype(int)], #phase
+                        reflections_np[ei,2].astype(int), #hkl index
+                        reflections_np[ei,16], #zd saved to avoid recomputing during redering
+                        reflections_np[ei,17], #yd saved to avoid recomputing during redering
+                        ei)
+            scattering_units.append(scattering_unit)
+            
+    else:
+        """Otherwise, compute the true intersection of each tet with the beam to get the true scattering volume."""
+        for ei in range(element_vertices.shape[0]):    
+            scattering_region = beam.intersect(element_vertices[ei])
 
-                            element_vertices_0 = ecoord[ei]
+            if scattering_region is not None:
+                scattering_unit = ScatteringUnit(scattering_region,
+                                        reflections_np[ei,10:13], #outgoing wavevector
+                                        beam.wave_vector,
+                                        beam.wavelength,
+                                        beam.polarization_vector,
+                                        rigid_body_motion.rotation_axis,
+                                        reflections_np[ei,3], #time
+                                        phases[reflections_np[ei,1].astype(int)], #phase
+                                        reflections_np[ei,2].astype(int), #hkl index
+                                        reflections_np[ei,16], #zd saved to avoid recomputing during redering
+                                        reflections_np[ei,17], #yd saved to avoid recomputing during redering
+                                        ei)
 
-                            element_vertices = rigid_body_motion(
-                                element_vertices_0.T, time).T
-
-                            scattering_region = beam.intersect(element_vertices)
-
-                            if scattering_region is not None:
-                                scattering_unit = ScatteringUnit(scattering_region,
-                                                        scattered_wave_vector,
-                                                        beam.wave_vector,
-                                                        beam.wavelength,
-                                                        beam.polarization_vector,
-                                                        rigid_body_motion.rotation_axis,
-                                                        time,
-                                                        phases[element_phase_map[ei]],
-                                                        hkl_indx,
-                                                        ei)
-
-                                scattering_units.append(scattering_unit)
+                scattering_units.append(scattering_unit)
+                
     return scattering_units
 
 class Polycrystal():
@@ -139,7 +169,12 @@ class Polycrystal():
         mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
             geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.
         mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a sample coordinate system. This quantity is not updated when the sample transforms.
+            geometry of the sample in a sample metadata={'angle':angle,
+                               'angles':n_angles,
+                               'steps':n_scans,
+                               'beam':beam_file,
+                               'sample':polycrystal_file,
+                               'detector':detector_file},coordinate system. This quantity is not updated when the sample transforms.
         orientation_lab (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the lab coordinate
             system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
         orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
@@ -182,7 +217,9 @@ class Polycrystal():
                 max_bragg_angle=None,
                 verbose=False,
                 number_of_processes=1,
-                number_of_frames=1 
+                number_of_frames=1,
+                proximity=True,
+                BB_intersection=False
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -208,6 +245,11 @@ class Polycrystal():
                 to be collected. Defaults to 1, which means that the detector reads diffraction during the full rigid body
                 motion and integrates out the signal to a single frame. The number_of_frames keyword primarily allows for single 
                 rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently. 
+            proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
+                For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.        
+            BB_intersection (:obj:`bool`): Set to True in order to assume the beam as a square prism, the scattering volume for the tetrahedra
+                to be the whole tetrahedron and the scattering tetrahedra to be all those whose centroids are included in the square prism.
+                Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
         if verbose and number_of_processes!=1:
@@ -215,7 +257,7 @@ class Polycrystal():
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle)
-
+    
         for phase in self.phases:
             with utils._verbose_manager(verbose):
                 phase.setup_diffracting_planes(
@@ -246,7 +288,9 @@ class Polycrystal():
                         'eB': eB[i],
                         'element_phase_map': element_phase_map[i],
                         'ecoord': ecoord,
-                        'verbose':verbose
+                        'verbose': verbose,
+                        'proximity': proximity,
+                        'BB_intersection': BB_intersection
                         } )
 
         if number_of_processes == 1:
@@ -257,7 +301,7 @@ class Polycrystal():
             all_scattering_units = []
             for su in scattering_units:
                 all_scattering_units.extend(su)
-        
+                
         if number_of_frames==1:
             detector.frames.append(all_scattering_units)
         else:
@@ -279,21 +323,16 @@ class Polycrystal():
         This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
         such as face normals etc. Likewise, it will update the per element crystal orientation
         matrices (U) as well as the lab frame description of strain tensors.
-
-        Args:
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
-            time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
+tt`): Time between [0,1] at which to call the rigid body motion.
 
         """
-
         self.mesh_lab.update(rigid_body_motion, time)
 
         Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
             rigid_body_motion.rotation_angle * time)
 
-        self.orientation_lab = np.dot(Rot_mat, self.orientation_lab).swapaxes(0,1)
-        self.strain_lab = np.dot( np.dot(Rot_mat, self.strain_lab), Rot_mat.T ).swapaxes(0,1)
+        self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+        self.strain_lab = np.matmul( np.matmul(Rot_mat, self.strain_lab), Rot_mat[0].T )
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
@@ -331,7 +370,7 @@ class Polycrystal():
             element_data['Misorientation from mean orientation [degrees]'] = []
 
             misorientations = utils.get_misorientations(self.orientation_sample)
-
+            
             for U, misorientation in zip(self.orientation_sample, misorientations):
                 phi_1, PHI, phi_2 = tools.u_to_euler(U)
                 element_data['Bunge Euler Angle phi_1 [degrees]'].append(np.degrees(phi_1))
@@ -408,10 +447,14 @@ class Polycrystal():
 
         """
         _eB = np.zeros((mesh.number_of_elements, 3, 3))
-        for i in range(mesh.number_of_elements):
-            _eB[i,:,:] = utils.lab_strain_to_B_matrix(strain_lab[i,:,:],
-                                                      orientation_lab[i,:,:],
-                                                      phases[element_phase_map[i]].unit_cell)
+        B0s = np.zeros((len(phases),3,3))
+        for i,phase in enumerate(phases):
+            B0s[i] = tools.form_b_mat(phase.unit_cell)
+            grain_index = np.where(np.array(element_phase_map) == i)[0]
+            _eB[grain_index] = utils.lab_strain_to_B_matrix(strain_lab[grain_index],
+                                                      orientation_lab[grain_index],
+                                                      B0s[i])
+
         return _eB
 
     def _get_bragg_angle_bounds(

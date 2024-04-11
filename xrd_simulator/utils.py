@@ -1,6 +1,7 @@
 """General internal package utility functions.
 
 """ # TODO: Move some of these back into their classes where they are used.
+import sys
 import numpy as np
 import logging
 from numba import njit
@@ -162,7 +163,7 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
 def lab_strain_to_B_matrix(
         strain_tensor,
         crystal_orientation,
-        unit_cell):
+        B0):
     """Take a strain tensor in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
@@ -179,18 +180,9 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
-    crystal_strain = np.dot(
-        crystal_orientation.T, np.dot(
-            strain_tensor, crystal_orientation))
-    lattice_matrix = _epsilon_to_b([crystal_strain[0, 0],
-                                         crystal_strain[0, 1],
-                                         crystal_strain[0, 2],
-                                         crystal_strain[1, 1],
-                                         crystal_strain[1, 2],
-                                         crystal_strain[2, 2]],
-                                        unit_cell)
+    crystal_strain = np.matmul(crystal_orientation.transpose(0,2,1), np.matmul(strain_tensor, crystal_orientation))
+    lattice_matrix = _epsilon_to_b(crystal_strain,B0)
     return lattice_matrix
-
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
     """Compute circumscribed_sphere_centroid by solving linear systems of equations
@@ -288,17 +280,15 @@ def _b_to_epsilon(B_matrix, unit_cell):
     strain_tensor = 0.5*(F.T.dot(F) - np.eye(3))  # large deformations
     return _strain_as_vector(strain_tensor)
 
-def _epsilon_to_b(epsilon, unit_cell):
+def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b
     """
-    strain_tensor = _strain_as_tensor(epsilon)
-    C = 2*strain_tensor + np.eye(3, dtype=np.float64)
+    C = 2*crystal_strain + np.eye(3, dtype=np.float32)
     eigen_vals = np.linalg.eigvalsh(C)
     if np.any( np.array(eigen_vals) < 0 ):
-        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(strain_tensor))+ \
+        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(crystal_strain))+ \
             ", will invert the unit cell with negative deformation gradient tensor determinant" )
-    F = np.linalg.cholesky(C).T
-    B0 = tools.form_b_mat(unit_cell)
+    F = np.linalg.cholesky(C).transpose(0,2,1)
     B = np.linalg.inv(F).dot(B0)
     return B
 
@@ -317,3 +307,77 @@ def get_misorientations(orientations):
         difference_rotation = Rotation.from_matrix(U.dot(mean_orientation.T))
         misorientations[i] = Rotation.magnitude(difference_rotation)
     return misorientations
+
+
+def compute_sides(points):
+    """Computes the length of the sides of n tetrahedrons given a nx4x3 array"""
+    # Reshape the points array to have shape (n, 1, 4, 3)
+    reshaped_points = points[:, np.newaxis, :, :]
+
+    # Compute the differences between each pair of points
+    differences = reshaped_points - reshaped_points.transpose(0, 2, 1, 3)
+
+    # Compute the squared distances along the last axis
+    squared_distances = np.sum(differences**2, axis=-1)
+
+    # Compute the distances by taking the square root of the squared distances
+    dist_mat = np.sqrt(squared_distances)
+    
+    # Extract the 1-to-1 values from the distance matrix
+    distances = np.hstack((dist_mat[:,0,1:],dist_mat[:,1,2:],dist_mat[:,2,3][:,np.newaxis]))
+    
+    return distances
+
+
+def circumsphere_of_segments(segments):
+    """Computes the minimum circumsphere of n segments given by a numpy array of vertices nx2x3"""
+    centers = np.mean(segments,axis=1)
+    radii = np.linalg.norm(centers-segments[:,0,:],axis=1)
+    return centers, radii
+
+def circumsphere_of_triangles(triangles):
+    """Computes the minimum circumsphere of n triangles given by a numpy array of vertices nx3x3. Prints a message if any tetrahedron has 0 volume."""
+    ab = triangles[:,1,:] - triangles[:,0,:]
+    ac = triangles[:,2,:] - triangles[:,0,:]
+    
+    abXac = np.cross(ab,ac) 
+    acXab = np.cross(ac,ab)
+
+    norm_abXac = np.linalg.norm(abXac,axis=1)
+    
+    a_to_centre = (np.cross(abXac,ab)*((np.linalg.norm(ac,axis=1)**2)[:,np.newaxis])+np.cross(acXab,ac)*((np.linalg.norm(ab,axis=1)**2)[:,np.newaxis]))/(2*(np.linalg.norm(abXac,axis=1)**2)[:,np.newaxis])
+
+    centers = triangles[:,0,:]+ a_to_centre    
+    radii = np.linalg.norm(a_to_centre,axis=1)
+    
+    return centers, radii
+
+def circumsphere_of_tetrahedrons(tetrahedra):
+    """Computes the circumcenter of n tetrahedrons given by a numpy array of vertices nx4x3"""
+    v0 = tetrahedra[:,0,:]
+    v1 = tetrahedra[:,1,:]
+    v2 = tetrahedra[:,2,:]
+    v3 = tetrahedra[:,3,:]
+
+    A = np.vstack(((v1-v0).T[np.newaxis,:],(v2-v0).T[np.newaxis,:],(v3-v0).T[np.newaxis,:])).transpose(2,0,1)
+    B = 0.5*np.vstack((np.linalg.norm(v1,axis=1)**2-np.linalg.norm(v0,axis=1)**2,
+                  np.linalg.norm(v2,axis=1)**2-np.linalg.norm(v0,axis=1)**2,
+                  np.linalg.norm(v3,axis=1)**2-np.linalg.norm(v0,axis=1)**2)).T
+
+    centers = np.matmul(np.linalg.inv(A),B[:,:,np.newaxis])[:,:,0]
+    radii = np.linalg.norm((tetrahedra.transpose(2,0,1)-centers.transpose(1,0)[:,:,np.newaxis])[:,:,0],axis=0)
+    
+    return centers, radii
+
+
+def sizeof_fmt(num, suffix='B'):
+    ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'Yi', suffix)
+
+def printvars(vars):
+    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in list(vars.items())), key= lambda x: -x[1])[:10]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))

@@ -4,6 +4,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.templates import get_uniform_powder_sample
+import os
 
 pixel_size = 75.
 detector_size = pixel_size * 1024

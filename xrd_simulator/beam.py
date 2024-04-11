@@ -12,7 +12,7 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator import laue, utils
+from xrd_simulator import utils, laue
 from scipy.optimize import root_scalar
 
 class Beam():
@@ -20,6 +20,7 @@ class Beam():
 
     The beam is described in the laboratory coordinate system.
 
+>>>>>>> vectorization
     Args:
         beam_vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
         xray_propagation_direction (:obj:`numpy array`): Propagation direction of xrays, ``shape=(3,)``.
@@ -228,7 +229,8 @@ class Beam():
         R = sphere_radius.reshape(1, sphere_radius.shape[0])
         not_candidates = np.zeros((len(sample_times), R.shape[1]), dtype=bool)
         for i,time in enumerate(sample_times):
-            halfspaces = ConvexHull( inverse_rigid_body_motion( self.vertices.T, time=time ).T ).equations
+
+            halfspaces = ConvexHull( inverse_rigid_body_motion( self.vertices, time=time ) ).equations
             halfspaces = np.unique(halfspaces.round(decimals=6), axis=0)
             normals    = halfspaces[:, 0:3]
             distances  = halfspaces[:, 3].reshape(normals.shape[0],1)
