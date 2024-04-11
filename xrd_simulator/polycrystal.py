@@ -61,13 +61,13 @@ def _diffract(dict):
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i,phase in enumerate(phases):
-
+        # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_index = np.where(element_phase_map == i)[0]
         miller_indices = np.float32(phase.miller_indices)
-
+        # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index],miller_indices)
-        
-        reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)  
+        # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
+        reflection_index, time_values = laue.find_solutions_to_tangens_half_angle_equation(G_0,rho_0_factor, rho_1_factor, rho_2_factor, rigid_body_motion.rotation_angle)
         G_0_reflected = G_0.transpose(0,2,1)[reflection_index[0,:],reflection_index[1,:]]
 
         del G_0
@@ -91,7 +91,7 @@ def _diffract(dict):
     reflections_df[['zd','yd']] = detector.get_intersection(reflections_df[["k'x","k'y","k'z"]].values,reflections_df[['Source_x','Source_y','Source_z']].values)
     reflections_df = reflections_df[detector.contains(reflections_df['zd'], reflections_df ['yd'])]
     
-    element_vertices_0 = ecoord[reflections_df['Grain']]
+    element_vertices_0 = ecoord[refle#Computed in advance to bections_df['Grain']]
     element_vertices = rigid_body_motion(element_vertices_0, reflections_df['time'].values)
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced speed

@@ -254,7 +254,6 @@ class TetraMesh(object):
         vertices = coord[enod]
         n_tetra = enod.shape[0]
         range_n_tetra = range(n_tetra)
-        
         pairs = np.array([[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]])
         all_pairs = np.tile([0,1,2,3],(n_tetra,1))
         
