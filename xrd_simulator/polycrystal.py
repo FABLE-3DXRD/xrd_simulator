@@ -91,7 +91,7 @@ def _diffract(dict):
     reflections_df[['zd','yd']] = detector.get_intersection(reflections_df[["k'x","k'y","k'z"]].values,reflections_df[['Source_x','Source_y','Source_z']].values)
     reflections_df = reflections_df[detector.contains(reflections_df['zd'], reflections_df ['yd'])]
     
-    element_vertices_0 = ecoord[refle#Computed in advance to bections_df['Grain']]
+    element_vertices_0 = ecoord[reflections_df['Grain']]
     element_vertices = rigid_body_motion(element_vertices_0, reflections_df['time'].values)
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced speed
