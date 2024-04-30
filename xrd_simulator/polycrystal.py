@@ -9,15 +9,16 @@ Here is a minimal example of how to instantiate a polycrystal object and save it
 Below follows a detailed description of the polycrystal class attributes and functions.
 
 """
+import copy
+from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 import dill
-import copy
 from scipy.spatial import ConvexHull
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
-from multiprocessing import Pool
+
 
 def _diffract(dict):
 

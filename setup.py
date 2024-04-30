@@ -33,5 +33,6 @@ setuptools.setup(
                       "dill",
                       "xfab",
                       "netcdf4",
-                      "h5py"]
+                      "h5py",
+                      "pandas"]
 )
