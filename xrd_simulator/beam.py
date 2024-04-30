@@ -20,7 +20,6 @@ class Beam():
 
     The beam is described in the laboratory coordinate system.
 
->>>>>>> vectorization
     Args:
         beam_vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
         xray_propagation_direction (:obj:`numpy array`): Propagation direction of xrays, ``shape=(3,)``.
