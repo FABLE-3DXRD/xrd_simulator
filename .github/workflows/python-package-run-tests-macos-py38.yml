@@ -24,6 +24,9 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
+        conda clean -all
+        conda clean --index-cache
+        conda update conda
         conda install python=3.10.11
         conda install conda-forge::pygalmesh
         conda install -c conda-forge matplotlib numpy meshio scipy numba pycifrw dill xfab
