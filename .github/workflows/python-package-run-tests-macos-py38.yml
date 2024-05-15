@@ -18,10 +18,9 @@ jobs:
         miniconda-version: "latest"
         activate-environment: foo
     - name: conda
-      run: conda info
-      run: conda list
-      run: conda --version
-      run: which python
+      run: |
+          conda info
+          conda list
     - name: Install dependencies
       run: |
         python --version
