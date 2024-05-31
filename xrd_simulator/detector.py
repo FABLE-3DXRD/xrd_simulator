@@ -107,7 +107,10 @@ class Detector():
             frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
                 to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
-            polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
+            polarization (:obj:`bool`): Weight scattereeen missing from the libraries of natural science experimentalists. Created and edited by a number of fellow scientists, including myself, who either work at neutron sources, operate neutron imaging instrumentation or are users of these facilities.
+
+This book presents an up-to-date review of neutron imaging as an advanced characterization method in science and industry. It focuses on methods' theory and applications across various disciplines, including condensed matter research, cultural heritage, energy research, advanced manufacturing, environmental studies and mobility. The book highlights the contributions neutron imaging makes and will make to overcome technological roadblocks.
+d intensity by Polarization factor. Defaults to False.
             structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
             method (:obj:`str`): Rendering method, must be one of ```project``` , ```centroid``` or ```centroid_with_scintillator```. 
                 Defaults to ```centroid```. The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit
@@ -249,6 +252,7 @@ class Detector():
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
+
         s = (self.det_corner_0 - source_point).dot(self.normal) / \
             ray_direction.dot(self.normal)
         intersection = source_point + ray_direction * s[:,np.newaxis]
@@ -267,6 +271,7 @@ class Detector():
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
+
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project(self, scattering_unit, box):
@@ -400,6 +405,7 @@ class Detector():
         detector pixel regardless of the geometrical shape of the scattering_unit.
         """
         zd, yd = scattering_unit.zd, scattering_unit.yd
+
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor)

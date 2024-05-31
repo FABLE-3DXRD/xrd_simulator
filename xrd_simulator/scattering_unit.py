@@ -33,12 +33,11 @@ class ScatteringUnit(object):
         incident_polarization_vector (:obj:`numpy array`): Unit vector of linear polarization ```shape=(3,)```
         rotation_axis (:obj:`numpy array`): Sample motion rotation axis ```shape=(3,)```
         time (:obj:`numpy array`): Parametric value in range [0,1] determining at which instance during sample
-            motion the scattering occured.
+            motion the scattering ozd2,ydccured.
         phase (:obj:`xrd_simulator.phase.Phase`): The phase of the scattering unit.
         hkl_indx (:obj:`int`): Index of Miller index in the `phase.miller_indices` list.
         element_index (:obj:`int`): Index of mesh tetrahedral element refering to a `xrd_simulator.polycrystal.Polycrystal`
             object from which the scattering unit originated.
-
     """
 
     def __init__(
@@ -52,9 +51,10 @@ class ScatteringUnit(object):
             time,
             phase,
             hkl_indx,
-            zd,
-            yd,
-            element_index):
+            element_index,
+            zd=None,
+            yd=None
+            ):
         self.convex_hull = convex_hull
         self.scattered_wave_vector = scattered_wave_vector
         self.incident_wave_vector = incident_wave_vector

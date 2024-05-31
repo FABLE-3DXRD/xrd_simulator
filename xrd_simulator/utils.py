@@ -180,9 +180,14 @@ def lab_strain_to_B_matrix(
         coordinates, ``shape=(3,3)``.
 
     """
+    if strain_tensor.ndim == 2:
+        strain_tensor = strain_tensor[np.newaxis,:,:]
+    if crystal_orientation.ndim == 2:
+        crystal_orientation = crystal_orientation[np.newaxis,:,:]
+
     crystal_strain = np.matmul(crystal_orientation.transpose(0,2,1), np.matmul(strain_tensor, crystal_orientation))
     lattice_matrix = _epsilon_to_b(crystal_strain,B0)
-    return lattice_matrix
+    return np.squeeze(lattice_matrix)
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
     """Compute circumscribed_sphere_centroid by solving linear systems of equations
@@ -271,11 +276,10 @@ def _strain_as_tensor(strain_vector):
 def _strain_as_vector(strain_tensor):
     return list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
 
-def _b_to_epsilon(B_matrix, unit_cell):
+def _b_to_epsilon(B_matrix, B0):
     """Handle large deformations as opposed to current xfab.tools.b_to_epsilon
     """
     B = np.asarray(B_matrix, np.float64)
-    B0 = tools.form_b_mat(unit_cell)
     F = np.dot(B0, np.linalg.inv(B))
     strain_tensor = 0.5*(F.T.dot(F) - np.eye(3))  # large deformations
     return _strain_as_vector(strain_tensor)
@@ -288,7 +292,10 @@ def _epsilon_to_b(crystal_strain, B0):
     if np.any( np.array(eigen_vals) < 0 ):
         raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(crystal_strain))+ \
             ", will invert the unit cell with negative deformation gradient tensor determinant" )
-    F = np.linalg.cholesky(C).transpose(0,2,1)
+    if C.ndim == 3:
+        F = np.linalg.cholesky(C).transpose(0,2,1)
+    else:
+        F = np.linalg.cholesky(C).T
     B = np.linalg.inv(F).dot(B0)
     return B
 
@@ -311,6 +318,7 @@ def get_misorientations(orientations):
 
 def compute_sides(points):
     """Computes the length of the sides of n tetrahedrons given a nx4x3 array"""
+
     # Reshape the points array to have shape (n, 1, 4, 3)
     reshaped_points = points[:, np.newaxis, :, :]
 

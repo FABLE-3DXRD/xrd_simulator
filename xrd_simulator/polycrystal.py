@@ -19,7 +19,6 @@ from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 
-
 def _diffract(dict):
 
 
@@ -97,10 +96,11 @@ def _diffract(dict):
     
     reflections_np = reflections_df.values # We move from pandas to numpy for enhanced speed
     scattering_units =[]
-    
+
     if BB_intersection: 
-        """ A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed), 
-        simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism."""
+        # A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed), 
+        # simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism.
+        
         reflections_np = reflections_np[reflections_np[:,14]<(beam.vertices[:,1].max())]#
         reflections_np = reflections_np[reflections_np[:,14]>(beam.vertices[:,1].min())]#
         reflections_np = reflections_np[reflections_np[:,15]<(beam.vertices[:,2].max())]#
@@ -116,9 +116,10 @@ def _diffract(dict):
                         reflections_np[ei,3], #time
                         phases[reflections_np[ei,1].astype(int)], #phase
                         reflections_np[ei,2].astype(int), #hkl index
-                        reflections_np[ei,16], #zd saved to avoid recomputing during redering
-                        reflections_np[ei,17], #yd saved to avoid recomputing during redering
-                        ei)
+                        ei,
+                        zd=reflections_np[ei,16], #zd saved to avoid recomputing during redering
+                        yd=reflections_np[ei,17]) #yd saved to avoid recomputing during redering)
+            
             scattering_units.append(scattering_unit)
             
     else:
@@ -136,9 +137,10 @@ def _diffract(dict):
                                         reflections_np[ei,3], #time
                                         phases[reflections_np[ei,1].astype(int)], #phase
                                         reflections_np[ei,2].astype(int), #hkl index
-                                        reflections_np[ei,16], #zd saved to avoid recomputing during redering
-                                        reflections_np[ei,17], #yd saved to avoid recomputing during redering
-                                        ei)
+                                        ei,
+                                        zd=reflections_np[ei,16], #zd saved to avoid recomputing during redering
+                                        yd=reflections_np[ei,17] #yd saved to avoid recomputing during redering
+                                        )
 
                 scattering_units.append(scattering_unit)
                 
@@ -208,7 +210,7 @@ class Polycrystal():
         self.mesh_sample = copy.deepcopy(mesh)
         self.strain_sample = np.copy(self.strain_lab)
         self.orientation_sample = np.copy(self.orientation_lab)
-
+        
     def diffract(
                 self,
                 beam,
@@ -219,7 +221,7 @@ class Polycrystal():
                 verbose=False,
                 number_of_processes=1,
                 number_of_frames=1,
-                proximity=True,
+                proximity=False,
                 BB_intersection=False
                 ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
@@ -296,13 +298,14 @@ class Polycrystal():
 
         if number_of_processes == 1:
             all_scattering_units = _diffract(args[0])
+
         else:
             with Pool(number_of_processes) as p:
                 scattering_units = p.map( _diffract, args )
             all_scattering_units = []
             for su in scattering_units:
                 all_scattering_units.extend(su)
-                
+
         if number_of_frames==1:
             detector.frames.append(all_scattering_units)
         else:
@@ -333,7 +336,8 @@ tt`): Time between [0,1] at which to call the rigid body motion.
             rigid_body_motion.rotation_angle * time)
 
         self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
-        self.strain_lab = np.matmul( np.matmul(Rot_mat, self.strain_lab), Rot_mat[0].T )
+
+        self.strain_lab = np.matmul( np.matmul(Rot_mat, self.strain_lab), Rot_mat.T )
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
@@ -451,9 +455,9 @@ tt`): Time between [0,1] at which to call the rigid body motion.
         B0s = np.zeros((len(phases),3,3))
         for i,phase in enumerate(phases):
             B0s[i] = tools.form_b_mat(phase.unit_cell)
-            grain_index = np.where(np.array(element_phase_map) == i)[0]
-            _eB[grain_index] = utils.lab_strain_to_B_matrix(strain_lab[grain_index],
-                                                      orientation_lab[grain_index],
+            grain_indices = np.where(np.array(element_phase_map) == i)[0]
+            _eB[grain_indices] = utils.lab_strain_to_B_matrix(strain_lab[grain_indices],
+                                                      orientation_lab[grain_indices],
                                                       B0s[i])
 
         return _eB

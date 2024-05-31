@@ -73,7 +73,7 @@ class RigidBodyMotion():
             centered_vectors = vectors - origin
             centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
             rotated_vectors = centered_rotated_vectors + origin
-            return rotated_vectors + translation * time
+            return np.squeeze(rotated_vectors + translation * time)
         
         elif len(vectors.shape) == 2:
             translation = self.translation.reshape(1,3)
@@ -83,7 +83,7 @@ class RigidBodyMotion():
             rotated_vectors = centered_rotated_vectors + origin
             if np.isscalar(time):
                 return rotated_vectors + translation * time
-            return rotated_vectors + translation * np.array(time)[:,np.newaxis]
+            return np.squeeze(rotated_vectors + translation * np.array(time)[:,np.newaxis])
         
         elif len(vectors.shape) == 3:
             translation = self.translation.reshape(1,3)
@@ -91,7 +91,7 @@ class RigidBodyMotion():
             centered_vectors = vectors - origin
             centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * np.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
             rotated_vectors = centered_rotated_vectors + origin       
-            return rotated_vectors + translation * np.array(time)[:,np.newaxis,np.newaxis]
+            return np.squeeze(rotated_vectors + translation * np.array(time)[:,np.newaxis,np.newaxis])
     
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
@@ -198,7 +198,7 @@ class _RodriguezRotator(object):
         self.K2 = self.K.dot(self.K)
 
     def get_rotation_matrix(self, rotation_angle):
-        return (np.eye(3, 3)[:,:,np.newaxis] + np.sin(rotation_angle) * self.K[:,:,np.newaxis] + (1 - np.cos(rotation_angle)) * self.K2[:,:,np.newaxis]).transpose(2,0,1)
+        return np.squeeze((np.eye(3, 3)[:,:,np.newaxis] + np.sin(rotation_angle) * self.K[:,:,np.newaxis] + (1 - np.cos(rotation_angle)) * self.K2[:,:,np.newaxis]).transpose(2,0,1))
 
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
@@ -213,5 +213,8 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
+        
+        if len(vectors.shape)==1:
+            vectors = vectors[np.newaxis,:]
         
         return np.matmul(R,vectors[:,:,np.newaxis])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains

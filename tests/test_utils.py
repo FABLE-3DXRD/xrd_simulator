@@ -41,7 +41,10 @@ class TestUtils(unittest.TestCase):
         strain_tensor = (np.random.rand(3, 3) - 0.5) * 1e-2  # random strain tensor
         strain_tensor = (strain_tensor.T + strain_tensor) / 2.
         unit_cell = [5.028, 5.028, 5.519, 90., 90., 120.]
-        B = utils.lab_strain_to_B_matrix(strain_tensor, U, unit_cell)
+        
+        
+        B0 = tools.form_b_mat(unit_cell)
+        B = utils.lab_strain_to_B_matrix(strain_tensor, U, B0)
 
         n_c = np.random.rand(3,)  # crystal unit vector
         n_c = n_c / np.linalg.norm(n_c)
@@ -49,7 +52,7 @@ class TestUtils(unittest.TestCase):
 
         # strain along n_l described in lab frame
         strain_l = np.dot(np.dot(n_l, strain_tensor), n_l)
-        s = utils._b_to_epsilon(B, unit_cell)
+        s = utils._b_to_epsilon(B, B0)
         crystal_strain = np.array(
             [[s[0], s[1], s[2]], [s[1], s[3], s[4]], [s[2], s[4], s[5]]])
 
@@ -136,8 +139,10 @@ class TestUtils(unittest.TestCase):
     def test_epsilon_to_b(self):
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         eps1 = 25 * 1e-4 * (np.random.rand(6,)-0.5)
-        B = utils._epsilon_to_b(eps1, unit_cell)
-        eps2 = utils._b_to_epsilon(B, unit_cell)
+        B0 = tools.form_b_mat(unit_cell)
+        strain_tensor1 = utils._strain_as_tensor(eps1)
+        B = utils._epsilon_to_b(strain_tensor1, B0)
+        eps2 = utils._b_to_epsilon(B, B0)
         self.assertTrue( np.allclose( eps1, eps2 ) )
 
     def test_get_misorientations(self):

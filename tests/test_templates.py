@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from scipy.spatial.transform import Rotation
 from xrd_simulator import templates, utils
-
+import matplotlib.pyplot as plt
 
 class TestUtils(unittest.TestCase):
 
@@ -27,6 +27,7 @@ class TestUtils(unittest.TestCase):
         }
 
         beam, detector, motion = templates.s3dxrd(parameters)
+
         for ci in beam.centroid:
             self.assertAlmostEqual(ci, 0, msg="beam not at origin.")
 
@@ -152,6 +153,7 @@ class TestUtils(unittest.TestCase):
             min_bragg_angle=0,
             max_bragg_angle=None,
             verbose=True)
+
         diffraction_pattern = detector.render(
             frames_to_render=0,
             lorentz=False,
@@ -162,7 +164,6 @@ class TestUtils(unittest.TestCase):
         bins, histogram = utils._diffractogram(
             diffraction_pattern, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
         histogram[histogram < 0.5 * np.median(histogram)] = 0
-
         csequence, nosequences = 0, 0
         for i in range(histogram.shape[0]):
             if histogram[i] > 0:
@@ -215,6 +216,7 @@ class TestUtils(unittest.TestCase):
             min_bragg_angle=0,
             max_bragg_angle=None,
             verbose=True)
+
         diffraction_pattern = detector.render(
             frames_to_render=0,
             lorentz=False,
@@ -234,6 +236,7 @@ class TestUtils(unittest.TestCase):
             elif csequence >= 1:
                 nosequences += 1
                 csequence = 0
+
         self.assertGreaterEqual(
             nosequences,
             10,

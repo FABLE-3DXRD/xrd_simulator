@@ -249,8 +249,10 @@ class TetraMesh(object):
         
         The first of the three spheres that satisfies all vertices of each tetrahedron being contained in it
         is selected.
-        """
         
+        coord (coordinates) dimensions --> (triangle,vertices,xyz)
+        enod (ids of triangles) dimensions --> (tetrahedron,faces)
+        """
         vertices = coord[enod]
         n_tetra = enod.shape[0]
         range_n_tetra = range(n_tetra)
@@ -307,8 +309,7 @@ class TetraMesh(object):
         """Compute extended mesh quantities such as element faces and normals.
         """
         self.efaces = self._compute_mesh_faces(self.enod)
-        self.enormals = self._compute_mesh_normals(
-            self.coord, self.enod, self.efaces)
+        self.enormals = self._compute_mesh_normals(self.coord, self.enod, self.efaces)
         self.ecentroids = self._compute_mesh_centroids(self.coord, self.enod)
         self.eradius, self.espherecentroids = self._compute_mesh_spheres(
             self.coord, self.enod)
