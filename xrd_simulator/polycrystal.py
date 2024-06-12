@@ -21,6 +21,28 @@ from xrd_simulator import utils, laue
 
 
 def _diffract(dict):
+    """
+    Compute diffraction for a subset of the polycrystal.
+
+    Args:
+        args (dict): A dictionary containing the following keys:
+            - 'beam' (Beam): Object representing the incident X-ray beam.
+            - 'detector' (Detector): Object representing the X-ray detector.
+            - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
+            - 'phases' (list): List of Phase objects representing the phases present in the polycrystal.
+            - 'espherecentroids' (numpy.ndarray): Array containing the centroids of the scattering elements.
+            - 'eradius' (numpy.ndarray): Array containing the radii of the scattering elements.
+            - 'orientation_lab' (numpy.ndarray): Array containing orientation matrices in laboratory coordinates.
+            - 'eB' (numpy.ndarray): Array containing per-element 3x3 B matrices mapping hkl values to crystal coordinates.
+            - 'element_phase_map' (numpy.ndarray): Array mapping elements to phases.
+            - 'ecoord' (numpy.ndarray): Array containing coordinates of the scattering elements.
+            - 'verbose' (bool): Flag indicating whether to print progress.
+            - 'proximity' (bool): Flag indicating whether to remove grains unlikely to be hit by the beam.
+            - 'BB_intersection' (bool): Flag indicating whether to use Bounding-Box intersection for speed.
+
+    Returns:
+        list: A list of ScatteringUnit objects representing diffraction events.
+    """
 
     beam = dict["beam"]
     detector = dict["detector"]
