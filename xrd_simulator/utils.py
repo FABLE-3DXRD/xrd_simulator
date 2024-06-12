@@ -192,7 +192,7 @@ def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
         B0 matrix (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
 
     Returns:
-        B matrix (:obj:`numpy array`): Matrix mapping from hkl Miller indices to realspace crystal
+        (:obj:`numpy array`) B matrix  mapping from hkl Miller indices to realspace crystal
         coordinates. ``shape=(n,3,3)``
 
     """
@@ -331,13 +331,14 @@ def _epsilon_to_b(crystal_strain, B0):
 
 
 def _get_misorientations(orientations):
-    """Compute the minimal angles neccessary to rotate a series of SO3 elements back into their mean orientation.
+    """
+    Compute the minimal angles necessary to rotate a series of SO3 elements back into their mean orientation.
 
     Args:
         orientations (:obj: `numpy.array`): Orientation matrices, shape=(N,3,3)
 
     Returns:
-        (:obj: `numpy.array`): misorientations in units of radians, shape=(N,)
+        :obj: `numpy.array`: misorientations in units of radians, shape=(N,)
     """
     mean_orientation = Rotation.mean(Rotation.from_matrix(orientations)).as_matrix()
     misorientations = np.zeros((orientations.shape[0],))
@@ -348,8 +349,17 @@ def _get_misorientations(orientations):
 
 
 def _compute_sides(points):
-    """Computes the length of the sides of n tetrahedrons given a nx4x3 array"""
+    """
+    Computes the lengths of the sides of multiple tetrahedrons.
 
+    Args:
+        points (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
+                                Each tetrahedron is defined by 4 vertices in 3D space.
+
+    Returns:
+        :obj: `numpy.array`: An array of shape (n, 6) containing the lengths of the sides of the tetrahedrons.
+                       Each row corresponds to a tetrahedron and contains the lengths of its 6 sides.
+    """
     # Reshape the points array to have shape (n, 1, 4, 3)
     reshaped_points = points[:, np.newaxis, :, :]
 
@@ -371,21 +381,41 @@ def _compute_sides(points):
 
 
 def _circumsphere_of_segments(segments):
-    """Computes the minimum circumsphere of n segments given by a numpy array of vertices nx2x3"""
+    """
+    Computes the circumcenters and circumradii of multiple line segments.
+
+    Args:
+        segments (:obj: `numpy.array`): An array of shape (n, 2, 3), where `n` is the number of line segments.
+                                   Each line segment is defined by 2 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the line segments.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the line segments.
+    """
     centers = np.mean(segments, axis=1)
-    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1)
+    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1) * 1.001
     return centers, radii
 
 
 def _circumsphere_of_triangles(triangles):
-    """Computes the minimum circumsphere of n triangles given by a numpy array of vertices nx3x3. Prints a message if any tetrahedron has 0 volume."""
+    """
+    Computes the circumcenters and circumradii of multiple triangles.
+
+    Args:
+        triangles (:obj: `numpy.array`): An array of shape (n, 3, 3), where `n` is the number of triangles.
+                                   Each triangle is defined by 3 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the triangles.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the triangles.
+    """
     ab = triangles[:, 1, :] - triangles[:, 0, :]
     ac = triangles[:, 2, :] - triangles[:, 0, :]
 
     abXac = np.cross(ab, ac)
     acXab = np.cross(ac, ab)
-
-    norm_abXac = np.linalg.norm(abXac, axis=1)
 
     a_to_centre = (
         np.cross(abXac, ab) * ((np.linalg.norm(ac, axis=1) ** 2)[:, np.newaxis])
@@ -393,13 +423,24 @@ def _circumsphere_of_triangles(triangles):
     ) / (2 * (np.linalg.norm(abXac, axis=1) ** 2)[:, np.newaxis])
 
     centers = triangles[:, 0, :] + a_to_centre
-    radii = np.linalg.norm(a_to_centre, axis=1)
+    radii = np.linalg.norm(a_to_centre, axis=1) * 1.001
 
     return centers, radii
 
 
 def _circumsphere_of_tetrahedrons(tetrahedra):
-    """Computes the circumcenter of n tetrahedrons given by a numpy array of vertices nx4x3"""
+    """
+    Computes the circumcenters and circumradii of multiple tetrahedrons.
+
+    Args:
+        tetrahedra (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
+                                    Each tetrahedron is defined by 4 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the tetrahedrons.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the tetrahedrons.
+    """
     v0 = tetrahedra[:, 0, :]
     v1 = tetrahedra[:, 1, :]
     v2 = tetrahedra[:, 2, :]

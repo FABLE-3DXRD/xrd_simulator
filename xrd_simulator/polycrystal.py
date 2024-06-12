@@ -449,7 +449,7 @@ class Polycrystal:
             element_data["Bunge Euler Angle phi_2 [degrees]"] = []
             element_data["Misorientation from mean orientation [degrees]"] = []
 
-            misorientations = utils.get_misorientations(self.orientation_sample)
+            misorientations = utils._get_misorientations(self.orientation_sample)
 
             for U, misorientation in zip(self.orientation_sample, misorientations):
                 phi_1, PHI, phi_2 = tools.u_to_euler(U)
