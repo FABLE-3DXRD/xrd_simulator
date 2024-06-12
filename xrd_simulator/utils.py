@@ -394,8 +394,8 @@ def _circumsphere_of_segments(segments):
              - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the line segments.
     """
     centers = np.mean(segments, axis=1)
-    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1) * 1.001
-    return centers, radii
+    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1)
+    return centers, radii * 1.0001  # because loss of floating point precision
 
 
 def _circumsphere_of_triangles(triangles):
@@ -423,9 +423,9 @@ def _circumsphere_of_triangles(triangles):
     ) / (2 * (np.linalg.norm(abXac, axis=1) ** 2)[:, np.newaxis])
 
     centers = triangles[:, 0, :] + a_to_centre
-    radii = np.linalg.norm(a_to_centre, axis=1) * 1.001
+    radii = np.linalg.norm(a_to_centre, axis=1)
 
-    return centers, radii
+    return centers, radii * 1.0001  # because loss of floating point precision
 
 
 def _circumsphere_of_tetrahedrons(tetrahedra):
@@ -472,4 +472,4 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
         axis=0,
     )
 
-    return centers, radii
+    return centers, radii * 1.0001  # because loss of floating point precision
