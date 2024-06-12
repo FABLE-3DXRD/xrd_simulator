@@ -3,8 +3,7 @@ General internal package utility functions.
 
 This module provides various utility functions used for internal package operations.
 The functions include mathematical computations, geometric transformations, file handling,
-and progress tracking. The functions are optimized for performance and accuracy, leveraging
-libraries such as NumPy, SciPy, and Numba.
+and progress tracking.
 
 Functions:
     _diffractogram: Compute diffractogram from pixelated diffraction pattern.
