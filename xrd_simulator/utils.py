@@ -1,7 +1,34 @@
-"""General internal package utility functions.
+"""
+General internal package utility functions.
+
+This module provides various utility functions used for internal package operations.
+The functions include mathematical computations, geometric transformations, file handling,
+and progress tracking. The functions are optimized for performance and accuracy, leveraging
+libraries such as NumPy, SciPy, and Numba.
+
+Functions:
+    _diffractogram: Compute diffractogram from pixelated diffraction pattern.
+    _contained_by_intervals: Check if a value is contained within specified intervals.
+    _cif_open: Open a CIF file using the ReadCif function from the CifFile module.
+    _print_progress: Print a progress bar in the executing shell terminal.
+    _clip_line_with_convex_polyhedron: Compute lengths of parallel lines clipped by a convex polyhedron.
+    alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
+    lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
+    _get_circumscribed_sphere_centroid: Compute the centroid of a circumscribed sphere for a given set of points.
+    _get_bounding_ball: Compute a minimal bounding ball for a set of Euclidean points.
+    _set_xfab_logging: Enable or disable logging for the xfab module.
+    _verbose_manager: Manage global verbose options for logging within with statements.
+    _strain_as_tensor: Convert a strain vector to a strain tensor.
+    _strain_as_vector: Convert a strain tensor to a strain vector.
+    _b_to_epsilon: Compute strain tensor from B matrix for large deformations.
+    _epsilon_to_b: Compute B matrix from strain tensor for large deformations.
+    _get_misorientations: Compute minimal angles required to rotate SO3 elements to their mean orientation.
+    _compute_sides: Compute the lengths of the sides of tetrahedrons.
+    _circumsphere_of_segments: Compute the minimum circumsphere of line segments.
+    _circumsphere_of_triangles: Compute the minimum circumsphere of triangles.
+    _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
 """
 
-import sys
 import logging
 from itertools import combinations
 from CifFile import ReadCif
@@ -163,11 +190,11 @@ def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
             coordinates. ``shape=(n,3,3)``
         crystal_orientation (:obj:`numpy array`): Unitary crystal orientation matrix.
             ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(n,3,3)``
-        B0 (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
+        B0 matrix (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
 
     Returns:
-        (:obj:`numpy array`) B matrix, mapping from hkl Miller indices to realspace crystal
-        coordinates, ``shape=(n,3,3)``.
+        B matrix (:obj:`numpy array`): Matrix mapping from hkl Miller indices to realspace crystal
+        coordinates. ``shape=(n,3,3)``
 
     """
     if strain_tensor.ndim == 2:
@@ -304,7 +331,7 @@ def _epsilon_to_b(crystal_strain, B0):
     return B
 
 
-def get_misorientations(orientations):
+def _get_misorientations(orientations):
     """Compute the minimal angles neccessary to rotate a series of SO3 elements back into their mean orientation.
 
     Args:
@@ -321,7 +348,7 @@ def get_misorientations(orientations):
     return misorientations
 
 
-def compute_sides(points):
+def _compute_sides(points):
     """Computes the length of the sides of n tetrahedrons given a nx4x3 array"""
 
     # Reshape the points array to have shape (n, 1, 4, 3)
@@ -344,14 +371,14 @@ def compute_sides(points):
     return distances
 
 
-def circumsphere_of_segments(segments):
+def _circumsphere_of_segments(segments):
     """Computes the minimum circumsphere of n segments given by a numpy array of vertices nx2x3"""
     centers = np.mean(segments, axis=1)
     radii = np.linalg.norm(centers - segments[:, 0, :], axis=1)
     return centers, radii
 
 
-def circumsphere_of_triangles(triangles):
+def _circumsphere_of_triangles(triangles):
     """Computes the minimum circumsphere of n triangles given by a numpy array of vertices nx3x3. Prints a message if any tetrahedron has 0 volume."""
     ab = triangles[:, 1, :] - triangles[:, 0, :]
     ac = triangles[:, 2, :] - triangles[:, 0, :]
@@ -372,7 +399,7 @@ def circumsphere_of_triangles(triangles):
     return centers, radii
 
 
-def circumsphere_of_tetrahedrons(tetrahedra):
+def _circumsphere_of_tetrahedrons(tetrahedra):
     """Computes the circumcenter of n tetrahedrons given by a numpy array of vertices nx4x3"""
     v0 = tetrahedra[:, 0, :]
     v1 = tetrahedra[:, 1, :]
@@ -406,20 +433,3 @@ def circumsphere_of_tetrahedrons(tetrahedra):
     )
 
     return centers, radii
-
-
-def sizeof_fmt(num, suffix="B"):
-    """by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified"""
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
-            return "%3.1f %s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f %s%s" % (num, "Yi", suffix)
-
-
-def printvars(vars):
-    for name, size in sorted(
-        ((name, sys.getsizeof(value)) for name, value in list(vars.items())),
-        key=lambda x: -x[1],
-    )[:10]:
-        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
