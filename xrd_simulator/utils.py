@@ -156,20 +156,18 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
 
 
 def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
-    """Take a strain tensor in lab coordinates and produce the lattice matrix (B matrix).
+    """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
         strain_tensor (:obj:`numpy array`): Symmetric strain tensor in lab
-            coordinates. ``shape=(3,3)``
+            coordinates. ``shape=(n,3,3)``
         crystal_orientation (:obj:`numpy array`): Unitary crystal orientation matrix.
-            ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(3,3)``
-        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
-            a,b and c are in units of anstrom.
+            ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(n,3,3)``
+        B0 (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
 
     Returns:
         (:obj:`numpy array`) B matrix, mapping from hkl Miller indices to realspace crystal
-        coordinates, ``shape=(3,3)``.
+        coordinates, ``shape=(n,3,3)``.
 
     """
     if strain_tensor.ndim == 2:
@@ -181,8 +179,8 @@ def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
         crystal_orientation.transpose(0, 2, 1),
         np.matmul(strain_tensor, crystal_orientation),
     )
-    lattice_matrix = _epsilon_to_b(crystal_strain, B0)
-    return np.squeeze(lattice_matrix)
+    B = _epsilon_to_b(crystal_strain, B0)
+    return np.squeeze(B)
 
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
