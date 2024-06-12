@@ -13,6 +13,7 @@ Below follows a detailed description of the polycrystal class attributes and fun
 import copy
 from multiprocessing import Pool
 import numpy as np
+from scipy.spatial import ConvexHull
 import pandas as pd
 import dill
 from xfab import tools
