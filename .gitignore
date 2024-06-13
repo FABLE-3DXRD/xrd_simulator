@@ -35,7 +35,7 @@ vscode
 .vscode/
 .vscode/*
 */.VSCodeCounter/*
-
+makefile
 *.pyc
 
 # Local History for Visual Studio Code
@@ -123,6 +123,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.micromamba
 
 # Spyder project settings
 .spyderproject
@@ -150,4 +151,3 @@ cspell.json
 tmp_profile_dump
 pypi_release/
 extras/
-

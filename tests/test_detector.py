@@ -66,6 +66,9 @@ class TestDetector(unittest.TestCase):
         scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
             (np.linalg.norm(scattered_wave_vector) * wavelength)
 
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+        zd2,yd2 = tuple(self.detector.get_intersection(scattered_wave_vector,verts2.mean(axis=0)[np.newaxis,:])[0])
+        
         data = os.path.join(
             os.path.join(
                 os.path.dirname(__file__),
@@ -86,7 +89,10 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd1,
+                               yd=yd1)
+
         scattering_unit2 = ScatteringUnit(ch2,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -96,7 +102,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd2,
+                               yd=yd2)
 
         self.detector.frames.append([scattering_unit1, scattering_unit2])
         diffraction_pattern = self.detector.render(
@@ -162,6 +170,9 @@ class TestDetector(unittest.TestCase):
         scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
             (np.linalg.norm(scattered_wave_vector) * wavelength)
 
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+        zd2,yd2 = tuple(self.detector.get_intersection(scattered_wave_vector,verts2.mean(axis=0)[np.newaxis,:])[0])
+        
         data = os.path.join(
             os.path.join(
                 os.path.dirname(__file__),
@@ -182,7 +193,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd1,
+                               yd=yd1)
         scattering_unit2 = ScatteringUnit(ch2,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -192,8 +205,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
-
+                               element_index=0,
+                               zd=zd2,
+                               yd=yd2)
         self.detector.frames.append([scattering_unit1, scattering_unit2])
         self.detector.point_spread_kernel_shape = (3,3)
         diffraction_pattern = self.detector.render(
@@ -208,6 +222,8 @@ class TestDetector(unittest.TestCase):
         verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
             v * np.sqrt(2) * self.detector_size / 2.  + self.pixel_size_z*0.1 # tetra at detector center perturbed
         ch1 = ConvexHull(verts1)
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+
         scattering_unit1 = ScatteringUnit(ch1,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -217,7 +233,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd1,
+                               yd=yd1)
         self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
         diffraction_pattern_2 = self.detector.render(
             frames_to_render=0,
@@ -232,6 +250,8 @@ class TestDetector(unittest.TestCase):
         v = v / np.linalg.norm(v)
         verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) - np.array([0, 1.5, 2.0 ])*self.pixel_size_z
         ch1 = ConvexHull(verts1)
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+
         scattering_unit1 = ScatteringUnit(ch1,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -241,7 +261,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd1,
+                               yd=yd1)
         self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
         diffraction_pattern_3 = self.detector.render(
             frames_to_render=0,
@@ -255,6 +277,8 @@ class TestDetector(unittest.TestCase):
         v = v / np.linalg.norm(v)
         verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + np.array([0, 246*self.pixel_size_y, 196   *self.pixel_size_z ])
         ch1 = ConvexHull(verts1)
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+
         scattering_unit1 = ScatteringUnit(ch1,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -264,7 +288,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd1,
+                               yd=yd2)
         self.detector.frames[-1] = [scattering_unit1, scattering_unit2]
         diffraction_pattern_3 = self.detector.render(
             frames_to_render=0,
@@ -362,6 +388,8 @@ class TestDetector(unittest.TestCase):
         phase.setup_diffracting_planes(
             wavelength, 0, 20 * np.pi / 180)
 
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,hull_points.mean(axis=0)[np.newaxis,:])[0])
+
         scattering_unit = ScatteringUnit(sphere_hull,
                               scattered_wave_vector=scattered_wave_vector,
                               incident_wave_vector=incident_wave_vector,
@@ -371,7 +399,9 @@ class TestDetector(unittest.TestCase):
                               time=0,
                               phase=phase,
                               hkl_indx=0,
-                              element_index=0)
+                              element_index=0,
+                              zd=zd1,
+                              yd=yd1)
 
         self.detector.frames.append([scattering_unit])
         diffraction_pattern = self.detector.render(
@@ -429,7 +459,8 @@ class TestDetector(unittest.TestCase):
         # central normal algined ray
         ray_direction = np.array([2.23, 0., 0.])
         source_point = np.array([0., 0., 0.])
-        z, y = self.detector.get_intersection(ray_direction, source_point)
+
+        z, y = tuple(self.detector.get_intersection(ray_direction, source_point[np.newaxis,:])[0])
         self.assertAlmostEqual(
             z, 0, msg="central detector-normal algined ray does not intersect at 0")
         self.assertAlmostEqual(
@@ -438,7 +469,7 @@ class TestDetector(unittest.TestCase):
         # translate the ray
         source_point += self.detector.ydhat * self.pixel_size_y
         source_point -= self.detector.zdhat * 2 * self.pixel_size_z
-        z, y = self.detector.get_intersection(ray_direction, source_point)
+        z, y = tuple(self.detector.get_intersection(ray_direction, source_point[np.newaxis,:])[0])
         self.assertAlmostEqual(
             z,
             -2 * self.pixel_size_z,
@@ -452,7 +483,7 @@ class TestDetector(unittest.TestCase):
         ang = np.arctan(self.pixel_size_y / self.detector_size)
         frac = np.tan(ang) * np.linalg.norm(ray_direction)
         ray_direction += self.detector.ydhat * frac * 3
-        z, y = self.detector.get_intersection(ray_direction, source_point)
+        z, y = tuple(self.detector.get_intersection(ray_direction, source_point[np.newaxis,:])[0])
         self.assertAlmostEqual(
             z, -2 * self.pixel_size_z, msg="translated and tilted ray does not intersect properly")
         self.assertAlmostEqual(
@@ -578,7 +609,7 @@ class TestDetector(unittest.TestCase):
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
         phase.setup_diffracting_planes(
             wavelength, 0, 20 * np.pi / 180)
-
+        zd,yd = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
         scattering_unit = ScatteringUnit(ch,
                                scattered_wave_vector=scattered_wave_vector,
                                incident_wave_vector=incident_wave_vector,
@@ -588,7 +619,9 @@ class TestDetector(unittest.TestCase):
                                time=0,
                                phase=phase,
                                hkl_indx=0,
-                               element_index=0)
+                               element_index=0,
+                               zd=zd,
+                               yd=yd)
 
         self.detector.frames.append([scattering_unit])
 

@@ -102,7 +102,7 @@ class TestMotion(unittest.TestCase):
             self.assertAlmostEqual( inverse_motion.translation[i], -motion.translation[i] )
         self.assertAlmostEqual( inverse_motion.rotation_angle, motion.rotation_angle )
 
-        points_0 = np.random.rand(3, 22)
+        points_0 = np.random.rand(22, 3)
         points = motion.rotate(points_0, time=0.243687)
         points = inverse_motion.rotate(points, time=0.243687)
 

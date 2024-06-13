@@ -6,6 +6,7 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.utils import _epsilon_to_b
 from xfab import tools
 import os
 
@@ -201,6 +202,8 @@ class TestPolycrystal(unittest.TestCase):
                 np.dot(
                     polycrystal.strain_lab[i],
                     new_unit_vector))
+
+            
             self.assertAlmostEqual(
                 s1, s2, msg="Transformation does not preserve directional strains")
 

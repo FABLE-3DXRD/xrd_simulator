@@ -1,20 +1,42 @@
-"""General internal package utility functions.
+"""
+General internal package utility functions.
 
-""" # TODO: Move some of these back into their classes where they are used.
-import numpy as np
+This module provides various utility functions used for internal package operations.
+The functions include mathematical computations, geometric transformations, file handling,
+and progress tracking.
+
+Functions:
+    _diffractogram: Compute diffractogram from pixelated diffraction pattern.
+    _contained_by_intervals: Check if a value is contained within specified intervals.
+    _cif_open: Open a CIF file using the ReadCif function from the CifFile module.
+    _print_progress: Print a progress bar in the executing shell terminal.
+    _clip_line_with_convex_polyhedron: Compute lengths of parallel lines clipped by a convex polyhedron.
+    alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
+    lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
+    _get_circumscribed_sphere_centroid: Compute the centroid of a circumscribed sphere for a given set of points.
+    _get_bounding_ball: Compute a minimal bounding ball for a set of Euclidean points.
+    _set_xfab_logging: Enable or disable logging for the xfab module.
+    _verbose_manager: Manage global verbose options for logging within with statements.
+    _strain_as_tensor: Convert a strain vector to a strain tensor.
+    _strain_as_vector: Convert a strain tensor to a strain vector.
+    _b_to_epsilon: Compute strain tensor from B matrix for large deformations.
+    _epsilon_to_b: Compute B matrix from strain tensor for large deformations.
+    _get_misorientations: Compute minimal angles required to rotate SO3 elements to their mean orientation.
+    _compute_sides: Compute the lengths of the sides of tetrahedrons.
+    _circumsphere_of_segments: Compute the minimum circumsphere of line segments.
+    _circumsphere_of_triangles: Compute the minimum circumsphere of triangles.
+    _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
+"""
+
 import logging
-from numba import njit
-from xfab import tools
-from CifFile import ReadCif
 from itertools import combinations
+from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
+import numpy as np
+from numba import njit
 
 
-def _diffractogram(
-        diffraction_pattern,
-        det_centre_z,
-        det_centre_y,
-        binsize=1.0):
+def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.
 
     Args:
@@ -33,10 +55,10 @@ def _diffractogram(
     m, n = diffraction_pattern.shape
     max_radius = np.max([m, n])
     bin_centres = np.arange(0, int(max_radius + 1), binsize)
-    histogram = np.zeros((len(bin_centres), ))
+    histogram = np.zeros((len(bin_centres),))
     for i in range(m):
         for j in range(n):
-            radius = np.sqrt((i - det_centre_z)**2 + (j - det_centre_y)**2)
+            radius = np.sqrt((i - det_centre_z) ** 2 + (j - det_centre_y) ** 2)
             bin_index = np.argmin(np.abs(bin_centres - radius))
             histogram[bin_index] += diffraction_pattern[i, j]
     clip_index = len(histogram) - 1
@@ -48,9 +70,9 @@ def _diffractogram(
     clip_index = np.min([clip_index + m // 10, len(histogram) - 1])
     return bin_centres[0:clip_index], histogram[0:clip_index]
 
+
 def _contained_by_intervals(value, intervals):
-    """Assert if a float ``value`` is contained by any of a number of ``intervals``.
-    """
+    """Assert if a float ``value`` is contained by any of a number of ``intervals``."""
     for bracket in intervals:
         if value >= bracket[0] and value <= bracket[1]:
             return True
@@ -58,8 +80,7 @@ def _contained_by_intervals(value, intervals):
 
 
 def _cif_open(cif_file):
-    """Helper function to be able to use the ``.CIFread`` of ``xfab``.
-    """
+    """Helper function to be able to use the ``.CIFread`` of ``xfab``."""
     cif_dict = ReadCif(cif_file)
     return cif_dict[list(cif_dict.keys())[0]]
 
@@ -72,46 +93,48 @@ def _print_progress(progress_fraction, message):
         message (:obj:`str`): Optional message prepend the loading bar with. (max 55 characters)
 
     """
-    assert len(
-        message) <= 55., "Message to print is too long, max 55 characters allowed."
+    assert (
+        len(message) <= 55.0
+    ), "Message to print is too long, max 55 characters allowed."
     progress_in_precent = np.round(100 * progress_fraction, 1)
     progress_bar_length = int(progress_fraction * 40)
-    print("\r{0}{1} |{2}{3}|".format(message, " " *
-                                                   (55 -
-                                                    len(message)), "█" *
-                                                   progress_bar_length, " " *
-                                                   (40 -
-                                                       progress_bar_length)) +
-                     " " +
-                     str(progress_in_precent) +
-                     "%", end = '')
+    print(
+        "\r{0}{1} |{2}{3}|".format(
+            message,
+            " " * (55 - len(message)),
+            "█" * progress_bar_length,
+            " " * (40 - progress_bar_length),
+        )
+        + " "
+        + str(progress_in_precent)
+        + "%",
+        end="",
+    )
     if progress_fraction == 1.0:
         print("")
 
 
 @njit
 def _clip_line_with_convex_polyhedron(
-        line_points,
-        line_direction,
-        plane_points,
-        plane_normals):
+    line_points, line_direction, plane_points, plane_normals
+):
     """Compute lengths of parallel lines clipped by a convex polyhedron defined by 2d planes.
 
-        For algorithm description see: Mike Cyrus and Jay Beck. “Generalized two- and three-
-        dimensional clipping”. (1978) The algorithms is based on solving orthogonal equations and
-        sorting the resulting plane line interestion points to find which are entry and which are
-        exit points through the convex polyhedron.
+    For algorithm description see: Mike Cyrus and Jay Beck. “Generalized two- and three-
+    dimensional clipping”. (1978) The algorithms is based on solving orthogonal equations and
+    sorting the resulting plane line interestion points to find which are entry and which are
+    exit points through the convex polyhedron.
 
-        Args:
-            line_points (:obj:`numpy array`): base points of rays
-                (exterior to polyhedron), ``shape=(n,3)``
-            line_direction  (:obj:`numpy array`): normalized ray direction
-                (all rays have the same direction),  ``shape=(3,)``
-            plane_points (:obj:`numpy array`): point in each polyhedron face plane, ``shape=(m,3)``
-            plane_normals (:obj:`numpy array`): outwards element face normals. ``shape=(m,3)``
+    Args:
+        line_points (:obj:`numpy array`): base points of rays
+            (exterior to polyhedron), ``shape=(n,3)``
+        line_direction  (:obj:`numpy array`): normalized ray direction
+            (all rays have the same direction),  ``shape=(3,)``
+        plane_points (:obj:`numpy array`): point in each polyhedron face plane, ``shape=(m,3)``
+        plane_normals (:obj:`numpy array`): outwards element face normals. ``shape=(m,3)``
 
-        Returns:
-            clip_lengths (:obj:`numpy array`) : intersection lengths.  ``shape=(n,)``
+    Returns:
+        clip_lengths (:obj:`numpy array`) : intersection lengths.  ``shape=(n,)``
 
     """
     clip_lengths = np.zeros((line_points.shape[0],))
@@ -121,12 +144,7 @@ def _clip_line_with_convex_polyhedron(
     for i, line_point in enumerate(line_points):
 
         # find parametric line-plane intersection based on orthogonal equations
-        t_1 = np.sum(
-            np.multiply(
-                plane_points -
-                line_point,
-                plane_normals),
-            axis=1)
+        t_1 = np.sum(np.multiply(plane_points - line_point, plane_normals), axis=1)
 
         # Zero division for a ray parallel to plane, numpy gives np.inf so it
         # is ok!
@@ -153,43 +171,42 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
 
     """
     sin_alpha_1, sin_alpha_2 = np.sin(alpha_1), np.sin(alpha_2)
-    return np.array([np.cos(alpha_1),
-                     sin_alpha_1 * sin_alpha_2 * np.cos(alpha_3),
-                     sin_alpha_1 * sin_alpha_2 * np.sin(alpha_3),
-                     sin_alpha_1 * np.cos(alpha_2)]).T
+    return np.array(
+        [
+            np.cos(alpha_1),
+            sin_alpha_1 * sin_alpha_2 * np.cos(alpha_3),
+            sin_alpha_1 * sin_alpha_2 * np.sin(alpha_3),
+            sin_alpha_1 * np.cos(alpha_2),
+        ]
+    ).T
 
 
-def lab_strain_to_B_matrix(
-        strain_tensor,
-        crystal_orientation,
-        unit_cell):
-    """Take a strain tensor in lab coordinates and produce the lattice matrix (B matrix).
+def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
+    """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
         strain_tensor (:obj:`numpy array`): Symmetric strain tensor in lab
-            coordinates. ``shape=(3,3)``
+            coordinates. ``shape=(n,3,3)``
         crystal_orientation (:obj:`numpy array`): Unitary crystal orientation matrix.
-            ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(3,3)``
-        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
-            a,b and c are in units of anstrom.
+            ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(n,3,3)``
+        B0 matrix (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
 
     Returns:
-        (:obj:`numpy array`) B matrix, mapping from hkl Miller indices to realspace crystal
-        coordinates, ``shape=(3,3)``.
+        (:obj:`numpy array`) B matrix  mapping from hkl Miller indices to realspace crystal
+        coordinates. ``shape=(n,3,3)``
 
     """
-    crystal_strain = np.dot(
-        crystal_orientation.T, np.dot(
-            strain_tensor, crystal_orientation))
-    lattice_matrix = _epsilon_to_b([crystal_strain[0, 0],
-                                         crystal_strain[0, 1],
-                                         crystal_strain[0, 2],
-                                         crystal_strain[1, 1],
-                                         crystal_strain[1, 2],
-                                         crystal_strain[2, 2]],
-                                        unit_cell)
-    return lattice_matrix
+    if strain_tensor.ndim == 2:
+        strain_tensor = strain_tensor[np.newaxis, :, :]
+    if crystal_orientation.ndim == 2:
+        crystal_orientation = crystal_orientation[np.newaxis, :, :]
+
+    crystal_strain = np.matmul(
+        crystal_orientation.transpose(0, 2, 1),
+        np.matmul(strain_tensor, crystal_orientation),
+    )
+    B = _epsilon_to_b(crystal_strain, B0)
+    return np.squeeze(B)
 
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
@@ -207,10 +224,10 @@ def _get_circumscribed_sphere_centroid(subset_of_points):
         (:obj:`numpy array`) with ``centroid`` of``shape=(3,)``
 
     """
-    A = 2*(subset_of_points[0]-subset_of_points[1:])
-    pp = np.sum(subset_of_points*subset_of_points,axis=1)
+    A = 2 * (subset_of_points[0] - subset_of_points[1:])
+    pp = np.sum(subset_of_points * subset_of_points, axis=1)
     b = pp[0] - pp[1:]
-    B = (subset_of_points[0]-subset_of_points[1:]).T
+    B = (subset_of_points[0] - subset_of_points[1:]).T
     x = np.linalg.solve(A.dot(B), b - A.dot(subset_of_points[0]))
     return subset_of_points[0] + B.dot(x)
 
@@ -232,27 +249,32 @@ def _get_bounding_ball(points):
         (:obj:`tuple` of :obj:`numpy array` and :obj:`float`) ``centroid`` and ``radius``.
 
     """
-    radius, centroids = [],[]
-    for k in range(2,5):
+    radius, centroids = [], []
+    for k in range(2, 5):
         for subset_of_points in combinations(points, k):
-            centroids.append(_get_circumscribed_sphere_centroid(np.array(subset_of_points)))
+            centroids.append(
+                _get_circumscribed_sphere_centroid(np.array(subset_of_points))
+            )
             radius.append(np.max(np.linalg.norm(points - centroids[-1], axis=1)))
     index = np.argmin(radius)
     return centroids[index], radius[index]
 
+
 def _set_xfab_logging(disabled):
-    """Disable/Enable all loging of xfab; it is very verbose!
-    """
-    xfab_modules = ['tools',
-                    'structure',
-                    'atomlib',
-                    'detector',
-                    'checks',
-                    'sg',
-                    'sglib',
-                    'symmetry']
+    """Disable/Enable all loging of xfab; it is very verbose!"""
+    xfab_modules = [
+        "tools",
+        "structure",
+        "atomlib",
+        "detector",
+        "checks",
+        "sg",
+        "sglib",
+        "symmetry",
+    ]
     for sub_module in xfab_modules:
-        logging.getLogger('xfab.'+sub_module).disabled = disabled
+        logging.getLogger("xfab." + sub_module).disabled = disabled
+
 
 class _verbose_manager(object):
     """Manage global verbose options in with statements; to turn of
@@ -270,46 +292,53 @@ class _verbose_manager(object):
         if self.verbose:
             _set_xfab_logging(disabled=True)
 
+
 def _strain_as_tensor(strain_vector):
     e11, e12, e13, e22, e23, e33 = strain_vector
-    return np.asarray([ [e11, e12, e13],
-                        [e12, e22, e23],
-                        [e13, e23, e33] ], np.float64)
+    return np.asarray([[e11, e12, e13], [e12, e22, e23], [e13, e23, e33]], np.float64)
+
 
 def _strain_as_vector(strain_tensor):
-    return list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
+    return (
+        list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
+    )
 
-def _b_to_epsilon(B_matrix, unit_cell):
-    """Handle large deformations as opposed to current xfab.tools.b_to_epsilon
-    """
+
+def _b_to_epsilon(B_matrix, B0):
+    """Handle large deformations as opposed to current xfab.tools.b_to_epsilon"""
     B = np.asarray(B_matrix, np.float64)
-    B0 = tools.form_b_mat(unit_cell)
     F = np.dot(B0, np.linalg.inv(B))
-    strain_tensor = 0.5*(F.T.dot(F) - np.eye(3))  # large deformations
+    strain_tensor = 0.5 * (F.T.dot(F) - np.eye(3))  # large deformations
     return _strain_as_vector(strain_tensor)
 
-def _epsilon_to_b(epsilon, unit_cell):
-    """Handle large deformations as opposed to current xfab.tools.epsilon_to_b
-    """
-    strain_tensor = _strain_as_tensor(epsilon)
-    C = 2*strain_tensor + np.eye(3, dtype=np.float64)
+
+def _epsilon_to_b(crystal_strain, B0):
+    """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
+    C = 2 * crystal_strain + np.eye(3, dtype=np.float32)
     eigen_vals = np.linalg.eigvalsh(C)
-    if np.any( np.array(eigen_vals) < 0 ):
-        raise ValueError("Unfeasible strain tensor with value: "+str(_strain_as_vector(strain_tensor))+ \
-            ", will invert the unit cell with negative deformation gradient tensor determinant" )
-    F = np.linalg.cholesky(C).T
-    B0 = tools.form_b_mat(unit_cell)
+    if np.any(np.array(eigen_vals) < 0):
+        raise ValueError(
+            "Unfeasible strain tensor with value: "
+            + str(_strain_as_vector(crystal_strain))
+            + ", will invert the unit cell with negative deformation gradient tensor determinant"
+        )
+    if C.ndim == 3:
+        F = np.linalg.cholesky(C).transpose(0, 2, 1)
+    else:
+        F = np.linalg.cholesky(C).T
     B = np.linalg.inv(F).dot(B0)
     return B
 
-def get_misorientations(orientations):
-    """Compute the minimal angles neccessary to rotate a series of SO3 elements back into their mean orientation.
+
+def _get_misorientations(orientations):
+    """
+    Compute the minimal angles necessary to rotate a series of SO3 elements back into their mean orientation.
 
     Args:
         orientations (:obj: `numpy.array`): Orientation matrices, shape=(N,3,3)
 
     Returns:
-        (:obj: `numpy.array`): misorientations in units of radians, shape=(N,)
+        :obj: `numpy.array`: misorientations in units of radians, shape=(N,)
     """
     mean_orientation = Rotation.mean(Rotation.from_matrix(orientations)).as_matrix()
     misorientations = np.zeros((orientations.shape[0],))
@@ -317,3 +346,130 @@ def get_misorientations(orientations):
         difference_rotation = Rotation.from_matrix(U.dot(mean_orientation.T))
         misorientations[i] = Rotation.magnitude(difference_rotation)
     return misorientations
+
+
+def _compute_sides(points):
+    """
+    Computes the lengths of the sides of multiple tetrahedrons.
+
+    Args:
+        points (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
+                                Each tetrahedron is defined by 4 vertices in 3D space.
+
+    Returns:
+        :obj: `numpy.array`: An array of shape (n, 6) containing the lengths of the sides of the tetrahedrons.
+                       Each row corresponds to a tetrahedron and contains the lengths of its 6 sides.
+    """
+    # Reshape the points array to have shape (n, 1, 4, 3)
+    reshaped_points = points[:, np.newaxis, :, :]
+
+    # Compute the differences between each pair of points
+    differences = reshaped_points - reshaped_points.transpose(0, 2, 1, 3)
+
+    # Compute the squared distances along the last axis
+    squared_distances = np.sum(differences**2, axis=-1)
+
+    # Compute the distances by taking the square root of the squared distances
+    dist_mat = np.sqrt(squared_distances)
+
+    # Extract the 1-to-1 values from the distance matrix
+    distances = np.hstack(
+        (dist_mat[:, 0, 1:], dist_mat[:, 1, 2:], dist_mat[:, 2, 3][:, np.newaxis])
+    )
+
+    return distances
+
+
+def _circumsphere_of_segments(segments):
+    """
+    Computes the circumcenters and circumradii of multiple line segments.
+
+    Args:
+        segments (:obj: `numpy.array`): An array of shape (n, 2, 3), where `n` is the number of line segments.
+                                   Each line segment is defined by 2 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the line segments.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the line segments.
+    """
+    centers = np.mean(segments, axis=1)
+    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1)
+    return centers, radii * 1.0001  # because loss of floating point precision
+
+
+def _circumsphere_of_triangles(triangles):
+    """
+    Computes the circumcenters and circumradii of multiple triangles.
+
+    Args:
+        triangles (:obj: `numpy.array`): An array of shape (n, 3, 3), where `n` is the number of triangles.
+                                   Each triangle is defined by 3 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the triangles.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the triangles.
+    """
+    ab = triangles[:, 1, :] - triangles[:, 0, :]
+    ac = triangles[:, 2, :] - triangles[:, 0, :]
+
+    abXac = np.cross(ab, ac)
+    acXab = np.cross(ac, ab)
+
+    a_to_centre = (
+        np.cross(abXac, ab) * ((np.linalg.norm(ac, axis=1) ** 2)[:, np.newaxis])
+        + np.cross(acXab, ac) * ((np.linalg.norm(ab, axis=1) ** 2)[:, np.newaxis])
+    ) / (2 * (np.linalg.norm(abXac, axis=1) ** 2)[:, np.newaxis])
+
+    centers = triangles[:, 0, :] + a_to_centre
+    radii = np.linalg.norm(a_to_centre, axis=1)
+
+    return centers, radii * 1.0001  # because loss of floating point precision
+
+
+def _circumsphere_of_tetrahedrons(tetrahedra):
+    """
+    Computes the circumcenters and circumradii of multiple tetrahedrons.
+
+    Args:
+        tetrahedra (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
+                                    Each tetrahedron is defined by 4 vertices in 3D space.
+
+    Returns:
+        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
+             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the tetrahedrons.
+             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the tetrahedrons.
+    """
+    v0 = tetrahedra[:, 0, :]
+    v1 = tetrahedra[:, 1, :]
+    v2 = tetrahedra[:, 2, :]
+    v3 = tetrahedra[:, 3, :]
+
+    A = np.vstack(
+        (
+            (v1 - v0).T[np.newaxis, :],
+            (v2 - v0).T[np.newaxis, :],
+            (v3 - v0).T[np.newaxis, :],
+        )
+    ).transpose(2, 0, 1)
+    B = (
+        0.5
+        * np.vstack(
+            (
+                np.linalg.norm(v1, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
+                np.linalg.norm(v2, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
+                np.linalg.norm(v3, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
+            )
+        ).T
+    )
+
+    centers = np.matmul(np.linalg.inv(A), B[:, :, np.newaxis])[:, :, 0]
+    radii = np.linalg.norm(
+        (tetrahedra.transpose(2, 0, 1) - centers.transpose(1, 0)[:, :, np.newaxis])[
+            :, :, 0
+        ],
+        axis=0,
+    )
+
+    return centers, radii * 1.0001  # because loss of floating point precision
