@@ -75,30 +75,29 @@ class TestBeam(unittest.TestCase):
         for r in mesh.eradius:
             self.assertLessEqual(r, max_cell_circumradius * 1.001)
 
+    def test_compute_mesh_spheres(self):
 
-def test_compute_mesh_spheres(self):
+        coord = np.array(
+            [
+                [-1.3856244e02, 6.9698529e02, -2.9481543e02],
+                [5.1198740e02, 5.7321143e02, -1.3369661e01],
+                [-2.4491163e-01, -2.4171574e-01, 1.4720881e-01],
+                [2.7638666e02, 6.1436609e02, -3.7048819e02],
+            ]
+        )
 
-    coord = np.array(
-        [
-            [-1.3856244e02, 6.9698529e02, -2.9481543e02],
-            [5.1198740e02, 5.7321143e02, -1.3369661e01],
-            [-2.4491163e-01, -2.4171574e-01, 1.4720881e-01],
-            [2.7638666e02, 6.1436609e02, -3.7048819e02],
-        ]
-    )
+        enod = np.array([[0, 1, 2, 3]])
+        mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
 
-    enod = np.array([[0, 1, 2, 3]])
-    mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
+        theta = np.deg2rad(1e-4)
+        c, s = np.cos(theta), np.sin(theta)
+        R_z = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
 
-    theta = np.deg2rad(1e-4)
-    c, s = np.cos(theta), np.sin(theta)
-    R_z = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+        rotated_coord = R_z.dot(mesh.coord.T).T
 
-    rotated_coord = R_z.dot(mesh.coord.T).T
+        eradius_rotated, _ = mesh._compute_mesh_spheres(rotated_coord, mesh.enod)
 
-    eradius_rotated, _ = mesh._compute_mesh_spheres(rotated_coord, mesh.enod)
-
-    self.assertAlmostEqual(mesh.eradius[0], eradius_rotated[0])
+        self.assertAlmostEqual(mesh.eradius[0], eradius_rotated[0])
 
     def test_update(self):
         rotation_axis = np.array([0, 0, 1.0])
