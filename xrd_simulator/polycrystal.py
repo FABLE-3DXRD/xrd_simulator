@@ -107,9 +107,9 @@ def _diffract(dict):
             )
         )
         G_0_reflected = G_0.transpose(0, 2, 1)[
-            reflection_index[0, :], reflection_index[1, :]
+            reflection_index[:,0], reflection_index[:,1]
         ]
-
+        breakpoint()
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
