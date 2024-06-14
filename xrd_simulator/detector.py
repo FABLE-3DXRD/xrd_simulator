@@ -458,7 +458,6 @@ class Detector:
         for i in range(Z.shape[0]):
             for j in range(Y.shape[1]):
                 kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
-
         assert (
             len(kernel[kernel < 0]) == 0
         ), "Point spread function must be strictly positive, but negative values were found."
