@@ -2,9 +2,8 @@
 This module is mainly used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
 for the advanced user, access to these functions may be of interest.
 """
-
 import numpy as np
-
+import cupy as cp
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -23,7 +22,7 @@ def get_G(U, B, G_hkl):
 
     """
 
-    return np.float32(np.matmul(np.matmul(U, B), G_hkl.T))
+    return np.matmul(np.matmul(U, B), G_hkl.T).astype(np.float32)
 
 
 def get_bragg_angle(G, wavelength):
@@ -55,80 +54,8 @@ def get_sin_theta_and_norm_G(G, wavelength):
     normG = np.linalg.norm(G, axis=0)
     return normG * wavelength / (4 * np.pi), normG
 
-"""
 def find_solutions_to_tangens_half_angle_equation(
-    G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega
-):
-    """Find all solutions, :obj:`t`, to the equation (maximum 2 solutions exists)
-
-        .. math::
-            \\rho_0 \\cos(t \\Delta \\omega) + \\rho_1 \\sin(t \\Delta \\omega) + \\rho_2 = 0. \\quad\\quad (1)
-
-        by rewriting as
-
-        .. math::
-            (\\rho_2 - \\rho_0) s^2 + 2 \\rho_1 s + (\\rho_0 + \\rho_2) = 0. \\quad\\quad (2)
-
-        where
-
-        .. math::
-            s = \\tan(t \\Delta \\omega / 2). \\quad\\quad (3)
-    #Computed in advance to be
-            G_0: The non-rotated scattering vectors for all tetrahedra of a given phase. dimensions --> (tetrahedra,coordinates,hkl_planes)
-            \\rho_0_factor,\\rho_1_factor,\\rho_2_factor (:obj:`float`): Factors to compute the \\rho_0,\\rho_1 and \\rho_2 of equation (1).
-            delta_omega (:obj:`float`): Radians of rotation.
-
-        Returns:
-            (:obj:`tuple` of :obj:`numpy.array`): A tuple containing two numpy arrays:
-            - indices: 2D numpy array representing indices for diffraction computation.
-            - values: 1D numpy array representing values for diffraction computation.
-
-    """
-
-    if (
-        len(G_0.shape) == 2
-    ):  # We add an empty dimension first in case it's a single tet G_0 being passed.
-        G_0 = G_0[np.newaxis, :, :]
-
-    rho_0 = np.matmul(rho_0_factor, G_0)
-    rho_2 = np.matmul(rho_2_factor, G_0) + np.sum((G_0 * G_0), axis=1) / 2.0
-    denominator = rho_2 - rho_0
-    numerator = rho_2 + rho_0
-    del rho_2
-    a = np.divide(
-        np.matmul(rho_1_factor, G_0),
-        denominator,
-        out=np.full_like(rho_0, np.nan),
-        where=denominator != 0,
-    )
-    b = np.divide(
-        numerator, denominator, out=np.full_like(rho_0, np.nan), where=denominator != 0
-    )
-    del denominator, numerator, rho_0
-    rootval = a**2 - b
-    leadingterm = -a
-    del a, b
-    rootval[rootval < 0] = np.nan
-    s1 = leadingterm + np.sqrt(rootval)
-    s2 = leadingterm - np.sqrt(rootval)
-    del rootval, leadingterm
-    t1 = 2 * np.arctan(s1) / delta_omega
-    del s1
-    indices_t1 = np.array(np.where(np.logical_and(t1 >= 0, t1 <= 1)))
-    values_t1 = t1[indices_t1[0, :], indices_t1[1, :]]
-
-    del t1
-    t2 = 2 * np.arctan(s2) / delta_omega
-    del s2, delta_omega
-    indices_t2 = np.array(np.where(np.logical_and(t2 >= 0, t2 <= 1)))
-    values_t2 = t2[indices_t2[0, :], indices_t2[1, :]]
-    del t2
-    return np.concatenate((indices_t1, indices_t2), axis=1), np.concatenate(
-        (values_t1, values_t2), axis=0
-    )
-"""
-def find_solutions_to_tangens_half_angle_equation(
-G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega
+    G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega,frame=np
 ):
     """
     Find all solutions, t, to the equation (maximum 2 solutions exist):
@@ -154,59 +81,78 @@ G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega
             - indices: 2D numpy array representing indices for diffraction computation.
             - values: 1D numpy array representing values for diffraction computation.
     """
+    frame=cp
+
+    # Transfer input arrays to GPU if they are not already there
+    if frame == cp:
+        G_0 = frame.asarray(G_0)
+        rho_0_factor = frame.asarray(rho_0_factor)
+        rho_1_factor = frame.asarray(rho_1_factor)
+        rho_2_factor = frame.asarray(rho_2_factor)
 
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
-        G_0 = G_0[np.newaxis, :, :]
+        G_0 = G_0[frame.newaxis, :, :]
 
     # Compute rho_0 and rho_2
-    rho_0 = np.matmul(rho_0_factor, G_0)
-    rho_2 = np.matmul(rho_2_factor, G_0) + np.sum(G_0 * G_0, axis=1) / 2.0
+    rho_0 = frame.dot(rho_0_factor, G_0)
+    rho_2 = frame.dot(rho_2_factor, G_0) + frame.sum(G_0**2, axis=1) / 2.0
 
     # Calculate constants for quadratic equation
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
+    del  rho_2
 
     # Calculate coefficients for quadratic equation
-    a = np.divide(np.matmul(rho_1_factor, G_0), denominator,
-                    out=np.full_like(rho_0, np.nan), where=denominator != 0)
-    b = np.divide(numerator, denominator,
-                    out=np.full_like(rho_0, np.nan), where=denominator != 0)
+    a = frame.divide(
+        frame.dot(rho_1_factor, G_0),
+        denominator,
+        out=frame.full_like(rho_0, np.nan),
+        #where= denominator != 0,
+    )
+
+    b = frame.divide(
+        numerator, denominator, out=frame.full_like(rho_0, np.nan),# where=denominator != 0
+    )
 
     # Clean up unnecessary variables
-    del denominator, numerator, rho_0, rho_2
+    del denominator, numerator, rho_0
 
     # Calculate discriminant
     discriminant = a**2 - b
+    del b
 
     # Handle cases where discriminant is negative
     discriminant[discriminant < 0] = np.nan
+    discriminant[frame.isinf(discriminant)] = np.nan
 
     # Calculate solutions for s
-    s1 = -a + np.sqrt(discriminant)
-    s2 = -a - np.sqrt(discriminant)
+    s1 = -a + frame.sqrt(discriminant)
+    s2 = -a - frame.sqrt(discriminant)
 
     # Clean up discriminant and a
     del discriminant, a
 
     # Calculate solutions for t1 and t2
-    t1 = 2 * np.arctan(s1) / delta_omega
-    t2 = 2 * np.arctan(s2) / delta_omega
+    t1 = 2 * frame.arctan(s1) / delta_omega
+    t2 = 2 * frame.arctan(s2) / delta_omega
 
     # Clean up s1 and s2
     del s1, s2, delta_omega
 
     # Filter solutions within range [0, 1]
-    valid_t1_indices = np.logical_and(t1 >= 0, t1 <= 1)
-    valid_t2_indices = np.logical_and(t2 >= 0, t2 <= 1)
+    valid_t1_indices = frame.logical_and(t1 >= 0, t1 <= 1)
+    valid_t2_indices = frame.logical_and(t2 >= 0, t2 <= 1)
 
-    indices_t1 = np.argwhere(valid_t1_indices)
-    indices_t2 = np.argwhere(valid_t2_indices)
+    indices_t1 = frame.argwhere(valid_t1_indices)
+    indices_t2 = frame.argwhere(valid_t2_indices)
 
     values_t1 = t1[valid_t1_indices]
     values_t2 = t2[valid_t2_indices]
 
     # Return concatenated indices and values
-    return np.concatenate((indices_t1, indices_t2), axis=0), np.concatenate(
-        (values_t1, values_t2)
-    )
+    if frame == cp:
+        a = cp.asnumpy(cp.concatenate((indices_t1, indices_t2), axis=0)), cp.asnumpy(cp.concatenate((values_t1, values_t2)))
+    else:
+        a = np.concatenate((indices_t1, indices_t2), axis=0), np.concatenate((values_t1, values_t2))
+    return a 

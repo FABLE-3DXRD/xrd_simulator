@@ -13,6 +13,7 @@ Below follows a detailed description of the detector class attributes and functi
 """
 
 import numpy as np
+import pandas as pd
 from xrd_simulator import utils
 import dill
 from scipy.signal import convolve2d

@@ -50,17 +50,10 @@ def _diffract(dict):
     rigid_body_motion = dict["rigid_body_motion"]
     phases = dict["phases"]
     espherecentroids = dict["espherecentroids"]
-    eradius = dict["eradius"]
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
-    element_phase_map = dict["element_phase_map"]
-    ecoord = dict["ecoord"]
-    verbose = dict[
-        "verbose"
-    ]  # should be deprecated or repurposed since computation now takes place phase by phase not by individual scatterer
+    element_phase_map = np.array(dict["element_phase_map"])
     proximity = dict["proximity"]
-    BB_intersection = dict["BB_intersection"]
-    number_of_elements = ecoord.shape[0]
 
     rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
     rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
@@ -68,29 +61,29 @@ def _diffract(dict):
         beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2)
     )
 
-    if proximity:
-        # Grains with no chance to be hit by the beam are removed beforehand, if proximity is toggled as True
-        proximity_intervals = beam._get_proximity_intervals(
-            espherecentroids, eradius, rigid_body_motion
-        )
-        possible_scatterers_mask = np.array(
-            [pi[0] is not None for pi in proximity_intervals]
-        )
-        espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
-        eradius = np.float32(eradius[possible_scatterers_mask])
+    # if proximity:
+    #     # Grains with no chance to be hit by the beam are removed beforehand, if proximity is toggled as True
+    #     proximity_intervals = beam._get_proximity_intervals(
+    #         espherecentroids, eradius, rigid_body_motion
+    #     )
+    #     possible_scatterers_mask = np.array(
+    #         [pi[0] is not None for pi in proximity_intervals]
+    #     )
+    #     espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
+    #     eradius = np.float32(eradius[possible_scatterers_mask])
 
-        orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
-        eB = np.float32(eB[possible_scatterers_mask])
-        element_phase_map = element_phase_map[possible_scatterers_mask]
-        ecoord = np.float32(ecoord[possible_scatterers_mask])
+    #     orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
+    #     eB = np.float32(eB[possible_scatterers_mask])
+    #     element_phase_map = element_phase_map[possible_scatterers_mask]
+    #     ecoord = np.float32(ecoord[possible_scatterers_mask])
 
     reflections_df = (
         pd.DataFrame()
     )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-    scattering_units = []  # The output
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
+        
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_index = np.where(element_phase_map == i)[0]
         miller_indices = np.float32(phase.miller_indices)
@@ -107,17 +100,17 @@ def _diffract(dict):
             )
         )
         G_0_reflected = G_0.transpose(0, 2, 1)[
-            reflection_index[:,0], reflection_index[:,1]
+            reflection_index[:, 0], reflection_index[:, 1]
         ]
-        breakpoint()
+
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
         table = pd.DataFrame(
             {
-                "Grain": grain_index[reflection_index[0]],
+                "Grain": grain_index[reflection_index[:, 0]],
                 "phase": i,
-                "hkl": reflection_index[1],
+                "hkl": reflection_index[:, 1],
                 "time": time_values,
                 "G_0x": G_0_reflected[:, 0],
                 "G_0y": G_0_reflected[:, 1],
@@ -129,102 +122,20 @@ def _diffract(dict):
         reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(
             by="Grain"
         )
+    
+    reflections_df = reflections_df[(0 < reflections_df["time"]) & (reflections_df["time"] < 1)]  # We filter out the times which exceed 0 or 1
+    reflections_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(reflections_df[["G_0x", "G_0y", "G_0z"]].values, reflections_df["time"].values)
+    reflections_df[["k'x", "k'y", "k'z"]] = (reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector)
+    reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[reflections_df["Grain"]], reflections_df["time"].values)
+    reflections_df[["zd", "yd"]] = detector.get_intersection(reflections_df[["k'x", "k'y", "k'z"]].values,reflections_df[["Source_x", "Source_y", "Source_z"]].values)
+    reflections_df = reflections_df[detector.contains(reflections_df["zd"], reflections_df["yd"])]
 
-    reflections_df = reflections_df[
-        (0 < reflections_df["time"]) & (reflections_df["time"] < 1)
-    ]  # We filter out the times which exceed 0 or 1
-    reflections_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(
-        reflections_df[["G_0x", "G_0y", "G_0z"]].values, reflections_df["time"].values
-    )
-    reflections_df[["k'x", "k'y", "k'z"]] = (
-        reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector
-    )
-    reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(
-        espherecentroids[reflections_df["Grain"]], reflections_df["time"].values
-    )
-    reflections_df[["zd", "yd"]] = detector.get_intersection(
-        reflections_df[["k'x", "k'y", "k'z"]].values,
-        reflections_df[["Source_x", "Source_y", "Source_z"]].values,
-    )
-    reflections_df = reflections_df[
-        detector.contains(reflections_df["zd"], reflections_df["yd"])
-    ]
-
-    element_vertices_0 = ecoord[reflections_df["Grain"]]
-    element_vertices = rigid_body_motion(
-        element_vertices_0, reflections_df["time"].values
-    )
-
-    reflections_np = (
-        reflections_df.values
-    )  # We move from pandas to numpy for enhanced speed
-    scattering_units = []
-
-    if BB_intersection:
-        # A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed),
-        # simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism.
-
-        reflections_np = reflections_np[
-            reflections_np[:, 14] < (beam.vertices[:, 1].max())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 14] > (beam.vertices[:, 1].min())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 15] < (beam.vertices[:, 2].max())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 15] > (beam.vertices[:, 2].min())
-        ]  #
-
-        for ei in range(reflections_np.shape[0]):
-            scattering_unit = ScatteringUnit(
-                ConvexHull(element_vertices[ei]),
-                reflections_np[ei, 10:13],  # outgoing wavevector
-                beam.wave_vector,
-                beam.wavelength,
-                beam.polarization_vector,
-                rigid_body_motion.rotation_axis,
-                reflections_np[ei, 3],  # time
-                phases[reflections_np[ei, 1].astype(int)],  # phase
-                reflections_np[ei, 2].astype(int),  # hkl index
-                ei,
-                zd=reflections_np[
-                    ei, 16
-                ],  # zd saved to avoid recomputing during redering
-                yd=reflections_np[ei, 17],
-            )  # yd saved to avoid recomputing during redering)
-
-            scattering_units.append(scattering_unit)
-
-    else:
-        """Otherwise, compute the true intersection of each tet with the beam to get the true scattering volume."""
-        for ei in range(element_vertices.shape[0]):
-            scattering_region = beam.intersect(element_vertices[ei])
-
-            if scattering_region is not None:
-                scattering_unit = ScatteringUnit(
-                    scattering_region,
-                    reflections_np[ei, 10:13],  # outgoing wavevector
-                    beam.wave_vector,
-                    beam.wavelength,
-                    beam.polarization_vector,
-                    rigid_body_motion.rotation_axis,
-                    reflections_np[ei, 3],  # time
-                    phases[reflections_np[ei, 1].astype(int)],  # phase
-                    reflections_np[ei, 2].astype(int),  # hkl index
-                    ei,
-                    zd=reflections_np[
-                        ei, 16
-                    ],  # zd saved to avoid recomputing during redering
-                    yd=reflections_np[
-                        ei, 17
-                    ],  # yd saved to avoid recomputing during redering
-                )
-
-                scattering_units.append(scattering_unit)
-
-    return scattering_units
+    reflections_df = reflections_df[reflections_df['Source_y'] < (beam.vertices[:, 1].max())]  
+    reflections_df = reflections_df[reflections_df['Source_y'] > (beam.vertices[:, 1].min())]  
+    reflections_df = reflections_df[reflections_df['Source_z'] < (beam.vertices[:, 2].max())]  
+    reflections_df = reflections_df[reflections_df['Source_z'] > (beam.vertices[:, 2].min())]  
+    
+    return reflections_df
 
 
 class Polycrystal:
@@ -337,10 +248,6 @@ class Polycrystal:
                 Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
-        if verbose and number_of_processes != 1:
-            raise NotImplemented(
-                "Verbose mode is not implemented for multiprocesses computations"
-            )
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle
@@ -352,71 +259,21 @@ class Polycrystal:
                     beam.wavelength, min_bragg_angle, max_bragg_angle
                 )
 
-        espherecentroids = np.array_split(
-            self.mesh_lab.espherecentroids, number_of_processes, axis=0
-        )
-        eradius = np.array_split(self.mesh_lab.eradius, number_of_processes, axis=0)
-        orientation_lab = np.array_split(
-            self.orientation_lab, number_of_processes, axis=0
-        )
-        eB = np.array_split(self._eB, number_of_processes, axis=0)
-        element_phase_map = np.array_split(
-            self.element_phase_map, number_of_processes, axis=0
-        )
-        enod = np.array_split(self.mesh_lab.enod, number_of_processes, axis=0)
-
-        args = []
-        for i in range(number_of_processes):
-            ecoord = np.zeros((enod[i].shape[0], 4, 3))
-            for k, en in enumerate(enod[i]):
-                ecoord[k, :, :] = self.mesh_lab.coord[en]
-            args.append(
-                {
+        args = {
                     "beam": beam,
                     "detector": detector,
                     "rigid_body_motion": rigid_body_motion,
                     "phases": self.phases,
-                    "espherecentroids": espherecentroids[i],
-                    "eradius": eradius[i],
-                    "orientation_lab": orientation_lab[i],
-                    "eB": eB[i],
-                    "element_phase_map": element_phase_map[i],
-                    "ecoord": ecoord,
-                    "verbose": verbose,
+                    "espherecentroids": self.mesh_lab.espherecentroids,
+                    "orientation_lab": self.orientation_lab,
+                    "eB": self._eB,
+                    "element_phase_map": self.element_phase_map,
                     "proximity": proximity,
-                    "BB_intersection": BB_intersection,
                 }
-            )
 
-        if number_of_processes == 1:
-            all_scattering_units = _diffract(args[0])
-
-        else:
-            with Pool(number_of_processes) as p:
-                scattering_units = p.map(_diffract, args)
-            all_scattering_units = []
-            for su in scattering_units:
-                all_scattering_units.extend(su)
-
-        if number_of_frames == 1:
-            detector.frames.append(all_scattering_units)
-        else:
-            # TODO: unit test
-            all_scattering_units.sort(
-                key=lambda scattering_unit: scattering_unit.time, reverse=True
-            )
-            dt = 1.0 / number_of_frames
-            start_time_of_current_frame = 0
-            while start_time_of_current_frame <= 1 - 1e-8:
-                frame = []
-                while (
-                    len(all_scattering_units) > 0
-                    and all_scattering_units[-1].time < start_time_of_current_frame + dt
-                ):
-                    frame.append(all_scattering_units.pop())
-                start_time_of_current_frame += dt
-                detector.frames.append(frame)
-            assert len(all_scattering_units) == 0
+        reflections_df = _diffract(args)
+        reflections_df['frame'] = pd.cut(reflections_df['time'], bins=number_of_frames,labels=False)
+        return reflections_df
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
