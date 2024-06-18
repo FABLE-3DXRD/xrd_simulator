@@ -34,6 +34,10 @@ from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
 import numpy as np
 from numba import njit
+import sys
+import cupy as cp
+from xrd_simulator.cuda import use_cuda
+import torch 
 
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
@@ -314,19 +318,34 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    C = 2 * crystal_strain + np.eye(3, dtype=np.float32)
-    eigen_vals = np.linalg.eigvalsh(C)
-    if np.any(np.array(eigen_vals) < 0):
+
+    if use_cuda:
+        frame = torch
+        crystal_strain = frame.tensor(crystal_strain, dtype=torch.float32)
+        B0 = frame.tensor(B0, dtype=torch.float32)
+    else:
+        frame = np   
+        crystal_strain = crystal_strain.astype(np.float32)
+        B0 = B0.astype(np.float32)
+
+    C = 2 * crystal_strain + frame.eye(3, dtype=frame.float32)
+
+    eigen_vals = frame.linalg.eigvalsh(C)
+    if frame.any(eigen_vals< 0):
         raise ValueError(
             "Unfeasible strain tensor with value: "
             + str(_strain_as_vector(crystal_strain))
             + ", will invert the unit cell with negative deformation gradient tensor determinant"
         )
+    
     if C.ndim == 3:
-        F = np.linalg.cholesky(C).transpose(0, 2, 1)
+        F = frame.transpose(frame.linalg.cholesky(C),2,1)
     else:
-        F = np.linalg.cholesky(C).T
-    B = np.linalg.inv(F).dot(B0)
+        F = frame.transpose(frame.linalg.cholesky(C),1,0)
+
+    B = frame.linalg.inv(F).matmul(B0)
+    B = B.cpu() if use_cuda else B
+        
     return B
 
 
@@ -473,3 +492,33 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     )
 
     return centers, radii * 1.0001  # because loss of floating point precision
+
+
+def sizeof_fmt(num, suffix='B'):
+    ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'Yi', suffix)
+
+def list_vars(vars):
+    """
+    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in list(vars.items())), key= lambda x: -x[1])[:10]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))"""
+    print('===================================================')
+    # Get CPU variable sizes
+    var_sizes = sorted(((name, sys.getsizeof(value)) for name, value in vars.items()), key=lambda x: -x[1])
+    for name, size in var_sizes[:10]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
+
+    # Get GPU variable sizes
+    gpu_var_sizes = []
+    for name, value in vars.items():
+        if isinstance(value, cp.ndarray):
+            gpu_var_sizes.append((name, value.nbytes))
+    
+    gpu_var_sizes = sorted(gpu_var_sizes, key=lambda x: -x[1])
+    for name, size in gpu_var_sizes[:10]:
+        print("{:>30} (GPU): {:>8}".format(name, sizeof_fmt(size)))
+    print('===================================================')
