@@ -460,6 +460,7 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
              - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the tetrahedrons.
              - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the tetrahedrons.
     """
+    
     v0 = tetrahedra[:, 0, :]
     v1 = tetrahedra[:, 1, :]
     v2 = tetrahedra[:, 2, :]
