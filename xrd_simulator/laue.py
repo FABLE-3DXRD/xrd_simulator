@@ -35,6 +35,7 @@ def get_G(U, B, G_hkl):
         U = U.astype(np.float32)
         B = B.astype(np.float32)
         G_hkl = G_hkl.astype(np.float32)
+        
     return frame.matmul(frame.matmul(U, B), G_hkl.T)
 
 

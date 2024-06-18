@@ -58,7 +58,7 @@ def _diffract(dict):
     rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
     rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
 
-    reflections_df = (
+    peaks_df = (
         pd.DataFrame()
     )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     
@@ -94,21 +94,21 @@ def _diffract(dict):
             }
         )
         del laue_output
-        reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(by="Grain")
+        peaks_df = pd.concat([peaks_df, table], axis=0).sort_values(by="Grain")
     
-    reflections_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(reflections_df[["G_0x", "G_0y", "G_0z"]].values, reflections_df["time"].values)
-    reflections_df[["k'x", "k'y", "k'z"]] = (reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector)
-    reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[reflections_df["Grain"]], reflections_df["time"].values)
-    reflections_df[["zd", "yd"]] = detector.get_intersection(reflections_df[["k'x", "k'y", "k'z"]].values,reflections_df[["Source_x", "Source_y", "Source_z"]].values)
-    reflections_df = reflections_df[detector.contains(reflections_df["zd"], reflections_df["yd"])]
+    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(peaks_df[["G_0x", "G_0y", "G_0z"]].values, peaks_df["time"].values)
+    peaks_df[["k'x", "k'y", "k'z"]] = (peaks_df[["Gx", "Gy", "Gz"]] + beam.wave_vector)
+    peaks_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[peaks_df["Grain"]], peaks_df["time"].values)
+    peaks_df[["zd", "yd"]] = detector.get_intersection(peaks_df[["k'x", "k'y", "k'z"]].values,peaks_df[["Source_x", "Source_y", "Source_z"]].values)
+    peaks_df = peaks_df[detector.contains(peaks_df["zd"], peaks_df["yd"])]
 
     # Filter out tets not illuminated
-    reflections_df = reflections_df[reflections_df['Source_y'] < (beam.vertices[:, 1].max())]  
-    reflections_df = reflections_df[reflections_df['Source_y'] > (beam.vertices[:, 1].min())]  
-    reflections_df = reflections_df[reflections_df['Source_z'] < (beam.vertices[:, 2].max())]  
-    reflections_df = reflections_df[reflections_df['Source_z'] > (beam.vertices[:, 2].min())]  
+    peaks_df = peaks_df[peaks_df['Source_y'] < (beam.vertices[:, 1].max())]  
+    peaks_df = peaks_df[peaks_df['Source_y'] > (beam.vertices[:, 1].min())]  
+    peaks_df = peaks_df[peaks_df['Source_z'] < (beam.vertices[:, 2].max())]  
+    peaks_df = peaks_df[peaks_df['Source_z'] > (beam.vertices[:, 2].min())]  
     
-    return reflections_df
+    return peaks_df
 
 
 class Polycrystal:
@@ -236,9 +236,9 @@ class Polycrystal:
                     "element_phase_map": self.element_phase_map,
                 }
 
-        reflections_df = _diffract(args)
-        reflections_df['frame'] = pd.cut(reflections_df['time'], bins=number_of_frames,labels=False)
-        return reflections_df
+        peaks_df = _diffract(args)
+        peaks_df['frame'] = pd.cut(peaks_df['time'], bins=number_of_frames,labels=False)
+        return peaks_df
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
