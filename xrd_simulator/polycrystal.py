@@ -19,7 +19,7 @@ import dill
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
-
+from xrd_simulator.cuda import use_cuda
 
 def _diffract(dict):
     """
@@ -53,34 +53,15 @@ def _diffract(dict):
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
     element_phase_map = np.array(dict["element_phase_map"])
-    proximity = dict["proximity"]
 
     rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
     rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
-    rho_2_factor = np.float32(
-        beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2)
-    )
-
-    # if proximity:
-    #     # Grains with no chance to be hit by the beam are removed beforehand, if proximity is toggled as True
-    #     proximity_intervals = beam._get_proximity_intervals(
-    #         espherecentroids, eradius, rigid_body_motion
-    #     )
-    #     possible_scatterers_mask = np.array(
-    #         [pi[0] is not None for pi in proximity_intervals]
-    #     )
-    #     espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
-    #     eradius = np.float32(eradius[possible_scatterers_mask])
-
-    #     orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
-    #     eB = np.float32(eB[possible_scatterers_mask])
-    #     element_phase_map = element_phase_map[possible_scatterers_mask]
-    #     ecoord = np.float32(ecoord[possible_scatterers_mask])
+    rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
 
     reflections_df = (
         pd.DataFrame()
     )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-
+    
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
         
@@ -89,47 +70,39 @@ def _diffract(dict):
         miller_indices = np.float32(phase.miller_indices)
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
+
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        reflection_index, time_values = (
-            laue.find_solutions_to_tangens_half_angle_equation(
+        laue_output =laue.find_solutions_to_tangens_half_angle_equation(
                 G_0,
                 rho_0_factor,
                 rho_1_factor,
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
-        )
-        G_0_reflected = G_0.transpose(0, 2, 1)[
-            reflection_index[:, 0], reflection_index[:, 1]
-        ]
 
-        del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
         table = pd.DataFrame(
             {
-                "Grain": grain_index[reflection_index[:, 0]],
+                "Grain": grain_index[laue_output[:, 0].astype(np.int16)],
                 "phase": i,
-                "hkl": reflection_index[:, 1],
-                "time": time_values,
-                "G_0x": G_0_reflected[:, 0],
-                "G_0y": G_0_reflected[:, 1],
-                "G_0z": G_0_reflected[:, 2],
+                "hkl": laue_output[:, 1],
+                "time": laue_output[:,2],
+                "G_0x": laue_output[:, 3],
+                "G_0y": laue_output[:, 4],
+                "G_0z": laue_output[:, 5],
             }
         )
-
-        del G_0_reflected, reflection_index, time_values
-        reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(
-            by="Grain"
-        )
+        del laue_output
+        reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(by="Grain")
     
-    reflections_df = reflections_df[(0 < reflections_df["time"]) & (reflections_df["time"] < 1)]  # We filter out the times which exceed 0 or 1
     reflections_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(reflections_df[["G_0x", "G_0y", "G_0z"]].values, reflections_df["time"].values)
     reflections_df[["k'x", "k'y", "k'z"]] = (reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector)
     reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[reflections_df["Grain"]], reflections_df["time"].values)
     reflections_df[["zd", "yd"]] = detector.get_intersection(reflections_df[["k'x", "k'y", "k'z"]].values,reflections_df[["Source_x", "Source_y", "Source_z"]].values)
     reflections_df = reflections_df[detector.contains(reflections_df["zd"], reflections_df["yd"])]
 
+    # Filter out tets not illuminated
     reflections_df = reflections_df[reflections_df['Source_y'] < (beam.vertices[:, 1].max())]  
     reflections_df = reflections_df[reflections_df['Source_y'] > (beam.vertices[:, 1].min())]  
     reflections_df = reflections_df[reflections_df['Source_z'] < (beam.vertices[:, 2].max())]  
@@ -211,11 +184,7 @@ class Polycrystal:
         rigid_body_motion,
         min_bragg_angle=0,
         max_bragg_angle=None,
-        verbose=False,
-        number_of_processes=1,
         number_of_frames=1,
-        proximity=False,
-        BB_intersection=False,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -254,10 +223,7 @@ class Polycrystal:
         )
 
         for phase in self.phases:
-            with utils._verbose_manager(verbose):
-                phase.setup_diffracting_planes(
-                    beam.wavelength, min_bragg_angle, max_bragg_angle
-                )
+            phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle)
 
         args = {
                     "beam": beam,
@@ -268,7 +234,6 @@ class Polycrystal:
                     "orientation_lab": self.orientation_lab,
                     "eB": self._eB,
                     "element_phase_map": self.element_phase_map,
-                    "proximity": proximity,
                 }
 
         reflections_df = _diffract(args)
