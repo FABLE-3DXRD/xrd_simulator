@@ -240,18 +240,30 @@ class TetraMesh(object):
         return evolumes
 
     def _compute_mesh_spheres(self, coord, enod):
-        """Compute per tetrahedron minimal bounding spheres. The approach here described avoids any iterative process,
-        solving in a vectorized manner all the spheres at once.
+        """
+        Compute the minimal bounding spheres for each tetrahedron in a mesh. This approach avoids any iterative process 
+        and solves all the spheres in a vectorized manner at once.
 
-        First the minimal sphere for the two most distant vertices of every tetrahedron is calculated.
-        Then the minimal sphere for the three most distant vertices is calculated.
-        Finally the sphere containing the 4 vertices in their surface is calculated.
+        The method follows these steps:
+        1. Calculate the minimal sphere for the two most distant vertices of each tetrahedron.
+        2. Calculate the minimal sphere for the three most distant vertices.
+        3. Calculate the sphere containing all four vertices on their surface.
 
-        The first of the three spheres that satisfies all vertices of each tetrahedron being contained in it
-        is selected.
+        The first sphere that contains all vertices of each tetrahedron is selected.
 
-        coord (coordinates) dimensions --> (triangle,vertices,xyz)
-        enod (ids of triangles) dimensions --> (tetrahedron,faces)
+        Parameters:
+        ----------
+        coord : numpy.ndarray
+            Array of coordinates with dimensions (vertices, xyz).
+        enod : numpy.ndarray
+            Array of tetrahedron vertex indices with dimensions (tetrahedrons, vertices).
+
+        Returns:
+        -------
+        eradius : numpy.ndarray
+            Array of radii for the minimal bounding spheres of each tetrahedron.
+        espherecentroids : numpy.ndarray
+            Array of centroids for the minimal bounding spheres of each tetrahedron.
         """
         vertices = coord[enod]
         n_tetra = enod.shape[0]
