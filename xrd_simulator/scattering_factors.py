@@ -15,8 +15,3 @@ def lorentz(beam,rigid_body_motion,peaks_df):
     condition = np.array((np.abs(np.degrees(eta)) < tol) | (np.degrees(eta) < tol) | (np.abs(np.degrees(eta)) > 180 - tol))
     infs = np.where(condition, np.inf, 0)
     return infs + 1.0 / (np.sin(2 * theta) * np.abs(np.sin(eta)))
-
-def structure(beam,rigid_body_motion,peaks_df):
-    """Compute the Lorentz intensity factor for a scattering_unit."""
-
-    return None

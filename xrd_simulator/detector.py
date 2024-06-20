@@ -327,13 +327,18 @@ class Detector:
 
         """
 
-        s = (self.det_corner_0 - source_point).dot(self.normal) / ray_direction.dot(
-            self.normal
-        )
+        s = (self.det_corner_0 - source_point).dot(self.normal) / ray_direction.dot(self.normal)
         intersection = source_point + ray_direction * s[:, np.newaxis]
         zd = np.dot(intersection - self.det_corner_0, self.zdhat)
         yd = np.dot(intersection - self.det_corner_0, self.ydhat)
-        return np.array([zd, yd]).T
+
+        # Calculate incident angle
+        ray_dir_norm = ray_direction / np.linalg.norm(ray_direction,axis=1)[:,np.newaxis]
+        normal_norm = self.normal / np.linalg.norm(self.normal)
+
+        cosine_theta = np.dot(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
+        incident_angle_deg = np.degrees(np.arccos(cosine_theta))
+        return np.array([zd, yd,incident_angle_deg]).T
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -614,20 +619,12 @@ class Detector:
                 are within the bounding box.
 
         """
-        vertices = scattering_unit.convex_hull.points[
-            scattering_unit.convex_hull.vertices
-        ]
+        vertices = scattering_unit.convex_hull.points[scattering_unit.convex_hull.vertices]
 
-        projected_vertices = self.get_intersection(
-            scattering_unit.scattered_wave_vector, vertices
-        )
+        projected_vertices = self.get_intersection(scattering_unit.scattered_wave_vector, vertices)
 
-        min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
-            projected_vertices[:, 0]
-        )
-        min_yd, max_yd = np.min(projected_vertices[:, 1]), np.max(
-            projected_vertices[:, 1]
-        )
+        min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(projected_vertices[:, 0])
+        min_yd, max_yd = np.min(projected_vertices[:, 1]), np.max(projected_vertices[:, 1])
 
         min_zd, max_zd = np.max([min_zd, 0]), np.min([max_zd, self.zmax])
         min_yd, max_yd = np.max([min_yd, 0]), np.min([max_yd, self.ymax])
@@ -635,12 +632,8 @@ class Detector:
         if min_zd > max_zd or min_yd > max_yd:
             return None
 
-        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index(
-            min_zd, min_yd
-        )
-        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index(
-            max_zd, max_yd
-        )
+        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index(min_zd, min_yd)
+        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index(max_zd, max_yd)
 
         max_row_indx = np.min([max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
         max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])

@@ -64,10 +64,16 @@ def _diffract(dict):
     
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
-        
+
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_index = np.where(element_phase_map == i)[0]
         miller_indices = np.float32(phase.miller_indices)
+
+        # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
+        structure_factors = np.sum(phase.structure_factors**2,axis=1).astype(np.float32)
+        miller_indices = miller_indices[structure_factors>1e-6]
+        structure_factors = structure_factors[structure_factors>1e-6]
+
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
 
@@ -82,24 +88,28 @@ def _diffract(dict):
 
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
+
         table = pd.DataFrame(
             {
                 "Grain": grain_index[laue_output[:, 0].astype(np.int16)],
                 "phase": i,
-                "hkl": laue_output[:, 1],
+                "hkl": laue_output[:, 1].astype(np.int16),
+                "structure_factor": structure_factors[laue_output[:, 1].astype(np.int16)],
                 "time": laue_output[:,2],
                 "G_0x": laue_output[:, 3],
                 "G_0y": laue_output[:, 4],
                 "G_0z": laue_output[:, 5],
             }
         )
+        
         del laue_output
         peaks_df = pd.concat([peaks_df, table], axis=0).sort_values(by="Grain")
-    
-    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(peaks_df[["G_0x", "G_0y", "G_0z"]].values, peaks_df["time"].values)
-    peaks_df[["k'x", "k'y", "k'z"]] = (peaks_df[["Gx", "Gy", "Gz"]] + beam.wave_vector)
-    peaks_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[peaks_df["Grain"]], peaks_df["time"].values)
-    peaks_df[["zd", "yd"]] = detector.get_intersection(peaks_df[["k'x", "k'y", "k'z"]].values,peaks_df[["Source_x", "Source_y", "Source_z"]].values)
+        
+    peaks_df['phase']=peaks_df['phase'].astype(np.int16)
+    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(peaks_df[["G_0x", "G_0y", "G_0z"]].values, peaks_df["time"].values).astype(np.float32)
+    peaks_df[["k'x", "k'y", "k'z"]] = (peaks_df[["Gx", "Gy", "Gz"]] + beam.wave_vector).astype(np.float32)
+    peaks_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[peaks_df["Grain"]], peaks_df["time"].values).astype(np.float32)
+    peaks_df[["zd", "yd","incident_angle"]] = detector.get_intersection(peaks_df[["k'x", "k'y", "k'z"]].values,peaks_df[["Source_x", "Source_y", "Source_z"]].values).astype(np.float32)
     peaks_df = peaks_df[detector.contains(peaks_df["zd"], peaks_df["yd"])]
 
     # Filter out tets not illuminated
@@ -237,7 +247,7 @@ class Polycrystal:
                 }
 
         peaks_df = _diffract(args)
-        peaks_df['frame'] = pd.cut(peaks_df['time'], bins=number_of_frames,labels=False)
+        peaks_df['frame'] = pd.cut(peaks_df['time'], bins=number_of_frames,labels=False).astype(np.int16)
         return peaks_df
 
     def transform(self, rigid_body_motion, time):
