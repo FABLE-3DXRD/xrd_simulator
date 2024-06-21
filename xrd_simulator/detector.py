@@ -17,7 +17,7 @@ from xrd_simulator import utils
 import dill
 from scipy.signal import convolve2d
 from multiprocessing import Pool
-
+from xrd_simulator.cuda import frame
 
 class Detector:
     """Represents a rectangular 2D area detector.
@@ -70,9 +70,9 @@ class Detector:
         self.normal = np.cross(self.zdhat, self.ydhat)
         self.normal = self.normal / np.linalg.norm(self.normal)
         self.frames = []
-        self.pixel_coordinates = self._get_pixel_coordinates()
+#       self.pixel_coordinates = self._get_pixel_coordinates()
 
-        self._point_spread_kernel_shape = (5, 5)
+#       self._point_spread_kernel_shape = (5, 5)
 
     def point_spread_function(self, z, y):
         return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
@@ -326,19 +326,19 @@ class Detector:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-
-        s = (self.det_corner_0 - source_point).dot(self.normal) / ray_direction.dot(self.normal)
-        intersection = source_point + ray_direction * s[:, np.newaxis]
-        zd = np.dot(intersection - self.det_corner_0, self.zdhat)
-        yd = np.dot(intersection - self.det_corner_0, self.ydhat)
+        breakpoint()
+        s = (self.det_corner_0 - source_point).matmul(self.normal) / ray_direction.matmul(self.normal)
+        intersection = source_point + ray_direction * s[:, frame.newaxis]
+        zd = frame.matmul(intersection - self.det_corner_0, self.zdhat)
+        yd = frame.matmul(intersection - self.det_corner_0, self.ydhat)
 
         # Calculate incident angle
-        ray_dir_norm = ray_direction / np.linalg.norm(ray_direction,axis=1)[:,np.newaxis]
-        normal_norm = self.normal / np.linalg.norm(self.normal)
+        ray_dir_norm = ray_direction / frame.linalg.norm(ray_direction,axis=1)[:,frame.newaxis]
+        normal_norm = self.normal / frame.linalg.norm(self.normal)
 
-        cosine_theta = np.dot(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
-        incident_angle_deg = np.degrees(np.arccos(cosine_theta))
-        return np.array([zd, yd,incident_angle_deg]).T
+        cosine_theta = frame.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
+        incident_angle_deg = frame.degrees(frame.arccos(cosine_theta))
+        return frame.array([zd, yd,incident_angle_deg]).T
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -407,7 +407,7 @@ class Detector:
         fourth_corner_of_detector = self.det_corner_2 + (
             self.det_corner_1 - self.det_corner_0[:]
         )
-        geom_mat = np.zeros((3, 4))
+        geom_mat = frame.zeros((3, 4))
         for i, det_corner in enumerate(
             [
                 self.det_corner_0,
@@ -417,11 +417,9 @@ class Detector:
             ]
         ):
             geom_mat[:, i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat / np.linalg.norm(geom_mat, axis=0)
-        cone_opening = np.arccos(
-            np.dot(normalised_local_coord_geom_mat.T, k / np.linalg.norm(k))
-        )  # These are two time Bragg angles
-        return np.max(cone_opening) / 2.0
+        normalised_local_coord_geom_mat = geom_mat / frame.linalg.norm(geom_mat, axis=0)
+        cone_opening = frame.arccos(frame.matmul(normalised_local_coord_geom_mat.T, k / frame.linalg.norm(k)))  # These are two time Bragg angles
+        return frame.max(cone_opening) / 2.0
 
     def save(self, path):
         """Save the detector object to disc (via pickling).
@@ -473,11 +471,12 @@ class Detector:
         return kernel / np.sum(kernel)
 
     def _get_pixel_coordinates(self):
-        zds = np.arange(0, self.zmax, self.pixel_size_z)
-        yds = np.arange(0, self.ymax, self.pixel_size_y)
-        Z, Y = np.meshgrid(zds, yds, indexing="ij")
-        Zds = np.zeros((len(zds), len(yds), 3))
-        Yds = np.zeros((len(zds), len(yds), 3))
+        breakpoint()
+        zds = frame.arange(0, self.zmax, self.pixel_size_z)
+        yds = frame.arange(0, self.ymax, self.pixel_size_y)
+        Z, Y = frame.meshgrid(zds, yds, indexing="ij")
+        Zds = frame.zeros((len(zds), len(yds), 3))
+        Yds = frame.zeros((len(zds), len(yds), 3))
         for i in range(3):
             Zds[:, :, i] = Z
             Yds[:, :, i] = Y

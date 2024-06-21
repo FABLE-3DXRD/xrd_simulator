@@ -19,7 +19,7 @@ import dill
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
-from xrd_simulator.cuda import use_cuda
+from xrd_simulator.cuda import frame,pd
 
 def _diffract(dict):
     """
@@ -52,61 +52,49 @@ def _diffract(dict):
     espherecentroids = dict["espherecentroids"]
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
-    element_phase_map = np.array(dict["element_phase_map"])
+    element_phase_map = frame.array(dict["element_phase_map"])
 
-    rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
-    rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
-    rho_2_factor = np.float32(beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2))
+    rho_0_factor = -beam.wave_vector.matmul(frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32))
+    rho_1_factor = beam.wave_vector.matmul(frame.array(rigid_body_motion.rotator.K, dtype=frame.float32))
+    rho_2_factor = beam.wave_vector.matmul(frame.eye(3, 3) + frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32))
 
-    peaks_df = (
-        pd.DataFrame()
-    )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    all_peaks = frame.empty(0,10)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
 
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
-        grain_index = np.where(element_phase_map == i)[0]
-        miller_indices = np.float32(phase.miller_indices)
+        grain_indices = frame.where(element_phase_map == i)[0]
+        miller_indices = frame.array(phase.miller_indices)
 
         # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-        structure_factors = np.sum(phase.structure_factors**2,axis=1).astype(np.float32)
+        structure_factors = frame.sum(frame.array(phase.structure_factors)**2,axis=1)
         miller_indices = miller_indices[structure_factors>1e-6]
         structure_factors = structure_factors[structure_factors>1e-6]
 
         # Get all scattering vectors for all scatterers in a given phase
-        G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
+        G_0 = laue.get_G(orientation_lab[grain_indices], eB[grain_indices], miller_indices)
 
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        laue_output =laue.find_solutions_to_tangens_half_angle_equation(
+        grains, planes, times, G0_xyz =laue.find_solutions_to_tangens_half_angle_equation(
                 G_0,
                 rho_0_factor,
                 rho_1_factor,
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
-
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
+        structure_factors = structure_factors[planes].unsqueeze(1)
+        grain_indices = grain_indices[grains].unsqueeze(1)
+        miller_indices = miller_indices[planes]
+        phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
+        peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
+        #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
+        all_peaks = frame.cat([all_peaks, peaks], axis=0)
+        del peaks
+    breakpoint()
 
-
-        table = pd.DataFrame(
-            {
-                "Grain": grain_index[laue_output[:, 0].astype(np.int16)],
-                "phase": i,
-                "hkl": laue_output[:, 1].astype(np.int16),
-                "structure_factor": structure_factors[laue_output[:, 1].astype(np.int16)],
-                "time": laue_output[:,2],
-                "G_0x": laue_output[:, 3],
-                "G_0y": laue_output[:, 4],
-                "G_0z": laue_output[:, 5],
-            }
-        )
-        
-        del laue_output
-        peaks_df = pd.concat([peaks_df, table], axis=0).sort_values(by="Grain")
-        
-    peaks_df['phase']=peaks_df['phase'].astype(np.int16)
-    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(peaks_df[["G_0x", "G_0y", "G_0z"]].values, peaks_df["time"].values).astype(np.float32)
+    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(all_peaks[:,7:10], all_peaks[:,6]) #Rotate the Gx, Gy and Gz to time
     peaks_df[["k'x", "k'y", "k'z"]] = (peaks_df[["Gx", "Gy", "Gz"]] + beam.wave_vector).astype(np.float32)
     peaks_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[peaks_df["Grain"]], peaks_df["time"].values).astype(np.float32)
     peaks_df[["zd", "yd","incident_angle"]] = detector.get_intersection(peaks_df[["k'x", "k'y", "k'z"]].values,peaks_df[["Source_x", "Source_y", "Source_z"]].values).astype(np.float32)
@@ -227,6 +215,7 @@ class Polycrystal:
                 Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
+        beam.wave_vector = frame.array(beam.wave_vector, dtype=frame.float32)
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle

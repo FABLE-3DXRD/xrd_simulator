@@ -36,7 +36,7 @@ import numpy as np
 from numba import njit
 import sys
 import cupy as cp
-from xrd_simulator.cuda import use_cuda
+from xrd_simulator.cuda import frame
 import torch 
 
 
@@ -319,12 +319,10 @@ def _b_to_epsilon(B_matrix, B0):
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
 
-    if use_cuda:
-        frame = torch
+    if frame == torch:
         crystal_strain = frame.tensor(crystal_strain, dtype=torch.float32)
         B0 = frame.tensor(B0, dtype=torch.float32)
-    else:
-        frame = np   
+    else:  
         crystal_strain = crystal_strain.astype(np.float32)
         B0 = B0.astype(np.float32)
 
@@ -344,7 +342,7 @@ def _epsilon_to_b(crystal_strain, B0):
         F = frame.transpose(frame.linalg.cholesky(C),1,0)
 
     B = frame.linalg.inv(F).matmul(B0)
-    B = B.cpu() if use_cuda else B
+    B = B.cpu() if frame == torch else B
         
     return B
 

@@ -6,7 +6,7 @@ import numpy as np
 import cupy as cp
 import torch
 from xrd_simulator import utils
-from xrd_simulator.cuda import use_cuda
+from xrd_simulator.cuda import frame
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -25,13 +25,11 @@ def get_G(U, B, G_hkl):
 
     """
 
-    if use_cuda:
-        frame = torch
+    if frame == torch:
         U = frame.asarray(U,dtype=frame.float32)
         B = frame.asarray(B,dtype=frame.float32)
         G_hkl = frame.asarray(G_hkl,dtype=frame.float32)
-    else:
-        frame = np     
+    else: 
         U = U.astype(np.float32)
         B = B.astype(np.float32)
         G_hkl = G_hkl.astype(np.float32)
@@ -96,18 +94,6 @@ def find_solutions_to_tangens_half_angle_equation(
             - values: 1D numpy array representing values for diffraction computation.
     """
 
-    # Transfer input arrays to GPU if they are not already there
-
-    if use_cuda:
-        frame=torch
-        G_0 = frame.asarray(G_0)
-        rho_0_factor = frame.asarray(rho_0_factor)
-        rho_1_factor = frame.asarray(rho_1_factor)
-        rho_2_factor = frame.asarray(rho_2_factor)
-    else:
-        frame=np     
-        G_0 = cp.asnumpy(G_0)
-
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
         G_0 = G_0[frame.newaxis, :, :]
@@ -159,20 +145,15 @@ def find_solutions_to_tangens_half_angle_equation(
     # Filter solutions within range [0, 1]
     valid_t_indices = frame.logical_and(t >= 0, t <= 1)
 
-    values_t = t[valid_t_indices]
+    times = t[valid_t_indices].unsqueeze(1)
     # del t
-    reflection_index = frame.argwhere(valid_t_indices)
-    reflection_index = reflection_index % G_0.shape[0]
+    peak_index = frame.argwhere(valid_t_indices)
+    peak_index = peak_index % G_0.shape[0]
     # del valid_t_indices
-    # Return concatenated indices and values
+    grains = peak_index[:, 0]
+    planes = peak_index[:, 1]
 
     G_0 = frame.transpose(G_0,2,1)
-    G_0_reflected = G_0[reflection_index[:, 0], reflection_index[:, 1]]
-
-    # del G_0
-    output = frame.concatenate((reflection_index, values_t.unsqueeze(1), G_0_reflected), axis=1)
-    # del reflection_index,values_t,G_0_reflected
-
-    output = output.cpu().numpy() if use_cuda else output
+    G = G_0[grains, planes]
         
-    return output
+    return grains, planes, times, G
