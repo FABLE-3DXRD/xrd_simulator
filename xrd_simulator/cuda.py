@@ -1,19 +1,18 @@
-import tensorflow as tf
+import torch
 
 # Default to False
 use_cuda = False
 
 # ===============================================
 try:
-    # Check if TensorFlow can see any GPUs
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
+    # Check if CUDA is available
+    if torch.cuda.is_available():
         use_cuda = True
         print("CUDA is available and GPUs are found.")
     else:
-        print("CUDA is available but no GPUs are found.")
+        print("CUDA is not available.")
 except Exception as e:
-    print("CUDA is not available. Switching to CPU. Exception:", e)
+    print("An error occurred while checking for CUDA. Exception:", e)
 
 # Print final status
 print("use_cuda =", use_cuda)

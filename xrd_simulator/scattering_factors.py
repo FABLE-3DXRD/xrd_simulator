@@ -7,7 +7,7 @@ def lorentz(beam,rigid_body_motion,peaks_df):
 
     k = beam.wave_vector
     kp = peaks_df[["k'x", "k'y", "k'z"]]
-    k_kp_norm = k.dot(kp.T) / (np.linalg.norm(k) ** 2)
+    k_kp_norm = k.dot(kp.T) / (np.linalg.norm(k,axis=0) * np.linalg.norm(kp,axis=1))
     theta = np.arccos(k_kp_norm) / 2.0
     korthogonal = kp - k_kp_norm.reshape(-1,1)*k.reshape(1,3)
     eta = np.arccos(rigid_body_motion.rotation_axis.dot(korthogonal.T) / np.linalg.norm(korthogonal))
