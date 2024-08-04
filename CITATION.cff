@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: article
+authors:
+  - family-names: "Henningsson"
+    given-names: "Axel"
+  - family-names: "Hall"
+    given-names: "Stephen A."
+title: "{\it xrd_simulator}: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions"
+journal: "Journal of Applied Crystallography"
+year: "2023"
+volume: "56"
+number: "1"
+pages: "282--292"
+month: "Feb"
+doi: "10.1107/S1600576722011001"
+url: "https://doi.org/10.1107/S1600576722011001"
+abstract: "An open source Python package named {\it xrd_simulator}, capable of simulating geometrical interactions between a monochromatic X-ray beam and a polycrystalline microstructure, is described and demonstrated. The software can simulate arbitrary intragranular lattice variations of single crystals embedded within a multiphase 3D aggregate by making use of a tetrahedral mesh representation where each element holds an independent lattice. By approximating the X-ray beam as an arbitrary convex polyhedral region in space and letting the sample be moved continuously through arbitrary rigid motions, data from standard and non-standard measurement sequences can be simulated. This implementation is made possible through analytical solutions to a modified, time-dependent version of the Laue equations. The software, which primarily targets three-dimensional X-ray diffraction microscopy (high-energy X-ray diffraction microscopy) type experiments, enables the numerical exploration of which sample quantities can and cannot be reconstructed for a given acquisition scheme. Similarly, {\it xrd_simulator} targets investigations of different measurement sequences in relation to optimizing both experimental run times and sampling."
+keywords: 
+  - "X-ray diffraction"
+  - "3DXRD"
+  - "simulation tools"
+  - "polycrystalline microstructure"
+  - "computer programs"
