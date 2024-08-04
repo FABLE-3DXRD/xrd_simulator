@@ -1,5 +1,4 @@
 cff-version: 1.2.0
-type: article
 message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Henningsson"
@@ -7,12 +6,24 @@ authors:
   orcid: "https://orcid.org/0000-0001-6967-9726"
 - family-names: "Hall"
   given-names: "Stephen A."
-title: "xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions"
-journal: "Journal of Applied Crystallography"
-year: "2023"
-volume: "56"
-number: "1"
-pages: "282--292"
-month: "Feb"
-doi: "10.1107/S1600576722011001"
-url: "https://doi.org/10.1107/S1600576722011001"
+title: "xrd_simulator"
+version: 0.4.1
+date-released: 2023-02-01
+url: "https://github.com/FABLE-3DXRD/xrd_simulator"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Henningsson"
+    given-names: "Axel"
+    orcid: "https://orcid.org/0000-0001-6967-9726"
+  - family-names: "Hall"
+    given-names: "Stephen A."
+  doi: "10.1107/S160057672201100"
+  journal: "Journal of Applied Crystallography"
+  month: 2
+  start: 282 # First page number
+  end: 292 # Last page number
+  title: "xrd_simulator: 3D X-ray diffraction simulation software supporting 3D polycrystalline microstructure morphology descriptions"
+  issue: 1
+  volume: 56
+  year: 2023
