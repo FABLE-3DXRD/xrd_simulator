@@ -40,7 +40,7 @@ path = os.path.join(
     os.path.join(
         os.path.dirname(__file__),
         'saves'),
-    'fast_polycrystal_from_odf')
+    'fast_polycrystal_from_odf.pc')
 
 if 1:
     def strain_tensor(x): return np.array(
