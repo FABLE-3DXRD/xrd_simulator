@@ -94,6 +94,7 @@ def polycrystal_from_odf(
     path_to_cif_file=None,
     maximum_sampling_bin_seperation=np.radians(5.0),
     strain_tensor=lambda x: np.zeros((3, 3)),
+    phase_fractions=None
 ):
     """Fill a cylinder with crystals from a given orientation density function.
 
@@ -117,11 +118,11 @@ def polycrystal_from_odf(
              microns.
         sample_bounding_cylinder_radius (:obj:`float`): Radius of sample cylinder in units of
             microns.
-        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
+        unit_cell (:obj:`list of lists` of :obj:`float`): Crystal unit cell representation of the form
+            [[a,b,c,alpha,beta,gamma],], where alpha,beta and gamma are in units of degrees while
             a,b and c are in units of anstrom.
-        sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
-        path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
+        sgname (:obj:`list of strings`): Name of space group , e.g ['P3221',] for quartz, SiO2, for instance
+            path_to_cif_file (:obj:`list of strings`): [Path to CIF file,]. Defaults to None, in which case no structure
             factors are computed.
         maximum_sampling_bin_seperation (:obj:`float`): Discretization steplength of orientation
             space using spherical coordinates over the unit quarternions in units of radians.
@@ -131,6 +132,8 @@ def polycrystal_from_odf(
             strain_tensor(x) -> :obj:`numpy array` of shape ``(3,3)`` where input variable ``x`` is
             a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the
             cylinder (x,y,z).
+        phase_fraction (:obj: `list` of :obj:`float`): Phase fraction represented as probability, summing up to 1.
+            Default None; will take even distribution of crystals.
 
     Returns:
         (:obj:`xrd_simulator.polycrystal.Polycrystal`)
@@ -168,10 +171,18 @@ def polycrystal_from_odf(
     )
 
     mesh = TetraMesh._build_tetramesh(cylinder)
-
-    # Sample is uniformly single phase
-    phases = [Phase(unit_cell, sgname, path_to_cif_file)]
-    element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+    
+    phases = [Phase(uc, sg, cf) for uc, sg, cf in zip(unit_cell, sgname, path_to_cif_file)]
+    if len(phases) == 1:
+        # Sample is uniformly single phase
+        element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+    elif phase_fractions is None:
+        # Sample is uniformly distributed phases
+        element_phase_map = np.random.randint(len(phases), size=(mesh.number_of_elements,))
+    else :
+        # Sample is distributed by phase fraction
+        probabilities = np.array(phase_fractions)
+        element_phase_map = np.random.choice(len(phases), size=(mesh.number_of_elements,), p=probabilities)
 
     # Sample spatial texture
     orientation = _sample_ODF(
