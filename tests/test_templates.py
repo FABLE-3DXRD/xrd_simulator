@@ -175,6 +175,116 @@ class TestUtils(unittest.TestCase):
             nosequences,
             10,
             msg="Few or no rings appeared from diffraction.")
+    
+    def test_polycrystal_from_odf_2phases(self):
+
+        unit_cell = [[3.579, 3.579, 3.579, 90., 90., 90.0],
+                     [5.46745, 5.46745, 5.46745, 90., 90., 90.0]]
+        sgname = ['F432', 'F432']
+
+        def orientation_density_function(
+            x, q): return 1. / (np.pi**2)  # uniform ODF
+        number_of_crystals = 500
+        sample_bounding_cylinder_height = 50
+        sample_bounding_cylinder_radius = 25
+        maximum_sampling_bin_seperation = np.radians(10.0)
+        # Linear strain gradient along rotation axis.
+        def strain_tensor(x): return np.array(
+            [[0, 0, 0.02 * x[2] / sample_bounding_cylinder_height], [0, 0, 0], [0, 0, 0]])
+
+        polycrystal = templates.polycrystal_from_odf(
+            orientation_density_function,
+            number_of_crystals,
+            sample_bounding_cylinder_height,
+            sample_bounding_cylinder_radius,
+            unit_cell,
+            sgname,
+            path_to_cif_file=None,
+            maximum_sampling_bin_seperation=maximum_sampling_bin_seperation,
+            strain_tensor=strain_tensor)
+
+        # Compare Euler angle distributions to scipy random uniform orientation
+        # sampler
+        euler1 = np.array([Rotation.from_matrix(U).as_euler(
+            'xyz', degrees=True) for U in polycrystal.orientation_lab])
+        euler2 = Rotation.random(10 * euler1.shape[0]).as_euler('xyz')
+
+        for i in range(3):
+            hist1, bins = np.histogram(euler1[:, i])
+            hist2, bins = np.histogram(euler2[:, i])
+            hist2 = hist2 / 10.
+            # These histograms should look roughly the same
+            self.assertLessEqual(
+                np.max(
+                    np.abs(
+                        hist1 -
+                        hist2)),
+                number_of_crystals *
+                0.05,
+                "ODF not sampled correctly.")
+
+        parameters = {
+            "detector_distance": 191023.9164,
+            "detector_center_pixel_z": 256.2345,
+            "detector_center_pixel_y": 255.1129,
+            "pixel_side_length_z": 181.4234,
+            "pixel_side_length_y": 180.2343,
+            "number_of_detector_pixels_z": 512,
+            "number_of_detector_pixels_y": 512,
+            "wavelength": 0.285227,
+            "beam_side_length_z": 512 * 200.,
+            "beam_side_length_y": 512 * 200.,
+            "rotation_step": np.radians(20.0),
+            "rotation_axis": np.array([0., 0., 1.0])
+        }
+
+        beam, detector, motion = templates.s3dxrd(parameters)
+
+        number_of_crystals = 100
+        sample_bounding_cylinder_height = 256 * 180 / 128.
+        sample_bounding_cylinder_radius = 256 * 180 / 128.
+
+        polycrystal = templates.polycrystal_from_odf(
+            orientation_density_function,
+            number_of_crystals,
+            sample_bounding_cylinder_height,
+            sample_bounding_cylinder_radius,
+            unit_cell,
+            sgname,
+            path_to_cif_file=None,
+            maximum_sampling_bin_seperation=maximum_sampling_bin_seperation,
+            strain_tensor=strain_tensor)
+
+        polycrystal.transform(motion, time=0.134)
+        polycrystal.diffract(
+            beam,
+            detector,
+            motion,
+            min_bragg_angle=0,
+            max_bragg_angle=None,
+            verbose=True)
+
+        diffraction_pattern = detector.render(
+            frames_to_render=0,
+            lorentz=False,
+            polarization=False,
+            structure_factor=False,
+            method="centroid",
+            verbose=True)
+        bins, histogram = utils._diffractogram(
+            diffraction_pattern, parameters['detector_center_pixel_z'], parameters['detector_center_pixel_y'])
+        histogram[histogram < 0.5 * np.median(histogram)] = 0
+        csequence, nosequences = 0, 0
+        for i in range(histogram.shape[0]):
+            if histogram[i] > 0:
+                csequence += 1
+            elif csequence >= 1:
+                nosequences += 1
+                csequence = 0
+        self.assertGreaterEqual(
+            nosequences,
+            10,
+            msg="Few or no rings appeared from diffraction.")
 
     def test_get_uniform_powder_sample(self):
         sample_bounding_radius = 256 * 180 / 128.

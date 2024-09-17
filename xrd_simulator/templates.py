@@ -94,6 +94,7 @@ def polycrystal_from_odf(
     path_to_cif_file=None,
     maximum_sampling_bin_seperation=np.radians(5.0),
     strain_tensor=lambda x: np.zeros((3, 3)),
+    phase_fractions=None
 ):
     """Fill a cylinder with crystals from a given orientation density function.
 
@@ -117,12 +118,19 @@ def polycrystal_from_odf(
              microns.
         sample_bounding_cylinder_radius (:obj:`float`): Radius of sample cylinder in units of
             microns.
-        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
-            a,b and c are in units of anstrom.
-        sgname (:obj:`string`): Name of space group , e.g 'P3221' for quartz, SiO2, for instance
-        path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
-            factors are computed.
+        unit_cell (:obj:`list of lists` of :obj:`float`): Crystal unit cell representation of the form
+            [a,b,c,alpha,beta,gamma] or [[a,b,c,alpha,beta,gamma],], where alpha,beta and gamma are 
+            in units of degrees while a,b and c are in units of anstrom. When the unit_cell is just a 
+            list (first example), the input represents single-phase material. When the unit_cell is an 
+            iterable list (second example), the input represents multi-phase material.
+        sgname (:obj:`list of strings`): Name of space group , e.g 'P3221' or ['P3221',] for quartz, 
+            SiO2, for instance. When the input is just a string, it represents space group for 
+            single-phase material. When the input is a list of string (second example), it represents 
+            space groups for multi-phase material.
+        path_to_cif_file (:obj:`list of strings`): Path to CIF file or [Path to CIF file,]. 
+            Defaults to None, in which case no structure factors are computed. When the input is a 
+            single file path (first example), the input is for single-phase material. When the 
+            input is a list of file paths (second example), the input is for multi-phase material.
         maximum_sampling_bin_seperation (:obj:`float`): Discretization steplength of orientation
             space using spherical coordinates over the unit quarternions in units of radians.
             A smaller steplength gives more accurate sampling of the input
@@ -131,6 +139,8 @@ def polycrystal_from_odf(
             strain_tensor(x) -> :obj:`numpy array` of shape ``(3,3)`` where input variable ``x`` is
             a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the
             cylinder (x,y,z).
+        phase_fraction (:obj: `list` of :obj:`float`): Phase fraction represented as probability, summing up to 1.
+            Default None; will take even distribution of crystals.
 
     Returns:
         (:obj:`xrd_simulator.polycrystal.Polycrystal`)
@@ -168,10 +178,29 @@ def polycrystal_from_odf(
     )
 
     mesh = TetraMesh._build_tetramesh(cylinder)
-
-    # Sample is uniformly single phase
-    phases = [Phase(unit_cell, sgname, path_to_cif_file)]
-    element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+    
+    if all(isinstance(x, list) for x in unit_cell) \
+        and isinstance(sgname, list):
+        # Multi Phase Material
+        if not isinstance(path_to_cif_file, list):
+            if path_to_cif_file is None:
+                path_to_cif_file = [None]* len(unit_cell)
+            else:
+                print("Single cif file input. Please enter list of corresponding cif files.")
+                exit
+        phases = [Phase(uc, sg, cf) for uc, sg, cf in zip(unit_cell, sgname, path_to_cif_file)]
+        if phase_fractions is None:
+            # Sample is uniformly distributed phases
+            element_phase_map = np.random.randint(len(phases), size=(mesh.number_of_elements,))
+        else :
+            # Sample is distributed by phase fraction
+            probabilities = np.array(phase_fractions)
+            element_phase_map = np.random.choice(len(phases), size=(mesh.number_of_elements,), p=probabilities)
+    else:
+        # Single Phase Material
+        phases = [Phase(unit_cell, sgname, path_to_cif_file)]
+        # Sample is uniformly single phase
+        element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
 
     # Sample spatial texture
     orientation = _sample_ODF(
