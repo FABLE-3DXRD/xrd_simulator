@@ -14,6 +14,7 @@ Below follows a detailed description of the RigidBodyMotion class attributes and
 """
 import numpy as np
 import dill
+from xrd_simulator.cuda import frame
 
 class RigidBodyMotion():
     """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
@@ -198,8 +199,9 @@ class _RodriguezRotator(object):
         self.K2 = self.K.dot(self.K)
 
     def get_rotation_matrix(self, rotation_angle):
-        return np.squeeze((np.eye(3, 3)[:,:,np.newaxis] + np.sin(rotation_angle) * self.K[:,:,np.newaxis] + (1 - np.cos(rotation_angle)) * self.K2[:,:,np.newaxis]).transpose(2,0,1))
-
+        rotation_matrix = np.squeeze(np.eye(3, 3)[:,:,np.newaxis] + np.sin(rotation_angle) * self.K[:,:,np.newaxis] + (1 - np.cos(rotation_angle)) * self.K2[:,:,np.newaxis])
+        rotation_matrix = rotation_matrix.permute(2,1,0).float()
+        return rotation_matrix
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
 
@@ -213,8 +215,7 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-        
+        vectors = vectors.float()
         if len(vectors.shape)==1:
-            vectors = vectors[np.newaxis,:]
-        
-        return np.matmul(R,vectors[:,:,np.newaxis])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains
+            vectors = vectors[None,:]
+        return frame.matmul(R,vectors[:,:,None])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains
