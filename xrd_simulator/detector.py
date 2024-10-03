@@ -239,7 +239,11 @@ class Detector:
         plt.scatter(pixel_indices[:,0],pixel_indices[:,1])
         plt.show()
 
-        frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
+        if frame is np:
+            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
+        else:
+            rendered_images.index_add_(pixel_indices[:,0], pixel_indices[:,1], 1) 
+
         plt.figure(figsize=(15,15))
         plt.imshow(rendered_images,vmin=0,vmax=1, cmap='gray')
         plt.show()
