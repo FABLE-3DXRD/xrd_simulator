@@ -49,7 +49,7 @@ def _diffract(dict):
     detector = dict["detector"]
     rigid_body_motion = dict["rigid_body_motion"]
     phases = dict["phases"]
-    espherecentroids = dict["espherecentroids"]
+    espherecentroids = frame.array(dict["espherecentroids"])
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
     element_phase_map = frame.array(dict["element_phase_map"])
@@ -58,17 +58,17 @@ def _diffract(dict):
     rho_1_factor = beam.wave_vector.matmul(frame.array(rigid_body_motion.rotator.K, dtype=frame.float32))
     rho_2_factor = beam.wave_vector.matmul(frame.eye(3, 3) + frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32))
 
-    all_peaks = frame.empty(0,10)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks_df = frame.empty(0,10)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
 
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_indices = frame.where(element_phase_map == i)[0]
-        miller_indices = frame.array(phase.miller_indices)
+        miller_indices = frame.array(phase.miller_indices, dtype=frame.float32)
 
         # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-        structure_factors = frame.sum(frame.array(phase.structure_factors)**2,axis=1)
+        structure_factors = frame.sum(frame.array(phase.structure_factors, dtype=frame.float32)**2,axis=1)
         miller_indices = miller_indices[structure_factors>1e-6]
         structure_factors = structure_factors[structure_factors>1e-6]
 
@@ -90,21 +90,38 @@ def _diffract(dict):
         phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
         peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
-        all_peaks = frame.cat([all_peaks, peaks], axis=0)
+        peaks_df = frame.cat([peaks_df, peaks], axis=0)
         del peaks
+    Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
+    K_out_xyz = (Gxyz + beam.wave_vector)
+    Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()], peaks_df[:,6].int())
     breakpoint()
+    zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
 
-    peaks_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(all_peaks[:,7:10], all_peaks[:,6]) #Rotate the Gx, Gy and Gz to time
-    peaks_df[["k'x", "k'y", "k'z"]] = (peaks_df[["Gx", "Gy", "Gz"]] + beam.wave_vector).astype(np.float32)
-    peaks_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(espherecentroids[peaks_df["Grain"]], peaks_df["time"].values).astype(np.float32)
-    peaks_df[["zd", "yd","incident_angle"]] = detector.get_intersection(peaks_df[["k'x", "k'y", "k'z"]].values,peaks_df[["Source_x", "Source_y", "Source_z"]].values).astype(np.float32)
-    peaks_df = peaks_df[detector.contains(peaks_df["zd"], peaks_df["yd"])]
+    # Concatenate new columns
+    peaks_df = frame.cat((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),dim=1)
+    """
+        Column names of peaks_df are now
+        0: 'grain_index'        10: 'Gx'        20: 'yd'
+        1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
+        2: 'h'                  12: 'Gz'
+        3: 'k'                  13: 'K_out_x'
+        4: 'l'                  14: 'K_out_y'
+        5: 'structure_factors'  15: 'K_out_z'
+        6: 'diffraction_times'  16: 'Source_x'
+        7: 'G0_x'               17: 'Source_y'      
+        8: 'G0_y'               18: 'Source_z'
+        9: 'G0_z'               19: 'zd'           
+    """
+
+    # Filter out peaks not hitting the detector
+    peaks_df = peaks_df[detector.contains(peaks_df[:,19], peaks_df[:,20])]
 
     # Filter out tets not illuminated
-    peaks_df = peaks_df[peaks_df['Source_y'] < (beam.vertices[:, 1].max())]  
-    peaks_df = peaks_df[peaks_df['Source_y'] > (beam.vertices[:, 1].min())]  
-    peaks_df = peaks_df[peaks_df['Source_z'] < (beam.vertices[:, 2].max())]  
-    peaks_df = peaks_df[peaks_df['Source_z'] > (beam.vertices[:, 2].min())]  
+    peaks_df = peaks_df[peaks_df[:,17] < (beam.vertices[:, 1].max())]  
+    peaks_df = peaks_df[peaks_df[:,17] > (beam.vertices[:, 1].min())]  
+    peaks_df = peaks_df[peaks_df[:,18] < (beam.vertices[:, 2].max())]  
+    peaks_df = peaks_df[peaks_df[:,18] > (beam.vertices[:, 2].min())]  
     
     return peaks_df
 

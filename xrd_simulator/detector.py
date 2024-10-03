@@ -316,7 +316,7 @@ class Detector:
         return theta, eta
 
     def get_intersection(self, ray_direction, source_point):
-        """Get detector intersection in detector coordinates of a single ray originating from source_point.
+        """Get detector intersection in detector coordinates of every single ray originating from source_point.
 
         Args:
             ray_direction (:obj:`numpy array`): Vector in direction of the xray propagation
@@ -327,7 +327,7 @@ class Detector:
 
         """
         breakpoint()
-        s = (self.det_corner_0 - source_point).matmul(self.normal) / ray_direction.matmul(self.normal)
+        s = (self.det_corner_0 - source_point).matmul(self.normal) / frame.matmul(ray_direction,self.normal)
         intersection = source_point + ray_direction * s[:, frame.newaxis]
         zd = frame.matmul(intersection - self.det_corner_0, self.zdhat)
         yd = frame.matmul(intersection - self.det_corner_0, self.ydhat)
