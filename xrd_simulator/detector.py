@@ -17,7 +17,10 @@ from xrd_simulator import utils
 import dill
 from scipy.signal import convolve2d
 from multiprocessing import Pool
+import matplotlib.pyplot as plt
 from xrd_simulator.cuda import frame
+if frame != np:
+    frame.array = frame.tensor
 
 class Detector:
     """Represents a rectangular 2D area detector.
@@ -63,18 +66,18 @@ class Detector:
         )
         self.pixel_size_z = pixel_size_z
         self.pixel_size_y = pixel_size_y
-        self.zmax = np.linalg.norm(det_corner_2 - det_corner_0)
-        self.ymax = np.linalg.norm(det_corner_1 - det_corner_0)
+        self.zmax = frame.linalg.norm(det_corner_2 - det_corner_0)
+        self.ymax = frame.linalg.norm(det_corner_1 - det_corner_0)
         self.zdhat = (det_corner_2 - det_corner_0) / self.zmax
         self.ydhat = (det_corner_1 - det_corner_0) / self.ymax
-        self.normal = np.cross(self.zdhat, self.ydhat)
-        self.normal = self.normal / np.linalg.norm(self.normal)
-        self.frames = []
-#       self.pixel_coordinates = self._get_pixel_coordinates()
-
-#       self._point_spread_kernel_shape = (5, 5)
+        self.normal = frame.cross(self.zdhat, self.ydhat)
+        self.normal = self.normal / frame.linalg.norm(self.normal)
+        self.images = []
+        self.pixel_coordinates = self._get_pixel_coordinates()
+        self._point_spread_kernel_shape = (5, 5)
 
     def point_spread_function(self, z, y):
+        breakpoint()
         return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
 
     @property
@@ -102,7 +105,8 @@ class Detector:
 
     def render(
         self,
-        frames_to_render,
+        peaks,
+        images_to_render,
         lorentz=True,
         polarization=True,
         structure_factor=True,
@@ -116,7 +120,7 @@ class Detector:
         the pixel area.
 
         Args:
-            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
+            images_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
                 to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
@@ -140,22 +144,20 @@ class Detector:
 
         """
 
-        if verbose and number_of_processes != 1:
-            raise NotImplemented(
-                "Verbose mode is not implemented for multiprocesses computations"
-            )
 
-        if frames_to_render == "all":
-            frames_to_render = list(range(len(self.frames)))
-        elif isinstance(frames_to_render, int):
-            frames_to_render = [frames_to_render]
+        if images_to_render == "all":
+            images_to_render = list(range(len(self.images)))
+        elif isinstance(images_to_render, int):
+            images_to_render = [images_to_render]
 
         if method == "project":
             renderer = self._projection_render
-            kernel = self._get_point_spread_function_kernel()
+            kernel = None
+            #kernel = self._get_point_spread_function_kernel()
         elif method == "centroid":
             renderer = self._centroid_render
-            kernel = self._get_point_spread_function_kernel()
+            kernel = None
+            #kernel = self._get_point_spread_function_kernel()
         elif method == "centroid_with_scintillator":
             renderer = self._centroid_render_with_scintillator
             kernel = None
@@ -169,7 +171,8 @@ class Detector:
         if number_of_processes == 1:
             rendered_frames = self._render_and_convolve(
                 (
-                    frames_to_render,
+                    peaks,
+                    images_to_render,
                     kernel,
                     renderer,
                     lorentz,
@@ -179,9 +182,10 @@ class Detector:
                 )
             )
         else:
+            '''
             args = []
             for frames_bundle in np.array_split(
-                np.array(frames_to_render), number_of_processes
+                np.array(images_to_render), number_of_processes
             ):
                 args.append(
                     (
@@ -199,16 +203,18 @@ class Detector:
             rendered_frames = []
             for frames_bundle in nested_frame_bundles:
                 rendered_frames.extend(frames_bundle)
-        rendered_frames = np.array(rendered_frames)
+                '''
+        rendered_images = np.array(rendered_images)
 
-        if len(frames_to_render) == 1:
-            return rendered_frames[0, :, :]
+        if len(images_to_render) == 1:
+            return rendered_images[0, :, :]
         else:
-            return rendered_frames
+            return rendered_images
 
     def _render_and_convolve(self, args):
         (
-            frames_bundle,
+            peaks,
+            images_bundle,
             kernel,
             renderer,
             lorentz,
@@ -216,29 +222,29 @@ class Detector:
             structure_factor,
             verbose,
         ) = args
-        rendered_frames = []
-        for frame_index in frames_bundle:
-            frame = np.zeros(
-                (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
-            )
-            for si, scattering_unit in enumerate(self.frames[frame_index]):
-                if verbose:
-                    progress_bar_message = (
-                        "Rendering "
-                        + str(len(self.frames[frame_index]))
-                        + " scattering volumes unto the detector"
-                    )
-                    progress_fraction = float(si + 1) / len(self.frames[frame_index])
-                    utils._print_progress(
-                        progress_fraction, message=progress_bar_message
-                    )
-                renderer(
-                    scattering_unit, frame, lorentz, polarization, structure_factor
-                )
-            if kernel is not None:
-                frame = self._apply_point_spread_function(frame, kernel)
-            rendered_frames.append(frame)
-        return rendered_frames
+        rendered_images = []
+        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.int16)
+
+        if frame is np:
+            pixel_indices =  frame.concatenate(
+                (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
+                ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
+                peaks[:, 22].reshape(-1, 1)), axis=1).astype(frame.int16)
+        else:
+            pixel_indices = frame.cat(
+                (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
+                ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
+                peaks[:, 22].unsqueeze(1)), dim=1).to(frame.int16)
+            
+        plt.scatter(pixel_indices[:,0],pixel_indices[:,1])
+        plt.show()
+
+        frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
+        plt.figure(figsize=(15,15))
+        plt.imshow(rendered_images,vmin=0,vmax=1, cmap='gray')
+        plt.show()
+        
+        return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
         """Apply the point spread function to a rendered pixelated frame by convolution.
@@ -326,19 +332,27 @@ class Detector:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        breakpoint()
-        s = (self.det_corner_0 - source_point).matmul(self.normal) / frame.matmul(ray_direction,self.normal)
-        intersection = source_point + ray_direction * s[:, frame.newaxis]
+        s = frame.matmul(self.det_corner_0 - source_point,self.normal) / frame.matmul(ray_direction,self.normal)
+        if frame is np:
+            intersection = source_point + ray_direction * s[:, frame.newaxis]
+        else:
+            intersection = source_point + ray_direction * s.unsqueeze(1)
         zd = frame.matmul(intersection - self.det_corner_0, self.zdhat)
         yd = frame.matmul(intersection - self.det_corner_0, self.ydhat)
 
         # Calculate incident angle
-        ray_dir_norm = ray_direction / frame.linalg.norm(ray_direction,axis=1)[:,frame.newaxis]
+        if frame is np:
+            ray_dir_norm = ray_direction / frame.linalg.norm(ray_direction,axis=1)[:,frame.newaxis]
+        else:
+            ray_dir_norm = ray_direction / frame.norm(ray_direction, dim=1).unsqueeze(1)
         normal_norm = self.normal / frame.linalg.norm(self.normal)
 
         cosine_theta = frame.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
-        incident_angle_deg = frame.degrees(frame.arccos(cosine_theta))
-        return frame.array([zd, yd,incident_angle_deg]).T
+        incident_angle_deg = frame.arccos(cosine_theta) * (180 / frame.pi)
+        if frame ==np:
+            return frame.array([zd, yd,incident_angle_deg]).T
+        return frame.stack((zd, yd, incident_angle_deg), dim=1)
+
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -416,7 +430,7 @@ class Detector:
                 fourth_corner_of_detector,
             ]
         ):
-            geom_mat[:, i] = det_corner - source_point
+            geom_mat[:, i] = frame.array(det_corner - source_point)
         normalised_local_coord_geom_mat = geom_mat / frame.linalg.norm(geom_mat, axis=0)
         cone_opening = frame.arccos(frame.matmul(normalised_local_coord_geom_mat.T, k / frame.linalg.norm(k)))  # These are two time Bragg angles
         return frame.max(cone_opening) / 2.0
@@ -449,8 +463,14 @@ class Detector:
         if not path.endswith(".det"):
             raise ValueError("The loaded motion file must end with .det")
         with open(path, "rb") as f:
-            return dill.load(f)
-
+            loaded=dill.load(f)
+            loaded.normal = frame.array(loaded.normal, dtype=frame.float32)
+            loaded.det_corner_0 = frame.array(loaded.det_corner_0, dtype=frame.float32)
+            loaded.det_corner_1 = frame.array(loaded.det_corner_1, dtype=frame.float32)
+            loaded.det_corner_2 = frame.array(loaded.det_corner_2, dtype=frame.float32)
+            loaded.zdhat = frame.array(loaded.zdhat, dtype=frame.float32)
+            loaded.ydhat = frame.array(loaded.ydhat, dtype=frame.float32)
+            return loaded
     def _get_point_spread_function_kernel(self):
         """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape."""
         sz, sy = self.point_spread_kernel_shape
@@ -460,6 +480,7 @@ class Detector:
         kernel = np.zeros(self.point_spread_kernel_shape)
         for i in range(Z.shape[0]):
             for j in range(Y.shape[1]):
+                breakpoint()
                 kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
         assert (
             len(kernel[kernel < 0]) == 0
@@ -471,7 +492,6 @@ class Detector:
         return kernel / np.sum(kernel)
 
     def _get_pixel_coordinates(self):
-        breakpoint()
         zds = frame.arange(0, self.zmax, self.pixel_size_z)
         yds = frame.arange(0, self.ymax, self.pixel_size_y)
         Z, Y = frame.meshgrid(zds, yds, indexing="ij")
