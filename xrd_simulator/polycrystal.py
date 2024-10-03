@@ -21,6 +21,9 @@ from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 from xrd_simulator.cuda import frame,pd
 
+if frame != np:
+    frame.array = frame.tensor
+
 def _diffract(dict):
     """
     Compute diffraction for a subset of the polycrystal.
@@ -54,11 +57,11 @@ def _diffract(dict):
     eB = dict["eB"]
     element_phase_map = frame.array(dict["element_phase_map"])
 
-    rho_0_factor = -beam.wave_vector.matmul(frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32))
-    rho_1_factor = beam.wave_vector.matmul(frame.array(rigid_body_motion.rotator.K, dtype=frame.float32))
-    rho_2_factor = beam.wave_vector.matmul(frame.eye(3, 3) + frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32))
+    rho_0_factor = frame.matmul(-beam.wave_vector,(frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32)))
+    rho_1_factor = frame.matmul(beam.wave_vector,(frame.array(rigid_body_motion.rotator.K, dtype=frame.float32)))
+    rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32)))
 
-    peaks_df = frame.empty(0,10)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks_df = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
@@ -84,22 +87,32 @@ def _diffract(dict):
                 rigid_body_motion.rotation_angle,
             )
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
-        structure_factors = structure_factors[planes].unsqueeze(1)
-        grain_indices = grain_indices[grains].unsqueeze(1)
-        miller_indices = miller_indices[planes]
-        phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
-        peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
-        peaks_df = frame.cat([peaks_df, peaks], axis=0)
+        if frame is np:
+            structure_factors = structure_factors[planes][:, frame.newaxis]  # Unsqueeze at axis 1
+            grain_indices = grain_indices[grains][:, frame.newaxis]          # Unsqueeze at axis 1
+            miller_indices = miller_indices[planes]
+            phase_index = frame.full((G0_xyz.shape[0],), i)[:, frame.newaxis] 
+            peaks = frame.concatenate((grain_indices, phase_index, miller_indices[:, frame.newaxis].squeeze(), structure_factors, times[:, frame.newaxis].squeeze(2), G0_xyz), axis=1)
+            peaks_df = frame.concatenate((peaks_df, peaks), axis=0)
+        else:
+            structure_factors = structure_factors[planes].unsqueeze(1)
+            grain_indices = grain_indices[grains].unsqueeze(1)
+            miller_indices = miller_indices[planes]
+            phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
+            peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
+            peaks_df = frame.cat([peaks_df, peaks], axis=0)
         del peaks
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
     K_out_xyz = (Gxyz + beam.wave_vector)
-    Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()], peaks_df[:,6].int())
-    breakpoint()
+    Sources_xyz = rigid_body_motion(espherecentroids[frame.array(peaks_df[:,0],dtype=frame.int)], frame.array(peaks_df[:,6],dtype=frame.int))
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
 
     # Concatenate new columns
-    peaks_df = frame.cat((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),dim=1)
+    if frame is np:
+        peaks_df = frame.concatenate((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),axis=1)
+    else:
+        peaks_df = frame.cat((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),dim=1)
     """
         Column names of peaks_df are now
         0: 'grain_index'        10: 'Gx'        20: 'yd'
@@ -122,7 +135,6 @@ def _diffract(dict):
     peaks_df = peaks_df[peaks_df[:,17] > (beam.vertices[:, 1].min())]  
     peaks_df = peaks_df[peaks_df[:,18] < (beam.vertices[:, 2].max())]  
     peaks_df = peaks_df[peaks_df[:,18] > (beam.vertices[:, 2].min())]  
-    
     return peaks_df
 
 
@@ -222,7 +234,7 @@ class Polycrystal:
             number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
                 computation. Defaults to 1, i.e a single processes.
             number_of_frames (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
-                to be collected. Defaults to 1, which means that the detector reads diffraction during the full rigid body
+                to be collected. Defaulrenderts to 1, which means that the detector reads diffraction during the full rigid body
                 motion and integrates out the signal to a single frame. The number_of_frames keyword primarily allows for single
                 rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
             proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
@@ -232,6 +244,7 @@ class Polycrystal:
                 Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
+
         beam.wave_vector = frame.array(beam.wave_vector, dtype=frame.float32)
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
@@ -253,7 +266,16 @@ class Polycrystal:
                 }
 
         peaks_df = _diffract(args)
-        peaks_df['frame'] = pd.cut(peaks_df['time'], bins=number_of_frames,labels=False).astype(np.int16)
+        if frame is np:
+            bin_edges = frame.linspace(0, 1,number_of_frames + 1)
+            frames = frame.digitize(peaks_df[:,6], bin_edges)
+            frames = frames[:,frame.newaxis]
+            peaks_df = frame.concatenate((peaks_df, frames), axis=1)      
+
+        else:
+            bin_edges = frame.linspace(0, 1, steps=number_of_frames + 1)
+            frames = frame.bucketize(peaks_df[:,6], bin_edges).unsqueeze(1)
+            peaks_df = frame.cat((peaks_df,frames),dim=1)
         return peaks_df
 
     def transform(self, rigid_body_motion, time):

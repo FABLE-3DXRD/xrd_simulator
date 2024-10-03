@@ -337,11 +337,17 @@ def _epsilon_to_b(crystal_strain, B0):
         )
     
     if C.ndim == 3:
-        F = frame.transpose(frame.linalg.cholesky(C),2,1)
+        if frame is np:
+            F = frame.transpose(frame.linalg.cholesky(C),(0,2,1))
+        else:
+            F = frame.transpose(frame.linalg.cholesky(C),2,1)
     else:
-        F = frame.transpose(frame.linalg.cholesky(C),1,0)
+        if frame is np:
+            F = frame.transpose(frame.linalg.cholesky(C),(1,0,2))        
+        else:
+            F = frame.transpose(frame.linalg.cholesky(C),1,0)
 
-    B = frame.linalg.inv(F).matmul(B0)
+    B = frame.matmul(frame.linalg.inv(F),B0)
     B = B.cpu() if frame == torch else B
         
     return B
