@@ -59,25 +59,25 @@ class Detector:
     def __init__(
         self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
     ):
-        self.det_corner_0, self.det_corner_1, self.det_corner_2 = (
-            det_corner_0,
-            det_corner_1,
-            det_corner_2,
-        )
-        self.pixel_size_z = pixel_size_z
-        self.pixel_size_y = pixel_size_y
-        self.zmax = frame.linalg.norm(det_corner_2 - det_corner_0)
-        self.ymax = frame.linalg.norm(det_corner_1 - det_corner_0)
-        self.zdhat = (det_corner_2 - det_corner_0) / self.zmax
-        self.ydhat = (det_corner_1 - det_corner_0) / self.ymax
-        self.normal = frame.cross(self.zdhat, self.ydhat)
+        self.det_corner_0 = frame.array(det_corner_0)
+        self.det_corner_1 = frame.array(det_corner_1)
+        self.det_corner_2 = frame.array(det_corner_2)                
+
+        self.pixel_size_z = frame.array(pixel_size_z)
+        self.pixel_size_y = frame.array(pixel_size_y)
+
+        self.zmax = frame.linalg.norm(self.det_corner_2 - self.det_corner_0)
+        self.ymax = frame.linalg.norm(self.det_corner_1 - self.det_corner_0)
+
+        self.zdhat = (self.det_corner_2 - self.det_corner_0 ) / self.zmax
+        self.ydhat = (self.det_corner_1 - self.det_corner_0 ) / self.ymax
+        self.normal = frame.linalg.cross(self.zdhat, self.ydhat)
         self.normal = self.normal / frame.linalg.norm(self.normal)
         self.images = []
         self.pixel_coordinates = self._get_pixel_coordinates()
         self._point_spread_kernel_shape = (5, 5)
-
+        
     def point_spread_function(self, z, y):
-        breakpoint()
         return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
 
     @property

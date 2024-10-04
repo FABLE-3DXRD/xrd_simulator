@@ -110,7 +110,16 @@ def _diffract(dict):
     else:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()],peaks_df[:,6].int())
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
-
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(20,20))
+    plt.scatter(zd_yd_angle[:,0],zd_yd_angle[:,1],s=1)
+    plt.show()
+    # Creating figure
+    fig = plt.figure(figsize = (10, 7))
+    ax = plt.axes(projection ="3d")
+    ax.scatter3D(Sources_xyz[:,0], Sources_xyz[:,1], Sources_xyz[:,2], color = "green")
+    plt.title("simple 3D scatter plot")
+    breakpoint()
     # Concatenate new columns
     if frame is np:
         peaks_df = frame.concatenate((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),axis=1)
@@ -138,6 +147,7 @@ def _diffract(dict):
     peaks_df = peaks_df[peaks_df[:,17] > (beam.vertices[:, 1].min())]  
     peaks_df = peaks_df[peaks_df[:,18] < (beam.vertices[:, 2].max())]  
     peaks_df = peaks_df[peaks_df[:,18] > (beam.vertices[:, 2].min())]  
+
     return peaks_df
 
 
@@ -269,6 +279,7 @@ class Polycrystal:
                 }
 
         peaks_df = _diffract(args)
+
         if frame is np:
             bin_edges = frame.linspace(0, 1,number_of_frames + 1)
             frames = frame.digitize(peaks_df[:,6], bin_edges)
