@@ -89,7 +89,7 @@ class RigidBodyMotion():
             if frame == np:
                 return frame.squeeze(rotated_vectors + translation * frame.array(time)[:,frame.newaxis])
             else:
-                return frame.squeeze(rotated_vectors + translation * frame.tensor(time).unsqueeze(1))
+                return frame.squeeze(rotated_vectors + translation * time.unsqueeze(1))
         
         elif len(vectors.shape) == 3:
             translation = self.translation.reshape(1,3)
@@ -225,7 +225,7 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-        vectors = frame.array(vectors,dtype=frame.float32)
+#        vectors = frame.array(vectors,dtype=frame.float32)
         if len(vectors.shape)==1:
             vectors = vectors[None,:]
         return frame.matmul(R,vectors[:,:,None])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains

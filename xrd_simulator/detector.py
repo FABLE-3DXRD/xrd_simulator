@@ -169,7 +169,7 @@ class Detector:
             )
 
         if number_of_processes == 1:
-            rendered_frames = self._render_and_convolve(
+            rendered_images = self._render_and_convolve(
                 (
                     peaks,
                     images_to_render,
@@ -181,35 +181,8 @@ class Detector:
                     verbose,
                 )
             )
-        else:
-            '''
-            args = []
-            for frames_bundle in np.array_split(
-                np.array(images_to_render), number_of_processes
-            ):
-                args.append(
-                    (
-                        frames_bundle,
-                        kernel,
-                        renderer,
-                        lorentz,
-                        polarization,
-                        structure_factor,
-                        verbose,
-                    )
-                )
-            with Pool(number_of_processes) as p:  # TODO: better unit tests
-                nested_frame_bundles = p.map(self._render_and_convolve, args)
-            rendered_frames = []
-            for frames_bundle in nested_frame_bundles:
-                rendered_frames.extend(frames_bundle)
-                '''
-        rendered_images = np.array(rendered_images)
-
-        if len(images_to_render) == 1:
-            return rendered_images[0, :, :]
-        else:
-            return rendered_images
+  
+        return rendered_images
 
     def _render_and_convolve(self, args):
         (
@@ -222,32 +195,21 @@ class Detector:
             structure_factor,
             verbose,
         ) = args
-        rendered_images = []
-        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.int16)
-
+        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.int32)
         if frame is np:
             pixel_indices =  frame.concatenate(
                 (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
                 ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
-                peaks[:, 22].reshape(-1, 1)), axis=1).astype(frame.int16)
+                peaks[:, 22].reshape(-1, 1)), axis=1).astype(frame.int32)
         else:
             pixel_indices = frame.cat(
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
-                peaks[:, 22].unsqueeze(1)), dim=1).to(frame.int16)
-            
-        plt.scatter(pixel_indices[:,0],pixel_indices[:,1])
-        plt.show()
-
+                peaks[:, 22].unsqueeze(1)), dim=1).to(frame.int32)
         if frame is np:
             frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
         else:
-            rendered_images.index_add_(pixel_indices[:,0], pixel_indices[:,1], 1) 
-
-        plt.figure(figsize=(15,15))
-        plt.imshow(rendered_images,vmin=0,vmax=1, cmap='gray')
-        plt.show()
-        
+            rendered_images[pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1] = +1
         return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
@@ -434,7 +396,7 @@ class Detector:
                 fourth_corner_of_detector,
             ]
         ):
-            geom_mat[:, i] = frame.array(det_corner - source_point)
+            geom_mat[:, i] = det_corner - source_point
         normalised_local_coord_geom_mat = geom_mat / frame.linalg.norm(geom_mat, axis=0)
         cone_opening = frame.arccos(frame.matmul(normalised_local_coord_geom_mat.T, k / frame.linalg.norm(k)))  # These are two time Bragg angles
         return frame.max(cone_opening) / 2.0
