@@ -57,9 +57,9 @@ def _diffract(dict):
     eB = dict["eB"]
     element_phase_map = frame.array(dict["element_phase_map"])
 
-    rho_0_factor = frame.matmul(-beam.wave_vector,(frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32)))
-    rho_1_factor = frame.matmul(beam.wave_vector,(frame.array(rigid_body_motion.rotator.K, dtype=frame.float32)))
-    rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + frame.array(rigid_body_motion.rotator.K2, dtype=frame.float32)))
+    rho_0_factor = frame.matmul(-beam.wave_vector,rigid_body_motion.rotator.K2)
+    rho_1_factor = frame.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
+    rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + rigid_body_motion.rotator.K2))
 
     peaks_df = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     
@@ -105,7 +105,10 @@ def _diffract(dict):
         del peaks
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
     K_out_xyz = (Gxyz + beam.wave_vector)
-    Sources_xyz = rigid_body_motion(espherecentroids[frame.array(peaks_df[:,0],dtype=frame.int)], frame.array(peaks_df[:,6],dtype=frame.int))
+    if frame is np:
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].astype(int)],peaks_df[:,6].astype(int))    
+    else:
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()],peaks_df[:,6].int())
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
 
     # Concatenate new columns
@@ -271,10 +274,9 @@ class Polycrystal:
             frames = frame.digitize(peaks_df[:,6], bin_edges)
             frames = frames[:,frame.newaxis]
             peaks_df = frame.concatenate((peaks_df, frames), axis=1)      
-
         else:
             bin_edges = frame.linspace(0, 1, steps=number_of_frames + 1)
-            frames = frame.bucketize(peaks_df[:,6], bin_edges).unsqueeze(1)
+            frames = frame.bucketize(peaks_df[:,6].contiguous(), bin_edges).unsqueeze(1)
             peaks_df = frame.cat((peaks_df,frames),dim=1)
         return peaks_df
 
