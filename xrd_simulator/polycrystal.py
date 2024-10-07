@@ -86,7 +86,6 @@ def _diffract(dict):
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
-        breakpoint()
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         if frame is np:
@@ -104,6 +103,9 @@ def _diffract(dict):
             peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
             peaks_df = frame.cat([peaks_df, peaks], axis=0)
         del peaks
+    print(peaks_df)
+    print(peaks_df.shape)
+    breakpoint()
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
     K_out_xyz = (Gxyz + beam.wave_vector)
 
