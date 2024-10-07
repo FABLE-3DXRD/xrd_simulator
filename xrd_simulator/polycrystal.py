@@ -107,16 +107,6 @@ def _diffract(dict):
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
     K_out_xyz = (Gxyz + beam.wave_vector)
 
-    import matplotlib.pyplot as plt
-
-    # Create a 3D scatter plot
-    fig = plt.figure(figsize=(20,20))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Scatter the points
-    ax.scatter(peaks_df[:,7], peaks_df[:,8], peaks_df[:,9], c='b', marker='o')
-    plt.show()
-
     if frame is np:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].astype(int)],peaks_df[:,6].astype(int))    
     else:
