@@ -149,8 +149,6 @@ def find_solutions_to_tangens_half_angle_equation(
         times = t[valid_t_indices,frame.newaxis]
     else:
         times = t[valid_t_indices].unsqueeze(1)
-    print(times.shape)
-    breakpoint()
     # del t
     peak_index = frame.argwhere(valid_t_indices)
     peak_index = peak_index % G_0.shape[0]
