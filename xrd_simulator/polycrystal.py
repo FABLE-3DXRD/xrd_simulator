@@ -135,7 +135,6 @@ def _diffract(dict):
     """
 
     # Filter out peaks not hitting the detector
-    breakpoint()
     peaks_df = peaks_df[detector.contains(peaks_df[:,19], peaks_df[:,20])]
 
     # Filter out tets not illuminated

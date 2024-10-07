@@ -331,7 +331,6 @@ class Detector:
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-        breakpoint()
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project(self, scattering_unit, box):
