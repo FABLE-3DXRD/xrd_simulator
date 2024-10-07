@@ -99,12 +99,13 @@ def _diffract(dict):
         else:
             structure_factors = structure_factors[planes].unsqueeze(1)
             grain_indices = grain_indices[grains].unsqueeze(1)
+            breakpoint()
             miller_indices = miller_indices[planes]
             phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
             peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
             peaks_df = frame.cat([peaks_df, peaks], axis=0)
         print(f'peaks {i} shape')
-        print(peaks)
+        print(peaks[-1,:])
         del peaks
 
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time

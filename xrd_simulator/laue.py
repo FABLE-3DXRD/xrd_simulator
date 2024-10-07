@@ -155,6 +155,8 @@ def find_solutions_to_tangens_half_angle_equation(
     # del valid_t_indices
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
+    print(planes)
+    breakpoint()
     if frame is np:
         G_0 = frame.transpose(G_0,(0,2,1))
     else:
