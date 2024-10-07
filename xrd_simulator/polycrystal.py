@@ -62,8 +62,7 @@ def _diffract(dict):
     rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + rigid_body_motion.rotator.K2))
 
     peaks_df = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-    print(rho_0_factor,rho_1_factor,rho_2_factor)
-    breakpoint()
+
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
 
@@ -114,8 +113,9 @@ def _diffract(dict):
     ax = fig.add_subplot(111, projection='3d')
 
     # Scatter the points
-    ax.scatter(K_out_xyz[:,0], K_out_xyz[:,1], K_out_xyz[:,2], c='b', marker='o')
+    ax.scatter(peaks_df[:,7], peaks_df[:,8], peaks_df[:,9], c='b', marker='o')
     plt.show()
+
     if frame is np:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].astype(int)],peaks_df[:,6].astype(int))    
     else:
