@@ -142,7 +142,6 @@ def find_solutions_to_tangens_half_angle_equation(
     # Calculate solutions for t1 and t2
     t = 2 * frame.arctan(s) / delta_omega
     # del s,delta_omega
-    print(f'the shape of t is {t.shape}')
     # Filter solutions within range [0, 1]
     valid_t_indices = frame.logical_and(t >= 0, t <= 1)
 
@@ -150,6 +149,7 @@ def find_solutions_to_tangens_half_angle_equation(
         times = t[valid_t_indices,frame.newaxis]
     else:
         times = t[valid_t_indices].unsqueeze(1)
+    breakpoint()
     # del t
     peak_index = frame.argwhere(valid_t_indices)
     peak_index = peak_index % G_0.shape[0]
