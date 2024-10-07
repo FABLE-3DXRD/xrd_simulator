@@ -104,7 +104,7 @@ def _diffract(dict):
             peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
             peaks_df = frame.cat([peaks_df, peaks], axis=0)
         print(f'peaks {i} shape')
-        print(peaks.shape)
+        print(peaks)
         del peaks
 
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
