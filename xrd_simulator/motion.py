@@ -117,6 +117,7 @@ class RigidBodyMotion():
         """
         #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         rotated_vectors  = self.rotator(vectors, self.rotation_angle * time)
+        breakpoint()
         return rotated_vectors
 
     def translate(self, vectors, time):

@@ -111,8 +111,7 @@ def find_solutions_to_tangens_half_angle_equation(
     a = frame.divide(
         frame.matmul(rho_1_factor, G_0),
         denominator,
-        out=frame.full_like(rho_0, np.nan),
-        #where= denominator != 0,
+        out=frame.full_like(rho_0, np.nan)
     )
     # del rho_1_factor
     b = frame.divide(
@@ -123,6 +122,8 @@ def find_solutions_to_tangens_half_angle_equation(
     # del denominator, numerator, rho_0
 
     # Calculate discriminant
+    a[frame.isinf(a)] = np.nan    #Trying to debug times by removing the nans from a and b, perhaps not necessary
+    b[frame.isinf(b)] = np.nan    #Trying to debug times by removing the nans from a and b, perhaps not necessary
     discriminant = a**2 - b
     # del b
 
@@ -141,7 +142,7 @@ def find_solutions_to_tangens_half_angle_equation(
     # Calculate solutions for t1 and t2
     t = 2 * frame.arctan(s) / delta_omega
     # del s,delta_omega
-
+    print(f'the shape of t is {t.shape}')
     # Filter solutions within range [0, 1]
     valid_t_indices = frame.logical_and(t >= 0, t <= 1)
 
