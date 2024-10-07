@@ -76,7 +76,7 @@ class Detector:
         self.images = []
         self.pixel_coordinates = self._get_pixel_coordinates()
         self._point_spread_kernel_shape = (5, 5)
-        
+
     def point_spread_function(self, z, y):
         return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
 
@@ -331,7 +331,7 @@ class Detector:
             (:obj:`boolean`) True if the zd,yd is within the detector bounds.
 
         """
-
+        breakpoint()
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project(self, scattering_unit, box):
@@ -402,12 +402,28 @@ class Detector:
         return frame.max(cone_opening) / 2.0
 
     def save(self, path):
-        """Save the detector object to disc (via pickling).
+        """Save the detector object to disc (via pickling). Change the arrays formats to np first.
 
         Args:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
 
         """
+        self.det_corner_0 = np.array(self.det_corner_0)
+        self.det_corner_1 = np.array(self.det_corner_1)
+        self.det_corner_2 = np.array(self.det_corner_2) 
+
+        self.pixel_size_z = np.array(self.pixel_size_z)
+        self.pixel_size_y = np.array(self.pixel_size_y)
+
+        self.zmax = np.array(self.zmax)
+        self.ymax = np.array(self.ymax)
+
+        self.zdhat = np.array(self.zdhat)
+        self.ydhat = np.array(self.ydhat)
+        self.normal = np.array(self.normal)
+        self.pixel_coordinates = np.array(self.pixel_coordinates)
+
+
         if not path.endswith(".det"):
             path = path + ".det"
         with open(path, "wb") as f:
@@ -430,13 +446,19 @@ class Detector:
             raise ValueError("The loaded motion file must end with .det")
         with open(path, "rb") as f:
             loaded=dill.load(f)
-            loaded.normal = frame.array(loaded.normal, dtype=frame.float32)
-            loaded.det_corner_0 = frame.array(loaded.det_corner_0, dtype=frame.float32)
-            loaded.det_corner_1 = frame.array(loaded.det_corner_1, dtype=frame.float32)
-            loaded.det_corner_2 = frame.array(loaded.det_corner_2, dtype=frame.float32)
-            loaded.zdhat = frame.array(loaded.zdhat, dtype=frame.float32)
-            loaded.ydhat = frame.array(loaded.ydhat, dtype=frame.float32)
+            if frame is np:
+                pass
+            else:
+                loaded.normal = frame.array(loaded.normal, dtype=frame.float32)
+                loaded.det_corner_0 = frame.array(loaded.det_corner_0, dtype=frame.float32)
+                loaded.det_corner_1 = frame.array(loaded.det_corner_1, dtype=frame.float32)
+                loaded.det_corner_2 = frame.array(loaded.det_corner_2, dtype=frame.float32)
+                loaded.zdhat = frame.array(loaded.zdhat, dtype=frame.float32)
+                loaded.ydhat = frame.array(loaded.ydhat, dtype=frame.float32)
+                loaded.zmax = frame.array(loaded.zmax, dtype=frame.float32)
+                loaded.ymax = frame.array(loaded.ymax, dtype=frame.float32)
             return loaded
+
     def _get_point_spread_function_kernel(self):
         """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape."""
         sz, sy = self.point_spread_kernel_shape

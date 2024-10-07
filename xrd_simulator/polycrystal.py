@@ -62,7 +62,8 @@ def _diffract(dict):
     rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + rigid_body_motion.rotator.K2))
 
     peaks_df = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-    
+    print(rho_0_factor,rho_1_factor,rho_2_factor)
+    breakpoint()
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
 
@@ -105,21 +106,21 @@ def _diffract(dict):
         del peaks
     Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
     K_out_xyz = (Gxyz + beam.wave_vector)
+
+    import matplotlib.pyplot as plt
+
+    # Create a 3D scatter plot
+    fig = plt.figure(figsize=(20,20))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Scatter the points
+    ax.scatter(K_out_xyz[:,0], K_out_xyz[:,1], K_out_xyz[:,2], c='b', marker='o')
+    plt.show()
     if frame is np:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].astype(int)],peaks_df[:,6].astype(int))    
     else:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()],peaks_df[:,6].int())
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(20,20))
-    plt.scatter(zd_yd_angle[:,0],zd_yd_angle[:,1],s=1)
-    plt.show()
-    # Creating figure
-    fig = plt.figure(figsize = (10, 7))
-    ax = plt.axes(projection ="3d")
-    ax.scatter3D(Sources_xyz[:,0], Sources_xyz[:,1], Sources_xyz[:,2], color = "green")
-    plt.title("simple 3D scatter plot")
-    breakpoint()
     # Concatenate new columns
     if frame is np:
         peaks_df = frame.concatenate((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),axis=1)
@@ -140,6 +141,7 @@ def _diffract(dict):
     """
 
     # Filter out peaks not hitting the detector
+    breakpoint()
     peaks_df = peaks_df[detector.contains(peaks_df[:,19], peaks_df[:,20])]
 
     # Filter out tets not illuminated
