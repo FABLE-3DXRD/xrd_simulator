@@ -98,7 +98,12 @@ def find_solutions_to_tangens_half_angle_equation(
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
         G_0 = G_0[frame.newaxis, :, :]
-
+    print(f"Mean: {G_0.mean().item()}")
+    print(f"Standard Deviation: {G_0.std().item()}")
+    print(f"Min: {G_0.min().item()}")
+    print(f"Max: {G_0.max().item()}")
+    print(f"Sum: {G_0.sum().item()}")
+    breakpoint()
     # Compute rho_0 and rho_2
     rho_0 = frame.matmul(rho_0_factor, G_0)
     rho_2 = frame.matmul(rho_2_factor, G_0) + frame.sum(G_0**2, axis=1) / 2.0
@@ -108,7 +113,6 @@ def find_solutions_to_tangens_half_angle_equation(
 
     #Remove 0 denominators
     denominator[denominator==0] = np.nan
-    print(len(denominator==0))
 
     # Calculate coefficients for quadratic equation
     a = frame.divide(
@@ -129,13 +133,13 @@ def find_solutions_to_tangens_half_angle_equation(
     # del b
 
     # Handle cases where discriminant is negative
-    # discriminant[discriminant<0] = np.nan
+    discriminant[discriminant<0] = np.nan
     # discriminant[discriminant>10] = np.nan 
 
     # Calculate solutions for s
     s1 = -a + frame.sqrt(discriminant)
     s2 = -a - frame.sqrt(discriminant)
-
+    '''The bug is above this'''
     # Clean up discriminant and a
     # del discriminant, a
     s = frame.concatenate((s1,s2),axis=0)
@@ -161,5 +165,7 @@ def find_solutions_to_tangens_half_angle_equation(
     else:
         G_0 = frame.transpose(G_0,2,1)    
     G = G_0[grains, planes]
+    plt.scatter(G[:,1],G[:,2])
+    plt.show()
     breakpoint()
     return grains, planes, times, G
