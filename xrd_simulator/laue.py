@@ -7,6 +7,7 @@ import cupy as cp
 import torch
 from xrd_simulator import utils
 from xrd_simulator.cuda import frame
+import matplotlib.pylab as plt
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -101,11 +102,13 @@ def find_solutions_to_tangens_half_angle_equation(
     # Compute rho_0 and rho_2
     rho_0 = frame.matmul(rho_0_factor, G_0)
     rho_2 = frame.matmul(rho_2_factor, G_0) + frame.sum(G_0**2, axis=1) / 2.0
-    # del rho_0_factor,rho_2_factor
-    # Calculate constants for quadratic equation
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
-    # del  rho_2
+
+
+    #Remove 0 denominators
+    denominator[denominator==0] = np.nan
+    print(len(denominator==0))
 
     # Calculate coefficients for quadratic equation
     a = frame.divide(
@@ -113,7 +116,6 @@ def find_solutions_to_tangens_half_angle_equation(
         denominator,
         out=frame.full_like(rho_0, np.nan)
     )
-    # del rho_1_factor
     b = frame.divide(
         numerator, denominator, out=frame.full_like(rho_0, np.nan)
     )
@@ -122,14 +124,13 @@ def find_solutions_to_tangens_half_angle_equation(
     # del denominator, numerator, rho_0
 
     # Calculate discriminant
-    a[frame.isinf(a)] = np.nan    #Trying to debug times by removing the nans from a and b, perhaps not necessary
-    b[frame.isinf(b)] = np.nan    #Trying to debug times by removing the nans from a and b, perhaps not necessary
+
     discriminant = a**2 - b
     # del b
 
     # Handle cases where discriminant is negative
-    discriminant[discriminant < 0] = np.nan
-    discriminant[frame.isinf(discriminant)] = np.nan
+    # discriminant[discriminant<0] = np.nan
+    # discriminant[discriminant>10] = np.nan 
 
     # Calculate solutions for s
     s1 = -a + frame.sqrt(discriminant)
@@ -155,12 +156,10 @@ def find_solutions_to_tangens_half_angle_equation(
     # del valid_t_indices
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
-    print(planes)
-    breakpoint()
     if frame is np:
         G_0 = frame.transpose(G_0,(0,2,1))
     else:
-        G_0 = frame.transpose(G_0,2,1)
+        G_0 = frame.transpose(G_0,2,1)    
     G = G_0[grains, planes]
-        
+    breakpoint()
     return grains, planes, times, G
