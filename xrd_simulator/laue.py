@@ -135,12 +135,13 @@ def find_solutions_to_tangens_half_angle_equation(
     # Calculate solutions for s
     s1 = -a + frame.sqrt(discriminant)
     s2 = -a - frame.sqrt(discriminant)
-    '''The bug is above this'''
+    '''The bug is above this
     # Clean up discriminant and a
     # del discriminant, a
     s = frame.concatenate((s1,s2),axis=0)
     # del s1,s2
     # Calculate solutions for t1 and t2
+
     t = 2 * frame.arctan(s) / delta_omega
     # del s,delta_omega
     # Filter solutions within range [0, 1]
@@ -155,6 +156,21 @@ def find_solutions_to_tangens_half_angle_equation(
     planes = peak_index[:, 1]
 
     times = t[grains,planes]
+    '''
+
+    t1 = 2 * frame.arctan(s1) / delta_omega
+    indices_t1 = frame.argwhere(frame.logical_and(t1 >= 0, t1 <= 1))
+    values_t1 = t1[indices_t1[:,0], indices_t1[:,1]]
+
+    t2 = 2 * frame.arctan(s2) / delta_omega
+    indices_t2 = frame.argwhere(frame.logical_and(t2 >= 0, t2 <= 1))
+    values_t2 = t2[indices_t2[:,0], indices_t2[:,1]]
+
+    peak_index = frame.concatenate((indices_t1, indices_t2), axis=0)
+    times = frame.concatenate((values_t1, values_t2), axis=0)
+
+    grains = peak_index[:, 0]
+    planes = peak_index[:, 1]
 
     if frame is np:
         G_0 = frame.transpose(G_0,(0,2,1))
