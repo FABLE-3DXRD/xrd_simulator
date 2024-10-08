@@ -119,12 +119,7 @@ def find_solutions_to_tangens_half_angle_equation(
     b = frame.divide(
         numerator, denominator, out=frame.full_like(rho_0, np.nan)
     )
-    print(f"Mean: {b.mean().item()}")
-    print(f"Standard Deviation: {b.std().item()}")
-    print(f"Min: {b.min().item()}")
-    print(f"Max: {b.max().item()}")
-    print(f"Sum: {b.sum().item()}")
-    breakpoint()
+
     # Clean up unnecessary variables
     # del denominator, numerator, rho_0
 
