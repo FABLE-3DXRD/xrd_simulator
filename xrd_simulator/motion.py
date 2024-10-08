@@ -203,7 +203,6 @@ class _RodriguezRotator(object):
                            [rz, 0, -rx],
                            [-ry, rx, 0]])
         self.K2 = self.K@self.K
-        print(rotation_axis,rx,ry,rz,self.K,self.K2)
 
     def get_rotation_matrix(self, rotation_angle):
         if frame == np:

@@ -98,12 +98,7 @@ def find_solutions_to_tangens_half_angle_equation(
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
         G_0 = G_0[frame.newaxis, :, :]
-    print(f"Mean: {G_0.mean().item()}")
-    print(f"Standard Deviation: {G_0.std().item()}")
-    print(f"Min: {G_0.min().item()}")
-    print(f"Max: {G_0.max().item()}")
-    print(f"Sum: {G_0.sum().item()}")
-    breakpoint()
+
     # Compute rho_0 and rho_2
     rho_0 = frame.matmul(rho_0_factor, G_0)
     rho_2 = frame.matmul(rho_2_factor, G_0) + frame.sum(G_0**2, axis=1) / 2.0
@@ -120,10 +115,16 @@ def find_solutions_to_tangens_half_angle_equation(
         denominator,
         out=frame.full_like(rho_0, np.nan)
     )
+
     b = frame.divide(
         numerator, denominator, out=frame.full_like(rho_0, np.nan)
     )
-
+    print(f"Mean: {b.mean().item()}")
+    print(f"Standard Deviation: {b.std().item()}")
+    print(f"Min: {b.min().item()}")
+    print(f"Max: {b.max().item()}")
+    print(f"Sum: {b.sum().item()}")
+    breakpoint()
     # Clean up unnecessary variables
     # del denominator, numerator, rho_0
 
