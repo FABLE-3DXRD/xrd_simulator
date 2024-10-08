@@ -146,16 +146,16 @@ def find_solutions_to_tangens_half_angle_equation(
     # Filter solutions within range [0, 1]
     valid_t_indices = frame.logical_and(t >= 0, t <= 1)
 
-    if frame is np:
-        times = t[valid_t_indices,frame.newaxis]
-    else:
-        times = t[valid_t_indices].unsqueeze(1)
+
     # del t
     peak_index = frame.argwhere(valid_t_indices)
-    peak_index = peak_index % G_0.shape[0]
+   # peak_index = peak_index % G_0.shape[0]
     # del valid_t_indices
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
+
+    times = t[grains,planes]
+
     if frame is np:
         G_0 = frame.transpose(G_0,(0,2,1))
     else:
