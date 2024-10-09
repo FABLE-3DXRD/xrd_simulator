@@ -113,6 +113,7 @@ class Detector:
         method="centroid",
         verbose=True,
         number_of_processes=1,
+        output_type='numpy'
     ):
         """Render a pixelated diffraction pattern onto the detector plane .
 
@@ -181,7 +182,11 @@ class Detector:
                     verbose,
                 )
             )
-  
+        
+        if output_type == 'numpy':
+            if not isinstance(rendered_images, np.ndarray):
+                rendered_images = rendered_images.detach().cpu().numpy()
+
         return rendered_images
 
     def _render_and_convolve(self, args):
@@ -209,7 +214,7 @@ class Detector:
         if frame is np:
             frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
         else:
-            rendered_images[pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1] = +1
+            rendered_images[pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1] += 1
         return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
@@ -456,6 +461,8 @@ class Detector:
                 loaded.ydhat = frame.array(loaded.ydhat, dtype=frame.float32)
                 loaded.zmax = frame.array(loaded.zmax, dtype=frame.float32)
                 loaded.ymax = frame.array(loaded.ymax, dtype=frame.float32)
+                loaded.pixel_size_z = frame.array(loaded.pixel_size_z)
+                loaded.pixel_size_y = frame.array(loaded.pixel_size_y)
             return loaded
 
     def _get_point_spread_function_kernel(self):

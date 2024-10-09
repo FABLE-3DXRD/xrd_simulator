@@ -94,6 +94,7 @@ def _diffract(dict):
             grain_indices = grain_indices[grains][:, frame.newaxis]          # Unsqueeze at axis 1
             miller_indices = miller_indices[planes]
             phase_index = frame.full((G0_xyz.shape[0],), i)[:, frame.newaxis] 
+            times = times[:,frame.newaxis]
             peaks = frame.concatenate((grain_indices, phase_index, miller_indices[:, frame.newaxis].squeeze(), structure_factors, times[:, frame.newaxis].squeeze(2), G0_xyz), axis=1)
             peaks_df = frame.concatenate((peaks_df, peaks), axis=0)
         else:
@@ -101,11 +102,12 @@ def _diffract(dict):
             grain_indices = grain_indices[grains].unsqueeze(1)
             miller_indices = miller_indices[planes]
             phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
+            times = times.unsqueeze(1)
             peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
             peaks_df = frame.cat([peaks_df, peaks], axis=0)
         del peaks
 
-    Gxyz = rigid_body_motion.rotate(peaks_df[:,7:10], peaks_df[:,6]) #Rotate the Gx, Gy and Gz to diffraction time
+    Gxyz = rigid_body_motion.rotate(peaks_df[:,7:], -peaks_df[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
     K_out_xyz = (Gxyz + beam.wave_vector)
 
     if frame is np:
@@ -373,7 +375,19 @@ class Polycrystal:
         if not path.endswith(".pc"):
             raise ValueError("The loaded polycrystal file must end with .pc")
         with open(path, "rb") as f:
-            return dill.load(f)
+            loaded = dill.load(f)
+            if frame is np:
+                pass
+            else:
+                loaded.orientation_lab = frame.array(loaded.orientation_lab, dtype=frame.float32)
+                loaded.strain_lab = frame.array(loaded.strain_lab, dtype=frame.float32)
+                loaded.element_phase_map = frame.array(loaded.element_phase_map, dtype=frame.float32)
+                loaded._eB = frame.array(loaded._eB, dtype=frame.float32)
+               # loaded.mesh_lab = frame.array(loaded.mesh_lab, dtype=frame.float32)
+             # loaded.mesh_sample = frame.array(loaded.mesh_sample, dtype=frame.float32)
+                loaded.strain_sample = frame.array(loaded.strain_sample, dtype=frame.float32)
+                loaded.orientation_sample = frame.array(loaded.orientation_sample, dtype=frame.float32)
+            return loaded
 
     def _instantiate_orientation(self, orientation, mesh):
         """Instantiate the orientations using for smart multi shape handling."""
@@ -437,14 +451,14 @@ class Polycrystal:
         If the beam graces or misses the sample, the sample centroid is used.
         """
         if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = self.mesh_lab.coord[
-                beam.contains(self.mesh_lab.coord.T), :
-            ]
+            mesh_nodes_contained_by_beam = self.mesh_lab.coord[beam.contains(self.mesh_lab.coord.T), :]
+            mesh_nodes_contained_by_beam = frame.array(mesh_nodes_contained_by_beam, dtype=frame.float32)
             if mesh_nodes_contained_by_beam.shape[0] != 0:
-                source_point = np.mean(mesh_nodes_contained_by_beam, axis=0)
+                source_point = frame.mean(mesh_nodes_contained_by_beam, axis=0)
             else:
-                source_point = self.mesh_lab.centroid
-            max_bragg_angle = detector.get_wrapping_cone(beam.wave_vector, source_point)
+                source_point = frame.array(self.mesh_lab.centroid, dtype=frame.float32)
+            max_bragg_angle = detector.get_wrapping_cone(beam.wave_vector, source_point).item()
+
         assert (
             min_bragg_angle >= 0
         ), "min_bragg_angle must be greater or equal than zero"

@@ -11,6 +11,7 @@ try:
     if torch.cuda.is_available():
         frame = torch
         print("CUDA is available and GPUs are found.")
+        torch.set_default_device('cuda')
     else:
         print("CUDA is not available.")
 except Exception as e:
