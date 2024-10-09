@@ -211,10 +211,21 @@ class Detector:
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
                 peaks[:, 22].unsqueeze(1)), dim=1).to(frame.int32)
+
         if frame is np:
-            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1]), 1)
+            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1), 1)
         else:
-            rendered_images[pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1] += 1
+            # Step 1: Find unique coordinates and the inverse indices
+            unique_coords, inverse_indices = frame.unique(pixel_indices, dim=0, return_inverse=True)
+
+            # Step 2: Count occurrences of each unique coordinate
+            counts = frame.bincount(inverse_indices)
+
+            # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
+            result = frame.cat((unique_coords, counts.unsqueeze(1)), dim=1)
+
+            # Step 4: Use the new column as a pixel value to be added to each coordinate
+            rendered_images[result[:,0],result[:,1],result[:,2]-1] += result[:,3]
         return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
