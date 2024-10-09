@@ -7,7 +7,6 @@ import cupy as cp
 import torch
 from xrd_simulator import utils
 from xrd_simulator.cuda import frame
-import matplotlib.pylab as plt
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -177,7 +176,4 @@ def find_solutions_to_tangens_half_angle_equation(
     else:
         G_0 = frame.transpose(G_0,2,1)    
     G = G_0[grains, planes]
-    plt.scatter(G[:,1],G[:,2])
-    plt.show()
-    breakpoint()
     return grains, planes, times, G
