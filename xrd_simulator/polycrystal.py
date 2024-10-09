@@ -19,6 +19,7 @@ import dill
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
+from xrd_simulator.scattering_factors import lorentz,polarization
 from xrd_simulator.cuda import frame,pd
 
 if frame != np:
@@ -61,7 +62,7 @@ def _diffract(dict):
     rho_1_factor = frame.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
     rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + rigid_body_motion.rotator.K2))
 
-    peaks_df = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
@@ -87,7 +88,7 @@ def _diffract(dict):
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
-        # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
+        # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         if frame is np:
             structure_factors = structure_factors[planes][:, frame.newaxis]  # Unsqueeze at axis 1
@@ -95,38 +96,44 @@ def _diffract(dict):
             miller_indices = miller_indices[planes]
             phase_index = frame.full((G0_xyz.shape[0],), i)[:, frame.newaxis] 
             times = times[:,frame.newaxis]
-            peaks = frame.concatenate((grain_indices, phase_index, miller_indices[:, frame.newaxis].squeeze(), structure_factors, times[:, frame.newaxis].squeeze(2), G0_xyz), axis=1)
-            peaks_df = frame.concatenate((peaks_df, peaks), axis=0)
+            peaks_ith_phase = frame.concatenate((grain_indices, phase_index, miller_indices[:, frame.newaxis].squeeze(), structure_factors, times[:, frame.newaxis].squeeze(2), G0_xyz), axis=1)
+            peaks = frame.concatenate((peaks, peaks_ith_phase), axis=0)
         else:
             structure_factors = structure_factors[planes].unsqueeze(1)
             grain_indices = grain_indices[grains].unsqueeze(1)
             miller_indices = miller_indices[planes]
             phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
             times = times.unsqueeze(1)
-            peaks = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
-            peaks_df = frame.cat([peaks_df, peaks], axis=0)
-        del peaks
-
-    Gxyz = rigid_body_motion.rotate(peaks_df[:,7:], -peaks_df[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
+            peaks_ith_phase = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
+            peaks = frame.cat([peaks, peaks_ith_phase], axis=0)
+        del peaks_ith_phase
+    
+    # Rotated G-vectors
+    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], -peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
+    # Outgoing scattering vectors
     K_out_xyz = (Gxyz + beam.wave_vector)
-
+    # Lorentz factor
+    lorentz_factors = lorentz(beam,rigid_body_motion,K_out_xyz)
+    # Polarization factor
+    polarization_factors = polarization(beam,K_out_xyz)
     if frame is np:
-        Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].astype(int)],peaks_df[:,6].astype(int))    
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].astype(int)],peaks[:,6].astype(int))    
     else:
-        Sources_xyz = rigid_body_motion(espherecentroids[peaks_df[:,0].int()],peaks_df[:,6].int())
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6].int())
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
     # Concatenate new columns
     if frame is np:
-        peaks_df = frame.concatenate((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),axis=1)
+        peaks = frame.concatenate((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors[:,frame.newaxis],polarization_factors[:,frame.newaxis]),axis=1)
     else:
-        peaks_df = frame.cat((peaks_df,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle),dim=1)
+        peaks = frame.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
+
     """
-        Column names of peaks_df are now
+        Column names of peaks are
         0: 'grain_index'        10: 'Gx'        20: 'yd'
         1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
-        2: 'h'                  12: 'Gz'
-        3: 'k'                  13: 'K_out_x'
-        4: 'l'                  14: 'K_out_y'
+        2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
+        3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
+        4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
         5: 'structure_factors'  15: 'K_out_z'
         6: 'diffraction_times'  16: 'Source_x'
         7: 'G0_x'               17: 'Source_y'      
@@ -135,15 +142,15 @@ def _diffract(dict):
     """
 
     # Filter out peaks not hitting the detector
-    peaks_df = peaks_df[detector.contains(peaks_df[:,19], peaks_df[:,20])]
+    peaks = peaks[detector.contains(peaks[:,19], peaks[:,20])]
 
     # Filter out tets not illuminated
-    peaks_df = peaks_df[peaks_df[:,17] < (beam.vertices[:, 1].max())]  
-    peaks_df = peaks_df[peaks_df[:,17] > (beam.vertices[:, 1].min())]  
-    peaks_df = peaks_df[peaks_df[:,18] < (beam.vertices[:, 2].max())]  
-    peaks_df = peaks_df[peaks_df[:,18] > (beam.vertices[:, 2].min())]  
+    peaks = peaks[peaks[:,17] < (beam.vertices[:, 1].max())]  
+    peaks = peaks[peaks[:,17] > (beam.vertices[:, 1].min())]  
+    peaks = peaks[peaks[:,18] < (beam.vertices[:, 2].max())]  
+    peaks = peaks[peaks[:,18] > (beam.vertices[:, 2].min())]  
 
-    return peaks_df
+    return peaks
 
 
 class Polycrystal:
@@ -219,7 +226,7 @@ class Polycrystal:
         rigid_body_motion,
         min_bragg_angle=0,
         max_bragg_angle=None,
-        number_of_frames=1,
+        number_of_images=1,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -241,9 +248,9 @@ class Polycrystal:
             verbose (:obj:`bool`): Prints progress. Defaults to True.
             number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
                 computation. Defaults to 1, i.e a single processes.
-            number_of_frames (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
+            number_of_images (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
                 to be collected. Defaulrenderts to 1, which means that the detector reads diffraction during the full rigid body
-                motion and integrates out the signal to a single frame. The number_of_frames keyword primarily allows for single
+                motion and integrates out the signal to a single frame. The number_of_images keyword primarily allows for single
                 rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
             proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
                 For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.
@@ -276,14 +283,27 @@ class Polycrystal:
         peaks_df = _diffract(args)
 
         if frame is np:
-            bin_edges = frame.linspace(0, 1,number_of_frames + 1)
+            bin_edges = frame.linspace(0, 1,number_of_images + 1)
             frames = frame.digitize(peaks_df[:,6], bin_edges)
             frames = frames[:,frame.newaxis]
             peaks_df = frame.concatenate((peaks_df, frames), axis=1)      
         else:
-            bin_edges = frame.linspace(0, 1, steps=number_of_frames + 1)
+            bin_edges = frame.linspace(0, 1, steps=number_of_images + 1)
             frames = frame.bucketize(peaks_df[:,6].contiguous(), bin_edges).unsqueeze(1)
             peaks_df = frame.cat((peaks_df,frames),dim=1)
+        """
+            Column names of peaks are
+            0: 'grain_index'        10: 'Gx'        20: 'yd'
+            1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
+            2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
+            3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
+            4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
+            5: 'structure_factors'  15: 'K_out_z'
+            6: 'diffraction_times'  16: 'Source_x'
+            7: 'G0_x'               17: 'Source_y'      
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'zd'           
+        """
         return peaks_df
 
     def transform(self, rigid_body_motion, time):

@@ -12,6 +12,9 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
+from xrd_simulator.cuda import frame
+if frame != np:
+    frame.array = frame.tensor
 
 
 class Beam:
@@ -173,7 +176,15 @@ class Beam:
         if not path.endswith(".beam"):
             raise ValueError("The loaded file must end with .beam")
         with open(path, "rb") as f:
-            return dill.load(f)
+            loaded = dill.load(f)
+            if frame is np:
+                pass
+            else:
+                loaded.wave_vector = frame.array(loaded.wave_vector, dtype=frame.float32)
+                loaded.vertices = frame.array(loaded.vertices, dtype=frame.float32)
+                loaded.polarization_vector = frame.array(loaded.polarization_vector, dtype=frame.float32)
+            return loaded
+
 
     def _find_feasible_point(self, halfspaces):
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).

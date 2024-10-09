@@ -200,32 +200,51 @@ class Detector:
             structure_factor,
             verbose,
         ) = args
-        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.int32)
+
+        """
+            Column names of peaks are
+            0: 'grain_index'        10: 'Gx'        20: 'yd'
+            1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
+            2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
+            3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
+            4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
+            5: 'structure_factors'  15: 'K_out_z'
+            6: 'diffraction_times'  16: 'Source_x'
+            7: 'G0_x'               17: 'Source_y'      
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'zd'           
+        """
+        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.float32)
         if frame is np:
             pixel_indices =  frame.concatenate(
                 (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
                 ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
-                peaks[:, 22].reshape(-1, 1)), axis=1).astype(frame.int32)
+                peaks[:, 24].reshape(-1, 1)), axis=1).astype(frame.int32)
         else:
             pixel_indices = frame.cat(
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
-                peaks[:, 22].unsqueeze(1)), dim=1).to(frame.int32)
+                peaks[:, 24].unsqueeze(1)), dim=1).to(frame.int32)
+
+        structure_factors = peaks[:,5]
+        lorentz_factors = peaks[:,22]
+        polarization_factors = peaks[:,23]
+        relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
         if frame is np:
-            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1), 1)
+            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1), relative_intensity)
         else:
             # Step 1: Find unique coordinates and the inverse indices
             unique_coords, inverse_indices = frame.unique(pixel_indices, dim=0, return_inverse=True)
 
-            # Step 2: Count occurrences of each unique coordinate
-            counts = frame.bincount(inverse_indices)
+            # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
+            counts = frame.bincount(inverse_indices,weights=relative_intensity)
 
             # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
-            result = frame.cat((unique_coords, counts.unsqueeze(1)), dim=1)
+            result = frame.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_images)
 
             # Step 4: Use the new column as a pixel value to be added to each coordinate
-            rendered_images[result[:,0],result[:,1],result[:,2]-1] += result[:,3]
+            rendered_images[result[:,0].int(),result[:,1].int(),result[:,2].int()-1] = result[:,3]
         return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
@@ -334,7 +353,6 @@ class Detector:
         if frame ==np:
             return frame.array([zd, yd,incident_angle_deg]).T
         return frame.stack((zd, yd, incident_angle_deg), dim=1)
-
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
