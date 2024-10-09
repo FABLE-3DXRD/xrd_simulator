@@ -9,9 +9,15 @@ frame = np
 try:
     # Check if CUDA is available
     if torch.cuda.is_available():
-        frame = np
         print("CUDA is available and GPUs are found.")
-        torch.set_default_device('cuda')
+        gpu = input("Do you want to run in GPU? [y/n]").strip().lower() or 'y'
+        if gpu == 'y':
+            frame = torch
+            torch.set_default_device('cuda')
+            print("Running in GPU...") 
+        else:
+            frame = np
+            print("Running in CPU...")      
     else:
         print("CUDA is not available.")
 except Exception as e:

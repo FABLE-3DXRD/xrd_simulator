@@ -18,7 +18,7 @@ def lorentz(beam,rigid_body_motion,K_out_xyz):
     korthogonal = kp - k_kp_norm.reshape(-1,1)*k.reshape(1,3)
     eta = frame.arccos(frame.matmul(rot_axis,korthogonal.T) / frame.linalg.norm(korthogonal))
     tol = 0.5
-    condition = frame.array((frame.abs(frame.degrees(eta)) < tol) | (frame.degrees(eta) < tol) | (frame.abs(frame.degrees(eta)) > 180 - tol))
+    condition = (frame.abs(frame.degrees(eta)) < tol) | (frame.degrees(eta) < tol) | (frame.abs(frame.degrees(eta)) > 180 - tol)
     infs = frame.where(condition, frame.inf, 0)
     return infs + 1.0 / (frame.sin(2 * theta) * frame.abs(frame.sin(eta)))
 

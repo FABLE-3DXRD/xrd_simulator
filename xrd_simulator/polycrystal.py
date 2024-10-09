@@ -56,7 +56,7 @@ def _diffract(dict):
     espherecentroids = frame.array(dict["espherecentroids"])
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
-    element_phase_map = frame.array(dict["element_phase_map"])
+    element_phase_map = dict["element_phase_map"]
 
     rho_0_factor = frame.matmul(-beam.wave_vector,rigid_body_motion.rotator.K2)
     rho_1_factor = frame.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
@@ -66,7 +66,7 @@ def _diffract(dict):
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
-
+    
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_indices = frame.where(element_phase_map == i)[0]
         miller_indices = frame.array(phase.miller_indices, dtype=frame.float32)
@@ -88,6 +88,7 @@ def _diffract(dict):
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
+
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         if frame is np:
@@ -106,8 +107,7 @@ def _diffract(dict):
             times = times.unsqueeze(1)
             peaks_ith_phase = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
             peaks = frame.cat([peaks, peaks_ith_phase], axis=0)
-        del peaks_ith_phase
-    
+
     # Rotated G-vectors
     Gxyz = rigid_body_motion.rotate(peaks[:,7:10], -peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
     # Outgoing scattering vectors
@@ -116,10 +116,12 @@ def _diffract(dict):
     lorentz_factors = lorentz(beam,rigid_body_motion,K_out_xyz)
     # Polarization factor
     polarization_factors = polarization(beam,K_out_xyz)
+
     if frame is np:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].astype(int)],peaks[:,6].astype(int))    
     else:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6].int())
+
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
     # Concatenate new columns
     if frame is np:
@@ -260,7 +262,7 @@ class Polycrystal:
 
         """
 
-        beam.wave_vector = frame.array(beam.wave_vector, dtype=frame.float32)
+        #beam.wave_vector = frame.array(beam.wave_vector, dtype=frame.float32)
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle
@@ -280,17 +282,17 @@ class Polycrystal:
                     "element_phase_map": self.element_phase_map,
                 }
 
-        peaks_df = _diffract(args)
+        peaks = _diffract(args)
 
         if frame is np:
             bin_edges = frame.linspace(0, 1,number_of_images + 1)
-            frames = frame.digitize(peaks_df[:,6], bin_edges)
-            frames = frames[:,frame.newaxis]
-            peaks_df = frame.concatenate((peaks_df, frames), axis=1)      
+            images = frame.digitize(peaks[:,6], bin_edges)
+            images = images[:,frame.newaxis]-1
+            peaks = frame.concatenate((peaks, images), axis=1)      
         else:
             bin_edges = frame.linspace(0, 1, steps=number_of_images + 1)
-            frames = frame.bucketize(peaks_df[:,6].contiguous(), bin_edges).unsqueeze(1)
-            peaks_df = frame.cat((peaks_df,frames),dim=1)
+            images = frame.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
+            peaks = frame.cat((peaks,images),dim=1)
         """
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'yd'
@@ -304,7 +306,7 @@ class Polycrystal:
             8: 'G0_y'               18: 'Source_z'
             9: 'G0_z'               19: 'zd'           
         """
-        return peaks_df
+        return peaks
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
@@ -441,6 +443,8 @@ class Polycrystal:
             if len(phases) > 1:
                 raise ValueError("element_phase_map not set for multiphase polycrystal")
             element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
+        else:
+            element_phase_map = np.array(element_phase_map)
         return element_phase_map, phases
 
     def _instantiate_eB(

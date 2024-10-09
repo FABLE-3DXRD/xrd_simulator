@@ -106,7 +106,6 @@ class Detector:
     def render(
         self,
         peaks,
-        images_to_render,
         lorentz=True,
         polarization=True,
         structure_factor=True,
@@ -145,12 +144,6 @@ class Detector:
 
         """
 
-
-        if images_to_render == "all":
-            images_to_render = list(range(len(self.images)))
-        elif isinstance(images_to_render, int):
-            images_to_render = [images_to_render]
-
         if method == "project":
             renderer = self._projection_render
             kernel = None
@@ -173,7 +166,6 @@ class Detector:
             rendered_images = self._render_and_convolve(
                 (
                     peaks,
-                    images_to_render,
                     kernel,
                     renderer,
                     lorentz,
@@ -192,7 +184,6 @@ class Detector:
     def _render_and_convolve(self, args):
         (
             peaks,
-            images_bundle,
             kernel,
             renderer,
             lorentz,
@@ -214,25 +205,29 @@ class Detector:
             8: 'G0_y'               18: 'Source_z'
             9: 'G0_z'               19: 'zd'           
         """
-        rendered_images = frame.zeros((self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1],max(len(images_bundle),1)),dtype=frame.float32)
+
         if frame is np:
             pixel_indices =  frame.concatenate(
                 (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
                 ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
                 peaks[:, 24].reshape(-1, 1)), axis=1).astype(frame.int32)
+            images_n = np.unique(peaks[:,24]).shape[0]
+            
         else:
             pixel_indices = frame.cat(
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
                 peaks[:, 24].unsqueeze(1)), dim=1).to(frame.int32)
-
+            images_n = peaks[:,24].unique().shape[0]
+        rendered_images = frame.zeros((images_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=frame.float32)
+        # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22]
         polarization_factors = peaks[:,23]
         relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
         if frame is np:
-            frame.add.at(rendered_images, (pixel_indices[:,0],pixel_indices[:,1],pixel_indices[:,2]-1), relative_intensity)
+            frame.add.at(rendered_images, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
         else:
             # Step 1: Find unique coordinates and the inverse indices
             unique_coords, inverse_indices = frame.unique(pixel_indices, dim=0, return_inverse=True)
@@ -244,7 +239,9 @@ class Detector:
             result = frame.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_images)
 
             # Step 4: Use the new column as a pixel value to be added to each coordinate
-            rendered_images[result[:,0].int(),result[:,1].int(),result[:,2].int()-1] = result[:,3]
+            rendered_images[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
+
+        
         return rendered_images
 
     def _apply_point_spread_function(self, frame, kernel):
