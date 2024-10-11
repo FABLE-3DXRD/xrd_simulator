@@ -20,10 +20,10 @@ from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz,polarization
-from xrd_simulator.cuda import frame,pd
+from xrd_simulator.cuda import fw
 
-if frame != np:
-    frame.array = frame.tensor
+if fw != np:
+    fw.array = fw.tensor
 
 def _diffract(dict):
     """
@@ -53,26 +53,26 @@ def _diffract(dict):
     detector = dict["detector"]
     rigid_body_motion = dict["rigid_body_motion"]
     phases = dict["phases"]
-    espherecentroids = frame.array(dict["espherecentroids"])
+    espherecentroids = fw.array(dict["espherecentroids"])
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
     element_phase_map = dict["element_phase_map"]
 
-    rho_0_factor = frame.matmul(-beam.wave_vector,rigid_body_motion.rotator.K2)
-    rho_1_factor = frame.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
-    rho_2_factor = frame.matmul(beam.wave_vector,(frame.eye(3, 3) + rigid_body_motion.rotator.K2))
+    rho_0_factor = fw.matmul(-beam.wave_vector,rigid_body_motion.rotator.K2)
+    rho_1_factor = fw.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
+    rho_2_factor = fw.matmul(beam.wave_vector,(fw.eye(3, 3) + rigid_body_motion.rotator.K2))
 
-    peaks = frame.empty((0,10),dtype=frame.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks = fw.empty((0,10),dtype=fw.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
     
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
-        grain_indices = frame.where(element_phase_map == i)[0]
-        miller_indices = frame.array(phase.miller_indices, dtype=frame.float32)
+        grain_indices = fw.where(element_phase_map == i)[0]
+        miller_indices = fw.array(phase.miller_indices, dtype=fw.float32)
 
         # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-        structure_factors = frame.sum(frame.array(phase.structure_factors, dtype=frame.float32)**2,axis=1)
+        structure_factors = fw.sum(fw.array(phase.structure_factors, dtype=fw.float32)**2,axis=1)
         miller_indices = miller_indices[structure_factors>1e-6]
         structure_factors = structure_factors[structure_factors>1e-6]
 
@@ -91,22 +91,22 @@ def _diffract(dict):
 
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
-        if frame is np:
-            structure_factors = structure_factors[planes][:, frame.newaxis]  # Unsqueeze at axis 1
-            grain_indices = grain_indices[grains][:, frame.newaxis]          # Unsqueeze at axis 1
+        if fw is np:
+            structure_factors = structure_factors[planes][:, fw.newaxis]  # Unsqueeze at axis 1
+            grain_indices = grain_indices[grains][:, fw.newaxis]          # Unsqueeze at axis 1
             miller_indices = miller_indices[planes]
-            phase_index = frame.full((G0_xyz.shape[0],), i)[:, frame.newaxis] 
-            times = times[:,frame.newaxis]
-            peaks_ith_phase = frame.concatenate((grain_indices, phase_index, miller_indices[:, frame.newaxis].squeeze(), structure_factors, times[:, frame.newaxis].squeeze(2), G0_xyz), axis=1)
-            peaks = frame.concatenate((peaks, peaks_ith_phase), axis=0)
+            phase_index = fw.full((G0_xyz.shape[0],), i)[:, fw.newaxis] 
+            times = times[:,fw.newaxis]
+            peaks_ith_phase = fw.concatenate((grain_indices, phase_index, miller_indices[:, fw.newaxis].squeeze(), structure_factors, times[:, fw.newaxis].squeeze(2), G0_xyz), axis=1)
+            peaks = fw.concatenate((peaks, peaks_ith_phase), axis=0)
         else:
             structure_factors = structure_factors[planes].unsqueeze(1)
             grain_indices = grain_indices[grains].unsqueeze(1)
             miller_indices = miller_indices[planes]
-            phase_index = frame.full((G0_xyz.shape[0],),i).unsqueeze(1)
+            phase_index = fw.full((G0_xyz.shape[0],),i).unsqueeze(1)
             times = times.unsqueeze(1)
-            peaks_ith_phase = frame.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
-            peaks = frame.cat([peaks, peaks_ith_phase], axis=0)
+            peaks_ith_phase = fw.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
+            peaks = fw.cat([peaks, peaks_ith_phase], axis=0)
 
     # Rotated G-vectors
     Gxyz = rigid_body_motion.rotate(peaks[:,7:10], -peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
@@ -117,17 +117,17 @@ def _diffract(dict):
     # Polarization factor
     polarization_factors = polarization(beam,K_out_xyz)
 
-    if frame is np:
+    if fw is np:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].astype(int)],peaks[:,6].astype(int))    
     else:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6].int())
 
     zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
     # Concatenate new columns
-    if frame is np:
-        peaks = frame.concatenate((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors[:,frame.newaxis],polarization_factors[:,frame.newaxis]),axis=1)
+    if fw is np:
+        peaks = fw.concatenate((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors[:,fw.newaxis],polarization_factors[:,fw.newaxis]),axis=1)
     else:
-        peaks = frame.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
+        peaks = fw.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
 
     """
         Column names of peaks are
@@ -232,7 +232,7 @@ class Polycrystal:
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
-        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
+        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector fw.
         The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
         option.
 
@@ -252,7 +252,7 @@ class Polycrystal:
                 computation. Defaults to 1, i.e a single processes.
             number_of_images (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
                 to be collected. Defaulrenderts to 1, which means that the detector reads diffraction during the full rigid body
-                motion and integrates out the signal to a single frame. The number_of_images keyword primarily allows for single
+                motion and integrates out the signal to a single fw. The number_of_images keyword primarily allows for single
                 rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
             proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
                 For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.
@@ -262,7 +262,7 @@ class Polycrystal:
 
         """
 
-        #beam.wave_vector = frame.array(beam.wave_vector, dtype=frame.float32)
+        #beam.wave_vector = fw.array(beam.wave_vector, dtype=fw.float32)
 
         min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
             detector, beam, min_bragg_angle, max_bragg_angle
@@ -284,15 +284,15 @@ class Polycrystal:
 
         peaks = _diffract(args)
 
-        if frame is np:
-            bin_edges = frame.linspace(0, 1,number_of_images + 1)
-            images = frame.digitize(peaks[:,6], bin_edges)
-            images = images[:,frame.newaxis]-1
-            peaks = frame.concatenate((peaks, images), axis=1)      
+        if fw is np:
+            bin_edges = fw.linspace(0, 1,number_of_images + 1)
+            images = fw.digitize(peaks[:,6], bin_edges)
+            images = images[:,fw.newaxis]-1
+            peaks = fw.concatenate((peaks, images), axis=1)      
         else:
-            bin_edges = frame.linspace(0, 1, steps=number_of_images + 1)
-            images = frame.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
-            peaks = frame.cat((peaks,images),dim=1)
+            bin_edges = fw.linspace(0, 1, steps=number_of_images + 1)
+            images = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
+            peaks = fw.cat((peaks,images),dim=1)
         """
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'yd'
@@ -323,9 +323,9 @@ class Polycrystal:
             rigid_body_motion.rotation_angle * time
         )
 
-        self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+        self.orientation_lab = fw.matmul(Rot_mat, self.orientation_lab)
 
-        self.strain_lab = np.matmul(np.matmul(Rot_mat, self.strain_lab), Rot_mat.T)
+        self.strain_lab = fw.matmul(fw.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(0,2,1))
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
@@ -398,17 +398,17 @@ class Polycrystal:
             raise ValueError("The loaded polycrystal file must end with .pc")
         with open(path, "rb") as f:
             loaded = dill.load(f)
-            if frame is np:
+            if fw is np:
                 pass
             else:
-                loaded.orientation_lab = frame.array(loaded.orientation_lab, dtype=frame.float32)
-                loaded.strain_lab = frame.array(loaded.strain_lab, dtype=frame.float32)
-                loaded.element_phase_map = frame.array(loaded.element_phase_map, dtype=frame.float32)
-                loaded._eB = frame.array(loaded._eB, dtype=frame.float32)
-               # loaded.mesh_lab = frame.array(loaded.mesh_lab, dtype=frame.float32)
-             # loaded.mesh_sample = frame.array(loaded.mesh_sample, dtype=frame.float32)
-                loaded.strain_sample = frame.array(loaded.strain_sample, dtype=frame.float32)
-                loaded.orientation_sample = frame.array(loaded.orientation_sample, dtype=frame.float32)
+                loaded.orientation_lab = fw.array(loaded.orientation_lab, dtype=fw.float32)
+                loaded.strain_lab = fw.array(loaded.strain_lab, dtype=fw.float32)
+                loaded.element_phase_map = fw.array(loaded.element_phase_map, dtype=fw.float32)
+                loaded._eB = fw.array(loaded._eB, dtype=fw.float32)
+                loaded.mesh_lab = cls._move_mesh_to_gpu(loaded.mesh_lab)
+                loaded.mesh_sample = cls._move_mesh_to_gpu(loaded.mesh_sample)
+                loaded.strain_sample = fw.array(loaded.strain_sample, dtype=fw.float32)
+                loaded.orientation_sample = fw.array(loaded.orientation_sample, dtype=fw.float32)
             return loaded
 
     def _instantiate_orientation(self, orientation, mesh):
@@ -476,11 +476,11 @@ class Polycrystal:
         """
         if max_bragg_angle is None:
             mesh_nodes_contained_by_beam = self.mesh_lab.coord[beam.contains(self.mesh_lab.coord.T), :]
-            mesh_nodes_contained_by_beam = frame.array(mesh_nodes_contained_by_beam, dtype=frame.float32)
+            mesh_nodes_contained_by_beam = fw.array(mesh_nodes_contained_by_beam, dtype=fw.float32)
             if mesh_nodes_contained_by_beam.shape[0] != 0:
-                source_point = frame.mean(mesh_nodes_contained_by_beam, axis=0)
+                source_point = fw.mean(mesh_nodes_contained_by_beam, axis=0)
             else:
-                source_point = frame.array(self.mesh_lab.centroid, dtype=frame.float32)
+                source_point = fw.array(self.mesh_lab.centroid, dtype=fw.float32)
             max_bragg_angle = detector.get_wrapping_cone(beam.wave_vector, source_point).item()
 
         assert (
@@ -494,3 +494,15 @@ class Polycrystal:
             + "dgrs"
         )
         return min_bragg_angle, max_bragg_angle
+
+    def _move_mesh_to_gpu(mesh):
+        mesh.coord = fw.array(mesh.coord, dtype=fw.float32)
+        mesh.enod = fw.array(mesh.enod, dtype=fw.int32)
+        mesh.dof = fw.array(mesh.dof, dtype=fw.float32)        
+        mesh.efaces = fw.array(mesh.efaces, dtype=fw.int32)
+        mesh.enormals = fw.array(mesh.enormals, dtype=fw.float32)
+        mesh.ecentroids = fw.array(mesh.ecentroids, dtype=fw.float32)
+        mesh.eradius = fw.array(mesh.eradius, dtype=fw.float32)
+        mesh.espherecentroids = fw.array(mesh.espherecentroids, dtype=fw.float32)
+        mesh.centroid = fw.array(mesh.centroid, dtype=fw.float32)
+        return mesh

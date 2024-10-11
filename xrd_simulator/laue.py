@@ -6,7 +6,7 @@ import numpy as np
 import cupy as cp
 import torch
 from xrd_simulator import utils
-from xrd_simulator.cuda import frame
+from xrd_simulator.cuda import fw
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -26,15 +26,15 @@ def get_G(U, B, G_hkl):
     """
 
     if frame == torch:
-        U = frame.asarray(U,dtype=frame.float32)
-        B = frame.asarray(B,dtype=frame.float32)
-        G_hkl = frame.asarray(G_hkl,dtype=frame.float32)
+        U = fw.asarray(U,dtype=fw.float32)
+        B = fw.asarray(B,dtype=fw.float32)
+        G_hkl = fw.asarray(G_hkl,dtype=fw.float32)
     else: 
         U = U.astype(np.float32)
         B = B.astype(np.float32)
         G_hkl = G_hkl.astype(np.float32)
         
-    return frame.matmul(frame.matmul(U, B), G_hkl.T)
+    return fw.matmul(fw.matmul(U, B), G_hkl.T)
 
 
 
@@ -96,11 +96,11 @@ def find_solutions_to_tangens_half_angle_equation(
 
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
-        G_0 = G_0[frame.newaxis, :, :]
+        G_0 = G_0[fw.newaxis, :, :]
 
     # Compute rho_0 and rho_2
-    rho_0 = frame.matmul(rho_0_factor, G_0)
-    rho_2 = frame.matmul(rho_2_factor, G_0) + frame.sum(G_0**2, axis=1) / 2.0
+    rho_0 = fw.matmul(rho_0_factor, G_0)
+    rho_2 = fw.matmul(rho_2_factor, G_0) + fw.sum(G_0**2, axis=1) / 2.0
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
 
@@ -109,14 +109,14 @@ def find_solutions_to_tangens_half_angle_equation(
     denominator[denominator==0] = np.nan
 
     # Calculate coefficients for quadratic equation
-    a = frame.divide(
-        frame.matmul(rho_1_factor, G_0),
+    a = fw.divide(
+        fw.matmul(rho_1_factor, G_0),
         denominator,
-        out=frame.full_like(rho_0, np.nan)
+        out=fw.full_like(rho_0, np.nan)
     )
 
-    b = frame.divide(
-        numerator, denominator, out=frame.full_like(rho_0, np.nan)
+    b = fw.divide(
+        numerator, denominator, out=fw.full_like(rho_0, np.nan)
     )
 
     # Clean up unnecessary variables
@@ -132,23 +132,23 @@ def find_solutions_to_tangens_half_angle_equation(
     # discriminant[discriminant>10] = np.nan 
 
     # Calculate solutions for s
-    s1 = -a + frame.sqrt(discriminant)
-    s2 = -a - frame.sqrt(discriminant)
+    s1 = -a + fw.sqrt(discriminant)
+    s2 = -a - fw.sqrt(discriminant)
     '''The bug is above this
     # Clean up discriminant and a
     # del discriminant, a
-    s = frame.concatenate((s1,s2),axis=0)
+    s = fw.concatenate((s1,s2),axis=0)
     # del s1,s2
     # Calculate solutions for t1 and t2
 
-    t = 2 * frame.arctan(s) / delta_omega
+    t = 2 * fw.arctan(s) / delta_omega
     # del s,delta_omega
     # Filter solutions within range [0, 1]
-    valid_t_indices = frame.logical_and(t >= 0, t <= 1)
+    valid_t_indices = fw.logical_and(t >= 0, t <= 1)
 
 
     # del t
-    peak_index = frame.argwhere(valid_t_indices)
+    peak_index = fw.argwhere(valid_t_indices)
    # peak_index = peak_index % G_0.shape[0]
     # del valid_t_indices
     grains = peak_index[:, 0]
@@ -157,23 +157,23 @@ def find_solutions_to_tangens_half_angle_equation(
     times = t[grains,planes]
     '''
 
-    t1 = 2 * frame.arctan(s1) / delta_omega
-    indices_t1 = frame.argwhere(frame.logical_and(t1 >= 0, t1 <= 1))
+    t1 = 2 * fw.arctan(s1) / delta_omega
+    indices_t1 = fw.argwhere(fw.logical_and(t1 >= 0, t1 <= 1))
     values_t1 = t1[indices_t1[:,0], indices_t1[:,1]]
 
-    t2 = 2 * frame.arctan(s2) / delta_omega
-    indices_t2 = frame.argwhere(frame.logical_and(t2 >= 0, t2 <= 1))
+    t2 = 2 * fw.arctan(s2) / delta_omega
+    indices_t2 = fw.argwhere(fw.logical_and(t2 >= 0, t2 <= 1))
     values_t2 = t2[indices_t2[:,0], indices_t2[:,1]]
 
-    peak_index = frame.concatenate((indices_t1, indices_t2), axis=0)
-    times = frame.concatenate((values_t1, values_t2), axis=0)
+    peak_index = fw.concatenate((indices_t1, indices_t2), axis=0)
+    times = fw.concatenate((values_t1, values_t2), axis=0)
 
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
 
-    if frame is np:
-        G_0 = frame.transpose(G_0,(0,2,1))
+    if fw is np:
+        G_0 = fw.transpose(G_0,(0,2,1))
     else:
-        G_0 = frame.transpose(G_0,2,1)    
+        G_0 = fw.transpose(G_0,2,1)    
     G = G_0[grains, planes]
     return grains, planes, times, G
