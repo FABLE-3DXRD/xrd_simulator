@@ -12,9 +12,9 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator.cuda import frame
-if frame != np:
-    frame.array = frame.tensor
+from xrd_simulator.cuda import fw
+if fw != np:
+    fw.array = fw.tensor
 
 
 class Beam:
@@ -88,12 +88,13 @@ class Beam:
             scalar 1 or 0.
 
         """
-        normal_distances = self.halfspaces[:, 0:3].dot(points)
+
+        normal_distances = fw.matmul(self.halfspaces[:,:3],points)
         if len(points.shape) == 1:
-            return np.all(normal_distances + self.halfspaces[:, 3] < 0)
+            return fw.all(normal_distances + self.halfspaces[:, 3] < 0)
         else:
             return (
-                np.sum(
+                fw.sum(
                     (
                         normal_distances
                         + self.halfspaces[:, 3].reshape(self.halfspaces.shape[0], 1)
@@ -177,12 +178,13 @@ class Beam:
             raise ValueError("The loaded file must end with .beam")
         with open(path, "rb") as f:
             loaded = dill.load(f)
-            if frame is np:
+            if fw is np:
                 pass
             else:
-                loaded.wave_vector = frame.array(loaded.wave_vector, dtype=frame.float32)
-                loaded.vertices = frame.array(loaded.vertices, dtype=frame.float32)
-                loaded.polarization_vector = frame.array(loaded.polarization_vector, dtype=frame.float32)
+                loaded.wave_vector = fw.array(loaded.wave_vector, dtype=fw.float32)
+                loaded.vertices = fw.array(loaded.vertices, dtype=fw.float32)
+                loaded.polarization_vector = fw.array(loaded.polarization_vector, dtype=fw.float32)
+                loaded.halfspaces = fw.array(loaded.halfspaces, dtype=fw.float32)
             return loaded
 
 

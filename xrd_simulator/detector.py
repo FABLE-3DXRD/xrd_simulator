@@ -18,9 +18,9 @@ import dill
 from scipy.signal import convolve2d
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
-from xrd_simulator.cuda import frame
-if frame != np:
-    frame.array = frame.tensor
+from xrd_simulator.cuda import fw
+if fw != np:
+    fw.array = fw.tensor
 
 class Detector:
     """Represents a rectangular 2D area detector.
@@ -59,20 +59,20 @@ class Detector:
     def __init__(
         self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
     ):
-        self.det_corner_0 = frame.array(det_corner_0)
-        self.det_corner_1 = frame.array(det_corner_1)
-        self.det_corner_2 = frame.array(det_corner_2)                
+        self.det_corner_0 = fw.array(det_corner_0)
+        self.det_corner_1 = fw.array(det_corner_1)
+        self.det_corner_2 = fw.array(det_corner_2)                
 
-        self.pixel_size_z = frame.array(pixel_size_z)
-        self.pixel_size_y = frame.array(pixel_size_y)
+        self.pixel_size_z = fw.array(pixel_size_z)
+        self.pixel_size_y = fw.array(pixel_size_y)
 
-        self.zmax = frame.linalg.norm(self.det_corner_2 - self.det_corner_0)
-        self.ymax = frame.linalg.norm(self.det_corner_1 - self.det_corner_0)
+        self.zmax = fw.linalg.norm(self.det_corner_2 - self.det_corner_0)
+        self.ymax = fw.linalg.norm(self.det_corner_1 - self.det_corner_0)
 
         self.zdhat = (self.det_corner_2 - self.det_corner_0 ) / self.zmax
         self.ydhat = (self.det_corner_1 - self.det_corner_0 ) / self.ymax
-        self.normal = frame.linalg.cross(self.zdhat, self.ydhat)
-        self.normal = self.normal / frame.linalg.norm(self.normal)
+        self.normal = fw.linalg.cross(self.zdhat, self.ydhat)
+        self.normal = self.normal / fw.linalg.norm(self.normal)
         self.images = []
         self.pixel_coordinates = self._get_pixel_coordinates()
         self._point_spread_kernel_shape = (5, 5)
@@ -206,37 +206,37 @@ class Detector:
             9: 'G0_z'               19: 'zd'           
         """
 
-        if frame is np:
-            pixel_indices =  frame.concatenate(
+        if fw is np:
+            pixel_indices =  fw.concatenate(
                 (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
                 ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
-                peaks[:, 24].reshape(-1, 1)), axis=1).astype(frame.int32)
+                peaks[:, 24].reshape(-1, 1)), axis=1).astype(fw.int32)
             images_n = np.unique(peaks[:,24]).shape[0]
             
         else:
-            pixel_indices = frame.cat(
+            pixel_indices = fw.cat(
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
-                peaks[:, 24].unsqueeze(1)), dim=1).to(frame.int32)
+                peaks[:, 24].unsqueeze(1)), dim=1).to(fw.int32)
             images_n = peaks[:,24].unique().shape[0]
-        rendered_images = frame.zeros((images_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=frame.float32)
+        rendered_images = fw.zeros((images_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22]
         polarization_factors = peaks[:,23]
         relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
-        if frame is np:
-            frame.add.at(rendered_images, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
+        if fw is np:
+            fw.add.at(rendered_images, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
         else:
             # Step 1: Find unique coordinates and the inverse indices
-            unique_coords, inverse_indices = frame.unique(pixel_indices, dim=0, return_inverse=True)
+            unique_coords, inverse_indices = fw.unique(pixel_indices, dim=0, return_inverse=True)
 
             # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
-            counts = frame.bincount(inverse_indices,weights=relative_intensity)
+            counts = fw.bincount(inverse_indices,weights=relative_intensity)
 
             # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
-            result = frame.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_images)
+            result = fw.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_images)
 
             # Step 4: Use the new column as a pixel value to be added to each coordinate
             rendered_images[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
@@ -330,26 +330,26 @@ class Detector:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        s = frame.matmul(self.det_corner_0 - source_point,self.normal) / frame.matmul(ray_direction,self.normal)
-        if frame is np:
-            intersection = source_point + ray_direction * s[:, frame.newaxis]
+        s = fw.matmul(self.det_corner_0 - source_point,self.normal) / fw.matmul(ray_direction,self.normal)
+        if fw is np:
+            intersection = source_point + ray_direction * s[:, fw.newaxis]
         else:
             intersection = source_point + ray_direction * s.unsqueeze(1)
-        zd = frame.matmul(intersection - self.det_corner_0, self.zdhat)
-        yd = frame.matmul(intersection - self.det_corner_0, self.ydhat)
+        zd = fw.matmul(intersection - self.det_corner_0, self.zdhat)
+        yd = fw.matmul(intersection - self.det_corner_0, self.ydhat)
 
         # Calculate incident angle
-        if frame is np:
-            ray_dir_norm = ray_direction / frame.linalg.norm(ray_direction,axis=1)[:,frame.newaxis]
+        if fw is np:
+            ray_dir_norm = ray_direction / fw.linalg.norm(ray_direction,axis=1)[:,fw.newaxis]
         else:
-            ray_dir_norm = ray_direction / frame.norm(ray_direction, dim=1).unsqueeze(1)
-        normal_norm = self.normal / frame.linalg.norm(self.normal)
+            ray_dir_norm = ray_direction / fw.norm(ray_direction, dim=1).unsqueeze(1)
+        normal_norm = self.normal / fw.linalg.norm(self.normal)
 
-        cosine_theta = frame.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
-        incident_angle_deg = frame.arccos(cosine_theta) * (180 / frame.pi)
+        cosine_theta = fw.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
+        incident_angle_deg = fw.arccos(cosine_theta) * (180 / fw.pi)
         if frame ==np:
-            return frame.array([zd, yd,incident_angle_deg]).T
-        return frame.stack((zd, yd, incident_angle_deg), dim=1)
+            return fw.array([zd, yd,incident_angle_deg]).T
+        return fw.stack((zd, yd, incident_angle_deg), dim=1)
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -417,7 +417,7 @@ class Detector:
         fourth_corner_of_detector = self.det_corner_2 + (
             self.det_corner_1 - self.det_corner_0[:]
         )
-        geom_mat = frame.zeros((3, 4))
+        geom_mat = fw.zeros((3, 4))
         for i, det_corner in enumerate(
             [
                 self.det_corner_0,
@@ -427,9 +427,9 @@ class Detector:
             ]
         ):
             geom_mat[:, i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat / frame.linalg.norm(geom_mat, axis=0)
-        cone_opening = frame.arccos(frame.matmul(normalised_local_coord_geom_mat.T, k / frame.linalg.norm(k)))  # These are two time Bragg angles
-        return frame.max(cone_opening) / 2.0
+        normalised_local_coord_geom_mat = geom_mat / fw.linalg.norm(geom_mat, axis=0)
+        cone_opening = fw.arccos(fw.matmul(normalised_local_coord_geom_mat.T, k / fw.linalg.norm(k)))  # These are two time Bragg angles
+        return fw.max(cone_opening) / 2.0
 
     def save(self, path):
         """Save the detector object to disc (via pickling). Change the arrays formats to np first.
@@ -476,19 +476,19 @@ class Detector:
             raise ValueError("The loaded motion file must end with .det")
         with open(path, "rb") as f:
             loaded=dill.load(f)
-            if frame is np:
+            if fw is np:
                 pass
             else:
-                loaded.normal = frame.array(loaded.normal, dtype=frame.float32)
-                loaded.det_corner_0 = frame.array(loaded.det_corner_0, dtype=frame.float32)
-                loaded.det_corner_1 = frame.array(loaded.det_corner_1, dtype=frame.float32)
-                loaded.det_corner_2 = frame.array(loaded.det_corner_2, dtype=frame.float32)
-                loaded.zdhat = frame.array(loaded.zdhat, dtype=frame.float32)
-                loaded.ydhat = frame.array(loaded.ydhat, dtype=frame.float32)
-                loaded.zmax = frame.array(loaded.zmax, dtype=frame.float32)
-                loaded.ymax = frame.array(loaded.ymax, dtype=frame.float32)
-                loaded.pixel_size_z = frame.array(loaded.pixel_size_z)
-                loaded.pixel_size_y = frame.array(loaded.pixel_size_y)
+                loaded.normal = fw.array(loaded.normal, dtype=fw.float32)
+                loaded.det_corner_0 = fw.array(loaded.det_corner_0, dtype=fw.float32)
+                loaded.det_corner_1 = fw.array(loaded.det_corner_1, dtype=fw.float32)
+                loaded.det_corner_2 = fw.array(loaded.det_corner_2, dtype=fw.float32)
+                loaded.zdhat = fw.array(loaded.zdhat, dtype=fw.float32)
+                loaded.ydhat = fw.array(loaded.ydhat, dtype=fw.float32)
+                loaded.zmax = fw.array(loaded.zmax, dtype=fw.float32)
+                loaded.ymax = fw.array(loaded.ymax, dtype=fw.float32)
+                loaded.pixel_size_z = fw.array(loaded.pixel_size_z)
+                loaded.pixel_size_y = fw.array(loaded.pixel_size_y)
             return loaded
 
     def _get_point_spread_function_kernel(self):
@@ -512,11 +512,11 @@ class Detector:
         return kernel / np.sum(kernel)
 
     def _get_pixel_coordinates(self):
-        zds = frame.arange(0, self.zmax, self.pixel_size_z)
-        yds = frame.arange(0, self.ymax, self.pixel_size_y)
-        Z, Y = frame.meshgrid(zds, yds, indexing="ij")
-        Zds = frame.zeros((len(zds), len(yds), 3))
-        Yds = frame.zeros((len(zds), len(yds), 3))
+        zds = fw.arange(0, self.zmax, self.pixel_size_z)
+        yds = fw.arange(0, self.ymax, self.pixel_size_y)
+        Z, Y = fw.meshgrid(zds, yds, indexing="ij")
+        Zds = fw.zeros((len(zds), len(yds), 3))
+        Yds = fw.zeros((len(zds), len(yds), 3))
         for i in range(3):
             Zds[:, :, i] = Z
             Yds[:, :, i] = Y

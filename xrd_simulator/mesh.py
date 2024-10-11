@@ -142,8 +142,8 @@ class TetraMesh(object):
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        self._mesh.points = rigid_body_motion(self._mesh.points, time=time)
-        self.coord = np.array(self._mesh.points)
+        #self._mesh.points = rigid_body_motion(self._mesh.points, time=time)
+        self.coord = rigid_body_motion(self.coord,time=time)
 
         s1, s2, s3 = self.enormals.shape
         self.enormals = self.enormals.reshape(s1 * s2, 3)
@@ -188,6 +188,7 @@ class TetraMesh(object):
 
         """
         mesh = meshio.read(path)
+        breakpoint()
         return cls._build_tetramesh(mesh)
 
     @classmethod

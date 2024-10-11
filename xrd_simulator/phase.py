@@ -18,7 +18,6 @@ Below follows a detailed description of the Phase class attributes and functions
 import numpy as np
 from xfab import tools, structure
 from xrd_simulator import utils
-from xrd_simulator.cuda import frame
 
 class Phase(object):
 
