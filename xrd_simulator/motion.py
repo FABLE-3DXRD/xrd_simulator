@@ -85,7 +85,7 @@ class RigidBodyMotion():
             rotated_vectors = centered_rotated_vectors + origin
             if isinstance(time,(int,float)):
                 return rotated_vectors + translation * time
-            if frame == np:
+            if fw is np:
                 return fw.squeeze(rotated_vectors + translation * fw.array(time)[:,fw.newaxis])
             else:
                 return fw.squeeze(rotated_vectors + translation * time.unsqueeze(1))
@@ -204,7 +204,7 @@ class _RodriguezRotator(object):
         self.K2 = self.K@self.K
 
     def get_rotation_matrix(self, rotation_angle):
-        if frame == np:
+        if fw is np:
             rotation_matrix = fw.eye(3, 3)[:,:,fw.newaxis] + fw.sin(rotation_angle) * self.K[:,:,fw.newaxis] + (1 - fw.cos(rotation_angle)) * self.K2[:,:,fw.newaxis]
             rotation_matrix = rotation_matrix.transpose(2,1,0)
         else:

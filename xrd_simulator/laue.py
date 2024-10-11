@@ -25,14 +25,14 @@ def get_G(U, B, G_hkl):
 
     """
 
-    if frame == torch:
+    if fw is np:
+        U = U.astype(fw.float32)
+        B = B.astype(fw.float32)
+        G_hkl = G_hkl.astype(fw.float32)
+    else:
         U = fw.asarray(U,dtype=fw.float32)
         B = fw.asarray(B,dtype=fw.float32)
         G_hkl = fw.asarray(G_hkl,dtype=fw.float32)
-    else: 
-        U = U.astype(np.float32)
-        B = B.astype(np.float32)
-        G_hkl = G_hkl.astype(np.float32)
         
     return fw.matmul(fw.matmul(U, B), G_hkl.T)
 

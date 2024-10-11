@@ -111,7 +111,6 @@ class Detector:
         structure_factor=True,
         method="centroid",
         verbose=True,
-        number_of_processes=1,
         output_type='numpy'
     ):
         """Render a pixelated diffraction pattern onto the detector plane .
@@ -162,18 +161,18 @@ class Detector:
                 + " exist, method should be one of project or centroid"
             )
 
-        if number_of_processes == 1:
-            rendered_frames = self._render_and_convolve(
-                (
-                    peaks,
-                    kernel,
-                    renderer,
-                    lorentz,
-                    polarization,
-                    structure_factor,
-                    verbose,
-                )
+
+        rendered_frames = self._render_and_convolve(
+            (
+                peaks,
+                kernel,
+                renderer,
+                lorentz,
+                polarization,
+                structure_factor,
+                verbose,
             )
+        )
         
         if output_type == 'numpy':
             if not isinstance(rendered_frames, np.ndarray):
@@ -347,7 +346,7 @@ class Detector:
 
         cosine_theta = fw.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
         incident_angle_deg = fw.arccos(cosine_theta) * (180 / fw.pi)
-        if frame ==np:
+        if fw is np:
             return fw.array([zd, yd,incident_angle_deg]).T
         return fw.stack((zd, yd, incident_angle_deg), dim=1)
 
