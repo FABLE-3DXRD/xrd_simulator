@@ -324,9 +324,10 @@ class Polycrystal:
         )
 
         self.orientation_lab = fw.matmul(Rot_mat, self.orientation_lab)
-
-        self.strain_lab = fw.matmul(fw.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(0,2,1))
-
+        if fw is np:
+            self.strain_lab = fw.matmul(fw.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(0,2,1))
+        else:
+            self.strain_lab = fw.matmul(fw.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2,1))
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
 

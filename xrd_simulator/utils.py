@@ -36,7 +36,7 @@ import numpy as np
 from numba import njit
 import sys
 import cupy as cp
-from xrd_simulator.cuda import frame
+from xrd_simulator.cuda import fw
 import torch 
 
 
@@ -319,17 +319,18 @@ def _b_to_epsilon(B_matrix, B0):
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
 
-    if frame == torch:
-        crystal_strain = frame.tensor(crystal_strain, dtype=torch.float32)
-        B0 = frame.tensor(B0, dtype=torch.float32)
-    else:  
+    if fw is numpy:
         crystal_strain = crystal_strain.astype(np.float32)
         B0 = B0.astype(np.float32)
+    else:
+        crystal_strain = fw.tensor(crystal_strain, dtype=torch.float32)
+        B0 = fw.tensor(B0, dtype=torch.float32)  
 
-    C = 2 * crystal_strain + frame.eye(3, dtype=frame.float32)
 
-    eigen_vals = frame.linalg.eigvalsh(C)
-    if frame.any(eigen_vals< 0):
+    C = 2 * crystal_strain + fw.eye(3, dtype=fw.float32)
+
+    eigen_vals = fw.linalg.eigvalsh(C)
+    if fw.any(eigen_vals< 0):
         raise ValueError(
             "Unfeasible strain tensor with value: "
             + str(_strain_as_vector(crystal_strain))
@@ -337,18 +338,18 @@ def _epsilon_to_b(crystal_strain, B0):
         )
     
     if C.ndim == 3:
-        if frame is np:
-            F = frame.transpose(frame.linalg.cholesky(C),(0,2,1))
+        if fw is np:
+            F = fw.transpose(fw.linalg.cholesky(C),(0,2,1))
         else:
-            F = frame.transpose(frame.linalg.cholesky(C),2,1)
+            F = fw.transpose(fw.linalg.cholesky(C),2,1)
     else:
-        if frame is np:
-            F = frame.transpose(frame.linalg.cholesky(C),(1,0,2))        
+        if fw is np:
+            F = fw.transpose(fw.linalg.cholesky(C),(1,0,2))        
         else:
-            F = frame.transpose(frame.linalg.cholesky(C),1,0)
+            F = fw.transpose(fw.linalg.cholesky(C),1,0)
 
-    B = frame.matmul(frame.linalg.inv(F),B0)
-    B = B.cpu() if frame == torch else B
+    B = fw.matmul(fw.linalg.inv(F),B0)
+    B = B.cpu() if fw == torch else B
         
     return B
 
