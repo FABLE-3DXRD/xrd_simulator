@@ -135,7 +135,7 @@ def _diffract(dict):
         1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
         2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
         3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
-        4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
+        4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
         5: 'structure_factors'  15: 'K_out_z'
         6: 'diffraction_times'  16: 'Source_x'
         7: 'G0_x'               17: 'Source_y'      
@@ -228,7 +228,7 @@ class Polycrystal:
         rigid_body_motion,
         min_bragg_angle=0,
         max_bragg_angle=None,
-        number_of_images=1,
+        number_of_frames=1,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -250,9 +250,9 @@ class Polycrystal:
             verbose (:obj:`bool`): Prints progress. Defaults to True.
             number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
                 computation. Defaults to 1, i.e a single processes.
-            number_of_images (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
+            number_of_frames (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
                 to be collected. Defaulrenderts to 1, which means that the detector reads diffraction during the full rigid body
-                motion and integrates out the signal to a single fw. The number_of_images keyword primarily allows for single
+                motion and integrates out the signal to a single fw. The number_of_frames keyword primarily allows for single
                 rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
             proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
                 For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.
@@ -285,21 +285,21 @@ class Polycrystal:
         peaks = _diffract(args)
 
         if fw is np:
-            bin_edges = fw.linspace(0, 1,number_of_images + 1)
-            images = fw.digitize(peaks[:,6], bin_edges)
-            images = images[:,fw.newaxis]-1
-            peaks = fw.concatenate((peaks, images), axis=1)      
+            bin_edges = fw.linspace(0, 1,number_of_frames + 1)
+            frames = fw.digitize(peaks[:,6], bin_edges)
+            frames = frames[:,fw.newaxis]-1
+            peaks = fw.concatenate((peaks, frames), axis=1)      
         else:
-            bin_edges = fw.linspace(0, 1, steps=number_of_images + 1)
-            images = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
-            peaks = fw.cat((peaks,images),dim=1)
+            bin_edges = fw.linspace(0, 1, steps=number_of_frames + 1)
+            frames = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
+            peaks = fw.cat((peaks,frames),dim=1)
         """
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'yd'
             1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
             2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
             3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
-            4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
+            4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
             7: 'G0_x'               17: 'Source_y'      

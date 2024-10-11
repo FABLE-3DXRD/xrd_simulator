@@ -27,7 +27,7 @@ class Detector:
 
     The detector collects :class:`xrd_simulator.scattering_unit.ScatteringUnit` during diffraction from a
     :class:`xrd_simulator.polycrystal.Polycrystal`. The detector implements various rendering of the scattering
-    as 2D pixelated images. The detector geometry is described by specifying the locations of three detector
+    as 2D pixelated frames. The detector geometry is described by specifying the locations of three detector
     corners. The detector is described in the laboratory coordinate system.
 
     Args:
@@ -73,7 +73,7 @@ class Detector:
         self.ydhat = (self.det_corner_1 - self.det_corner_0 ) / self.ymax
         self.normal = fw.linalg.cross(self.zdhat, self.ydhat)
         self.normal = self.normal / fw.linalg.norm(self.normal)
-        self.images = []
+        self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
         self._point_spread_kernel_shape = (5, 5)
 
@@ -120,7 +120,7 @@ class Detector:
         the pixel area.
 
         Args:
-            images_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
+            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
                 to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
             lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
             polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
@@ -163,7 +163,7 @@ class Detector:
             )
 
         if number_of_processes == 1:
-            rendered_images = self._render_and_convolve(
+            rendered_frames = self._render_and_convolve(
                 (
                     peaks,
                     kernel,
@@ -176,10 +176,10 @@ class Detector:
             )
         
         if output_type == 'numpy':
-            if not isinstance(rendered_images, np.ndarray):
-                rendered_images = rendered_images.detach().cpu().numpy()
+            if not isinstance(rendered_frames, np.ndarray):
+                rendered_frames = rendered_frames.detach().cpu().numpy()
 
-        return rendered_images
+        return rendered_frames
 
     def _render_and_convolve(self, args):
         (
@@ -198,7 +198,7 @@ class Detector:
             1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
             2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
             3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
-            4: 'l'                  14: 'K_out_y'   24: 'images_to_render'
+            4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
             7: 'G0_x'               17: 'Source_y'      
@@ -211,15 +211,15 @@ class Detector:
                 (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
                 ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
                 peaks[:, 24].reshape(-1, 1)), axis=1).astype(fw.int32)
-            images_n = np.unique(peaks[:,24]).shape[0]
+            frames_n = np.unique(peaks[:,24]).shape[0]
             
         else:
             pixel_indices = fw.cat(
                 (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
                 ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
                 peaks[:, 24].unsqueeze(1)), dim=1).to(fw.int32)
-            images_n = peaks[:,24].unique().shape[0]
-        rendered_images = fw.zeros((images_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
+            frames_n = peaks[:,24].unique().shape[0]
+        rendered_frames = fw.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22]
@@ -227,7 +227,7 @@ class Detector:
         relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
         if fw is np:
-            fw.add.at(rendered_images, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
+            fw.add.at(rendered_frames, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
         else:
             # Step 1: Find unique coordinates and the inverse indices
             unique_coords, inverse_indices = fw.unique(pixel_indices, dim=0, return_inverse=True)
@@ -236,13 +236,13 @@ class Detector:
             counts = fw.bincount(inverse_indices,weights=relative_intensity)
 
             # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
-            result = fw.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_images)
+            result = fw.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_frames)
 
             # Step 4: Use the new column as a pixel value to be added to each coordinate
-            rendered_images[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
+            rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
         
-        return rendered_images
+        return rendered_frames
 
     def _apply_point_spread_function(self, frame, kernel):
         """Apply the point spread function to a rendered pixelated frame by convolution.
