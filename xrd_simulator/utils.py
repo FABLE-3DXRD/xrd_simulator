@@ -319,7 +319,7 @@ def _b_to_epsilon(B_matrix, B0):
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
 
-    if fw is numpy:
+    if fw is np:
         crystal_strain = crystal_strain.astype(np.float32)
         B0 = B0.astype(np.float32)
     else:
