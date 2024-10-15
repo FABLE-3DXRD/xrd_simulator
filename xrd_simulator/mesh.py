@@ -188,7 +188,6 @@ class TetraMesh(object):
 
         """
         mesh = meshio.read(path)
-        breakpoint()
         return cls._build_tetramesh(mesh)
 
     @classmethod
