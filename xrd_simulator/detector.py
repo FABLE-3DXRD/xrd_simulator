@@ -186,6 +186,8 @@ class Detector:
             # Step 4: Use the new column as a pixel value to be added to each coordinate
             rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
+        rendered_frames = self._apply_point_spread_function(rendered_frames)
+
         # Chose numpy if you want to write the frames as tiffs
         if output_type == 'numpy':
             if not isinstance(rendered_frames, np.ndarray):
@@ -193,20 +195,25 @@ class Detector:
 
         return rendered_frames
 
-    def _apply_point_spread_function(self, frame, kernel):
-        """Apply the point spread function to a rendered pixelated frame by convolution.
+    def _apply_point_spread_function(self, frames):
 
-        np.inf values due to approximate lorentz factors are preserved but treated as zeros
-        during convolution.
+        frames_n = frames.shape[0]
+        if frames.ndim == 2:
+            frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
+            frames_n = frames.shape[0]
 
-        """
-        if self.point_spread_function is not None:
-            infmask = np.isinf(frame)  # Due to approximate Lorentz factors
-            frame[infmask] = 0
-            if not np.all(frame == 0):
-                frame = convolve2d(frame, kernel, mode="same")
-            frame[infmask] = np.inf
-        return frame
+        # Define the 3x3 Gaussian filter
+        gaussian_kernel = fw.tensor([[[[1, 2, 1],
+                                  [2, 4, 2],
+                                  [1, 2, 1]]]], dtype=fw.float32) / 16.0
+        gaussian_kernel = gaussian_kernel.repeat(frames_n,frames_n,1,1)
+
+        # Perform the convolution
+        with fw.no_grad():
+            output = fw.nn.functional.conv2d(frames.unsqueeze(0),weight=gaussian_kernel, padding=1)
+
+        return output
+
 
     def pixel_index_to_theta_eta(
         self,
