@@ -77,7 +77,7 @@ def _diffract(dict):
 
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_indices], eB[grain_indices], miller_indices)
-
+        
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
         grains, planes, times, G0_xyz =laue.find_solutions_to_tangens_half_angle_equation( 
                 G_0,
