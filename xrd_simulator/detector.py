@@ -103,121 +103,66 @@ class Detector:
         else:
             self._point_spread_kernel_shape = kernel_shape
 
-    def render(
-        self,
+
+    def render(self,
         peaks,
+        number_of_frames=1,
         lorentz=True,
         polarization=True,
         structure_factor=True,
-        method="centroid",
         verbose=True,
         output_type='numpy'
-    ):
-        """Render a pixelated diffraction pattern onto the detector plane .
-
-        NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
-        the pixel area.
-
-        Args:
-            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
-                to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
-            lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
-            polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
-            structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
-            method (:obj:`str`): Rendering method, must be one of ```project``` , ```centroid``` or ```centroid_with_scintillator```.
-                Defaults to ```centroid```. The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit
-                onto the detector by tracing a line from the sample scattering region centroid to the detector plane. The intensity
-                is deposited into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
-                ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
-                possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
-                region. If ```method=centroid_with_scintillator`` a centroid type raytracing is used, but the scintillator
-                point spread is applied before deposition unto the pixel grid, revealing sub pixel shifts in the scattering events.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
-                computation. Defaults to 1, i.e a single processes.
-        Returns:
-            A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
-            pixel size.
-
-        NOTE: This function can be overwitten to do more advanced models for intensity.
-
-        """
-
-        if method == "project":
-            renderer = self._projection_render
-            kernel = None
-            #kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid":
-            renderer = self._centroid_render
-            kernel = None
-            #kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid_with_scintillator":
-            renderer = self._centroid_render_with_scintillator
-            kernel = None
-        else:
-            raise ValueError(
-                "No such method: "
-                + method
-                + " exist, method should be one of project or centroid"
-            )
-
-
-        rendered_frames = self._render_and_convolve(
-            (
-                peaks,
-                kernel,
-                renderer,
-                lorentz,
-                polarization,
-                structure_factor,
-                verbose,
-            )
-        )
-        
-        if output_type == 'numpy':
-            if not isinstance(rendered_frames, np.ndarray):
-                rendered_frames = rendered_frames.detach().cpu().numpy()
-
-        return rendered_frames
-
-    def _render_and_convolve(self, args):
-        (
-            peaks,
-            kernel,
-            renderer,
-            lorentz,
-            polarization,
-            structure_factor,
-            verbose,
-        ) = args
+        ):
 
         """
             Column names of peaks are
-            0: 'grain_index'        10: 'Gx'        20: 'yd'
-            1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
-            2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
-            3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        21: 'zd'
+            2: 'h'                  12: 'Gz'        22: 'yd'
+            3: 'k'                  13: 'K_out_x'   23: 'incident_angle'
             4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
             7: 'G0_x'               17: 'Source_y'      
             8: 'G0_y'               18: 'Source_z'
-            9: 'G0_z'               19: 'zd'           
+            9: 'G0_z'               19: 'lorentz_factors'           
         """
+        # Intersect scattering vectors with detector plane
+        zd_yd_angle = self.get_intersection(peaks[:,13:16],peaks[:,16:19])
+        if fw is np:
+            peaks = fw.concatenate((peaks,zd_yd_angle),axis=1)  
+        else:
+            peaks = fw.cat((peaks,zd_yd_angle),dim=1)
+
+        # Filter out peaks not hitting the detector
+        peaks = peaks[self.contains(peaks[:,21], peaks[:,22])]
+
+        # Add frame number at the end of the tensor
+        if fw is np:
+            bin_edges = fw.linspace(0, 1,number_of_frames + 1)
+            frames = fw.digitize(peaks[:,6], bin_edges)
+            frames = frames[:,fw.newaxis]-1
+            peaks = fw.concatenate((peaks, frames), axis=1)      
+        else:
+            bin_edges = fw.linspace(0, 1, steps=number_of_frames + 1)
+            frames = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
+            peaks = fw.cat((peaks,frames),dim=1)
 
         if fw is np:
             pixel_indices =  fw.concatenate(
-                (((peaks[:, 19])/self.pixel_size_z).reshape(-1, 1),
-                ((peaks[:, 20])/self.pixel_size_z).reshape(-1, 1),
+                (((peaks[:, 21])/self.pixel_size_z).reshape(-1, 1),
+                ((peaks[:, 22])/self.pixel_size_y).reshape(-1, 1),
                 peaks[:, 24].reshape(-1, 1)), axis=1).astype(fw.int32)
             frames_n = np.unique(peaks[:,24]).shape[0]
             
         else:
             pixel_indices = fw.cat(
-                (((peaks[:, 19])/self.pixel_size_z).unsqueeze(1),
-                ((peaks[:, 20])/self.pixel_size_y).unsqueeze(1),
+                (((peaks[:, 21])/self.pixel_size_z).unsqueeze(1),
+                ((peaks[:, 22])/self.pixel_size_y).unsqueeze(1),
                 peaks[:, 24].unsqueeze(1)), dim=1).to(fw.int32)
             frames_n = peaks[:,24].unique().shape[0]
+
+        # Create the future frames as an empty tensor
         rendered_frames = fw.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
@@ -225,6 +170,7 @@ class Detector:
         polarization_factors = peaks[:,23]
         relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
+        # Turn from lists of peaks to rendered frames
         if fw is np:
             fw.add.at(rendered_frames, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
         else:
@@ -240,7 +186,11 @@ class Detector:
             # Step 4: Use the new column as a pixel value to be added to each coordinate
             rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
-        
+        # Chose numpy if you want to write the frames as tiffs
+        if output_type == 'numpy':
+            if not isinstance(rendered_frames, np.ndarray):
+                rendered_frames = rendered_frames.detach().cpu().numpy()
+
         return rendered_frames
 
     def _apply_point_spread_function(self, frame, kernel):

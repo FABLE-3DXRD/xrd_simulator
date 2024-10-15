@@ -50,7 +50,6 @@ def _diffract(dict):
     """
 
     beam = dict["beam"]
-    detector = dict["detector"]
     rigid_body_motion = dict["rigid_body_motion"]
     phases = dict["phases"]
     espherecentroids = fw.array(dict["espherecentroids"])
@@ -80,7 +79,6 @@ def _diffract(dict):
         G_0 = laue.get_G(orientation_lab[grain_indices], eB[grain_indices], miller_indices)
 
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        '''CHECK THIS FUNCTION BECAUSE THERE IS A BIG UGLY BUGG SOMEWHERE 2024-10-07'''
         grains, planes, times, G0_xyz =laue.find_solutions_to_tangens_half_angle_equation( 
                 G_0,
                 rho_0_factor,
@@ -92,8 +90,8 @@ def _diffract(dict):
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         if fw is np:
-            structure_factors = structure_factors[planes][:, fw.newaxis]  # Unsqueeze at axis 1
-            grain_indices = grain_indices[grains][:, fw.newaxis]          # Unsqueeze at axis 1
+            structure_factors = structure_factors[planes][:, fw.newaxis]  
+            grain_indices = grain_indices[grains][:, fw.newaxis]          
             miller_indices = miller_indices[planes]
             phase_index = fw.full((G0_xyz.shape[0],), i)[:, fw.newaxis] 
             times = times[:,fw.newaxis]
@@ -118,16 +116,12 @@ def _diffract(dict):
     polarization_factors = polarization(beam,K_out_xyz)
 
     if fw is np:
-        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].astype(int)],peaks[:,6].astype(int))    
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].astype(int)],peaks[:,6].astype(int))  
+        peaks = fw.concatenate((peaks,Gxyz,K_out_xyz,Sources_xyz,lorentz_factors[:,fw.newaxis],polarization_factors[:,fw.newaxis]),axis=1)  
     else:
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6].int())
+        peaks = fw.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
 
-    zd_yd_angle = detector.get_intersection(K_out_xyz,Sources_xyz)
-    # Concatenate new columns
-    if fw is np:
-        peaks = fw.concatenate((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors[:,fw.newaxis],polarization_factors[:,fw.newaxis]),axis=1)
-    else:
-        peaks = fw.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,zd_yd_angle,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
 
     """
         Column names of peaks are
@@ -142,9 +136,6 @@ def _diffract(dict):
         8: 'G0_y'               18: 'Source_z'
         9: 'G0_z'               19: 'zd'           
     """
-
-    # Filter out peaks not hitting the detector
-    peaks = peaks[detector.contains(peaks[:,19], peaks[:,20])]
 
     # Filter out tets not illuminated
     peaks = peaks[peaks[:,17] < (beam.vertices[:, 1].max())]  
@@ -224,11 +215,9 @@ class Polycrystal:
     def diffract(
         self,
         beam,
-        detector,
         rigid_body_motion,
         min_bragg_angle=0,
-        max_bragg_angle=None,
-        number_of_frames=1,
+        max_bragg_angle=90,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -264,16 +253,13 @@ class Polycrystal:
 
         #beam.wave_vector = fw.array(beam.wave_vector, dtype=fw.float32)
 
-        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
-            detector, beam, min_bragg_angle, max_bragg_angle
-        )
+        #min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
             phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle)
 
         args = {
                     "beam": beam,
-                    "detector": detector,
                     "rigid_body_motion": rigid_body_motion,
                     "phases": self.phases,
                     "espherecentroids": self.mesh_lab.espherecentroids,
@@ -284,15 +270,7 @@ class Polycrystal:
 
         peaks = _diffract(args)
 
-        if fw is np:
-            bin_edges = fw.linspace(0, 1,number_of_frames + 1)
-            frames = fw.digitize(peaks[:,6], bin_edges)
-            frames = frames[:,fw.newaxis]-1
-            peaks = fw.concatenate((peaks, frames), axis=1)      
-        else:
-            bin_edges = fw.linspace(0, 1, steps=number_of_frames + 1)
-            frames = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
-            peaks = fw.cat((peaks,frames),dim=1)
+
         """
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'yd'
