@@ -15,7 +15,7 @@ Below follows a detailed description of the detector class attributes and functi
 import numpy as np
 from xrd_simulator import utils
 import dill
-from scipy.signal import convolve2d
+from scipy.signal import fftconvolve
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
 from xrd_simulator.cuda import fw
@@ -196,21 +196,24 @@ class Detector:
         return rendered_frames
 
     def _apply_point_spread_function(self, frames):
-
+        # Define the 3x3 Gaussian filter
+        gaussian_kernel = fw.array([[[1, 2, 1],
+                                  [2, 4, 2],
+                                  [1, 2, 1]]], dtype=fw.float32) / 16.0
+        '''
         frames_n = frames.shape[0]
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
             frames_n = frames.shape[0]
 
-        # Define the 3x3 Gaussian filter
-        gaussian_kernel = fw.tensor([[[[1, 2, 1],
-                                  [2, 4, 2],
-                                  [1, 2, 1]]]], dtype=fw.float32) / 16.0
+
         gaussian_kernel = gaussian_kernel.repeat(frames_n,frames_n,1,1)
 
         # Perform the convolution
         with fw.no_grad():
             output = fw.nn.functional.conv2d(frames.unsqueeze(0),weight=gaussian_kernel, padding=1)
+        '''
+        output = fftconvolve(frames,gaussian_kernel, mode="same")
 
         return output
 
