@@ -186,7 +186,7 @@ class Detector:
             # Step 4: Use the new column as a pixel value to be added to each coordinate
             rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
-        rendered_frames = self._apply_point_spread_function(rendered_frames)
+        #rendered_frames = self._apply_point_spread_function(rendered_frames)
 
         # Chose numpy if you want to write the frames as tiffs
         if output_type == 'numpy':
