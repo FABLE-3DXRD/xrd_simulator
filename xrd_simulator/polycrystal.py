@@ -87,6 +87,7 @@ def _diffract(dict):
                 rigid_body_motion.rotation_angle,
             )
 
+
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         if fw is np:
