@@ -5,8 +5,8 @@ for the advanced user, access to these functions may be of interest.
 import numpy as np
 import cupy as cp
 import torch
-from xrd_simulator import utils
-from xrd_simulator.cuda import fw
+from xrd_simulator import utils,cuda
+
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -25,16 +25,11 @@ def get_G(U, B, G_hkl):
 
     """
 
-    if fw is np:
-        U = U.astype(fw.float32)
-        B = B.astype(fw.float32)
-        G_hkl = G_hkl.astype(fw.float32)
-    else:
-        U = fw.asarray(U,dtype=fw.float32)
-        B = fw.asarray(B,dtype=fw.float32)
-        G_hkl = fw.asarray(G_hkl,dtype=fw.float32)
+    U = torch.asarray(U,dtype=torch.float32)
+    B = torch.asarray(B,dtype=torch.float32)
+    G_hkl = torch.asarray(G_hkl,dtype=torch.float32)
         
-    return fw.matmul(fw.matmul(U, B), G_hkl.T)
+    return torch.matmul(torch.matmul(U, B), G_hkl.T)
 
 
 
@@ -96,11 +91,11 @@ def find_solutions_to_tangens_half_angle_equation(
 
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
-        G_0 = G_0[fw.newaxis, :, :]
+        G_0 = G_0[torch.newaxis, :, :]
 
     # Compute rho_0 and rho_2
-    rho_0 = fw.matmul(rho_0_factor, G_0)
-    rho_2 = fw.matmul(rho_2_factor, G_0) + fw.sum(G_0**2, axis=1) / 2.0
+    rho_0 = torch.matmul(rho_0_factor, G_0)
+    rho_2 = torch.matmul(rho_2_factor, G_0) + torch.sum(G_0**2, axis=1) / 2.0
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
 
@@ -109,14 +104,14 @@ def find_solutions_to_tangens_half_angle_equation(
     denominator[denominator==0] = np.nan
 
     # Calculate coefficients for quadratic equation
-    a = fw.divide(
-        fw.matmul(rho_1_factor, G_0),
+    a = torch.divide(
+        torch.matmul(rho_1_factor, G_0),
         denominator,
-        out=fw.full_like(rho_0, np.nan)
+        out=torch.full_like(rho_0, np.nan)
     )
 
-    b = fw.divide(
-        numerator, denominator, out=fw.full_like(rho_0, np.nan)
+    b = torch.divide(
+        numerator, denominator, out=torch.full_like(rho_0, np.nan)
     )
 
     # Clean up unnecessary variables
@@ -132,23 +127,23 @@ def find_solutions_to_tangens_half_angle_equation(
     # discriminant[discriminant>10] = np.nan 
 
     # Calculate solutions for s
-    s1 = -a + fw.sqrt(discriminant)
-    s2 = -a - fw.sqrt(discriminant)
+    s1 = -a + torch.sqrt(discriminant)
+    s2 = -a - torch.sqrt(discriminant)
     '''The bug is above this
     # Clean up discriminant and a
     # del discriminant, a
-    s = fw.concatenate((s1,s2),axis=0)
+    s = torch.concatenate((s1,s2),axis=0)
     # del s1,s2
     # Calculate solutions for t1 and t2
 
-    t = 2 * fw.arctan(s) / delta_omega
+    t = 2 * torch.arctan(s) / delta_omega
     # del s,delta_omega
     # Filter solutions within range [0, 1]
-    valid_t_indices = fw.logical_and(t >= 0, t <= 1)
+    valid_t_indices = torch.logical_and(t >= 0, t <= 1)
 
 
     # del t
-    peak_index = fw.argwhere(valid_t_indices)
+    peak_index = torch.argwhere(valid_t_indices)
    # peak_index = peak_index % G_0.shape[0]
     # del valid_t_indices
     grains = peak_index[:, 0]
@@ -157,23 +152,20 @@ def find_solutions_to_tangens_half_angle_equation(
     times = t[grains,planes]
     '''
 
-    t1 = 2 * fw.arctan(s1) / delta_omega
-    indices_t1 = fw.argwhere(fw.logical_and(t1 >= 0, t1 <= 1))
+    t1 = 2 * torch.arctan(s1) / delta_omega
+    indices_t1 = torch.argwhere(torch.logical_and(t1 >= 0, t1 <= 1))
     values_t1 = t1[indices_t1[:,0], indices_t1[:,1]]
 
-    t2 = 2 * fw.arctan(s2) / delta_omega
-    indices_t2 = fw.argwhere(fw.logical_and(t2 >= 0, t2 <= 1))
+    t2 = 2 * torch.arctan(s2) / delta_omega
+    indices_t2 = torch.argwhere(torch.logical_and(t2 >= 0, t2 <= 1))
     values_t2 = t2[indices_t2[:,0], indices_t2[:,1]]
 
-    peak_index = fw.concatenate((indices_t1, indices_t2), axis=0)
-    times = fw.concatenate((values_t1, values_t2), axis=0)
+    peak_index = torch.concatenate((indices_t1, indices_t2), axis=0)
+    times = torch.concatenate((values_t1, values_t2), axis=0)
 
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
 
-    if fw is np:
-        G_0 = fw.transpose(G_0,(0,2,1))
-    else:
-        G_0 = fw.transpose(G_0,2,1)    
+    G_0 = torch.transpose(G_0,2,1)    
     G = G_0[grains, planes]
     return grains, planes, times, G

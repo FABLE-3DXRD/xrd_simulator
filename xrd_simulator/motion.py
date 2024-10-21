@@ -12,11 +12,8 @@ and save the motion to disc:
 Below follows a detailed description of the RigidBodyMotion class attributes and functions.
 
 """
-import numpy as np
 import dill
-from xrd_simulator.cuda import fw
-if fw != np:
-    fw.array = fw.tensor
+import torch
 
 class RigidBodyMotion():
     """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
@@ -46,13 +43,13 @@ class RigidBodyMotion():
 
     """
 
-    def __init__(self, rotation_axis, rotation_angle, translation, origin=fw.zeros((3,))):
-        assert rotation_angle < fw.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
+    def __init__(self, rotation_axis, rotation_angle, translation, origin=torch.zeros((3,))):
+        assert rotation_angle < torch.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
-        self.rotation_axis = fw.array(rotation_axis,dtype=fw.float32)
-        self.rotation_angle = fw.array(rotation_angle,dtype=fw.float32)
-        self.translation = fw.array(translation,dtype=fw.float32)
-        self.origin = fw.array(origin,dtype=fw.float32)
+        self.rotation_axis = torch.tensor(rotation_axis,dtype=torch.float32)
+        self.rotation_angle = torch.tensor(rotation_angle,dtype=torch.float32)
+        self.translation = torch.tensor(translation,dtype=torch.float32)
+        self.origin = torch.tensor(origin,dtype=torch.float32)
 
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
@@ -75,28 +72,27 @@ class RigidBodyMotion():
             centered_vectors = vectors - origin
             centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
             rotated_vectors = centered_rotated_vectors + origin
-            return fw.squeeze(rotated_vectors + translation * time)
+            return torch.squeeze(rotated_vectors + translation * time)
         
         elif len(vectors.shape) == 2:
-            translation = fw.array(self.translation.reshape(1,3))
+            translation = torch.tensor(self.translation.reshape(1,3))
             origin = self.origin.reshape(1,3)   
             centered_vectors = vectors - origin
             centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
             rotated_vectors = centered_rotated_vectors + origin
             if isinstance(time,(int,float)):
                 return rotated_vectors + translation * time
-            if fw is np:
-                return fw.squeeze(rotated_vectors + translation * fw.array(time)[:,fw.newaxis])
-            else:
-                return fw.squeeze(rotated_vectors + translation * time.unsqueeze(1))
+
+
+            return torch.squeeze(rotated_vectors + translation * time.unsqueeze(1))
         
         elif len(vectors.shape) == 3:
             translation = self.translation.reshape(1,3)
             origin = self.origin.reshape(1,3)
             centered_vectors = vectors - origin
-            centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * fw.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
+            centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * torch.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
             rotated_vectors = centered_rotated_vectors + origin       
-            return fw.squeeze(rotated_vectors + translation * fw.array(time)[:,fw.newaxis,fw.newaxis])
+            return torch.squeeze(rotated_vectors + translation * torch.tensor(time)[:,torch.newaxis,torch.newaxis])
     
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
@@ -193,23 +189,20 @@ class _RodriguezRotator(object):
     """
 
     def __init__(self, rotation_axis):
-        rotation_axis=fw.array(rotation_axis,dtype=fw.float32)
-        assert fw.allclose(fw.linalg.norm(rotation_axis),
-                           fw.array(1.)), "The rotation axis must be length unity."
+        rotation_axis=torch.tensor(rotation_axis,dtype=torch.float32)
+        assert torch.allclose(torch.linalg.norm(rotation_axis),
+                           torch.tensor(1.)), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
         rx, ry, rz = self.rotation_axis
-        self.K = fw.array([[0, -rz, ry],
+        self.K = torch.tensor([[0, -rz, ry],
                            [rz, 0, -rx],
                            [-ry, rx, 0]])
         self.K2 = self.K@self.K
 
     def get_rotation_matrix(self, rotation_angle):
-        if fw is np:
-            rotation_matrix = fw.eye(3, 3)[:,:,fw.newaxis] + fw.sin(rotation_angle) * self.K[:,:,fw.newaxis] + (1 - fw.cos(rotation_angle)) * self.K2[:,:,fw.newaxis]
-            rotation_matrix = rotation_matrix.transpose(2,1,0)
-        else:
-            rotation_matrix = fw.eye(3, dtype=self.K.dtype, device=self.K.device).unsqueeze(2)+fw.sin(rotation_angle) * self.K.unsqueeze(2) + (1 - fw.cos(rotation_angle)) * self.K2.unsqueeze(2)
-            rotation_matrix = rotation_matrix.permute(2,1,0).float()
+
+        rotation_matrix = torch.eye(3, dtype=self.K.dtype, device=self.K.device).unsqueeze(2)+torch.sin(rotation_angle) * self.K.unsqueeze(2) + (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
+        rotation_matrix = rotation_matrix.permute(2,1,0).float()
         return rotation_matrix
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
@@ -224,7 +217,7 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-#        vectors = fw.array(vectors,dtype=fw.float32)
+#        vectors = torch.tensor(vectors,dtype=torch.float32)
         if len(vectors.shape)==1:
             vectors = vectors[None,:]
-        return fw.matmul(R,vectors[:,:,None])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains
+        return torch.matmul(R,vectors[:,:,None])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains

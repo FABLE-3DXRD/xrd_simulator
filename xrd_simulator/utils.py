@@ -36,7 +36,7 @@ import numpy as np
 from numba import njit
 import sys
 import cupy as cp
-from xrd_simulator.cuda import fw
+import xrd_simulator.cuda
 import torch 
 
 
@@ -318,39 +318,26 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-
-    if fw is np:
-        crystal_strain = crystal_strain.astype(np.float32)
-        B0 = B0.astype(np.float32)
-    else:
-        crystal_strain = fw.tensor(crystal_strain, dtype=torch.float32)
-        B0 = fw.tensor(B0, dtype=torch.float32)  
+    crystal_strain = torch.tensor(crystal_strain, dtype=torch.float32)
+    B0 = torch.tensor(B0, dtype=torch.float32)  
 
 
-    C = 2 * crystal_strain + fw.eye(3, dtype=fw.float32)
+    C = 2 * crystal_strain + torch.eye(3, dtype=torch.float32)
 
-    eigen_vals = fw.linalg.eigvalsh(C)
-    if fw.any(eigen_vals< 0):
+    eigen_vals = torch.linalg.eigvalsh(C)
+    if torch.any(eigen_vals< 0):
         raise ValueError(
             "Unfeasible strain tensor with value: "
             + str(_strain_as_vector(crystal_strain))
             + ", will invert the unit cell with negative deformation gradient tensor determinant"
         )
-    
     if C.ndim == 3:
-        if fw is np:
-            F = fw.transpose(fw.linalg.cholesky(C),(0,2,1))
-        else:
-            F = fw.transpose(fw.linalg.cholesky(C),2,1)
+        F = torch.transpose(torch.linalg.cholesky(C),2,1)
     else:
-        if fw is np:
-            F = fw.transpose(fw.linalg.cholesky(C),(1,0,2))        
-        else:
-            F = fw.transpose(fw.linalg.cholesky(C),1,0)
+        F = torch.transpose(torch.linalg.cholesky(C),1,0)
 
-    B = fw.matmul(fw.linalg.inv(F),B0)
-    B = B.cpu() if fw == torch else B
-        
+    B = torch.matmul(torch.linalg.inv(F),B0)
+    B = B.cpu()        
     return B
 
 

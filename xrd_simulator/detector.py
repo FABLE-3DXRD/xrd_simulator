@@ -11,16 +11,11 @@ Here is a minimal example of how to instantiate a detector object and save it to
 Below follows a detailed description of the detector class attributes and functions.
 
 """
-
+import xrd_simulator.cuda
 import numpy as np
 from xrd_simulator import utils
 import dill
-from scipy.signal import fftconvolve
-from multiprocessing import Pool
-import matplotlib.pyplot as plt
-from xrd_simulator.cuda import fw
-if fw != np:
-    fw.array = fw.tensor
+import torch
 
 class Detector:
     """Represents a rectangular 2D area detector.
@@ -59,20 +54,20 @@ class Detector:
     def __init__(
         self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
     ):
-        self.det_corner_0 = fw.array(det_corner_0)
-        self.det_corner_1 = fw.array(det_corner_1)
-        self.det_corner_2 = fw.array(det_corner_2)                
+        self.det_corner_0 = torch.tensor(det_corner_0)
+        self.det_corner_1 = torch.tensor(det_corner_1)
+        self.det_corner_2 = torch.tensor(det_corner_2)                
 
-        self.pixel_size_z = fw.array(pixel_size_z)
-        self.pixel_size_y = fw.array(pixel_size_y)
+        self.pixel_size_z = torch.tensor(pixel_size_z)
+        self.pixel_size_y = torch.tensor(pixel_size_y)
 
-        self.zmax = fw.linalg.norm(self.det_corner_2 - self.det_corner_0)
-        self.ymax = fw.linalg.norm(self.det_corner_1 - self.det_corner_0)
+        self.zmax = torch.linalg.norm(self.det_corner_2 - self.det_corner_0)
+        self.ymax = torch.linalg.norm(self.det_corner_1 - self.det_corner_0)
 
         self.zdhat = (self.det_corner_2 - self.det_corner_0 ) / self.zmax
         self.ydhat = (self.det_corner_1 - self.det_corner_0 ) / self.ymax
-        self.normal = fw.linalg.cross(self.zdhat, self.ydhat)
-        self.normal = self.normal / fw.linalg.norm(self.normal)
+        self.normal = torch.linalg.cross(self.zdhat, self.ydhat)
+        self.normal = self.normal / torch.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
         self._point_spread_kernel_shape = (5, 5)
@@ -130,72 +125,43 @@ class Detector:
         # Intersect scattering vectors with detector plane
         zd_yd_angle = self.get_intersection(peaks[:,13:16],peaks[:,16:19])
 
-
-        if fw is np:
-            peaks = fw.concatenate((peaks,zd_yd_angle),axis=1)  
-        else:
-            peaks = fw.cat((peaks,zd_yd_angle),dim=1)
+        peaks = torch.cat((peaks,zd_yd_angle),dim=1)
 
         # Filter out peaks not hitting the detector
         peaks = peaks[self.contains(peaks[:,21], peaks[:,22])]
 
         # Add frame number at the end of the tensor
-        if fw is np:
-            bin_edges = fw.linspace(0, 1,number_of_frames + 1)
-            frames = fw.digitize(peaks[:,6], bin_edges)
-            frames = frames[:,fw.newaxis]-1
-            peaks = fw.concatenate((peaks, frames), axis=1)      
-        else:
-            bin_edges = fw.linspace(0, 1, steps=number_of_frames + 1)
-            frames = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
-            peaks = fw.cat((peaks,frames),dim=1)
+        bin_edges = torch.linspace(0, 1, steps=number_of_frames + 1)
+        frames = torch.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
+        peaks = torch.cat((peaks,frames),dim=1)
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
-        if fw is np:
-            pixel_indices =  fw.concatenate(
-                (((peaks[:, 21])/self.pixel_size_z).reshape(-1, 1),
-                ((peaks[:, 22])/self.pixel_size_y).reshape(-1, 1),
-                peaks[:, 24].reshape(-1, 1)), axis=1).astype(fw.int32)
-            frames_n = np.unique(peaks[:,24]).shape[0]
-            
-        else:
-            pixel_indices = fw.cat(
-                (((peaks[:, 21])/self.pixel_size_z).unsqueeze(1),
-                ((peaks[:, 22])/self.pixel_size_y).unsqueeze(1),
-                peaks[:, 24].unsqueeze(1)), dim=1).to(fw.int32)
-            frames_n = peaks[:,24].unique().shape[0]
+        pixel_indices = torch.cat(
+            (((peaks[:, 21])/self.pixel_size_z).unsqueeze(1),
+            ((peaks[:, 22])/self.pixel_size_y).unsqueeze(1),
+            peaks[:, 24].unsqueeze(1)), dim=1).to(torch.int32)
+        frames_n = peaks[:,24].unique().shape[0]
 
         # Create the future frames as an empty tensor
-        rendered_frames = fw.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
+        rendered_frames = torch.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=torch.float32)
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22] 
         polarization_factors = peaks[:,23]
-        # peaks = peaks.cpu().numpy()
-        # plt.subplot(1,3,1)
-        # plt.scatter(peaks[:,22],peaks[:,5],s=1)
-        # plt.subplot(1,3,2)
-        # plt.scatter(peaks[:,22],peaks[:,22],s=1)
-        # plt.subplot(1,3,3)
-        # plt.scatter(peaks[:,22],peaks[:,23],s=1)
-        # plt.show()
-        relative_intensity = structure_factors*lorentz_factors*polarization_factors
+        relative_intensity = structure_factors*polarization_factors*lorentz_factors
 
         # Turn from lists of peaks to rendered frames
-        if fw is np:
-            fw.add.at(rendered_frames, (pixel_indices[:,2],pixel_indices[:,0],pixel_indices[:,1]), relative_intensity)
-        else:
-            # Step 1: Find unique coordinates and the inverse indices
-            unique_coords, inverse_indices = fw.unique(pixel_indices, dim=0, return_inverse=True)
+        # Step 1: Find unique coordinates and the inverse indices
+        unique_coords, inverse_indices = torch.unique(pixel_indices, dim=0, return_inverse=True)
 
-            # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
-            counts = fw.bincount(inverse_indices,weights=relative_intensity)
+        # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
+        counts = torch.bincount(inverse_indices,weights=relative_intensity)
 
-            # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
-            result = fw.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_frames)
+        # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
+        result = torch.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(rendered_frames)
 
-            # Step 4: Use the new column as a pixel value to be added to each coordinate
-            rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
+        # Step 4: Use the new column as a pixel value to be added to each coordinate
+        rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
         #rendered_frames = self._apply_point_spread_function(rendered_frames)
 
@@ -208,9 +174,9 @@ class Detector:
 
     def _apply_point_spread_function(self, frames):
         # Define the 3x3 Gaussian filter
-        gaussian_kernel = fw.array([[[1, 2, 1],
+        gaussian_kernel = torch.tensor([[[1, 2, 1],
                                   [2, 4, 2],
-                                  [1, 2, 1]]], dtype=fw.float32) / 16.0
+                                  [1, 2, 1]]], dtype=torch.float32) / 16.0
         '''
         frames_n = frames.shape[0]
         if frames.ndim == 2:
@@ -221,8 +187,8 @@ class Detector:
         gaussian_kernel = gaussian_kernel.repeat(frames_n,frames_n,1,1)
 
         # Perform the convolution
-        with fw.no_grad():
-            output = fw.nn.functional.conv2d(frames.unsqueeze(0),weight=gaussian_kernel, padding=1)
+        with torch.no_grad():
+            output = torch.nn.functional.conv2d(frames.unsqueeze(0),weight=gaussian_kernel, padding=1)
         '''
         output = fftconvolve(frames,gaussian_kernel, mode="same")
 
@@ -234,14 +200,14 @@ class Detector:
         incoming_wavevector,
         pixel_zd_index,
         pixel_yd_index,
-        scattering_origin=np.array([0, 0, 0]),
+        scattering_origin=torch.tensor([0, 0, 0]),
     ):
         """Compute bragg angle and azimuth angle for a detector pixel index.
 
         Args:
             pixel_zd_index (:obj:`float`): Coordinate in microns along detector zd axis.
             pixel_yd_index (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.tensor([0, 0, 0]).
 
         Returns:
             (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
@@ -253,7 +219,7 @@ class Detector:
             incoming_wavevector,
             pixel_zd_coord,
             pixel_yd_coord,
-            scattering_origin=np.array([0, 0, 0]),
+            scattering_origin=scattering_origin,
         )
         return theta, eta
 
@@ -269,7 +235,7 @@ class Detector:
         Args:
             pixel_zd_coord (:obj:`float`): Coordinate in microns along detector zd axis.
             pixel_yd_coord (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.tensor([0, 0, 0]).
 
         Returns:
             (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
@@ -300,26 +266,18 @@ class Detector:
             (:obj:`tuple`) zd, yd in detector plane coordinates.
 
         """
-        s = fw.matmul(self.det_corner_0 - source_point,self.normal) / fw.matmul(ray_direction,self.normal)
-        if fw is np:
-            intersection = source_point + ray_direction * s[:, fw.newaxis]
-        else:
-            intersection = source_point + ray_direction * s.unsqueeze(1)
-        zd = fw.matmul(intersection - self.det_corner_0, self.zdhat)
-        yd = fw.matmul(intersection - self.det_corner_0, self.ydhat)
+        s = torch.matmul(self.det_corner_0 - source_point,self.normal) / torch.matmul(ray_direction,self.normal)
+
+        intersection = source_point + ray_direction * s.unsqueeze(1)
+        zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
+        yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
 
         # Calculate incident angle
-        if fw is np:
-            ray_dir_norm = ray_direction / fw.linalg.norm(ray_direction,axis=1)[:,fw.newaxis]
-        else:
-            ray_dir_norm = ray_direction / fw.norm(ray_direction, dim=1).unsqueeze(1)
-        normal_norm = self.normal / fw.linalg.norm(self.normal)
-
-        cosine_theta = fw.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
-        incident_angle_deg = fw.arccos(cosine_theta) * (180 / fw.pi)
-        if fw is np:
-            return fw.array([zd, yd,incident_angle_deg]).T
-        return fw.stack((zd, yd, incident_angle_deg), dim=1)
+        ray_dir_norm = ray_direction / torch.norm(ray_direction, dim=1).unsqueeze(1)
+        normal_norm = self.normal / torch.linalg.norm(self.normal)
+        cosine_theta = torch.matmul(ray_dir_norm, -normal_norm) # The detector normal by default goes against the beam
+        incident_angle_deg = torch.arccos(cosine_theta) * (180 / torch.pi)
+        return torch.stack((zd, yd, incident_angle_deg), dim=1)
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -387,7 +345,7 @@ class Detector:
         fourth_corner_of_detector = self.det_corner_2 + (
             self.det_corner_1 - self.det_corner_0[:]
         )
-        geom_mat = fw.zeros((3, 4))
+        geom_mat = torch.zeros((3, 4))
         for i, det_corner in enumerate(
             [
                 self.det_corner_0,
@@ -397,9 +355,9 @@ class Detector:
             ]
         ):
             geom_mat[:, i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat / fw.linalg.norm(geom_mat, axis=0)
-        cone_opening = fw.arccos(fw.matmul(normalised_local_coord_geom_mat.T, k / fw.linalg.norm(k)))  # These are two time Bragg angles
-        return fw.max(cone_opening) / 2.0
+        normalised_local_coord_geom_mat = geom_mat / torch.linalg.norm(geom_mat, axis=0)
+        cone_opening = torch.arccos(torch.matmul(normalised_local_coord_geom_mat.T, k / torch.linalg.norm(k)))  # These are two time Bragg angles
+        return torch.max(cone_opening) / 2.0
 
     def save(self, path):
         """Save the detector object to disc (via pickling). Change the arrays formats to np first.
@@ -408,20 +366,20 @@ class Detector:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
 
         """
-        self.det_corner_0 = np.array(self.det_corner_0)
-        self.det_corner_1 = np.array(self.det_corner_1)
-        self.det_corner_2 = np.array(self.det_corner_2) 
+        self.det_corner_0 = np.tensor(self.det_corner_0)
+        self.det_corner_1 = np.tensor(self.det_corner_1)
+        self.det_corner_2 = np.tensor(self.det_corner_2) 
 
-        self.pixel_size_z = np.array(self.pixel_size_z)
-        self.pixel_size_y = np.array(self.pixel_size_y)
+        self.pixel_size_z = np.tensor(self.pixel_size_z)
+        self.pixel_size_y = np.tensor(self.pixel_size_y)
 
-        self.zmax = np.array(self.zmax)
-        self.ymax = np.array(self.ymax)
+        self.zmax = np.tensor(self.zmax)
+        self.ymax = np.tensor(self.ymax)
 
-        self.zdhat = np.array(self.zdhat)
-        self.ydhat = np.array(self.ydhat)
-        self.normal = np.array(self.normal)
-        self.pixel_coordinates = np.array(self.pixel_coordinates)
+        self.zdhat = np.tensor(self.zdhat)
+        self.ydhat = np.tensor(self.ydhat)
+        self.normal = np.tensor(self.normal)
+        self.pixel_coordinates = np.tensor(self.pixel_coordinates)
 
 
         if not path.endswith(".det"):
@@ -446,19 +404,16 @@ class Detector:
             raise ValueError("The loaded motion file must end with .det")
         with open(path, "rb") as f:
             loaded=dill.load(f)
-            if fw is np:
-                pass
-            else:
-                loaded.normal = fw.array(loaded.normal, dtype=fw.float32)
-                loaded.det_corner_0 = fw.array(loaded.det_corner_0, dtype=fw.float32)
-                loaded.det_corner_1 = fw.array(loaded.det_corner_1, dtype=fw.float32)
-                loaded.det_corner_2 = fw.array(loaded.det_corner_2, dtype=fw.float32)
-                loaded.zdhat = fw.array(loaded.zdhat, dtype=fw.float32)
-                loaded.ydhat = fw.array(loaded.ydhat, dtype=fw.float32)
-                loaded.zmax = fw.array(loaded.zmax, dtype=fw.float32)
-                loaded.ymax = fw.array(loaded.ymax, dtype=fw.float32)
-                loaded.pixel_size_z = fw.array(loaded.pixel_size_z)
-                loaded.pixel_size_y = fw.array(loaded.pixel_size_y)
+            loaded.normal = torch.tensor(loaded.normal, dtype=torch.float32)
+            loaded.det_corner_0 = torch.tensor(loaded.det_corner_0, dtype=torch.float32)
+            loaded.det_corner_1 = torch.tensor(loaded.det_corner_1, dtype=torch.float32)
+            loaded.det_corner_2 = torch.tensor(loaded.det_corner_2, dtype=torch.float32)
+            loaded.zdhat = torch.tensor(loaded.zdhat, dtype=torch.float32)
+            loaded.ydhat = torch.tensor(loaded.ydhat, dtype=torch.float32)
+            loaded.zmax = torch.tensor(loaded.zmax, dtype=torch.float32)
+            loaded.ymax = torch.tensor(loaded.ymax, dtype=torch.float32)
+            loaded.pixel_size_z = torch.tensor(loaded.pixel_size_z)
+            loaded.pixel_size_y = torch.tensor(loaded.pixel_size_y)
             return loaded
 
     def _get_point_spread_function_kernel(self):
@@ -482,11 +437,11 @@ class Detector:
         return kernel / np.sum(kernel)
 
     def _get_pixel_coordinates(self):
-        zds = fw.arange(0, self.zmax, self.pixel_size_z)
-        yds = fw.arange(0, self.ymax, self.pixel_size_y)
-        Z, Y = fw.meshgrid(zds, yds, indexing="ij")
-        Zds = fw.zeros((len(zds), len(yds), 3))
-        Yds = fw.zeros((len(zds), len(yds), 3))
+        zds = torch.arange(0, self.zmax, self.pixel_size_z)
+        yds = torch.arange(0, self.ymax, self.pixel_size_y)
+        Z, Y = torch.meshgrid(zds, yds, indexing="ij")
+        Zds = torch.zeros((len(zds), len(yds), 3))
+        Yds = torch.zeros((len(zds), len(yds), 3))
         for i in range(3):
             Zds[:, :, i] = Z
             Yds[:, :, i] = Y

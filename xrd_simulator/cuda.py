@@ -1,17 +1,14 @@
 import torch
-import numpy as np
-import pandas as pd
 # Default to False
-fw = np
 
 # ===============================================
+torch.set_default_device('cpu')
 try:
     # Check if CUDA is available
     if torch.cuda.is_available():
         print("CUDA is available and GPUs are found.")
         gpu = input("Do you want to run in GPU? [y/n]").strip().lower() or 'y'
         if gpu == 'y':
-            fw = torch
             torch.set_default_device('cuda')
             print("Running in GPU...") 
         else:
