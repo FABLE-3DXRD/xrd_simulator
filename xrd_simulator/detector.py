@@ -129,6 +129,8 @@ class Detector:
         """
         # Intersect scattering vectors with detector plane
         zd_yd_angle = self.get_intersection(peaks[:,13:16],peaks[:,16:19])
+
+
         if fw is np:
             peaks = fw.concatenate((peaks,zd_yd_angle),axis=1)  
         else:
@@ -148,6 +150,7 @@ class Detector:
             frames = fw.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
             peaks = fw.cat((peaks,frames),dim=1)
 
+        # Create a 3 colum matrix with X,Y and frame coordinates for each peak
         if fw is np:
             pixel_indices =  fw.concatenate(
                 (((peaks[:, 21])/self.pixel_size_z).reshape(-1, 1),
@@ -166,8 +169,16 @@ class Detector:
         rendered_frames = fw.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=fw.float32)
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
-        lorentz_factors = peaks[:,22]
+        lorentz_factors = peaks[:,22] 
         polarization_factors = peaks[:,23]
+        # peaks = peaks.cpu().numpy()
+        # plt.subplot(1,3,1)
+        # plt.scatter(peaks[:,22],peaks[:,5],s=1)
+        # plt.subplot(1,3,2)
+        # plt.scatter(peaks[:,22],peaks[:,22],s=1)
+        # plt.subplot(1,3,3)
+        # plt.scatter(peaks[:,22],peaks[:,23],s=1)
+        # plt.show()
         relative_intensity = structure_factors*lorentz_factors*polarization_factors
 
         # Turn from lists of peaks to rendered frames
