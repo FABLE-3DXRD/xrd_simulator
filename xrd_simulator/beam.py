@@ -12,10 +12,7 @@ import numpy as np
 import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
-from xrd_simulator.cuda import fw
-if fw != np:
-    fw.array = fw.tensor
-
+import torch
 
 class Beam:
     """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.
@@ -89,12 +86,12 @@ class Beam:
 
         """
 
-        normal_distances = fw.matmul(self.halfspaces[:,:3],points)
+        normal_distances = torch.matmul(self.halfspaces[:,:3],points)
         if len(points.shape) == 1:
-            return fw.all(normal_distances + self.halfspaces[:, 3] < 0)
+            return torch.all(normal_distances + self.halfspaces[:, 3] < 0)
         else:
             return (
-                fw.sum(
+                torch.sum(
                     (
                         normal_distances
                         + self.halfspaces[:, 3].reshape(self.halfspaces.shape[0], 1)
@@ -178,13 +175,10 @@ class Beam:
             raise ValueError("The loaded file must end with .beam")
         with open(path, "rb") as f:
             loaded = dill.load(f)
-            if fw is np:
-                pass
-            else:
-                loaded.wave_vector = fw.array(loaded.wave_vector, dtype=fw.float32)
-                loaded.vertices = fw.array(loaded.vertices, dtype=fw.float32)
-                loaded.polarization_vector = fw.array(loaded.polarization_vector, dtype=fw.float32)
-                loaded.halfspaces = fw.array(loaded.halfspaces, dtype=fw.float32)
+            loaded.wave_vector = torch.tensor(loaded.wave_vector, dtype=torch.float32)
+            loaded.vertices = torch.tensor(loaded.vertices, dtype=torch.float32)
+            loaded.polarization_vector = torch.tensor(loaded.polarization_vector, dtype=torch.float32)
+            loaded.halfspaces = torch.tensor(loaded.halfspaces, dtype=torch.float32)
             return loaded
 
 
