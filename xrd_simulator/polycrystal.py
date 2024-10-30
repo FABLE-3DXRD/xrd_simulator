@@ -46,7 +46,7 @@ def _diffract(dict):
     beam = dict["beam"]
     rigid_body_motion = dict["rigid_body_motion"]
     phases = dict["phases"]
-    espherecentroids = torch.tensor(dict["espherecentroids"])
+    espherecentroids = dict["espherecentroids"]
     orientation_lab = dict["orientation_lab"]
     eB = dict["eB"]
     element_phase_map = dict["element_phase_map"]
@@ -399,7 +399,7 @@ class Polycrystal:
                 raise ValueError("element_phase_map not set for multiphase polycrystal")
             element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
         else:
-            element_phase_map = np.tensor(element_phase_map)
+            element_phase_map = torch.tensor(element_phase_map)
         return element_phase_map, phases
 
     def _instantiate_eB(
@@ -417,7 +417,7 @@ class Polycrystal:
         B0s = np.zeros((len(phases), 3, 3))
         for i, phase in enumerate(phases):
             B0s[i] = tools.form_b_mat(phase.unit_cell)
-            grain_indices = np.where(np.tensor(element_phase_map) == i)[0]
+            grain_indices = np.where(torch.tensor(element_phase_map) == i)[0]
             _eB[grain_indices] = utils.lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )

@@ -49,7 +49,7 @@ class RigidBodyMotion():
         self.rotation_axis = torch.tensor(rotation_axis,dtype=torch.float32)
         self.rotation_angle = torch.tensor(rotation_angle,dtype=torch.float32)
         self.translation = torch.tensor(translation,dtype=torch.float32)
-        self.origin = torch.tensor(origin,dtype=torch.float32)
+        self.origin = origin
 
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
@@ -75,7 +75,7 @@ class RigidBodyMotion():
             return torch.squeeze(rotated_vectors + translation * time)
         
         elif len(vectors.shape) == 2:
-            translation = torch.tensor(self.translation.reshape(1,3))
+            translation = self.translation.reshape(1,3)
             origin = self.origin.reshape(1,3)   
             centered_vectors = vectors - origin
             centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
