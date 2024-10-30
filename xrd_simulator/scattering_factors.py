@@ -6,7 +6,7 @@ def lorentz(beam,rigid_body_motion,K_out_xyz):
 
     k = beam.wave_vector
     kp = K_out_xyz
-    rot_axis = torch.tensor(rigid_body_motion.rotation_axis,dtype=torch.float32)
+    rot_axis = rigid_body_motion.rotation_axis
     k_kp_norm = torch.matmul(k,kp.T) / (torch.linalg.norm(k,axis=0) * torch.linalg.norm(kp,axis=1))
     theta = torch.arccos(k_kp_norm) / 2.0
     korthogonal = kp - k_kp_norm.reshape(-1,1)*k.reshape(1,3)

@@ -148,7 +148,7 @@ class Detector:
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22] 
         polarization_factors = peaks[:,23]
-        relative_intensity = structure_factors*polarization_factors*lorentz_factors
+        relative_intensity = structure_factors*polarization_factors#*lorentz_factors
 
         # Turn from lists of peaks to rendered frames
         # Step 1: Find unique coordinates and the inverse indices
@@ -207,7 +207,7 @@ class Detector:
         Args:
             pixel_zd_index (:obj:`float`): Coordinate in microns along detector zd axis.
             pixel_yd_index (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.tensor([0, 0, 0]).
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to torch.tensor([0, 0, 0]).
 
         Returns:
             (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
@@ -235,7 +235,7 @@ class Detector:
         Args:
             pixel_zd_coord (:obj:`float`): Coordinate in microns along detector zd axis.
             pixel_yd_coord (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.tensor([0, 0, 0]).
+            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to torch.tensor([0, 0, 0]).
 
         Returns:
             (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
@@ -366,20 +366,20 @@ class Detector:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
 
         """
-        self.det_corner_0 = np.tensor(self.det_corner_0)
-        self.det_corner_1 = np.tensor(self.det_corner_1)
-        self.det_corner_2 = np.tensor(self.det_corner_2) 
+        self.det_corner_0 = torch.tensor(self.det_corner_0)
+        self.det_corner_1 = torch.tensor(self.det_corner_1)
+        self.det_corner_2 = torch.tensor(self.det_corner_2) 
 
-        self.pixel_size_z = np.tensor(self.pixel_size_z)
-        self.pixel_size_y = np.tensor(self.pixel_size_y)
+        self.pixel_size_z = torch.tensor(self.pixel_size_z)
+        self.pixel_size_y = torch.tensor(self.pixel_size_y)
 
-        self.zmax = np.tensor(self.zmax)
-        self.ymax = np.tensor(self.ymax)
+        self.zmax = torch.tensor(self.zmax)
+        self.ymax = torch.tensor(self.ymax)
 
-        self.zdhat = np.tensor(self.zdhat)
-        self.ydhat = np.tensor(self.ydhat)
-        self.normal = np.tensor(self.normal)
-        self.pixel_coordinates = np.tensor(self.pixel_coordinates)
+        self.zdhat = torch.tensor(self.zdhat)
+        self.ydhat = torch.tensor(self.ydhat)
+        self.normal = torch.tensor(self.normal)
+        self.pixel_coordinates = torch.tensor(self.pixel_coordinates)
 
 
         if not path.endswith(".det"):
