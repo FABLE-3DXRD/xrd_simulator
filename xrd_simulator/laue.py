@@ -99,7 +99,7 @@ def find_solutions_to_tangens_half_angle_equation(
     denominator = rho_2 - rho_0
     numerator = rho_2 + rho_0
 
-
+    del rho_2
     #Remove 0 denominators
     denominator[denominator==0] = np.nan
 
@@ -115,12 +115,13 @@ def find_solutions_to_tangens_half_angle_equation(
     )
 
     # Clean up unnecessary variables
-    # del denominator, numerator, rho_0
+
+    del denominator, numerator, rho_0
 
     # Calculate discriminant
 
     discriminant = a**2 - b
-    # del b
+    del b
 
     # Handle cases where discriminant is negative
     discriminant[discriminant<0] = np.nan
@@ -129,43 +130,26 @@ def find_solutions_to_tangens_half_angle_equation(
     # Calculate solutions for s
     s1 = -a + torch.sqrt(discriminant)
     s2 = -a - torch.sqrt(discriminant)
-    '''The bug is above this
-    # Clean up discriminant and a
-    # del discriminant, a
-    s = torch.concatenate((s1,s2),axis=0)
-    # del s1,s2
-    # Calculate solutions for t1 and t2
-
-    t = 2 * torch.arctan(s) / delta_omega
-    # del s,delta_omega
-    # Filter solutions within range [0, 1]
-    valid_t_indices = torch.logical_and(t >= 0, t <= 1)
-
-
-    # del t
-    peak_index = torch.argwhere(valid_t_indices)
-   # peak_index = peak_index % G_0.shape[0]
-    # del valid_t_indices
-    grains = peak_index[:, 0]
-    planes = peak_index[:, 1]
-
-    times = t[grains,planes]
-    '''
-
+    del a, discriminant
     t1 = 2 * torch.arctan(s1) / delta_omega
+    del s1
     indices_t1 = torch.argwhere(torch.logical_and(t1 >= 0, t1 <= 1))
     values_t1 = t1[indices_t1[:,0], indices_t1[:,1]]
 
+    del t1
     t2 = 2 * torch.arctan(s2) / delta_omega
+    del s2, delta_omega
     indices_t2 = torch.argwhere(torch.logical_and(t2 >= 0, t2 <= 1))
     values_t2 = t2[indices_t2[:,0], indices_t2[:,1]]
-
+    del t2
     peak_index = torch.concatenate((indices_t1, indices_t2), axis=0)
+    del indices_t1,indices_t2
     times = torch.concatenate((values_t1, values_t2), axis=0)
-
+    del values_t1,values_t2
     grains = peak_index[:, 0]
     planes = peak_index[:, 1]
-
+    del peak_index
     G_0 = torch.transpose(G_0,2,1)    
     G = G_0[grains, planes]
+
     return grains, planes, times, G

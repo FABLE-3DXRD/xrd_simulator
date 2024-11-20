@@ -68,7 +68,7 @@ def _diffract(dict):
         structure_factors = torch.sum(torch.tensor(phase.structure_factors, dtype=torch.float32)**2,axis=1)
         miller_indices = miller_indices[structure_factors>1e-6]
         structure_factors = structure_factors[structure_factors>1e-6]
-
+        
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_indices], eB[grain_indices], miller_indices)
         
@@ -84,6 +84,7 @@ def _diffract(dict):
 
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
         #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
+        del G_0
 
         structure_factors = structure_factors[planes].unsqueeze(1)
         grain_indices = grain_indices[grains].unsqueeze(1)
@@ -92,6 +93,7 @@ def _diffract(dict):
         times = times.unsqueeze(1)
         peaks_ith_phase = torch.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
         peaks = torch.cat([peaks, peaks_ith_phase], axis=0)
+
 
     # Rotated G-vectors
     Gxyz = rigid_body_motion.rotate(peaks[:,7:10], -peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.

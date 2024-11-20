@@ -3,6 +3,7 @@ import torch
 
 # ===============================================
 torch.set_default_device('cpu')
+torch.no_grad()
 try:
     # Check if CUDA is available
     if torch.cuda.is_available():

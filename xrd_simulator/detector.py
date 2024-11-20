@@ -129,7 +129,7 @@ class Detector:
 
         # Filter out peaks not hitting the detector
         peaks = peaks[self.contains(peaks[:,21], peaks[:,22])]
-
+    
         # Add frame number at the end of the tensor
         bin_edges = torch.linspace(0, 1, steps=number_of_frames + 1)
         frames = torch.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
