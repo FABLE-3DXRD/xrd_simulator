@@ -35,7 +35,6 @@ from scipy.spatial.transform import Rotation
 import numpy as np
 from numba import njit
 import sys
-import cupy as cp
 import xrd_simulator.cuda
 import torch 
 
@@ -508,7 +507,7 @@ def list_vars(vars):
     # Get GPU variable sizes
     gpu_var_sizes = []
     for name, value in vars.items():
-        if isinstance(value, cp.ndarray):
+        if torch.is_tensor(value):
             gpu_var_sizes.append((name, value.nbytes))
     
     gpu_var_sizes = sorted(gpu_var_sizes, key=lambda x: -x[1])
