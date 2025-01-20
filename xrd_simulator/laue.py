@@ -101,17 +101,17 @@ def find_solutions_to_tangens_half_angle_equation(
 
     del rho_2
     #Remove 0 denominators
-    denominator[denominator==0] = np.nan
+    denominator[denominator==0] = torch.nan
 
     # Calculate coefficients for quadratic equation
     a = torch.divide(
         torch.matmul(rho_1_factor, G_0),
         denominator,
-        out=torch.full_like(rho_0, np.nan)
+        out=torch.full_like(rho_0, torch.nan)
     )
 
     b = torch.divide(
-        numerator, denominator, out=torch.full_like(rho_0, np.nan)
+        numerator, denominator, out=torch.full_like(rho_0, torch.nan)
     )
 
     # Clean up unnecessary variables
@@ -124,8 +124,8 @@ def find_solutions_to_tangens_half_angle_equation(
     del b
 
     # Handle cases where discriminant is negative
-    discriminant[discriminant<0] = np.nan
-    # discriminant[discriminant>10] = np.nan 
+    discriminant[discriminant<0] = torch.nan
+    # discriminant[discriminant>10] = torch.nan 
 
     # Calculate solutions for s
     s1 = -a + torch.sqrt(discriminant)
@@ -135,7 +135,6 @@ def find_solutions_to_tangens_half_angle_equation(
     del s1
     indices_t1 = torch.argwhere(torch.logical_and(t1 >= 0, t1 <= 1))
     values_t1 = t1[indices_t1[:,0], indices_t1[:,1]]
-
     del t1
     t2 = 2 * torch.arctan(s2) / delta_omega
     del s2, delta_omega

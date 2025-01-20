@@ -42,16 +42,16 @@ class Beam:
         self, beam_vertices, xray_propagation_direction, wavelength, polarization_vector
     ):
 
-        self.wave_vector = (
+        self.wave_vector = torch.tensor((
             (2 * np.pi / wavelength)
             * xray_propagation_direction
             / np.linalg.norm(xray_propagation_direction)
-        )
+        ),dtype=torch.float32)
         self.wavelength = wavelength
         self.set_beam_vertices(beam_vertices)
-        self.polarization_vector = polarization_vector / np.linalg.norm(
+        self.polarization_vector = torch.tensor(polarization_vector / np.linalg.norm(
             polarization_vector
-        )
+        ),dtype=torch.float32)
         assert np.allclose(
             np.dot(self.polarization_vector, self.wave_vector), 0
         ), "The xray polarization vector is not orthogonal to the wavevector."

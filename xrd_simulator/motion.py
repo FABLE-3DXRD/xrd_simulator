@@ -194,16 +194,22 @@ class _RodriguezRotator(object):
                            torch.tensor(1.)), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
         rx, ry, rz = self.rotation_axis
-        self.K = torch.tensor([[0, -rz, ry],
-                           [rz, 0, -rx],
-                           [-ry, rx, 0]])
-        self.K2 = self.K@self.K
+        self.K = torch.tensor([ [0, -rz, ry],
+                                [rz, 0, -rx],
+                                [-ry, rx, 0]])
+        self.K2 = torch.matmul(self.K,self.K)
 
     def get_rotation_matrix(self, rotation_angle):
-
-        rotation_matrix = torch.eye(3, dtype=self.K.dtype, device=self.K.device).unsqueeze(2)+torch.sin(rotation_angle) * self.K.unsqueeze(2) + (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
-        rotation_matrix = rotation_matrix.permute(2,1,0).float()
+        """Get the rotation matrix for a given rotation angle."""
+        identity_matrix = torch.eye(3, dtype=self.K.dtype, device=self.K.device).unsqueeze(2)
+        sin_term = torch.sin(rotation_angle) * self.K.unsqueeze(2)
+        cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
+        
+        rotation_matrix = identity_matrix + sin_term + cos_term
+        rotation_matrix = rotation_matrix.permute(2, 0, 1).float()
+        
         return rotation_matrix
+
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
 
@@ -218,6 +224,7 @@ class _RodriguezRotator(object):
 
         R = self.get_rotation_matrix(rotation_angle)
 #        vectors = torch.tensor(vectors,dtype=torch.float32)
+    
         if len(vectors.shape)==1:
             vectors = vectors[None,:]
-        return torch.matmul(R,vectors[:,:,None])[:,:,0] # Syntax valid for the rotation fo the G vectors from the grains
+        return torch.squeeze(torch.matmul(R,vectors[:,:,None])) # Syntax valid for the rotation fo the G vectors from the grains

@@ -12,12 +12,14 @@ Below follows a detailed description of the polycrystal class attributes and fun
 
 import copy
 import xrd_simulator.cuda
+import warnings
 import numpy as np
 import dill
 from xfab import tools
 from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz,polarization
 import torch
+import matplotlib.pyplot as plt
 
 def _diffract(dict):
     """
@@ -64,7 +66,7 @@ def _diffract(dict):
         grain_indices = torch.where(element_phase_map == i)[0]
         miller_indices = torch.tensor(phase.miller_indices, dtype=torch.float32)
 
-        # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
+        # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
         structure_factors = torch.sum(torch.tensor(phase.structure_factors, dtype=torch.float32)**2,axis=1)
         miller_indices = miller_indices[structure_factors>1e-6]
         structure_factors = structure_factors[structure_factors>1e-6]
@@ -96,16 +98,20 @@ def _diffract(dict):
 
 
     # Rotated G-vectors
-    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], -peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
+    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
+
     # Outgoing scattering vectors
     K_out_xyz = (Gxyz + beam.wave_vector)
+
+    # Debugging the scattering vectors: The error of the angle is before here...
+
     # Lorentz factor
     lorentz_factors = lorentz(beam,rigid_body_motion,K_out_xyz)
     # Polarization factor
     polarization_factors = polarization(beam,K_out_xyz)
 
 
-    Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6].int())
+    Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6])
     peaks = torch.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
 
 
@@ -177,6 +183,9 @@ class Polycrystal:
     """
 
     def __init__(self, mesh, orientation, strain, phases, element_phase_map=None):
+        
+        orientation = torch.tensor(orientation, dtype=torch.float32)
+        strain = torch.tensor(strain, dtype=torch.float32)
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -201,8 +210,9 @@ class Polycrystal:
         self,
         beam,
         rigid_body_motion,
+        detector=None,
         min_bragg_angle=0,
-        max_bragg_angle=90,
+        max_bragg_angle=26.91/180*np.pi,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -235,7 +245,12 @@ class Polycrystal:
                 Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
-
+        if detector is not None:
+            warnings.warn(
+                "'detector' is deprecated and will be removed in a future version. ",
+                DeprecationWarning,
+                stacklevel=2
+            )
         #beam.wave_vector = torch.tensor(beam.wave_vector, dtype=torch.float32)
 
         #min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
@@ -247,7 +262,7 @@ class Polycrystal:
                     "beam": beam,
                     "rigid_body_motion": rigid_body_motion,
                     "phases": self.phases,
-                    "espherecentroids": self.mesh_lab.espherecentroids,
+                    "espherecentroids": torch.tensor(self.mesh_lab.espherecentroids,dtype=torch.float32),
                     "orientation_lab": self.orientation_lab,
                     "eB": self._eB,
                     "element_phase_map": self.element_phase_map,
@@ -371,14 +386,17 @@ class Polycrystal:
     def _instantiate_orientation(self, orientation, mesh):
         """Instantiate the orientations using for smart multi shape handling."""
         if orientation.shape == (3, 3):
-            orientation_lab = np.repeat(
-                orientation.reshape(1, 3, 3), mesh.number_of_elements, axis=0
+            orientation_lab = torch.repeat_interleave(
+                torch.tensor(orientation, dtype=torch.float32).unsqueeze(0),
+                mesh.number_of_elements,
+                dim=0
             )
         elif orientation.shape == (mesh.number_of_elements, 3, 3):
-            orientation_lab = np.copy(orientation)
+            orientation_lab = torch.tensor(orientation, dtype=torch.float32)
         else:
             raise ValueError("orientation input is of incompatible shape")
         return orientation_lab
+
 
     def _instantiate_strain(self, strain, mesh):
         """Instantiate the strain using for smart multi shape handling."""
