@@ -54,9 +54,9 @@ class Detector:
     def __init__(
         self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
     ):
-        self.det_corner_0 = torch.tensor(det_corner_0)
-        self.det_corner_1 = torch.tensor(det_corner_1)
-        self.det_corner_2 = torch.tensor(det_corner_2)                
+        self.det_corner_0 = torch.tensor(det_corner_0,dtype=torch.float32)
+        self.det_corner_1 = torch.tensor(det_corner_1,dtype=torch.float32)
+        self.det_corner_2 = torch.tensor(det_corner_2,dtype=torch.float32)                
 
         self.pixel_size_z = torch.tensor(pixel_size_z)
         self.pixel_size_y = torch.tensor(pixel_size_y)
@@ -101,7 +101,7 @@ class Detector:
 
     def render(self,
         peaks,
-        number_of_frames=1,
+        frames_to_render=0,
         lorentz=True,
         polarization=True,
         structure_factor=True,
@@ -131,7 +131,7 @@ class Detector:
         peaks = peaks[self.contains(peaks[:,21], peaks[:,22])]
     
         # Add frame number at the end of the tensor
-        bin_edges = torch.linspace(0, 1, steps=number_of_frames + 1)
+        bin_edges = torch.linspace(0, 1, steps=frames_to_render + 1)
         frames = torch.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
         peaks = torch.cat((peaks,frames),dim=1)
 
@@ -163,7 +163,7 @@ class Detector:
         # Step 4: Use the new column as a pixel value to be added to each coordinate
         rendered_frames[result[:,2].int(),result[:,0].int(),result[:,1].int()] = result[:,3]
 
-        #rendered_frames = self._apply_point_spread_function(rendered_frames)
+        rendered_frames = self._apply_point_spread_function(rendered_frames)
 
         # Chose numpy if you want to write the frames as tiffs
         if output_type == 'numpy':
@@ -176,21 +176,29 @@ class Detector:
         # Define the 3x3 Gaussian filter
         gaussian_kernel = torch.tensor([[[1, 2, 1],
                                   [2, 4, 2],
-                                  [1, 2, 1]]], dtype=torch.float32) / 16.0
-        '''
-        frames_n = frames.shape[0]
+                                  [1, 2, 1]]], dtype=torch.float32)
+        
+        # gaussian_kernel = torch.tensor([[
+        #     [1,  4,  6,  4, 1],
+        #     [4, 16, 24, 16, 4],
+        #     [6, 24, 36, 24, 6],
+        #     [4, 16, 24, 16, 4],
+        #     [1,  4,  6,  4, 1],
+        # ]], dtype=torch.float32)
+
+        gaussian_kernel /= torch.sum(gaussian_kernel)
+
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
-            frames_n = frames.shape[0]
-
+        if frames.ndim == 3:
+            frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
+        frames_n = frames.shape[1]
 
         gaussian_kernel = gaussian_kernel.repeat(frames_n,frames_n,1,1)
 
         # Perform the convolution
         with torch.no_grad():
-            output = torch.nn.functional.conv2d(frames.unsqueeze(0),weight=gaussian_kernel, padding=1)
-        '''
-        output = fftconvolve(frames,gaussian_kernel, mode="same")
+            output = torch.nn.functional.conv2d(frames,weight=gaussian_kernel, padding=1)
 
         return output
 

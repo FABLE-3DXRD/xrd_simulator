@@ -34,5 +34,5 @@ setuptools.setup(
                       "xfab",
                       "netcdf4",
                       "h5py",
-                      "pandas"]
+                      "torch"]
 )

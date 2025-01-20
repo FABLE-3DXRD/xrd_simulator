@@ -33,7 +33,6 @@ from itertools import combinations
 from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
 import numpy as np
-from numba import njit
 import sys
 import xrd_simulator.cuda
 import torch 
@@ -117,7 +116,7 @@ def _print_progress(progress_fraction, message):
         print("")
 
 
-@njit
+
 def _clip_line_with_convex_polyhedron(
     line_points, line_direction, plane_points, plane_normals
 ):
@@ -184,32 +183,32 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
     ).T
 
 
-def lab_strain_to_B_matrix(strain_tensor, crystal_orientation, B0):
+def lab_strain_to_B_matrix(strain_tensor: torch.Tensor, crystal_orientation: torch.Tensor, B0: torch.Tensor) -> torch.Tensor:
     """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
-        strain_tensor (:obj:`numpy array`): Symmetric strain tensor in lab
+        strain_tensor (:obj:`torch.Tensor`): Symmetric strain tensor in lab
             coordinates. ``shape=(n,3,3)``
-        crystal_orientation (:obj:`numpy array`): Unitary crystal orientation matrix.
+        crystal_orientation (:obj:`torch.Tensor`): Unitary crystal orientation matrix.
             ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(n,3,3)``
-        B0 matrix (:obj:`numpy array`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
+        B0 matrix (:obj:`torch.Tensor`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
 
     Returns:
-        (:obj:`numpy array`) B matrix  mapping from hkl Miller indices to realspace crystal
+        (:obj:`torch.Tensor`) B matrix mapping from hkl Miller indices to realspace crystal
         coordinates. ``shape=(n,3,3)``
 
     """
     if strain_tensor.ndim == 2:
-        strain_tensor = strain_tensor[np.newaxis, :, :]
+        strain_tensor = strain_tensor.unsqueeze(0)
     if crystal_orientation.ndim == 2:
-        crystal_orientation = crystal_orientation[np.newaxis, :, :]
+        crystal_orientation = crystal_orientation.unsqueeze(0)
 
-    crystal_strain = np.matmul(
-        crystal_orientation.transpose(0, 2, 1),
-        np.matmul(strain_tensor, crystal_orientation),
+    crystal_strain = torch.matmul(
+        crystal_orientation.transpose(1, 2),
+        torch.matmul(strain_tensor, crystal_orientation),
     )
     B = _epsilon_to_b(crystal_strain, B0)
-    return np.squeeze(B)
+    return B.squeeze()
 
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
