@@ -14,10 +14,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.12.x
+    - name: Set up Python 3.9.x
       uses: actions/setup-python@v2
       with:
-        python-version: 3.12
+        python-version: 3.9
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
@@ -25,8 +25,10 @@ jobs:
     - name: Install dependencies
       run: |
         python --version
-        conda install python=3.12
-        conda install -c conda-forge matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab netcdf4=1.6.1 h5py
+        conda install -c conda-forge numpy pygalmesh
+        conda install -c conda-forge meshio numba
+        conda install -c conda-forge scipy pycifrw dill xfab
+        conda install -c conda-forge netcdf4 h5py pandas matplotlib
         python -m pip install .
     - name: Lint with flake8
       run: |
