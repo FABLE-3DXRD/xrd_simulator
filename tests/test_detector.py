@@ -4,6 +4,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.phase import Phase
 from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
+from scipy.spatial.transform import Rotation
 import os
 
 
@@ -48,6 +49,26 @@ class TestDetector(unittest.TestCase):
 
         for n, ntrue in zip(self.detector.normal, np.array([-1, 0, 0])):
             self.assertAlmostEqual(n, ntrue, msg="Bad detector normal")
+
+    def test_intersection(self):
+
+        # The forward ray at 45 degrees should strike the top of the detector
+        R = Rotation.from_rotvec(np.pi / 4 * np.array([0, -1, 0])).as_matrix()
+        ray_direction = R @ np.array([1, 0., 0.])
+        source_point = np.array([0., 0., 0.]).reshape(1,3)
+        zd, yd = self.detector.get_intersection(ray_direction, source_point)[0]
+
+        self.assertAlmostEqual(zd, self.detector_size)
+        self.assertAlmostEqual(yd, 0)
+
+        # The backward ray at 135 degrees should not strike the detector at all
+        R = Rotation.from_rotvec(3 * np.pi / 4 * np.array([0, -1, 0])).as_matrix()
+        ray_direction = R @ np.array([1, 0., 0.])
+        source_point = np.array([0., 0., 0.]).reshape(1,3)
+        zd, yd = self.detector.get_intersection(ray_direction, source_point)[0]
+
+        self.assertTrue(np.isnan(zd))
+        self.assertTrue(np.isnan(yd))
 
     def test_centroid_render(self):
         v = self.detector.ydhat + self.detector.zdhat
