@@ -3,6 +3,8 @@ import numpy as np
 from xrd_simulator.beam import Beam
 from scipy.spatial import ConvexHull
 from xrd_simulator.motion import RigidBodyMotion
+import torch
+torch.set_default_dtype(torch.float64)
 
 class TestBeam(unittest.TestCase):
 
@@ -154,7 +156,7 @@ class TestBeam(unittest.TestCase):
                 msg="Proximity interval wrong")
 
         # Now with rotation and translation
-        motion.translation = np.array([-87.24, 34.6, 123.34])
+        motion.translation = torch.tensor([-87.24, 34.6, 123.34])
 
         intervals = self.beam._get_proximity_intervals(sphere_centres, sphere_radius, motion)
 

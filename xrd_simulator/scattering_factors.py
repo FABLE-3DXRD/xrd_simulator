@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+torch.set_default_dtype(torch.float64)
 
 def lorentz(beam,rigid_body_motion,K_out_xyz):
     """Compute the Lorentz intensity factor for all reflections."""

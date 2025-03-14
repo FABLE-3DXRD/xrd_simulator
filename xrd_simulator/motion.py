@@ -14,6 +14,7 @@ Below follows a detailed description of the RigidBodyMotion class attributes and
 """
 import dill
 import torch
+torch.set_default_dtype(torch.float64)
 
 class RigidBodyMotion():
     """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
@@ -46,9 +47,9 @@ class RigidBodyMotion():
     def __init__(self, rotation_axis, rotation_angle, translation, origin=torch.zeros((3,))):
         assert rotation_angle < torch.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
-        self.rotation_axis = torch.tensor(rotation_axis,dtype=torch.float32)
-        self.rotation_angle = torch.tensor(rotation_angle,dtype=torch.float32)
-        self.translation = torch.tensor(translation,dtype=torch.float32)
+        self.rotation_axis = torch.tensor(rotation_axis)
+        self.rotation_angle = torch.tensor(rotation_angle)
+        self.translation = torch.tensor(translation)
         self.origin = origin
 
     def __call__(self, vectors, time):
@@ -66,6 +67,8 @@ class RigidBodyMotion():
 
         """
         #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        vectors = torch.tensor(vectors)
+
         if len(vectors.shape) == 1:
             translation = self.translation
             origin = self.origin
@@ -142,7 +145,7 @@ class RigidBodyMotion():
             (:obj:`xrd_simulator.RigidBodyMotion`) The inverse motion with a reversed rotation and translation.
 
         """
-        return RigidBodyMotion(-self.rotation_axis.copy(), self.rotation_angle, -self.translation.copy(), self.origin.copy())
+        return RigidBodyMotion(-self.rotation_axis.clone(), self.rotation_angle, -self.translation.clone(), self.origin.clone())
 
     def save(self, path):
         """Save the motion object to disc (via pickling).
@@ -189,7 +192,7 @@ class _RodriguezRotator(object):
     """
 
     def __init__(self, rotation_axis):
-        rotation_axis=torch.tensor(rotation_axis,dtype=torch.float32)
+        rotation_axis=torch.tensor(rotation_axis,dtype=torch.float64)
         assert torch.allclose(torch.linalg.norm(rotation_axis),
                            torch.tensor(1.)), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
@@ -206,7 +209,7 @@ class _RodriguezRotator(object):
         cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
         
         rotation_matrix = identity_matrix + sin_term + cos_term
-        rotation_matrix = rotation_matrix.permute(2, 0, 1).float()
+        rotation_matrix = rotation_matrix.permute(2, 0, 1)
         
         return rotation_matrix
 
@@ -223,7 +226,7 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-#        vectors = torch.tensor(vectors,dtype=torch.float32)
+#        vectors = torch.tensor(vectors)
     
         if len(vectors.shape)==1:
             vectors = vectors[None,:]
