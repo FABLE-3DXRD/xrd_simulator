@@ -17,10 +17,12 @@ import numpy as np
 import dill
 from xfab import tools
 from xrd_simulator import utils, laue
-from xrd_simulator.scattering_factors import lorentz,polarization
+from xrd_simulator.scattering_factors import lorentz, polarization
 import torch
 import matplotlib.pyplot as plt
+
 torch.set_default_dtype(torch.float64)
+
 
 def _diffract(dict):
     """
@@ -54,65 +56,91 @@ def _diffract(dict):
     eB = dict["eB"]
     element_phase_map = dict["element_phase_map"]
 
-    rho_0_factor = torch.matmul(-beam.wave_vector,rigid_body_motion.rotator.K2)
-    rho_1_factor = torch.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
-    rho_2_factor = torch.matmul(beam.wave_vector,(torch.eye(3, 3) + rigid_body_motion.rotator.K2))
+    rho_0_factor = torch.matmul(-beam.wave_vector, rigid_body_motion.rotator.K2)
+    rho_1_factor = torch.matmul(beam.wave_vector, rigid_body_motion.rotator.K)
+    rho_2_factor = torch.matmul(
+        beam.wave_vector, (torch.eye(3, 3) + rigid_body_motion.rotator.K2)
+    )
 
-    peaks = torch.empty((0,10))  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks = torch.empty(
+        (0, 10)
+    )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
-    
+
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_indices = torch.where(element_phase_map == i)[0]
-        miller_indices = torch.tensor(phase.miller_indices, dtype=torch.float32)
+        miller_indices = ensure_torch(phase.miller_indices, dtype=torch.float64)
 
         # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-        structure_factors = torch.sum(torch.tensor(phase.structure_factors, dtype=torch.float32)**2,axis=1)
-        miller_indices = miller_indices[structure_factors>1e-6]
-        structure_factors = structure_factors[structure_factors>1e-6]
-        
+        structure_factors = torch.sum(
+            ensure_torch(phase.structure_factors, dtype=torch.float64) ** 2, axis=1
+        )
+        miller_indices = miller_indices[structure_factors > 1e-6]
+        structure_factors = structure_factors[structure_factors > 1e-6]
+
         # Get all scattering vectors for all scatterers in a given phase
-        G_0 = laue.get_G(orientation_lab[grain_indices], eB[grain_indices], miller_indices)
-        
+        G_0 = laue.get_G(
+            orientation_lab[grain_indices], eB[grain_indices], miller_indices
+        )
+
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        grains, planes, times, G0_xyz =laue.find_solutions_to_tangens_half_angle_equation( 
+        grains, planes, times, G0_xyz = (
+            laue.find_solutions_to_tangens_half_angle_equation(
                 G_0,
                 rho_0_factor,
                 rho_1_factor,
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
-
+        )
 
         # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
-        #Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
+        # Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
         del G_0
 
         structure_factors = structure_factors[planes].unsqueeze(1)
         grain_indices = grain_indices[grains].unsqueeze(1)
         miller_indices = miller_indices[planes]
-        phase_index = torch.full((G0_xyz.shape[0],),i).unsqueeze(1)
+        phase_index = torch.full((G0_xyz.shape[0],), i).unsqueeze(1)
         times = times.unsqueeze(1)
-        peaks_ith_phase = torch.cat((grain_indices,phase_index,miller_indices,structure_factors,times,G0_xyz),dim=1)
+        peaks_ith_phase = torch.cat(
+            (
+                grain_indices,
+                phase_index,
+                miller_indices,
+                structure_factors,
+                times,
+                G0_xyz,
+            ),
+            dim=1,
+        )
         peaks = torch.cat([peaks, peaks_ith_phase], axis=0)
 
-
     # Rotated G-vectors
-    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], peaks[:,6]) 
+    Gxyz = rigid_body_motion.rotate(peaks[:, 7:10], peaks[:, 6])
 
     # Outgoing scattering vectors
-    K_out_xyz = (Gxyz + beam.wave_vector)
+    K_out_xyz = Gxyz + beam.wave_vector
 
-   # Lorentz factor
-    lorentz_factors = lorentz(beam,rigid_body_motion,K_out_xyz)
+    # Lorentz factor
+    lorentz_factors = lorentz(beam, rigid_body_motion, K_out_xyz)
     # Polarization factor
-    polarization_factors = polarization(beam,K_out_xyz)
+    polarization_factors = polarization(beam, K_out_xyz)
 
-
-    Sources_xyz = rigid_body_motion(espherecentroids[peaks[:,0].int()],peaks[:,6])
-    peaks = torch.cat((peaks,Gxyz,K_out_xyz,Sources_xyz,lorentz_factors.unsqueeze(1),polarization_factors.unsqueeze(1)),dim=1)
-
+    Sources_xyz = rigid_body_motion(espherecentroids[peaks[:, 0].int()], peaks[:, 6])
+    peaks = torch.cat(
+        (
+            peaks,
+            Gxyz,
+            K_out_xyz,
+            Sources_xyz,
+            lorentz_factors.unsqueeze(1),
+            polarization_factors.unsqueeze(1),
+        ),
+        dim=1,
+    )
 
     """
         Column names of peaks are
@@ -128,10 +156,10 @@ def _diffract(dict):
         9: 'G0_z'               19: 'lorentz_factors'           
     """
     # Filter out tets not illuminated
-    peaks = peaks[peaks[:,17] < (beam.vertices[:, 1].max())]  
-    peaks = peaks[peaks[:,17] > (beam.vertices[:, 1].min())]  
-    peaks = peaks[peaks[:,18] < (beam.vertices[:, 2].max())]  
-    peaks = peaks[peaks[:,18] > (beam.vertices[:, 2].min())]  
+    peaks = peaks[peaks[:, 17] < (beam.vertices[:, 1].max())]
+    peaks = peaks[peaks[:, 17] > (beam.vertices[:, 1].min())]
+    peaks = peaks[peaks[:, 18] < (beam.vertices[:, 2].max())]
+    peaks = peaks[peaks[:, 18] > (beam.vertices[:, 2].min())]
 
     return peaks
 
@@ -182,9 +210,9 @@ class Polycrystal:
     """
 
     def __init__(self, mesh, orientation, strain, phases, element_phase_map=None):
-        
-        orientation = torch.tensor(orientation, dtype=torch.float32)
-        strain = torch.tensor(strain, dtype=torch.float32)
+
+        orientation = ensure_torch(orientation, dtype=torch.float64)
+        strain = ensure_torch(strain, dtype=torch.float64)
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -211,7 +239,7 @@ class Polycrystal:
         rigid_body_motion,
         detector=None,
         min_bragg_angle=0,
-        max_bragg_angle=44.99*np.pi/180,
+        max_bragg_angle=44.99 * np.pi / 180,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -248,24 +276,26 @@ class Polycrystal:
             warnings.warn(
                 "'detector' is deprecated and will be removed in a future version. ",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        #beam.wave_vector = torch.tensor(beam.wave_vector, dtype=torch.float32)
+        # beam.wave_vector = ensure_torch(beam.wave_vector, dtype=torch.float64)
 
-        #min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
+        # min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
 
         for phase in self.phases:
-            phase.setup_diffracting_planes(beam.wavelength, min_bragg_angle, max_bragg_angle)
+            phase.setup_diffracting_planes(
+                beam.wavelength, min_bragg_angle, max_bragg_angle
+            )
 
         args = {
-                    "beam": beam,
-                    "rigid_body_motion": rigid_body_motion,
-                    "phases": self.phases,
-                    "espherecentroids": torch.tensor(self.mesh_lab.espherecentroids),
-                    "orientation_lab": self.orientation_lab,
-                    "eB": self._eB,
-                    "element_phase_map": self.element_phase_map,
-                }
+            "beam": beam,
+            "rigid_body_motion": rigid_body_motion,
+            "phases": self.phases,
+            "espherecentroids": ensure_torch(self.mesh_lab.espherecentroids),
+            "orientation_lab": self.orientation_lab,
+            "eB": self._eB,
+            "element_phase_map": self.element_phase_map,
+        }
 
         peaks = _diffract(args)
 
@@ -299,7 +329,9 @@ class Polycrystal:
             rigid_body_motion.rotation_angle * time
         )
         self.orientation_lab = torch.matmul(Rot_mat, self.orientation_lab)
-        self.strain_lab = torch.matmul(torch.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2,1))
+        self.strain_lab = torch.matmul(
+            torch.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2, 1)
+        )
 
     def save(self, path, save_mesh_as_xdmf=True):
         """Save polycrystal to disc (via pickling).
@@ -372,30 +404,37 @@ class Polycrystal:
             raise ValueError("The loaded polycrystal file must end with .pc")
         with open(path, "rb") as f:
             loaded = dill.load(f)
-            loaded.orientation_lab = torch.tensor(loaded.orientation_lab, dtype=torch.float32)
-            loaded.strain_lab = torch.tensor(loaded.strain_lab, dtype=torch.float32)
-            loaded.element_phase_map = torch.tensor(loaded.element_phase_map, dtype=torch.float32)
-            loaded._eB = torch.tensor(loaded._eB, dtype=torch.float32)
+            loaded.orientation_lab = ensure_torch(
+                loaded.orientation_lab, dtype=torch.float64
+            )
+            loaded.strain_lab = ensure_torch(loaded.strain_lab, dtype=torch.float64)
+            loaded.element_phase_map = ensure_torch(
+                loaded.element_phase_map, dtype=torch.float64
+            )
+            loaded._eB = ensure_torch(loaded._eB, dtype=torch.float64)
             loaded.mesh_lab = cls._move_mesh_to_gpu(loaded.mesh_lab)
             loaded.mesh_sample = cls._move_mesh_to_gpu(loaded.mesh_sample)
-            loaded.strain_sample = torch.tensor(loaded.strain_sample, dtype=torch.float32)
-            loaded.orientation_sample = torch.tensor(loaded.orientation_sample, dtype=torch.float32)
+            loaded.strain_sample = ensure_torch(
+                loaded.strain_sample, dtype=torch.float64
+            )
+            loaded.orientation_sample = ensure_torch(
+                loaded.orientation_sample, dtype=torch.float64
+            )
             return loaded
 
     def _instantiate_orientation(self, orientation, mesh):
         """Instantiate the orientations using for smart multi shape handling."""
         if orientation.shape == (3, 3):
             orientation_lab = torch.repeat_interleave(
-                torch.tensor(orientation, dtype=torch.float32).unsqueeze(0),
+                ensure_torch(orientation, dtype=torch.float64).unsqueeze(0),
                 mesh.number_of_elements,
-                dim=0
+                dim=0,
             )
         elif orientation.shape == (mesh.number_of_elements, 3, 3):
-            orientation_lab = torch.tensor(orientation, dtype=torch.float32)
+            orientation_lab = ensure_torch(orientation, dtype=torch.float64)
         else:
             raise ValueError("orientation input is of incompatible shape")
         return orientation_lab
-
 
     def _instantiate_strain(self, strain, mesh):
         """Instantiate the strain using for smart multi shape handling."""
@@ -418,7 +457,7 @@ class Polycrystal:
                 raise ValueError("element_phase_map not set for multiphase polycrystal")
             element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
         else:
-            element_phase_map = torch.tensor(element_phase_map)
+            element_phase_map = ensure_torch(element_phase_map)
         return element_phase_map, phases
 
     def _instantiate_eB(
@@ -436,7 +475,7 @@ class Polycrystal:
         B0s = np.zeros((len(phases), 3, 3))
         for i, phase in enumerate(phases):
             B0s[i] = tools.form_b_mat(phase.unit_cell)
-            grain_indices = np.where(torch.tensor(element_phase_map) == i)[0]
+            grain_indices = np.where(ensure_torch(element_phase_map) == i)[0]
             _eB[grain_indices] = utils.lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )
@@ -449,13 +488,19 @@ class Polycrystal:
         If the beam graces or misses the sample, the sample centroid is used.
         """
         if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = self.mesh_lab.coord[beam.contains(self.mesh_lab.coord.T), :]
-            mesh_nodes_contained_by_beam = torch.tensor(mesh_nodes_contained_by_beam, dtype=torch.float32)
+            mesh_nodes_contained_by_beam = self.mesh_lab.coord[
+                beam.contains(self.mesh_lab.coord.T), :
+            ]
+            mesh_nodes_contained_by_beam = ensure_torch(
+                mesh_nodes_contained_by_beam, dtype=torch.float64
+            )
             if mesh_nodes_contained_by_beam.shape[0] != 0:
                 source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0)
             else:
-                source_point = torch.tensor(self.mesh_lab.centroid, dtype=torch.float32)
-            max_bragg_angle = detector.get_wrapping_cone(beam.wave_vector, source_point).item()
+                source_point = ensure_torch(self.mesh_lab.centroid, dtype=torch.float64)
+            max_bragg_angle = detector.get_wrapping_cone(
+                beam.wave_vector, source_point
+            ).item()
 
         assert (
             min_bragg_angle >= 0
@@ -470,13 +515,13 @@ class Polycrystal:
         return min_bragg_angle, max_bragg_angle
 
     def _move_mesh_to_gpu(mesh):
-        mesh.coord = torch.tensor(mesh.coord, dtype=torch.float32)
-        mesh.enod = torch.tensor(mesh.enod, dtype=torch.int32)
-        mesh.dof = torch.tensor(mesh.dof, dtype=torch.float32)        
-        mesh.efaces = torch.tensor(mesh.efaces, dtype=torch.int32)
-        mesh.enormals = torch.tensor(mesh.enormals, dtype=torch.float32)
-        mesh.ecentroids = torch.tensor(mesh.ecentroids, dtype=torch.float32)
-        mesh.eradius = torch.tensor(mesh.eradius, dtype=torch.float32)
-        mesh.espherecentroids = torch.tensor(mesh.espherecentroids, dtype=torch.float32)
-        mesh.centroid = torch.tensor(mesh.centroid, dtype=torch.float32)
+        mesh.coord = ensure_torch(mesh.coord, dtype=torch.float64)
+        mesh.enod = ensure_torch(mesh.enod, dtype=torch.int32)
+        mesh.dof = ensure_torch(mesh.dof, dtype=torch.float64)
+        mesh.efaces = ensure_torch(mesh.efaces, dtype=torch.int32)
+        mesh.enormals = ensure_torch(mesh.enormals, dtype=torch.float64)
+        mesh.ecentroids = ensure_torch(mesh.ecentroids, dtype=torch.float64)
+        mesh.eradius = ensure_torch(mesh.eradius, dtype=torch.float64)
+        mesh.espherecentroids = ensure_torch(mesh.espherecentroids, dtype=torch.float64)
+        mesh.centroid = ensure_torch(mesh.centroid, dtype=torch.float64)
         return mesh

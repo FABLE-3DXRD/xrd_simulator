@@ -3,7 +3,6 @@ This module is mainly used internally by the :class:`xrd_simulator.polycrystal.P
 for the advanced user, access to these functions may be of interest.
 """
 import numpy as np
-import cupy as cp
 import torch
 from xrd_simulator import utils,cuda
 torch.set_default_dtype(torch.float64)
