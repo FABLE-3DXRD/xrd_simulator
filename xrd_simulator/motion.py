@@ -12,11 +12,15 @@ and save the motion to disc:
 Below follows a detailed description of the RigidBodyMotion class attributes and functions.
 
 """
+
 import dill
 import torch
+from xrd_simulator.utils import ensure_torch
+
 torch.set_default_dtype(torch.float64)
 
-class RigidBodyMotion():
+
+class RigidBodyMotion:
     """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
 
     A rigid body motion is defined in the laboratory coordinates system.
@@ -44,12 +48,16 @@ class RigidBodyMotion():
 
     """
 
-    def __init__(self, rotation_axis, rotation_angle, translation, origin=torch.zeros((3,))):
-        assert rotation_angle < torch.pi and rotation_angle > 0, "The rotation angle must be in [0 pi]"
+    def __init__(
+        self, rotation_axis, rotation_angle, translation, origin=torch.zeros((3,))
+    ):
+        assert (
+            rotation_angle < torch.pi and rotation_angle > 0
+        ), "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
-        self.rotation_axis = torch.tensor(rotation_axis)
-        self.rotation_angle = torch.tensor(rotation_angle)
-        self.translation = torch.tensor(translation)
+        self.rotation_axis = ensure_torch(rotation_axis)
+        self.rotation_angle = ensure_torch(rotation_angle)
+        self.translation = ensure_torch(translation)
         self.origin = origin
 
     def __call__(self, vectors, time):
@@ -66,37 +74,46 @@ class RigidBodyMotion():
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        vectors = torch.tensor(vectors)
+        # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        vectors = ensure_torch(vectors)
 
         if len(vectors.shape) == 1:
             translation = self.translation
             origin = self.origin
             centered_vectors = vectors - origin
-            centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
+            centered_rotated_vectors = self.rotator(
+                centered_vectors, self.rotation_angle * time
+            )
             rotated_vectors = centered_rotated_vectors + origin
             return torch.squeeze(rotated_vectors + translation * time)
-        
+
         elif len(vectors.shape) == 2:
-            translation = self.translation.reshape(1,3)
-            origin = self.origin.reshape(1,3)   
+            translation = self.translation.reshape(1, 3)
+            origin = self.origin.reshape(1, 3)
             centered_vectors = vectors - origin
-            centered_rotated_vectors  =  self.rotator(centered_vectors, self.rotation_angle * time)
+            centered_rotated_vectors = self.rotator(
+                centered_vectors, self.rotation_angle * time
+            )
             rotated_vectors = centered_rotated_vectors + origin
-            if isinstance(time,(int,float)):
+            if isinstance(time, (int, float)):
                 return rotated_vectors + translation * time
 
+            return torch.squeeze(rotated_vectors + translation * time.unsqueeze(-1))
 
-            return torch.squeeze(rotated_vectors + translation * time.unsqueeze(1))
-        
         elif len(vectors.shape) == 3:
-            translation = self.translation.reshape(1,3)
-            origin = self.origin.reshape(1,3)
+            translation = self.translation.reshape(1, 3)
+            origin = self.origin.reshape(1, 3)
             centered_vectors = vectors - origin
-            centered_rotated_vectors  =  self.rotator(centered_vectors.reshape(-1,3), self.rotation_angle * torch.tile(time,(4,1)).T.reshape(-1)).reshape(-1,4,3)
-            rotated_vectors = centered_rotated_vectors + origin       
-            return torch.squeeze(rotated_vectors + translation * torch.tensor(time)[:,torch.newaxis,torch.newaxis])
-    
+            centered_rotated_vectors = self.rotator(
+                centered_vectors.reshape(-1, 3),
+                self.rotation_angle * torch.tile(time, (4, 1)).T.reshape(-1),
+            ).reshape(-1, 4, 3)
+            rotated_vectors = centered_rotated_vectors + origin
+            return torch.squeeze(
+                rotated_vectors
+                + translation * ensure_torch(time)[:, torch.newaxis, torch.newaxis]
+            )
+
     def rotate(self, vectors, time):
         """Find the rotational transformation of a set of vectors at a prescribed time.
 
@@ -113,8 +130,8 @@ class RigidBodyMotion():
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        #assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        rotated_vectors  = self.rotator(vectors, self.rotation_angle * time)
+        # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        rotated_vectors = self.rotator(vectors, self.rotation_angle * time)
         return rotated_vectors
 
     def translate(self, vectors, time):
@@ -130,7 +147,9 @@ class RigidBodyMotion():
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
 
         """
-        assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        assert (
+            time <= 1 and time >= 0
+        ), "The rigid body motion is only valid on the interval time=[0,1]"
         if len(vectors.shape) > 1:
             translation = self.translation.reshape(3, 1)
         else:
@@ -145,7 +164,12 @@ class RigidBodyMotion():
             (:obj:`xrd_simulator.RigidBodyMotion`) The inverse motion with a reversed rotation and translation.
 
         """
-        return RigidBodyMotion(-self.rotation_axis.clone(), self.rotation_angle, -self.translation.clone(), self.origin.clone())
+        return RigidBodyMotion(
+            -self.rotation_axis.clone(),
+            self.rotation_angle,
+            -self.translation.clone(),
+            self.origin.clone(),
+        )
 
     def save(self, path):
         """Save the motion object to disc (via pickling).
@@ -174,8 +198,9 @@ class RigidBodyMotion():
         """
         if not path.endswith(".motion"):
             raise ValueError("The loaded motion file must end with .motion")
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             return dill.load(f)
+
 
 class _RodriguezRotator(object):
     """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
@@ -192,25 +217,26 @@ class _RodriguezRotator(object):
     """
 
     def __init__(self, rotation_axis):
-        rotation_axis=torch.tensor(rotation_axis,dtype=torch.float64)
-        assert torch.allclose(torch.linalg.norm(rotation_axis),
-                           torch.tensor(1.)), "The rotation axis must be length unity."
+        rotation_axis = ensure_torch(rotation_axis)
+        assert torch.allclose(
+            torch.linalg.norm(rotation_axis), ensure_torch(1.0)
+        ), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
         rx, ry, rz = self.rotation_axis
-        self.K = torch.tensor([ [0, -rz, ry],
-                                [rz, 0, -rx],
-                                [-ry, rx, 0]])
-        self.K2 = torch.matmul(self.K,self.K)
+        self.K = ensure_torch([[0, -rz, ry], [rz, 0, -rx], [-ry, rx, 0]])
+        self.K2 = torch.matmul(self.K, self.K)
 
     def get_rotation_matrix(self, rotation_angle):
         """Get the rotation matrix for a given rotation angle."""
-        identity_matrix = torch.eye(3, dtype=self.K.dtype, device=self.K.device).unsqueeze(2)
+        identity_matrix = torch.eye(
+            3, dtype=self.K.dtype, device=self.K.device
+        ).unsqueeze(2)
         sin_term = torch.sin(rotation_angle) * self.K.unsqueeze(2)
         cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
-        
+
         rotation_matrix = identity_matrix + sin_term + cos_term
         rotation_matrix = rotation_matrix.permute(2, 0, 1)
-        
+
         return rotation_matrix
 
     def __call__(self, vectors, rotation_angle):
@@ -226,8 +252,10 @@ class _RodriguezRotator(object):
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-#        vectors = torch.tensor(vectors)
-    
-        if len(vectors.shape)==1:
-            vectors = vectors[None,:]
-        return torch.squeeze(torch.matmul(R,vectors[:,:,None])) # Syntax valid for the rotation fo the G vectors from the grains
+        #        vectors = ensure_torch(vectors)
+
+        if len(vectors.shape) == 1:
+            vectors = vectors[None, :]
+        return torch.squeeze(
+            torch.matmul(R, vectors[:, :, None])
+        )  # Syntax valid for the rotation fo the G vectors from the grains

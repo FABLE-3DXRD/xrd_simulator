@@ -35,8 +35,10 @@ from scipy.spatial.transform import Rotation
 import numpy as np
 import sys
 import xrd_simulator.cuda
-import torch 
+import torch
+
 torch.set_default_dtype(torch.float64)
+
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.
@@ -116,7 +118,6 @@ def _print_progress(progress_fraction, message):
         print("")
 
 
-
 def _clip_line_with_convex_polyhedron(
     line_points, line_direction, plane_points, plane_normals
 ):
@@ -183,7 +184,9 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
     ).T
 
 
-def lab_strain_to_B_matrix(strain_tensor: torch.Tensor, crystal_orientation: torch.Tensor, B0: torch.Tensor) -> torch.Tensor:
+def lab_strain_to_B_matrix(
+    strain_tensor: torch.Tensor, crystal_orientation: torch.Tensor, B0: torch.Tensor
+) -> torch.Tensor:
     """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
 
     Args:
@@ -316,26 +319,25 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    crystal_strain = torch.tensor(crystal_strain, dtype=torch.float32)
-    B0 = torch.tensor(B0, dtype=torch.float32)  
+    crystal_strain = ensure_torch(crystal_strain, dtype=torch.float64)
+    B0 = ensure_torch(B0, dtype=torch.float64)
 
-
-    C = 2 * crystal_strain + torch.eye(3, dtype=torch.float32)
+    C = 2 * crystal_strain + torch.eye(3, dtype=torch.float64)
 
     eigen_vals = torch.linalg.eigvalsh(C)
-    if torch.any(eigen_vals< 0):
+    if torch.any(eigen_vals < 0):
         raise ValueError(
             "Unfeasible strain tensor with value: "
             + str(_strain_as_vector(crystal_strain))
             + ", will invert the unit cell with negative deformation gradient tensor determinant"
         )
     if C.ndim == 3:
-        F = torch.transpose(torch.linalg.cholesky(C),2,1)
+        F = torch.transpose(torch.linalg.cholesky(C), 2, 1)
     else:
-        F = torch.transpose(torch.linalg.cholesky(C),1,0)
+        F = torch.transpose(torch.linalg.cholesky(C), 1, 0)
 
-    B = torch.matmul(torch.linalg.inv(F),B0)
-    B = B.cpu()        
+    B = torch.matmul(torch.linalg.inv(F), B0)
+    B = B.cpu()
     return B
 
 
@@ -450,7 +452,7 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
              - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the tetrahedrons.
              - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the tetrahedrons.
     """
-    
+
     v0 = tetrahedra[:, 0, :]
     v1 = tetrahedra[:, 1, :]
     v2 = tetrahedra[:, 2, :]
@@ -485,21 +487,25 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     return centers, radii * 1.0001  # because loss of floating point precision
 
 
-def sizeof_fmt(num, suffix='B'):
-    ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+def sizeof_fmt(num, suffix="B"):
+    """by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified"""
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return "%3.1f %s%s" % (num, unit, suffix)
         num /= 1024.0
-    return "%.1f %s%s" % (num, 'Yi', suffix)
+    return "%.1f %s%s" % (num, "Yi", suffix)
+
 
 def list_vars(vars):
     """
     for name, size in sorted(((name, sys.getsizeof(value)) for name, value in list(vars.items())), key= lambda x: -x[1])[:10]:
         print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))"""
-    print('===================================================')
+    print("===================================================")
     # Get CPU variable sizes
-    var_sizes = sorted(((name, sys.getsizeof(value)) for name, value in vars.items()), key=lambda x: -x[1])
+    var_sizes = sorted(
+        ((name, sys.getsizeof(value)) for name, value in vars.items()),
+        key=lambda x: -x[1],
+    )
     for name, size in var_sizes[:10]:
         print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
 
@@ -508,8 +514,71 @@ def list_vars(vars):
     for name, value in vars.items():
         if torch.is_tensor(value):
             gpu_var_sizes.append((name, value.nbytes))
-    
+
     gpu_var_sizes = sorted(gpu_var_sizes, key=lambda x: -x[1])
     for name, size in gpu_var_sizes[:10]:
         print("{:>30} (GPU): {:>8}".format(name, sizeof_fmt(size)))
-    print('===================================================')
+    print("===================================================")
+
+
+def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor:
+    """Convert input to torch tensor if it isn't already.
+
+    Args:
+        data: Input data to convert. Can be:
+            - numpy array
+            - torch tensor
+            - list
+            - tuple
+
+    Returns:
+        torch.Tensor: The input data converted to a torch tensor
+
+    Examples:
+        >>> ensure_torch([1, 2, 3])
+        tensor([1, 2, 3])
+        >>> ensure_torch(np.array([1, 2, 3]))
+        tensor([1, 2, 3])
+        >>> ensure_torch(ensure_torch([1, 2, 3]))
+        tensor([1, 2, 3])
+    """
+    if isinstance(data, np.ndarray):
+        return torch.from_numpy(data)
+    elif torch.is_tensor(data):
+        return data
+    elif isinstance(data, (list, tuple)):
+        return torch.tensor(data)
+    return torch.tensor(data)
+
+
+from typing import Union
+
+
+def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
+    """Convert input to numpy array if it isn't already.
+
+    Args:
+        data: Input data to convert. Can be:
+            - numpy array
+            - torch tensor
+            - list
+            - tuple
+
+    Returns:
+        np.ndarray: The input data converted to a numpy array
+
+    Examples:
+        >>> ensure_numpy([1, 2, 3])
+        array([1, 2, 3])
+        >>> ensure_numpy(np.array([1, 2, 3]))
+        array([1, 2, 3])
+        >>> ensure_numpy(ensure_torch([1, 2, 3]))
+        array([1, 2, 3])
+    """
+    if torch.is_tensor(data):
+        return data.cpu().detach().numpy()
+    elif isinstance(data, np.ndarray):
+        return data
+    elif isinstance(data, (list, tuple)):
+        return np.array(data)
+    return np.array(data)
