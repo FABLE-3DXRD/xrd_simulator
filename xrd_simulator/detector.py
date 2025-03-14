@@ -16,6 +16,7 @@ import numpy as np
 from xrd_simulator import utils
 import dill
 import torch
+torch.set_default_dtype(torch.float64)
 
 class Detector:
     """Represents a rectangular 2D area detector.
@@ -54,9 +55,9 @@ class Detector:
     def __init__(
         self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
     ):
-        self.det_corner_0 = torch.tensor(det_corner_0,dtype=torch.float32)
-        self.det_corner_1 = torch.tensor(det_corner_1,dtype=torch.float32)
-        self.det_corner_2 = torch.tensor(det_corner_2,dtype=torch.float32)                
+        self.det_corner_0 = torch.tensor(det_corner_0)
+        self.det_corner_1 = torch.tensor(det_corner_1)
+        self.det_corner_2 = torch.tensor(det_corner_2)
 
         self.pixel_size_z = torch.tensor(pixel_size_z)
         self.pixel_size_y = torch.tensor(pixel_size_y)
@@ -64,9 +65,9 @@ class Detector:
         self.zmax = torch.linalg.norm(self.det_corner_2 - self.det_corner_0)
         self.ymax = torch.linalg.norm(self.det_corner_1 - self.det_corner_0)
 
-        self.zdhat = (self.det_corner_2 - self.det_corner_0 ) / self.zmax
-        self.ydhat = (self.det_corner_1 - self.det_corner_0 ) / self.ymax
-        self.normal = torch.linalg.cross(self.zdhat, self.ydhat)
+        self.zdhat = (self.det_corner_2 - self.det_corner_0) / self.zmax
+        self.ydhat = (self.det_corner_1 - self.det_corner_0) / self.ymax
+        self.normal = torch.cross(self.zdhat, self.ydhat)
         self.normal = self.normal / torch.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
@@ -122,6 +123,9 @@ class Detector:
             8: 'G0_y'               18: 'Source_z'
             9: 'G0_z'               19: 'lorentz_factors'           
         """
+        # Move attributes to torch
+        self.to_torch()
+
         # Intersect scattering vectors with detector plane
         zd_yd_angle = self.get_intersection(peaks[:,13:16],peaks[:,16:19])
 
@@ -131,7 +135,7 @@ class Detector:
         peaks = peaks[self.contains(peaks[:,21], peaks[:,22])]
     
         # Add frame number at the end of the tensor
-        bin_edges = torch.linspace(0, 1, steps=frames_to_render + 1)
+        bin_edges = torch.linspace(0, 1, steps=frames_to_render)
         frames = torch.bucketize(peaks[:,6].contiguous(), bin_edges).unsqueeze(1)-1
         peaks = torch.cat((peaks,frames),dim=1)
 
@@ -143,7 +147,7 @@ class Detector:
         frames_n = peaks[:,24].unique().shape[0]
 
         # Create the future frames as an empty tensor
-        rendered_frames = torch.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]),dtype=torch.float32)
+        rendered_frames = torch.zeros((frames_n,self.pixel_coordinates.shape[0],self.pixel_coordinates.shape[1]))
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:,5]
         lorentz_factors = peaks[:,22] 
@@ -178,13 +182,13 @@ class Detector:
                                   [2, 4, 2],
                                   [1, 2, 1]]], dtype=torch.float32)
         
-        # gaussian_kernel = torch.tensor([[
-        #     [1,  4,  6,  4, 1],
-        #     [4, 16, 24, 16, 4],
-        #     [6, 24, 36, 24, 6],
-        #     [4, 16, 24, 16, 4],
-        #     [1,  4,  6,  4, 1],
-        # ]], dtype=torch.float32)
+        gaussian_kernel = torch.tensor([[
+            [1,  4,  6,  4, 1],
+            [4, 16, 24, 16, 4],
+            [6, 24, 36, 24, 6],
+            [4, 16, 24, 16, 4],
+            [1,  4,  6,  4, 1],
+        ]], dtype=torch.float32)
 
         gaussian_kernel /= torch.sum(gaussian_kernel)
 
@@ -236,7 +240,7 @@ class Detector:
         incoming_wavevector,
         pixel_zd_coord,
         pixel_yd_coord,
-        scattering_origin=np.array([0, 0, 0]),
+        scattering_origin=torch.tensor([0, 0, 0]),
     ):
         """Compute bragg angle and azimuth angle  for a detector coordinate.
 
@@ -267,7 +271,7 @@ class Detector:
         """Get detector intersection in detector coordinates of every single ray originating from source_point.
 
         Args:
-            ray_direction (:obj:`numpy array`): Vector in direction of the xray propagation
+            ray_direction (:obj:`numpy array`): Vectors in direction of the xray propagation
             source_point (:obj:`numpy array`): Origin of the ray.
 
         Returns:
@@ -374,21 +378,6 @@ class Detector:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
 
         """
-        self.det_corner_0 = torch.tensor(self.det_corner_0)
-        self.det_corner_1 = torch.tensor(self.det_corner_1)
-        self.det_corner_2 = torch.tensor(self.det_corner_2) 
-
-        self.pixel_size_z = torch.tensor(self.pixel_size_z)
-        self.pixel_size_y = torch.tensor(self.pixel_size_y)
-
-        self.zmax = torch.tensor(self.zmax)
-        self.ymax = torch.tensor(self.ymax)
-
-        self.zdhat = torch.tensor(self.zdhat)
-        self.ydhat = torch.tensor(self.ydhat)
-        self.normal = torch.tensor(self.normal)
-        self.pixel_coordinates = torch.tensor(self.pixel_coordinates)
-
 
         if not path.endswith(".det"):
             path = path + ".det"
@@ -433,7 +422,6 @@ class Detector:
         kernel = np.zeros(self.point_spread_kernel_shape)
         for i in range(Z.shape[0]):
             for j in range(Y.shape[1]):
-                breakpoint()
                 kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
         assert (
             len(kernel[kernel < 0]) == 0
@@ -611,3 +599,19 @@ class Detector:
         max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
+
+    def to_torch(self):
+            self.det_corner_0 = torch.tensor(self.det_corner_0, dtype=torch.float32)
+            self.det_corner_1 = torch.tensor(self.det_corner_1, dtype=torch.float32)
+            self.det_corner_2 = torch.tensor(self.det_corner_2, dtype=torch.float32)
+
+            self.pixel_size_z = torch.tensor(self.pixel_size_z, dtype=torch.float32)
+            self.pixel_size_y = torch.tensor(self.pixel_size_y, dtype=torch.float32)
+
+            self.zmax = torch.tensor(self.zmax, dtype=torch.float32)
+            self.ymax = torch.tensor(self.ymax, dtype=torch.float32)
+
+            self.zdhat = torch.tensor(self.zdhat, dtype=torch.float32)
+            self.ydhat = torch.tensor(self.ydhat, dtype=torch.float32)
+            self.normal = torch.tensor(self.normal, dtype=torch.float32)
+            self.pixel_coordinates = torch.tensor(self.pixel_coordinates, dtype=torch.float32)

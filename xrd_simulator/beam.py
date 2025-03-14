@@ -13,6 +13,8 @@ import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 import torch
+torch.set_default_dtype(torch.float64)
+
 
 class Beam:
     """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.
@@ -46,14 +48,14 @@ class Beam:
             (2 * np.pi / wavelength)
             * xray_propagation_direction
             / np.linalg.norm(xray_propagation_direction)
-        ),dtype=torch.float32)
+        ))
         self.wavelength = wavelength
         self.set_beam_vertices(beam_vertices)
         self.polarization_vector = torch.tensor(polarization_vector / np.linalg.norm(
             polarization_vector
-        ),dtype=torch.float32)
-        assert np.allclose(
-            np.dot(self.polarization_vector, self.wave_vector), 0
+        ))
+        assert torch.allclose(
+            torch.dot(self.polarization_vector, self.wave_vector), torch.tensor(0.0)
         ), "The xray polarization vector is not orthogonal to the wavevector."
 
     def set_beam_vertices(self, beam_vertices):
@@ -72,7 +74,7 @@ class Beam:
         self.halfspaces = ConvexHull(self.vertices, qhull_options="QJ").equations
 
         # ConvexHull triangulates, this removes hull triangles positioned the same plane
-        self.halfspaces = np.unique(self.halfspaces.round(decimals=6), axis=0)
+        self.halfspaces = torch.tensor(np.unique(self.halfspaces.round(decimals=6), axis=0))
 
     def contains(self, points):
         """Check if the beam contains a number of point(s).
@@ -85,7 +87,7 @@ class Beam:
             scalar 1 or 0.
 
         """
-
+        points = torch.tensor(points)
         normal_distances = torch.matmul(self.halfspaces[:,:3],points)
         if len(points.shape) == 1:
             return torch.all(normal_distances + self.halfspaces[:, 3] < 0)
@@ -243,11 +245,14 @@ class Beam:
         dx = np.min(sphere_radius) / 2.0
         translation = np.abs(rigid_body_motion.translation / dx)
         number_of_sampling_points = int(
-            np.max(
-                [np.max(translation), np.degrees(rigid_body_motion.rotation_angle), 2]
-            )
-            + 1
-        )
+            torch.max(
+                torch.tensor([
+                    torch.max(translation),
+                    torch.rad2deg(rigid_body_motion.rotation_angle),
+                    torch.tensor(2.0)
+                ])
+            ).item() + 1
+)
         sample_times = np.linspace(0, 1, number_of_sampling_points)
 
         R = sphere_radius.reshape(1, sphere_radius.shape[0])

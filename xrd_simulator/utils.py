@@ -36,7 +36,7 @@ import numpy as np
 import sys
 import xrd_simulator.cuda
 import torch 
-
+torch.set_default_dtype(torch.float64)
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.

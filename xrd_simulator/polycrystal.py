@@ -20,6 +20,7 @@ from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz,polarization
 import torch
 import matplotlib.pyplot as plt
+torch.set_default_dtype(torch.float64)
 
 def _diffract(dict):
     """
@@ -57,7 +58,7 @@ def _diffract(dict):
     rho_1_factor = torch.matmul(beam.wave_vector,rigid_body_motion.rotator.K)
     rho_2_factor = torch.matmul(beam.wave_vector,(torch.eye(3, 3) + rigid_body_motion.rotator.K2))
 
-    peaks = torch.empty((0,10),dtype=torch.float32)  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+    peaks = torch.empty((0,10))  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
 
     # For each phase of the sample, we compute all reflections at once in a vectorized manner
     for i, phase in enumerate(phases):
@@ -98,14 +99,12 @@ def _diffract(dict):
 
 
     # Rotated G-vectors
-    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], peaks[:,6]) #I dont know why the - sign is necessary, there is a bug somewhere and this is a patch. Sue me.
+    Gxyz = rigid_body_motion.rotate(peaks[:,7:10], peaks[:,6]) 
 
     # Outgoing scattering vectors
     K_out_xyz = (Gxyz + beam.wave_vector)
 
-    # Debugging the scattering vectors: The error of the angle is before here...
-
-    # Lorentz factor
+   # Lorentz factor
     lorentz_factors = lorentz(beam,rigid_body_motion,K_out_xyz)
     # Polarization factor
     polarization_factors = polarization(beam,K_out_xyz)
@@ -212,7 +211,7 @@ class Polycrystal:
         rigid_body_motion,
         detector=None,
         min_bragg_angle=0,
-        max_bragg_angle=26.91/180*np.pi,
+        max_bragg_angle=44.99*np.pi/180,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -262,7 +261,7 @@ class Polycrystal:
                     "beam": beam,
                     "rigid_body_motion": rigid_body_motion,
                     "phases": self.phases,
-                    "espherecentroids": torch.tensor(self.mesh_lab.espherecentroids,dtype=torch.float32),
+                    "espherecentroids": torch.tensor(self.mesh_lab.espherecentroids),
                     "orientation_lab": self.orientation_lab,
                     "eB": self._eB,
                     "element_phase_map": self.element_phase_map,

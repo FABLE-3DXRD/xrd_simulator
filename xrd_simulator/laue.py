@@ -6,7 +6,7 @@ import numpy as np
 import cupy as cp
 import torch
 from xrd_simulator import utils,cuda
-
+torch.set_default_dtype(torch.float64)
 
 def get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -25,9 +25,9 @@ def get_G(U, B, G_hkl):
 
     """
 
-    U = torch.asarray(U,dtype=torch.float32)
-    B = torch.asarray(B,dtype=torch.float32)
-    G_hkl = torch.asarray(G_hkl,dtype=torch.float32)
+    U = torch.asarray(U)
+    B = torch.asarray(B)
+    G_hkl = torch.asarray(G_hkl)
         
     return torch.matmul(torch.matmul(U, B), G_hkl.T)
 

@@ -5,18 +5,19 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
 import os
-
+import torch
+torch.set_default_dtype(torch.float64)
 
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(10)
-        self.pixel_size_z = 50.
-        self.pixel_size_y = 40.
-        self.detector_size = 10000.
-        self.det_corner_0 = np.array([1, 0, 0]) * self.detector_size
-        self.det_corner_1 = np.array([1, 1, 0]) * self.detector_size
-        self.det_corner_2 = np.array([1, 0, 1]) * self.detector_size
+        self.pixel_size_z = torch.tensor(50.)
+        self.pixel_size_y = torch.tensor(40.)
+        self.detector_size = torch.tensor(10000.)
+        self.det_corner_0 = torch.tensor([1, 0, 0]) * self.detector_size
+        self.det_corner_1 = torch.tensor([1, 1, 0]) * self.detector_size
+        self.det_corner_2 = torch.tensor([1, 0, 1]) * self.detector_size
         self.detector = Detector(
             self.pixel_size_z,
             self.pixel_size_y,
@@ -51,16 +52,16 @@ class TestDetector(unittest.TestCase):
 
     def test_centroid_render(self):
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
-        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
+        v = v / torch.linalg.norm(v)
+        verts1 = torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + \
             v * np.sqrt(2) * self.detector_size / 2.  # tetra at detector centre
         ch1 = ConvexHull(verts1)
-        verts2 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + 2 * \
+        verts2 = torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + 2 * \
             v * np.sqrt(2) * self.detector_size  # tetra out of detector bounds
         ch2 = ConvexHull(verts2)
         wavelength = 1.0
 
-        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
+        incident_wave_vector = 2 * np.pi * torch.tensor([1, 0, 0]) / (wavelength)
         scattered_wave_vector = self.det_corner_0 + self.pixel_size_y * 3 * \
             self.detector.ydhat + self.pixel_size_z * 2 * self.detector.zdhat
         scattered_wave_vector = 2 * np.pi * scattered_wave_vector / \
