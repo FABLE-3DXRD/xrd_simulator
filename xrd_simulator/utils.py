@@ -319,10 +319,10 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    crystal_strain = ensure_torch(crystal_strain, dtype=torch.float64)
-    B0 = ensure_torch(B0, dtype=torch.float64)
+    crystal_strain = ensure_torch(crystal_strain)
+    B0 = ensure_torch(B0)
 
-    C = 2 * crystal_strain + torch.eye(3, dtype=torch.float64)
+    C = 2 * crystal_strain + torch.eye(3)
 
     eigen_vals = torch.linalg.eigvalsh(C)
     if torch.any(eigen_vals < 0):
@@ -532,23 +532,23 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor
             - tuple
 
     Returns:
-        torch.Tensor: The input data converted to a torch tensor
+        torch.Tensor: The input data converted to a torch tensor with float64 dtype
 
     Examples:
         >>> ensure_torch([1, 2, 3])
-        tensor([1, 2, 3])
+        tensor([1., 2., 3.], dtype=torch.float64)
         >>> ensure_torch(np.array([1, 2, 3]))
-        tensor([1, 2, 3])
+        tensor([1., 2., 3.], dtype=torch.float64)
         >>> ensure_torch(ensure_torch([1, 2, 3]))
-        tensor([1, 2, 3])
+        tensor([1., 2., 3.], dtype=torch.float64)
     """
     if isinstance(data, np.ndarray):
-        return torch.from_numpy(data)
+        return torch.from_numpy(data).to(torch.float64)
     elif torch.is_tensor(data):
-        return data
+        return data.to(torch.float64)
     elif isinstance(data, (list, tuple)):
-        return torch.tensor(data)
-    return torch.tensor(data)
+        return torch.tensor(data, dtype=torch.float64)
+    return torch.tensor(data, dtype=torch.float64)
 
 
 from typing import Union
@@ -565,20 +565,20 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
             - tuple
 
     Returns:
-        np.ndarray: The input data converted to a numpy array
+        np.ndarray: The input data converted to a numpy array with float64 dtype
 
     Examples:
         >>> ensure_numpy([1, 2, 3])
-        array([1, 2, 3])
+        array([1., 2., 3.])
         >>> ensure_numpy(np.array([1, 2, 3]))
-        array([1, 2, 3])
+        array([1., 2., 3.])
         >>> ensure_numpy(ensure_torch([1, 2, 3]))
-        array([1, 2, 3])
+        array([1., 2., 3.])
     """
     if torch.is_tensor(data):
-        return data.cpu().detach().numpy()
+        return data.cpu().detach().numpy().astype(np.float64)
     elif isinstance(data, np.ndarray):
-        return data
+        return data.astype(np.float64)
     elif isinstance(data, (list, tuple)):
-        return np.array(data)
-    return np.array(data)
+        return np.array(data, dtype=np.float64)
+    return np.array(data, dtype=np.float64)

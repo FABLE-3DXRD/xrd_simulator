@@ -20,6 +20,7 @@ from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization
 import torch
 import matplotlib.pyplot as plt
+from xrd_simulator.utils import ensure_torch, ensure_numpy
 
 torch.set_default_dtype(torch.float64)
 
@@ -71,11 +72,11 @@ def _diffract(dict):
 
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_indices = torch.where(element_phase_map == i)[0]
-        miller_indices = ensure_torch(phase.miller_indices, dtype=torch.float64)
+        miller_indices = ensure_torch(phase.miller_indices)
 
         # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
         structure_factors = torch.sum(
-            ensure_torch(phase.structure_factors, dtype=torch.float64) ** 2, axis=1
+            ensure_torch(phase.structure_factors) ** 2, axis=1
         )
         miller_indices = miller_indices[structure_factors > 1e-6]
         structure_factors = structure_factors[structure_factors > 1e-6]
@@ -211,8 +212,8 @@ class Polycrystal:
 
     def __init__(self, mesh, orientation, strain, phases, element_phase_map=None):
 
-        orientation = ensure_torch(orientation, dtype=torch.float64)
-        strain = ensure_torch(strain, dtype=torch.float64)
+        orientation = ensure_torch(orientation)
+        strain = ensure_torch(strain)
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -278,7 +279,7 @@ class Polycrystal:
                 DeprecationWarning,
                 stacklevel=2,
             )
-        # beam.wave_vector = ensure_torch(beam.wave_vector, dtype=torch.float64)
+        # beam.wave_vector = ensure_torch(beam.wave_vector)
 
         # min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
 
@@ -407,11 +408,11 @@ class Polycrystal:
             loaded.orientation_lab = ensure_torch(
                 loaded.orientation_lab, dtype=torch.float64
             )
-            loaded.strain_lab = ensure_torch(loaded.strain_lab, dtype=torch.float64)
+            loaded.strain_lab = ensure_torch(loaded.strain_lab)
             loaded.element_phase_map = ensure_torch(
                 loaded.element_phase_map, dtype=torch.float64
             )
-            loaded._eB = ensure_torch(loaded._eB, dtype=torch.float64)
+            loaded._eB = ensure_torch(loaded._eB)
             loaded.mesh_lab = cls._move_mesh_to_gpu(loaded.mesh_lab)
             loaded.mesh_sample = cls._move_mesh_to_gpu(loaded.mesh_sample)
             loaded.strain_sample = ensure_torch(
@@ -426,12 +427,12 @@ class Polycrystal:
         """Instantiate the orientations using for smart multi shape handling."""
         if orientation.shape == (3, 3):
             orientation_lab = torch.repeat_interleave(
-                ensure_torch(orientation, dtype=torch.float64).unsqueeze(0),
+                ensure_torch(orientation).unsqueeze(0),
                 mesh.number_of_elements,
                 dim=0,
             )
         elif orientation.shape == (mesh.number_of_elements, 3, 3):
-            orientation_lab = ensure_torch(orientation, dtype=torch.float64)
+            orientation_lab = ensure_torch(orientation)
         else:
             raise ValueError("orientation input is of incompatible shape")
         return orientation_lab
@@ -497,7 +498,7 @@ class Polycrystal:
             if mesh_nodes_contained_by_beam.shape[0] != 0:
                 source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0)
             else:
-                source_point = ensure_torch(self.mesh_lab.centroid, dtype=torch.float64)
+                source_point = ensure_torch(self.mesh_lab.centroid)
             max_bragg_angle = detector.get_wrapping_cone(
                 beam.wave_vector, source_point
             ).item()
@@ -515,13 +516,13 @@ class Polycrystal:
         return min_bragg_angle, max_bragg_angle
 
     def _move_mesh_to_gpu(mesh):
-        mesh.coord = ensure_torch(mesh.coord, dtype=torch.float64)
+        mesh.coord = ensure_torch(mesh.coord)
         mesh.enod = ensure_torch(mesh.enod, dtype=torch.int32)
-        mesh.dof = ensure_torch(mesh.dof, dtype=torch.float64)
+        mesh.dof = ensure_torch(mesh.dof)
         mesh.efaces = ensure_torch(mesh.efaces, dtype=torch.int32)
-        mesh.enormals = ensure_torch(mesh.enormals, dtype=torch.float64)
-        mesh.ecentroids = ensure_torch(mesh.ecentroids, dtype=torch.float64)
-        mesh.eradius = ensure_torch(mesh.eradius, dtype=torch.float64)
-        mesh.espherecentroids = ensure_torch(mesh.espherecentroids, dtype=torch.float64)
-        mesh.centroid = ensure_torch(mesh.centroid, dtype=torch.float64)
+        mesh.enormals = ensure_torch(mesh.enormals)
+        mesh.ecentroids = ensure_torch(mesh.ecentroids)
+        mesh.eradius = ensure_torch(mesh.eradius)
+        mesh.espherecentroids = ensure_torch(mesh.espherecentroids)
+        mesh.centroid = ensure_torch(mesh.centroid)
         return mesh
