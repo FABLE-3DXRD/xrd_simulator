@@ -6,7 +6,7 @@ from the polycrystal.
 """
 
 import numpy as np
-
+from xrd_simulator.utils import ensure_numpy
 
 class ScatteringUnit(object):
     """Defines a scattering region in space as a single crystal as a convex polyhedra.
@@ -56,16 +56,14 @@ class ScatteringUnit(object):
         yd=None,
     ):
         self.convex_hull = convex_hull
-        self.scattered_wave_vector = scattered_wave_vector
-        self.incident_wave_vector = incident_wave_vector
+        self.scattered_wave_vector = ensure_numpy(scattered_wave_vector)
+        self.incident_wave_vector = ensure_numpy(incident_wave_vector)
         self.wavelength = wavelength
         self.incident_polarization_vector = incident_polarization_vector
         self.rotation_axis = rotation_axis
         self.time = time
         self.phase = phase
         self.hkl_indx = hkl_indx
-        self.zd = zd
-        self.yd = yd
         self.element_index = element_index
 
     @property
