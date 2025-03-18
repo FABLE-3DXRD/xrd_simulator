@@ -105,7 +105,7 @@ class Detector:
 
     def render(
         self,
-        peaks,
+        peaks_dict,
         frames_to_render=0,
         lorentz=True,
         polarization=True,
@@ -126,13 +126,28 @@ class Detector:
         8: 'G0_y'               18: 'Source_z'
         9: 'G0_z'               19: 'lorentz_factors'
         """
-        # Move attributes to torch
-        self.to_torch()
+        """
+        Column names of peaks are
+        0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+        1: 'phase_number'       11: 'Gy'        
+        2: 'h'                  12: 'Gz'        
+        3: 'k'                  13: 'K_out_x'   
+        4: 'l'                  14: 'K_out_y'   
+        5: 'structure_factors'  15: 'K_out_z'
+        6: 'diffraction_times'  16: 'Source_x'
+        7: 'G0_x'               17: 'Source_y'      
+        8: 'G0_y'               18: 'Source_z'
+        9: 'G0_z'               19: 'lorentz_factors'           
+        """
+
+
+        peaks = peaks_dict['peaks']
 
         # Intersect scattering vectors with detector plane
         zd_yd_angle = self.get_intersection(peaks[:, 13:16], peaks[:, 16:19])
 
         peaks = torch.cat((peaks, zd_yd_angle), dim=1)
+        peaks_dict['columns'].extend(['zd','yd','incident_angle'])
 
         # Filter out peaks not hitting the detector
         peaks = peaks[self.contains(peaks[:, 21], peaks[:, 22])]
@@ -141,6 +156,7 @@ class Detector:
         bin_edges = torch.linspace(0, 1, steps=frames_to_render)
         frames = torch.bucketize(peaks[:, 6].contiguous(), bin_edges).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frames), dim=1)
+        peaks_dict['columns'].append('frames')
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
         pixel_indices = torch.cat(
@@ -159,8 +175,8 @@ class Detector:
         )
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         structure_factors = peaks[:, 5]
-        lorentz_factors = peaks[:, 22]
-        polarization_factors = peaks[:, 23]
+        lorentz_factors = peaks[:, 19]
+        polarization_factors = peaks[:, 20]
         relative_intensity = (
             structure_factors * polarization_factors
         )  # *lorentz_factors
