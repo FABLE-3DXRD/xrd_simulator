@@ -58,7 +58,7 @@ class RigidBodyMotion:
         self.rotation_axis = ensure_torch(rotation_axis)
         self.rotation_angle = ensure_torch(rotation_angle)
         self.translation = ensure_torch(translation)
-        self.origin = origin
+        self.origin = ensure_torch(origin)
 
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
@@ -76,6 +76,7 @@ class RigidBodyMotion:
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         vectors = ensure_torch(vectors)
+        time = ensure_torch(time)
 
         if len(vectors.shape) == 1:
             translation = self.translation

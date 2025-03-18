@@ -21,148 +21,12 @@ from xrd_simulator.scattering_factors import lorentz, polarization
 import torch
 import matplotlib.pyplot as plt
 from xrd_simulator.utils import ensure_torch, ensure_numpy
+from xrd_simulator.scattering_unit import ScatteringUnit
 
 torch.set_default_dtype(torch.float64)
 
 
-def _diffract(dict):
-    """
-    Compute diffraction for a subset of the polycrystal.
 
-    Args:
-        args (dict): A dictionary containing the following keys:
-            - 'beam' (Beam): Object representing the incident X-ray beam.
-            - 'detector' (Detector): Object representing the X-ray detector.
-            - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
-            - 'phases' (list): List of Phase objects representing the phases present in the polycrystal.
-            - 'espherecentroids' (numpy.ndarray): Array containing the centroids of the scattering elements.
-            - 'eradius' (numpy.ndarray): Array containing the radii of the scattering elements.
-            - 'orientation_lab' (numpy.ndarray): Array containing orientation matrices in laboratory coordinates.
-            - 'eB' (numpy.ndarray): Array containing per-element 3x3 B matrices mapping hkl values to crystal coordinates.
-            - 'element_phase_map' (numpy.ndarray): Array mapping elements to phases.
-            - 'ecoord' (numpy.ndarray): Array containing coordinates of the scattering elements.
-            - 'verbose' (bool): Flag indicating whether to print progress.
-            - 'proximity' (bool): Flag indicating whether to remove grains unlikely to be hit by the beam.
-            - 'BB_intersection' (bool): Flag indicating whether to use Bounding-Box intersection for speed.
-
-    Returns:
-        list: A list of ScatteringUnit objects representing diffraction events.
-    """
-
-    beam = dict["beam"]
-    rigid_body_motion = dict["rigid_body_motion"]
-    phases = dict["phases"]
-    espherecentroids = dict["espherecentroids"]
-    orientation_lab = dict["orientation_lab"]
-    eB = dict["eB"]
-    element_phase_map = dict["element_phase_map"]
-
-    rho_0_factor = torch.matmul(-beam.wave_vector, rigid_body_motion.rotator.K2)
-    rho_1_factor = torch.matmul(beam.wave_vector, rigid_body_motion.rotator.K)
-    rho_2_factor = torch.matmul(
-        beam.wave_vector, (torch.eye(3, 3) + rigid_body_motion.rotator.K2)
-    )
-
-    peaks = torch.empty(
-        (0, 10)
-    )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-
-    # For each phase of the sample, we compute all reflections at once in a vectorized manner
-    for i, phase in enumerate(phases):
-
-        # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
-        grain_indices = torch.where(element_phase_map == i)[0]
-        miller_indices = ensure_torch(phase.miller_indices)
-
-        # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-        structure_factors = torch.sum(
-            ensure_torch(phase.structure_factors) ** 2, axis=1
-        )
-        miller_indices = miller_indices[structure_factors > 1e-6]
-        structure_factors = structure_factors[structure_factors > 1e-6]
-
-        # Get all scattering vectors for all scatterers in a given phase
-        G_0 = laue.get_G(
-            orientation_lab[grain_indices], eB[grain_indices], miller_indices
-        )
-
-        # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        grains, planes, times, G0_xyz = (
-            laue.find_solutions_to_tangens_half_angle_equation(
-                G_0,
-                rho_0_factor,
-                rho_1_factor,
-                rho_2_factor,
-                rigid_body_motion.rotation_angle,
-            )
-        )
-
-        # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
-        # Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
-        del G_0
-
-        structure_factors = structure_factors[planes].unsqueeze(1)
-        grain_indices = grain_indices[grains].unsqueeze(1)
-        miller_indices = miller_indices[planes]
-        phase_index = torch.full((G0_xyz.shape[0],), i).unsqueeze(1)
-        times = times.unsqueeze(1)
-        peaks_ith_phase = torch.cat(
-            (
-                grain_indices,
-                phase_index,
-                miller_indices,
-                structure_factors,
-                times,
-                G0_xyz,
-            ),
-            dim=1,
-        )
-        peaks = torch.cat([peaks, peaks_ith_phase], axis=0)
-
-    # Rotated G-vectors
-    Gxyz = rigid_body_motion.rotate(peaks[:, 7:10], peaks[:, 6])
-
-    # Outgoing scattering vectors
-    K_out_xyz = Gxyz + beam.wave_vector
-
-    # Lorentz factor
-    lorentz_factors = lorentz(beam, rigid_body_motion, K_out_xyz)
-    # Polarization factor
-    polarization_factors = polarization(beam, K_out_xyz)
-
-    Sources_xyz = rigid_body_motion(espherecentroids[peaks[:, 0].int()], peaks[:, 6])
-    peaks = torch.cat(
-        (
-            peaks,
-            Gxyz,
-            K_out_xyz,
-            Sources_xyz,
-            lorentz_factors.unsqueeze(1),
-            polarization_factors.unsqueeze(1),
-        ),
-        dim=1,
-    )
-
-    """
-        Column names of peaks are
-        0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-        1: 'phase_number'       11: 'Gy'        
-        2: 'h'                  12: 'Gz'        
-        3: 'k'                  13: 'K_out_x'   
-        4: 'l'                  14: 'K_out_y'   
-        5: 'structure_factors'  15: 'K_out_z'
-        6: 'diffraction_times'  16: 'Source_x'
-        7: 'G0_x'               17: 'Source_y'      
-        8: 'G0_y'               18: 'Source_z'
-        9: 'G0_z'               19: 'lorentz_factors'           
-    """
-    # Filter out tets not illuminated
-    peaks = peaks[peaks[:, 17] < (beam.vertices[:, 1].max())]
-    peaks = peaks[peaks[:, 17] > (beam.vertices[:, 1].min())]
-    peaks = peaks[peaks[:, 18] < (beam.vertices[:, 2].max())]
-    peaks = peaks[peaks[:, 18] > (beam.vertices[:, 2].min())]
-
-    return peaks
 
 
 class Polycrystal:
@@ -238,9 +102,9 @@ class Polycrystal:
         self,
         beam,
         rigid_body_motion,
-        detector=None,
         min_bragg_angle=0,
-        max_bragg_angle=89 * np.pi / 180,
+        max_bragg_angle=89.9 * np.pi / 180,
+        powder = False
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -273,12 +137,7 @@ class Polycrystal:
                 Greatly speeds up computation, valid approximation for powder-like samples.
 
         """
-        if detector is not None:
-            warnings.warn(
-                "'detector' is deprecated and will be removed in a future version. ",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+
         # beam.wave_vector = ensure_torch(beam.wave_vector)
 
         # min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
@@ -288,17 +147,147 @@ class Polycrystal:
                 beam.wavelength, min_bragg_angle, max_bragg_angle
             )
 
-        args = {
-            "beam": beam,
-            "rigid_body_motion": rigid_body_motion,
-            "phases": self.phases,
-            "espherecentroids": ensure_torch(self.mesh_lab.espherecentroids),
-            "orientation_lab": self.orientation_lab,
-            "eB": self._eB,
-            "element_phase_map": self.element_phase_map,
-        }
+        peaks = self.compute_peaks(beam,rigid_body_motion)
 
-        peaks = _diffract(args)
+        if powder is True:
+            # Filter out tets not illuminated
+            peaks = peaks[peaks[:, 17] < (beam.vertices[:, 1].max())]
+            peaks = peaks[peaks[:, 17] > (beam.vertices[:, 1].min())]
+            peaks = peaks[peaks[:, 18] < (beam.vertices[:, 2].max())]
+            peaks = peaks[peaks[:, 18] > (beam.vertices[:, 2].min())]
+            scattering_units = []
+        else:
+            peaks, scattering_units = self.compute_scattering_units(beam,rigid_body_motion,peaks)
+
+
+        """ Column names labeled like:
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        
+            2: 'h'                  12: 'Gz'        
+            3: 'k'                  13: 'K_out_x'   
+            4: 'l'                  14: 'K_out_y'   
+            5: 'structure_factors'  15: 'K_out_z'
+            6: 'diffraction_times'  16: 'Source_x'
+            7: 'G0_x'               17: 'Source_y'      
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'lorentz_factors'           
+        """
+        column_names = [
+            'grain_index', 'phase_number', 'h', 'k', 'l', 'structure_factors', 
+            'diffraction_times', 'G0_x', 'G0_y', 'G0_z', 'Gx', 'Gy', 'Gz',
+            'K_out_x', 'K_out_y', 'K_out_z', 'Source_x', 'Source_y', 'Source_z',
+            'lorentz_factors', 'polarization_factors'
+        ]
+
+        # Wrap the peaks columns and scattering units into a dict to preserve information
+        peaks_dict = {'peaks':peaks,'columns':column_names,'scattering_units':scattering_units}
+
+        return peaks_dict
+
+    def compute_peaks(self,beam,rigid_body_motion):
+        """
+        Compute diffraction for a subset of the polycrystal.
+
+                - 'beam' (Beam): Object representing the incident X-ray beam.
+                - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
+
+        Returns:
+            list: A list of ScatteringUnit objects representing diffraction events.
+        """
+
+        beam = beam
+        rigid_body_motion = rigid_body_motion
+        phases = self.phases
+        espherecentroids = self.mesh_lab.espherecentroids
+        orientation_lab = self.orientation_lab
+        eB = self._eB
+        element_phase_map = self.element_phase_map
+
+        rho_0_factor = torch.matmul(-beam.wave_vector, rigid_body_motion.rotator.K2)
+        rho_1_factor = torch.matmul(beam.wave_vector, rigid_body_motion.rotator.K)
+        rho_2_factor = torch.matmul(
+            beam.wave_vector, (torch.eye(3, 3) + rigid_body_motion.rotator.K2)
+        )
+
+        peaks = torch.empty(
+            (0, 10)
+        )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+
+        # For each phase of the sample, we compute all reflections at once in a vectorized manner
+        for i, phase in enumerate(phases):
+
+            # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
+            grain_indices = torch.where(element_phase_map == i)[0]
+            miller_indices = ensure_torch(phase.miller_indices)
+
+            # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
+            structure_factors = torch.sum(
+                ensure_torch(phase.structure_factors) ** 2, axis=1
+            )
+            miller_indices = miller_indices[structure_factors > 1e-6]
+            structure_factors = structure_factors[structure_factors > 1e-6]
+
+            # Get all scattering vectors for all scatterers in a given phase
+            G_0 = laue.get_G(
+                orientation_lab[grain_indices], eB[grain_indices], miller_indices
+            )
+
+            # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
+            grains, planes, times, G0_xyz = (
+                laue.find_solutions_to_tangens_half_angle_equation(
+                    G_0,
+                    rho_0_factor,
+                    rho_1_factor,
+                    rho_2_factor,
+                    rigid_body_motion.rotation_angle,
+                )
+            )
+
+            # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
+            # Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
+            del G_0
+
+            structure_factors = structure_factors[planes].unsqueeze(1)
+            grain_indices = grain_indices[grains].unsqueeze(1)
+            miller_indices = miller_indices[planes]
+            phase_index = torch.full((G0_xyz.shape[0],), i).unsqueeze(1)
+            times = times.unsqueeze(1)
+            peaks_ith_phase = torch.cat(
+                (
+                    grain_indices,
+                    phase_index,
+                    miller_indices,
+                    structure_factors,
+                    times,
+                    G0_xyz,
+                ),
+                dim=1,
+            )
+            peaks = torch.cat([peaks, peaks_ith_phase], axis=0)
+
+        # Rotated G-vectors
+        Gxyz = rigid_body_motion.rotate(peaks[:, 7:10], peaks[:, 6])
+
+        # Outgoing scattering vectors
+        K_out_xyz = Gxyz + beam.wave_vector
+
+        # Lorentz factor
+        lorentz_factors = lorentz(beam, rigid_body_motion, K_out_xyz)
+        # Polarization factor
+        polarization_factors = polarization(beam, K_out_xyz)
+
+        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:, 0].int()], peaks[:, 6])
+        peaks = torch.cat(
+            (
+                peaks,
+                Gxyz,
+                K_out_xyz,
+                Sources_xyz,
+                lorentz_factors.unsqueeze(1),
+                polarization_factors.unsqueeze(1),
+            ),
+            dim=1,
+        )
 
         """
             Column names of peaks are
@@ -314,18 +303,40 @@ class Polycrystal:
             9: 'G0_z'               19: 'lorentz_factors'           
         """
 
-        # Column names
-        column_names = [
-            'grain_index', 'phase_number', 'h', 'k', 'l', 'structure_factors', 
-            'diffraction_times', 'G0_x', 'G0_y', 'G0_z', 'Gx', 'Gy', 'Gz',
-            'K_out_x', 'K_out_y', 'K_out_z', 'Source_x', 'Source_y', 'Source_z',
-            'lorentz_factors', 'polarization_factors'
-        ]
+        return peaks
 
-        # Wrap the peaks into a dict to preserv column headers
-        peaks_dict = {'peaks':peaks,'columns':column_names}
+    def compute_scattering_units(self,beam,rigid_body_motion,peaks):
+        peaks = ensure_numpy(peaks) 
+        beam = beam
+        rigid_body_motion = rigid_body_motion
+        phases = self.phases
+        element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[peaks[:,0].astype(int)]] #For each peak: tet x vertex x coordinate
+        element_vertices = rigid_body_motion(element_vertices_0, peaks[:,6]) #vertices and times
 
-        return peaks_dict
+        scattering_units = []
+        filtered_peaks = []
+    
+        """Compute the true intersection of each tet with the beam to get the true scattering volume."""
+        for ei in range(element_vertices.shape[0]):
+            scattering_region = beam.intersect(element_vertices[ei])
+
+            if scattering_region is not None:
+                scattering_unit = ScatteringUnit(
+                    scattering_region,
+                    peaks[ei, 13:16],  # outgoing wavevector
+                    beam.wave_vector,
+                    beam.wavelength,
+                    beam.polarization_vector,
+                    rigid_body_motion.rotation_axis,
+                    peaks[ei, 6],  # time
+                    phases[peaks[ei, 1].astype(int)],  # phase
+                    list(peaks[ei, 2:5].astype(int)),  # hkl index
+                    ei,
+                )
+                filtered_peaks.append(peaks[ei,:])
+                scattering_units.append(scattering_unit)
+        filtered_peaks = np.vstack(filtered_peaks)
+        return ensure_torch(filtered_peaks), scattering_units
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
