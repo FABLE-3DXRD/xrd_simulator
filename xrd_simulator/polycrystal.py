@@ -240,7 +240,7 @@ class Polycrystal:
         rigid_body_motion,
         detector=None,
         min_bragg_angle=0,
-        max_bragg_angle=44.99 * np.pi / 180,
+        max_bragg_angle=89 * np.pi / 180,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 

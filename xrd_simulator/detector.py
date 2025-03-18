@@ -319,6 +319,10 @@ class Detector:
         )
 
         intersection = source_point + ray_direction * s.unsqueeze(1)
+        # such that backwards rays are not considered to intersect the detector
+        # i.e only rays that can intersect the detector plane by propagating
+        # forward along the photon path are considered.
+        intersection[s < 0] = np.nan
         zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
         yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
 
