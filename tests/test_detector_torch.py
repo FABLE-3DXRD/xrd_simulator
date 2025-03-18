@@ -85,12 +85,12 @@ class TestDetector(unittest.TestCase):
         )
 
         scattered_wave_vector = scattered_wave_vector.unsqueeze(0)  # Add batch dim
-        zd1, yd1 = tuple(
+        zd1, yd1, _ = tuple(
             self.detector.get_intersection(
                 scattered_wave_vector, verts1.mean(dim=0, keepdim=True)
             )[0]
         )
-        zd2, yd2 = tuple(
+        zd2, yd2, _ = tuple(
             self.detector.get_intersection(
                 scattered_wave_vector, verts2.mean(dim=0)[None, :]
             )[0]

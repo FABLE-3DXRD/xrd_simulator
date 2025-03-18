@@ -302,18 +302,30 @@ class Polycrystal:
 
         """
             Column names of peaks are
-            0: 'grain_index'        10: 'Gx'        20: 'yd'
-            1: 'phase_number'       11: 'Gy'        21: 'Incident_angle'
-            2: 'h'                  12: 'Gz'        22: 'lorentz_factors'
-            3: 'k'                  13: 'K_out_x'   23: 'polarization_factors'
-            4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        
+            2: 'h'                  12: 'Gz'        
+            3: 'k'                  13: 'K_out_x'   
+            4: 'l'                  14: 'K_out_y'   
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
             7: 'G0_x'               17: 'Source_y'      
             8: 'G0_y'               18: 'Source_z'
-            9: 'G0_z'               19: 'zd'           
+            9: 'G0_z'               19: 'lorentz_factors'           
         """
-        return peaks
+
+        # Column names
+        column_names = [
+            'grain_index', 'phase_number', 'h', 'k', 'l', 'structure_factors', 
+            'diffraction_times', 'G0_x', 'G0_y', 'G0_z', 'Gx', 'Gy', 'Gz',
+            'K_out_x', 'K_out_y', 'K_out_z', 'Source_x', 'Source_y', 'Source_z',
+            'lorentz_factors', 'polarization_factors'
+        ]
+
+        # Wrap the peaks into a dict to preserv column headers
+        peaks_dict = {'peaks':peaks,'columns':column_names}
+
+        return peaks_dict
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)

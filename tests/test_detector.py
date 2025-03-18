@@ -6,6 +6,7 @@ from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
 import os
 import torch
+from xrd_simulator.utils  import ensure_torch
 
 torch.set_default_dtype(torch.float64)
 
@@ -82,7 +83,6 @@ class TestDetector(unittest.TestCase):
             * scattered_wave_vector
             / (np.linalg.norm(scattered_wave_vector) * wavelength)
         )
-
         zd1, yd1 = tuple(
             self.detector.get_intersection(
                 scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
