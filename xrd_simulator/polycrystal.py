@@ -272,7 +272,7 @@ class Polycrystal:
         K_out_xyz = Gxyz + beam.wave_vector
 
         # Lorentz factor
-        lorentz_factors = lorentz(beam, rigid_body_motion, K_out_xyz)
+        lorentz_factors = lorentz(beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis)
         # Polarization factor
         polarization_factors = polarization(beam, K_out_xyz)
 

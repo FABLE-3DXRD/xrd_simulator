@@ -2,20 +2,39 @@ import numpy as np
 import torch
 torch.set_default_dtype(torch.float64)
 
-def lorentz(beam,rigid_body_motion,K_out_xyz):
-    """Compute the Lorentz intensity factor for all reflections."""
-
-    k = beam.wave_vector
-    kp = K_out_xyz
-    rot_axis = rigid_body_motion.rotation_axis
-    k_kp_norm = torch.matmul(k,kp.T) / (torch.linalg.norm(k,axis=0) * torch.linalg.norm(kp,axis=1))
-    theta = torch.arccos(k_kp_norm) / 2.0
-    korthogonal = kp - k_kp_norm.reshape(-1,1)*k.reshape(1,3)
-    eta = torch.arccos(torch.matmul(rot_axis,korthogonal.T) / torch.linalg.norm(korthogonal))
+def lorentz(k_in, k_out, rot_axis):
+    """Compute the Lorentz intensity factor for all reflections.
+    
+    Args:
+        k_in: torch.Tensor of shape (3,)
+        k_out: torch.Tensor of shape (N, 3) or (3,)
+        rotation_axis: torch.Tensor of shape (3,)
+    """
+    # Handle both single vector and batch inputs efficiently
+    kp = k_out.reshape(-1, 3) if k_out.dim() == 1 else k_out
+    
+    # Compute theta using normalized vectors
+    k_in_norm = k_in / torch.linalg.norm(k_in)
+    cos_theta = torch.matmul(k_in_norm, kp.T)
+    theta = torch.arccos(cos_theta) / 2.0
+    
+    # Compute korthogonal
+    korthogonal = kp - torch.matmul(kp, k_in_norm.reshape(3, 1)) * k_in_norm
+    korth_norm = torch.linalg.norm(korthogonal, dim=1)
+    
+    # Use normalized vectors for eta calculation
+    cos_eta = torch.matmul(rot_axis, korthogonal.T) / korth_norm
+    eta = torch.arccos(cos_eta.clamp(-1, 1))  # Prevent numerical instabilities
+    
+    # Compute result with tolerance check
     tol = 0.5
-    #condition = (torch.abs(torch.degrees(eta)) < tol) | (torch.degrees(eta) < tol) | (torch.abs(torch.degrees(eta)) > 180 - tol)
-    #infs = torch.where(condition, torch.inf, 0)
-    return 1.0 / (torch.sin(2 * theta) * torch.abs(torch.sin(eta)))
+    condition = ((torch.abs(torch.rad2deg(eta)) < tol) | 
+                (torch.abs(torch.rad2deg(eta)) > 180 - tol) |
+                (torch.rad2deg(theta) < tol))
+    
+    lorentz = 1.0 / (torch.sin(2 * theta) * torch.abs(torch.sin(eta)))
+    return torch.where(condition, torch.tensor(float('inf')), lorentz).squeeze()
+
 
 def polarization(beam,K_out_xyz):
     """Compute the Polarization intensity factor for all reflections."""
