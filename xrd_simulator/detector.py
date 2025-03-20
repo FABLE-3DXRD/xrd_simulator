@@ -125,15 +125,15 @@ class Detector:
         """
         Column names of peaks are
         0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-        1: 'phase_number'       11: 'Gy'        21: 'zd'
-        2: 'h'                  12: 'Gz'        22: 'yd'
-        3: 'k'                  13: 'K_out_x'   23: 'incident_angle'
-        4: 'l'                  14: 'K_out_y'   
+        1: 'phase_number'       11: 'Gy'        21: 'volumes'
+        2: 'h'                  12: 'Gz'        22: 'zd'
+        3: 'k'                  13: 'K_out_x'   23: 'yd'
+        4: 'l'                  14: 'K_out_y'   24: 'incident_angle'
         5: 'structure_factors'  15: 'K_out_z'
         6: 'diffraction_times'  16: 'Source_x'
-        7: 'G0_x'               17: 'Source_y'
-        8: 'G0_y'               18: 'Source_z'
-        9: 'G0_z'               19: 'lorentz_factors'
+        7: 'G0_x'              17: 'Source_y'
+        8: 'G0_y'              18: 'Source_z'
+        9: 'G0_z'              19: 'lorentz_factors'
         """
 
         if powder is True:
@@ -159,38 +159,38 @@ class Detector:
         peaks = peaks_dict["peaks"]
 
         # Filter out peaks not hitting the detector
-        peaks = peaks[self.contains(peaks[:, 21], peaks[:, 22])]
+        peaks = peaks[self.contains(peaks[:, 22], peaks[:, 23])]
 
         # Add frame number at the end of the tensor
         bin_edges = torch.linspace(0, 1, steps=frames_to_render)
-        frames = torch.bucketize(peaks[:, 6].contiguous(), bin_edges).unsqueeze(1) - 1
-        peaks = torch.cat((peaks, frames), dim=1)
-        peaks_dict["columns"].append("frames")
+        frame = torch.bucketize(peaks[:, 6].contiguous(), bin_edges).unsqueeze(1) - 1
+        peaks = torch.cat((peaks, frame), dim=1)
+        peaks_dict["columns"].append("frame")
 
         """
         Column names of peaks are
         0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-        1: 'phase_number'       11: 'Gy'        21: 'zd'
-        2: 'h'                  12: 'Gz'        22: 'yd'
-        3: 'k'                  13: 'K_out_x'   23: 'incident_angle'
-        4: 'l'                  14: 'K_out_y'   24: 'frames_to_render'
-        5: 'structure_factors'  15: 'K_out_z'
+        1: 'phase_number'       11: 'Gy'        21: 'volumes'
+        2: 'h'                  12: 'Gz'        22: 'zd'
+        3: 'k'                  13: 'K_out_x'   23: 'yd'
+        4: 'l'                  14: 'K_out_y'   24: 'incident_angle'
+        5: 'structure_factors'  15: 'K_out_z'   25: 'frame'
         6: 'diffraction_times'  16: 'Source_x'
-        7: 'G0_x'               17: 'Source_y'
-        8: 'G0_y'               18: 'Source_z'
-        9: 'G0_z'               19: 'lorentz_factors'
+        7: 'G0_x'              17: 'Source_y'
+        8: 'G0_y'              18: 'Source_z'
+        9: 'G0_z'              19: 'lorentz_factors'
         """
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
         pixel_indices = torch.cat(
             (
-                ((peaks[:, 21]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks[:, 22]) / self.pixel_size_y).unsqueeze(1),
-                peaks[:, 24].unsqueeze(1),
+                ((peaks[:, 22]) / self.pixel_size_z).unsqueeze(1),
+                ((peaks[:, 23]) / self.pixel_size_y).unsqueeze(1),
+                peaks[:, 25].unsqueeze(1),
             ),
             dim=1,
         ).to(torch.int32)
-        frames_n = peaks[:, 24].unique().shape[0]
+        frames_n = peaks[:, 25].unique().shape[0]
 
         # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
@@ -200,9 +200,11 @@ class Detector:
         structure_factors = peaks[:, 5]
         lorentz_factors = peaks[:, 19]
         polarization_factors = peaks[:, 20]
+        volumes = peaks[:, 21]
+
         relative_intensity = (
-            structure_factors * polarization_factors
-        )  # *lorentz_factors
+            structure_factors * lorentz_factors * polarization_factors * volumes
+        )
 
         # Turn from lists of peaks to rendered frames
         # Step 1: Find unique coordinates and the inverse indices
@@ -314,8 +316,8 @@ class Detector:
                 (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
             )
             for i, scattering_unit in enumerate(scattering_units):
-                zd = peaks_dict["peaks"][i, 21]
-                yd = peaks_dict["peaks"][i, 22]
+                zd = peaks_dict["peaks"][i, 22]
+                yd = peaks_dict["peaks"][i, 23]
                 renderer(
                     scattering_unit,
                     zd,
@@ -331,22 +333,8 @@ class Detector:
         return np.array(diffraction_frames)
 
     def _apply_point_spread_function(self, frames):
-        # Define the 3x3 Gaussian filter
-        gaussian_kernel = ensure_torch([[[1, 2, 1], [2, 4, 2], [1, 2, 1]]])
-
-        gaussian_kernel = ensure_torch(
-            [
-                [
-                    [1, 4, 6, 4, 1],
-                    [4, 16, 24, 16, 4],
-                    [6, 24, 36, 24, 6],
-                    [4, 16, 24, 16, 4],
-                    [1, 4, 6, 4, 1],
-                ]
-            ]
-        )
-
-        gaussian_kernel /= torch.sum(gaussian_kernel)
+        """Apply the point spread function to the detector frames."""
+        kernel = ensure_torch(self._get_point_spread_function_kernel())
 
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
@@ -354,13 +342,11 @@ class Detector:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         frames_n = frames.shape[1]
 
-        gaussian_kernel = gaussian_kernel.repeat(frames_n, frames_n, 1, 1)
+        kernel = kernel.repeat(frames_n, frames_n, 1, 1)
 
         # Perform the convolution
         with torch.no_grad():
-            output = torch.nn.functional.conv2d(
-                frames, weight=gaussian_kernel, padding=1
-            )
+            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=1)
 
         return output
 

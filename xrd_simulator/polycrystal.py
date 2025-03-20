@@ -20,7 +20,7 @@ from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization
 import torch
 import matplotlib.pyplot as plt
-from xrd_simulator.utils import ensure_torch, ensure_numpy
+from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
 from xrd_simulator.scattering_unit import ScatteringUnit
 
 torch.set_default_dtype(torch.float64)
@@ -165,7 +165,7 @@ class Polycrystal:
 
         """ Column names labeled like:
             0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-            1: 'phase_number'       11: 'Gy'        
+            1: 'phase_number'       11: 'Gy'        21: 'volumes'
             2: 'h'                  12: 'Gz'        
             3: 'k'                  13: 'K_out_x'   
             4: 'l'                  14: 'K_out_y'   
@@ -197,6 +197,7 @@ class Polycrystal:
             "Source_z",
             "lorentz_factors",
             "polarization_factors",
+            "volumes",
         ]
 
         # Wrap the peaks columns and scattering units into a dict to preserve information
@@ -305,6 +306,10 @@ class Polycrystal:
         Sources_xyz = rigid_body_motion(
             espherecentroids[peaks[:, 0].int()], peaks[:, 6]
         )
+
+        element_vertices = self.mesh_lab.coord[self.mesh_lab.enod[peaks[:, 0].int()]]
+        volumes = compute_tetrahedra_volumes(ensure_torch(element_vertices))
+
         peaks = torch.cat(
             (
                 peaks,
@@ -313,6 +318,7 @@ class Polycrystal:
                 Sources_xyz,
                 lorentz_factors.unsqueeze(1),
                 polarization_factors.unsqueeze(1),
+                volumes.unsqueeze(1),
             ),
             dim=1,
         )
@@ -320,7 +326,7 @@ class Polycrystal:
         """
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-            1: 'phase_number'       11: 'Gy'        
+            1: 'phase_number'       11: 'Gy'        21: 'volumes'
             2: 'h'                  12: 'Gz'        
             3: 'k'                  13: 'K_out_x'   
             4: 'l'                  14: 'K_out_y'   
@@ -347,6 +353,7 @@ class Polycrystal:
 
         scattering_units = []
         filtered_peaks = []
+        scattering_volumes = []
 
         """Compute the true intersection of each tet with the beam to get the true scattering volume."""
         for ei in range(element_vertices.shape[0]):
@@ -367,7 +374,14 @@ class Polycrystal:
                 )
                 filtered_peaks.append(peaks[ei, :])
                 scattering_units.append(scattering_unit)
+                scattering_volumes.append(scattering_unit.volume)  # Store volume
+
         filtered_peaks = np.vstack(filtered_peaks)
+        scattering_volumes = np.array(scattering_volumes)[:, np.newaxis]
+
+        # Replace the last column (full tet volumes) with intersection volumes
+        filtered_peaks = np.hstack((filtered_peaks[:, :-1], scattering_volumes))
+
         return ensure_torch(filtered_peaks), scattering_units
 
     def transform(self, rigid_body_motion, time):
