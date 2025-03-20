@@ -550,6 +550,7 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor
         return torch.tensor(data, dtype=torch.float64)
     return torch.tensor(data, dtype=torch.float64)
 
+
 def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     """Convert input to numpy array if it isn't already.
 
@@ -578,3 +579,36 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     elif isinstance(data, (list, tuple)):
         return np.array(data, dtype=np.float64)
     return np.array(data, dtype=np.float64)
+
+
+def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
+    """Compute volumes for multiple tetrahedra.
+
+    Args:
+        vertices: Tensor of shape (N, 4, 3) where:
+            N is number of tetrahedra
+            4 is number of vertices per tetrahedron
+            3 is xyz coordinates
+
+    Returns:
+        torch.Tensor: Volumes of each tetrahedron, shape (N,)
+
+    Example:
+        >>> verts = torch.rand(10, 4, 3)  # 10 random tetrahedra
+        >>> volumes = compute_tetrahedra_volumes(verts)
+        >>> print(volumes.shape)
+        torch.Size([10])
+    """
+    # Create vectors from first vertex to others (N, 3, 3)
+    v1 = vertices[:, 0]  # Reference vertex (N, 3)
+    v21 = vertices[:, 1] - v1  # (N, 3)
+    v31 = vertices[:, 2] - v1
+    v41 = vertices[:, 3] - v1
+
+    # Stack vectors as columns (N, 3, 3)
+    mat = torch.stack([v21, v31, v41], dim=2)
+
+    # Compute determinant and divide by 6
+    volumes = torch.abs(torch.linalg.det(mat)) / 6.0
+
+    return volumes
