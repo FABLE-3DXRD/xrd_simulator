@@ -274,7 +274,7 @@ class Polycrystal:
         # Lorentz factor
         lorentz_factors = lorentz(beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis)
         # Polarization factor
-        polarization_factors = polarization(beam, K_out_xyz)
+        polarization_factors = polarization(K_out_xyz, beam.polarization_vector)
 
         Sources_xyz = rigid_body_motion(espherecentroids[peaks[:, 0].int()], peaks[:, 6])
         peaks = torch.cat(

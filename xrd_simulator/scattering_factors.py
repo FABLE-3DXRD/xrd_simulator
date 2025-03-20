@@ -1,43 +1,98 @@
-import numpy as np
 import torch
-torch.set_default_dtype(torch.float64)
 
-def lorentz(k_in, k_out, rot_axis):
+def lorentz(k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor) -> torch.Tensor | float:
     """Compute the Lorentz intensity factor for all reflections.
-    
-    Args:
-        k_in: torch.Tensor of shape (3,)
-        k_out: torch.Tensor of shape (N, 3) or (3,)
-        rotation_axis: torch.Tensor of shape (3,)
+
+    This function calculates the Lorentz factor for X-ray diffraction based on
+    the incident beam direction, scattered wave vectors, and rotation axis.
+
+    Parameters
+    ----------
+    k_in : torch.Tensor
+        Incident beam direction vector with shape (3,)
+    k_out : torch.Tensor
+        Scattered wave vectors with shape (N, 3) or (3,)
+    rot_axis : torch.Tensor
+        Rotation axis vector with shape (3,)
+
+    Returns
+    -------
+    torch.Tensor | float
+        Lorentz factors for each reflection with shape (N,) or a single float.
+        Returns infinity for geometrically impossible reflections.
+
+    Examples
+    --------
+    >>> k_in = torch.tensor([1., 0., 0.])
+    >>> k_out = torch.tensor([[0.5, 0.5, 0.], [0.2, 0.3, 0.1]])
+    >>> rot_axis = torch.tensor([0., 0., 1.])
+    >>> lorentz(k_in, k_out, rot_axis)
+    tensor([1.1547, 1.0758])
+
+    Notes
+    -----
+    The Lorentz factor is calculated as :math:`1/(\\sin(2\\theta)|\\sin(\\eta)|)`,
+    where :math:`\\theta` is half the scattering angle and :math:`\\eta` is the
+    angle between the rotation axis and the scattering plane normal.
     """
-    # Handle both single vector and batch inputs efficiently
     kp = k_out.reshape(-1, 3) if k_out.dim() == 1 else k_out
     
-    # Compute theta using normalized vectors
-    k_in_norm = k_in / torch.linalg.norm(k_in)
-    cos_theta = torch.matmul(k_in_norm, kp.T)
-    theta = torch.arccos(cos_theta) / 2.0
+    # Normalize k for dot product calculation
+    k_norm_sq = torch.linalg.norm(k_in) ** 2
+    k_kp_norm = torch.matmul(k_in, kp.T) / k_norm_sq
+    theta = torch.arccos(k_kp_norm) / 2.0
     
-    # Compute korthogonal
-    korthogonal = kp - torch.matmul(kp, k_in_norm.reshape(3, 1)) * k_in_norm
+    # Calculate korthogonal same way as in old version
+    korthogonal = kp - k_in.reshape(1, 3) * (k_kp_norm.reshape(-1, 1))
     korth_norm = torch.linalg.norm(korthogonal, dim=1)
-    
-    # Use normalized vectors for eta calculation
-    cos_eta = torch.matmul(rot_axis, korthogonal.T) / korth_norm
-    eta = torch.arccos(cos_eta.clamp(-1, 1))  # Prevent numerical instabilities
-    
-    # Compute result with tolerance check
+    eta = torch.arccos(torch.matmul(rot_axis, korthogonal.T) / korth_norm)
+
+    # Apply tolerance conditions
     tol = 0.5
     condition = ((torch.abs(torch.rad2deg(eta)) < tol) | 
                 (torch.abs(torch.rad2deg(eta)) > 180 - tol) |
                 (torch.rad2deg(theta) < tol))
     
-    lorentz = 1.0 / (torch.sin(2 * theta) * torch.abs(torch.sin(eta)))
-    return torch.where(condition, torch.tensor(float('inf')), lorentz).squeeze()
+    result = 1.0 / (torch.sin(2 * theta) * torch.abs(torch.sin(eta)))
+    result = torch.where(condition, torch.tensor(float('inf')), result)
+    
+    return result.squeeze()  # Remove singleton dimensions for single vector input
+
+def polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | float:
+    """Compute the Polarization intensity factor for all reflections.
+
+    This function calculates the polarization factor for X-ray diffraction based on
+    the polarization vector of the incident beam and the scattered wave vectors.
+
+    Parameters
+    ----------
+    k_out : torch.Tensor
+        Scattered wave vectors with shape (N, 3) or (3,)
+    pol_vec : torch.Tensor
+        Polarization vector with shape (3,)
 
 
-def polarization(beam,K_out_xyz):
-    """Compute the Polarization intensity factor for all reflections."""
+    Returns
+    -------
+    torch.Tensor | float
+        Polarization factors for each reflection with shape (N,) or a single float
 
-    kp_norm = K_out_xyz / torch.linalg.norm(K_out_xyz)
-    return 1 - torch.matmul(beam.polarization_vector, kp_norm.T) ** 2
+    Examples
+    --------
+    >>> k_out = torch.tensor([[0.5, 0.5, 0.], [0., 0.3, 0.7]])
+    >>> pol_vec = torch.tensor([0., 0., 1.])
+    >>> polarization(pol_vec, k_out)
+    tensor([1.0000, 0.1552])
+
+    Notes
+    -----
+    The polarization factor is calculated as :math:`1 - (\\vec{p} \\cdot \\hat{k})^2`,
+    where :math:`\\vec{p}` is the polarization vector and :math:`\\hat{k}` is the
+    normalized scattered wave vector.
+    """
+    kp = k_out.reshape(-1, 3) if k_out.dim() == 1 else k_out
+    # Normalize each k_out vector
+    kp_norm = kp / torch.linalg.norm(kp, dim=1).reshape(-1, 1)
+    # Calculate dot product between pol_vec and each normalized k_out
+    dot_products = torch.matmul(kp_norm, pol_vec)
+    return 1 - dot_products**2
