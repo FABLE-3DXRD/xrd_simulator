@@ -107,18 +107,20 @@ class Detector:
         self,
         peaks_dict,
         frames_to_render=0,
-        powder = False,
+        powder=False,
         lorentz=True,
         polarization=True,
         structure_factor=True,
-        method="centroid"
+        method="centroid",
     ):
 
         # Intersect scattering vectors with detector plane
-        zd_yd_angle = self.get_intersection(peaks_dict['peaks'][:, 13:16], peaks_dict['peaks'][:, 16:19])
+        zd_yd_angle = self.get_intersection(
+            peaks_dict["peaks"][:, 13:16], peaks_dict["peaks"][:, 16:19]
+        )
 
-        peaks_dict['peaks'] = torch.cat((peaks_dict['peaks'], zd_yd_angle), dim=1)
-        peaks_dict['columns'].extend(['zd','yd','incident_angle'])
+        peaks_dict["peaks"] = torch.cat((peaks_dict["peaks"], zd_yd_angle), dim=1)
+        peaks_dict["columns"].extend(["zd", "yd", "incident_angle"])
 
         """
         Column names of peaks are
@@ -133,19 +135,28 @@ class Detector:
         8: 'G0_y'               18: 'Source_z'
         9: 'G0_z'               19: 'lorentz_factors'
         """
-        
+
         if powder is True:
-            diffraction_frames = self.project_peaks(peaks_dict,frames_to_render,lorentz,polarization,structure_factor)
+            diffraction_frames = self.project_peaks(
+                peaks_dict, frames_to_render, lorentz, polarization, structure_factor
+            )
         else:
-            diffraction_frames = self.project_scattering_units(peaks_dict,frames_to_render,lorentz,polarization,structure_factor,method)
-        
+            diffraction_frames = self.project_scattering_units(
+                peaks_dict,
+                frames_to_render,
+                lorentz,
+                polarization,
+                structure_factor,
+                method,
+            )
+
         return diffraction_frames
 
+    def project_peaks(
+        self, peaks_dict, frames_to_render, lorentz, polarization, structure_factor
+    ):
 
-    def project_peaks(self,peaks_dict,frames_to_render,lorentz,polarization,structure_factor):
-
-
-        peaks = peaks_dict['peaks']
+        peaks = peaks_dict["peaks"]
 
         # Filter out peaks not hitting the detector
         peaks = peaks[self.contains(peaks[:, 21], peaks[:, 22])]
@@ -154,7 +165,7 @@ class Detector:
         bin_edges = torch.linspace(0, 1, steps=frames_to_render)
         frames = torch.bucketize(peaks[:, 6].contiguous(), bin_edges).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frames), dim=1)
-        peaks_dict['columns'].append('frames')
+        peaks_dict["columns"].append("frames")
 
         """
         Column names of peaks are
@@ -208,9 +219,9 @@ class Detector:
         )
 
         # Step 4: Use the new column as a pixel value to be added to each coordinate
-        diffraction_frames[result[:, 2].int(), result[:, 0].int(), result[:, 1].int()] = (
-            result[:, 3]
-        )
+        diffraction_frames[
+            result[:, 2].int(), result[:, 0].int(), result[:, 1].int()
+        ] = result[:, 3]
 
         diffraction_frames = self._apply_point_spread_function(diffraction_frames)
 
@@ -223,7 +234,7 @@ class Detector:
         lorentz=True,
         polarization=True,
         structure_factor=True,
-        method="centroid"
+        method="centroid",
     ):
         """Render a pixelated diffraction frame onto the detector plane .
 
@@ -274,38 +285,45 @@ class Detector:
         frames_bundle = list(range(frames_to_render))
 
         diffraction_frames = self._render_and_convolve(
-                peaks_dict,
-                frames_bundle,
-                kernel,
-                renderer,
-                lorentz,
-                polarization,
-                structure_factor
+            peaks_dict,
+            frames_bundle,
+            kernel,
+            renderer,
+            lorentz,
+            polarization,
+            structure_factor,
         )
-        
+
         return diffraction_frames.squeeze()
 
-    def _render_and_convolve(self,
-                peaks_dict,
-                frames_bundle,
-                kernel,
-                renderer,
-                lorentz,
-                polarization,
-                structure_factor,
-                verbose=True
-        ):
-        scattering_units = peaks_dict['scattering_units']
+    def _render_and_convolve(
+        self,
+        peaks_dict,
+        frames_bundle,
+        kernel,
+        renderer,
+        lorentz,
+        polarization,
+        structure_factor,
+        verbose=True,
+    ):
+        scattering_units = peaks_dict["scattering_units"]
         diffraction_frames = []
         for frame_index in frames_bundle:
             frame = np.zeros(
                 (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
             )
-            for i,scattering_unit in enumerate(scattering_units):
-                zd = peaks_dict['peaks'][i,21]
-                yd = peaks_dict['peaks'][i,22]
+            for i, scattering_unit in enumerate(scattering_units):
+                zd = peaks_dict["peaks"][i, 21]
+                yd = peaks_dict["peaks"][i, 22]
                 renderer(
-                    scattering_unit, zd, yd, frame, lorentz, polarization, structure_factor
+                    scattering_unit,
+                    zd,
+                    yd,
+                    frame,
+                    lorentz,
+                    polarization,
+                    structure_factor,
                 )
             if kernel is not None:
                 frame = self._apply_point_spread_function(frame, kernel)
@@ -598,13 +616,13 @@ class Detector:
         return pixel_coordinates
 
     def _centroid_render(
-        self, scattering_unit, zd, yd,  frame, lorentz, polarization, structure_factor
+        self, scattering_unit, zd, yd, frame, lorentz, polarization, structure_factor
     ):
         """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
         sample scattering region centroid to the detector plane. The intensity is deposited into a single
         detector pixel regardless of the geometrical shape of the scattering_unit.
         """
-        #zd, yd = scattering_unit.zd, scattering_unit.yd
+        # zd, yd = scattering_unit.zd, scattering_unit.yd
 
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
@@ -627,7 +645,7 @@ class Detector:
         step using convolution. Here the point spread is simulated to take place in the scintillator, before reaching the
         chip.
         """
-        #zd, yd = scattering_unit.zd, scattering_unit.yd
+        # zd, yd = scattering_unit.zd, scattering_unit.yd
         if self.contains(zd, yd):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit, lorentz, polarization, structure_factor
