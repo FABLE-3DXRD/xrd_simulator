@@ -26,9 +26,6 @@ from xrd_simulator.scattering_unit import ScatteringUnit
 torch.set_default_dtype(torch.float64)
 
 
-
-
-
 class Polycrystal:
     """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
 
@@ -103,8 +100,11 @@ class Polycrystal:
         beam,
         rigid_body_motion,
         min_bragg_angle=0,
-        max_bragg_angle=89.9 * np.pi / 180,
-        powder = False
+        max_bragg_angle=90
+        * np.pi
+        / 180,  # Can go higher, but this is a reasonable default
+        powder=False,
+        detector=None,
     ):
         """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
 
@@ -139,15 +139,17 @@ class Polycrystal:
         """
 
         # beam.wave_vector = ensure_torch(beam.wave_vector)
-
-        # min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(beam, min_bragg_angle, max_bragg_angle)
+        if detector is not None:
+            min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
+                detector, beam, min_bragg_angle, max_bragg_angle
+            )
 
         for phase in self.phases:
             phase.setup_diffracting_planes(
                 beam.wavelength, min_bragg_angle, max_bragg_angle
             )
 
-        peaks = self.compute_peaks(beam,rigid_body_motion)
+        peaks = self.compute_peaks(beam, rigid_body_motion)
 
         if powder is True:
             # Filter out tets not illuminated
@@ -157,8 +159,9 @@ class Polycrystal:
             peaks = peaks[peaks[:, 18] > (beam.vertices[:, 2].min())]
             scattering_units = []
         else:
-            peaks, scattering_units = self.compute_scattering_units(beam,rigid_body_motion,peaks)
-
+            peaks, scattering_units = self.compute_scattering_units(
+                beam, rigid_body_motion, peaks
+            )
 
         """ Column names labeled like:
             0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
@@ -173,18 +176,39 @@ class Polycrystal:
             9: 'G0_z'               19: 'lorentz_factors'           
         """
         column_names = [
-            'grain_index', 'phase_number', 'h', 'k', 'l', 'structure_factors', 
-            'diffraction_times', 'G0_x', 'G0_y', 'G0_z', 'Gx', 'Gy', 'Gz',
-            'K_out_x', 'K_out_y', 'K_out_z', 'Source_x', 'Source_y', 'Source_z',
-            'lorentz_factors', 'polarization_factors'
+            "grain_index",
+            "phase_number",
+            "h",
+            "k",
+            "l",
+            "structure_factors",
+            "diffraction_times",
+            "G0_x",
+            "G0_y",
+            "G0_z",
+            "Gx",
+            "Gy",
+            "Gz",
+            "K_out_x",
+            "K_out_y",
+            "K_out_z",
+            "Source_x",
+            "Source_y",
+            "Source_z",
+            "lorentz_factors",
+            "polarization_factors",
         ]
 
         # Wrap the peaks columns and scattering units into a dict to preserve information
-        peaks_dict = {'peaks':peaks,'columns':column_names,'scattering_units':scattering_units}
+        peaks_dict = {
+            "peaks": peaks,
+            "columns": column_names,
+            "scattering_units": scattering_units,
+        }
 
         return peaks_dict
 
-    def compute_peaks(self,beam,rigid_body_motion):
+    def compute_peaks(self, beam, rigid_body_motion):
         """
         Compute diffraction for a subset of the polycrystal.
 
@@ -221,8 +245,8 @@ class Polycrystal:
             miller_indices = ensure_torch(phase.miller_indices)
 
             # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-            structure_factors = torch.sum(
-                ensure_torch(phase.structure_factors) ** 2, axis=1
+            structure_factors = torch.sqrt(
+                torch.sum(ensure_torch(phase.structure_factors) ** 2, axis=1)
             )
             miller_indices = miller_indices[structure_factors > 1e-6]
             structure_factors = structure_factors[structure_factors > 1e-6]
@@ -272,11 +296,15 @@ class Polycrystal:
         K_out_xyz = Gxyz + beam.wave_vector
 
         # Lorentz factor
-        lorentz_factors = lorentz(beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis)
+        lorentz_factors = lorentz(
+            beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis
+        )
         # Polarization factor
         polarization_factors = polarization(K_out_xyz, beam.polarization_vector)
 
-        Sources_xyz = rigid_body_motion(espherecentroids[peaks[:, 0].int()], peaks[:, 6])
+        Sources_xyz = rigid_body_motion(
+            espherecentroids[peaks[:, 0].int()], peaks[:, 6]
+        )
         peaks = torch.cat(
             (
                 peaks,
@@ -305,17 +333,21 @@ class Polycrystal:
 
         return peaks
 
-    def compute_scattering_units(self,beam,rigid_body_motion,peaks):
-        peaks = ensure_numpy(peaks) 
+    def compute_scattering_units(self, beam, rigid_body_motion, peaks):
+        peaks = ensure_numpy(peaks)
         beam = beam
         rigid_body_motion = rigid_body_motion
         phases = self.phases
-        element_vertices_0 = self.mesh_lab.coord[self.mesh_lab.enod[peaks[:,0].astype(int)]] #For each peak: tet x vertex x coordinate
-        element_vertices = rigid_body_motion(element_vertices_0, peaks[:,6]) #vertices and times
+        element_vertices_0 = self.mesh_lab.coord[
+            self.mesh_lab.enod[peaks[:, 0].astype(int)]
+        ]  # For each peak: tet x vertex x coordinate
+        element_vertices = rigid_body_motion(
+            element_vertices_0, peaks[:, 6]
+        )  # vertices and times
 
         scattering_units = []
         filtered_peaks = []
-    
+
         """Compute the true intersection of each tet with the beam to get the true scattering volume."""
         for ei in range(element_vertices.shape[0]):
             scattering_region = beam.intersect(element_vertices[ei])
@@ -333,7 +365,7 @@ class Polycrystal:
                     list(peaks[ei, 2:5].astype(int)),  # hkl index
                     ei,
                 )
-                filtered_peaks.append(peaks[ei,:])
+                filtered_peaks.append(peaks[ei, :])
                 scattering_units.append(scattering_unit)
         filtered_peaks = np.vstack(filtered_peaks)
         return ensure_torch(filtered_peaks), scattering_units
@@ -511,20 +543,18 @@ class Polycrystal:
 
         If the beam graces or misses the sample, the sample centroid is used.
         """
-        if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = self.mesh_lab.coord[
-                beam.contains(self.mesh_lab.coord.T), :
-            ]
-            mesh_nodes_contained_by_beam = ensure_torch(
-                mesh_nodes_contained_by_beam, dtype=torch.float64
-            )
-            if mesh_nodes_contained_by_beam.shape[0] != 0:
-                source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0)
-            else:
-                source_point = ensure_torch(self.mesh_lab.centroid)
-            max_bragg_angle = detector.get_wrapping_cone(
-                beam.wave_vector, source_point
-            ).item()
+
+        mesh_nodes_contained_by_beam = self.mesh_lab.coord[
+            beam.contains(self.mesh_lab.coord.T), :
+        ]
+        mesh_nodes_contained_by_beam = ensure_torch(mesh_nodes_contained_by_beam)
+        if mesh_nodes_contained_by_beam.shape[0] != 0:
+            source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0)
+        else:
+            source_point = ensure_torch(self.mesh_lab.centroid)
+        max_bragg_angle = detector.get_wrapping_cone(
+            beam.wave_vector, source_point
+        ).item()
 
         assert (
             min_bragg_angle >= 0
