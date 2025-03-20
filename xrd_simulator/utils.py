@@ -550,10 +550,6 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor
         return torch.tensor(data, dtype=torch.float64)
     return torch.tensor(data, dtype=torch.float64)
 
-
-from typing import Union
-
-
 def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     """Convert input to numpy array if it isn't already.
 
