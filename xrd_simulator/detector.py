@@ -182,14 +182,22 @@ class Detector:
         """
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
-        pixel_indices = torch.cat(
-            (
-                ((peaks[:, 22]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks[:, 23]) / self.pixel_size_y).unsqueeze(1),
-                peaks[:, 25].unsqueeze(1),
-            ),
-            dim=1,
-        ).to(torch.int32)
+        pixel_indices = (
+            torch.cat(
+                (
+                    ((peaks[:, 22]) / self.pixel_size_z).unsqueeze(1),
+                    ((peaks[:, 23]) / self.pixel_size_y).unsqueeze(1),
+                    peaks[:, 25].unsqueeze(1),
+                ),
+                dim=1,
+            )
+            .to(torch.int32)
+        )
+
+        """This truncates the pixels to zero, which shifts the position of dose deposited by 1 pixel
+        in x and 1 pixel in y compared to previous versions of the code which was rounding up.
+        """
+
         frames_n = peaks[:, 25].unique().shape[0]
 
         # Create the future frames as an empty tensor
@@ -203,7 +211,9 @@ class Detector:
         volumes = peaks[:, 21]
 
         relative_intensity = (
-            structure_factors * lorentz_factors * polarization_factors * volumes
+            (structure_factors * volumes)  # small numbers first
+            * polarization_factors  # medium range
+            * lorentz_factors  # large numbers last
         )
 
         # Turn from lists of peaks to rendered frames
