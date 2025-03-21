@@ -76,6 +76,10 @@ class Polycrystal:
         orientation = ensure_torch(orientation)
         strain = ensure_torch(strain)
 
+        # Compute and store mesh volumes during initialization
+        element_vertices = mesh.coord[mesh.enod]
+        self.mesh_volumes = compute_tetrahedra_volumes(ensure_torch(element_vertices))
+
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
         self.element_phase_map, self.phases = self._instantiate_phase(
@@ -307,8 +311,7 @@ class Polycrystal:
             espherecentroids[peaks[:, 0].int()], peaks[:, 6]
         )
 
-        element_vertices = self.mesh_lab.coord[self.mesh_lab.enod[peaks[:, 0].int()]]
-        volumes = compute_tetrahedra_volumes(ensure_torch(element_vertices))
+        volumes = self.mesh_volumes[peaks[:, 0].int()]
 
         peaks = torch.cat(
             (
