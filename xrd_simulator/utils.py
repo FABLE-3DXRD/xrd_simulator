@@ -28,6 +28,7 @@ Functions:
     _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
 """
 
+import os
 import logging
 from itertools import combinations
 from CifFile import ReadCif
@@ -36,6 +37,7 @@ import numpy as np
 import sys
 import xrd_simulator.cuda
 import torch
+import pandas as pd
 
 torch.set_default_dtype(torch.float64)
 
@@ -612,3 +614,40 @@ def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
     volumes = torch.abs(torch.linalg.det(mat)) / 6.0
 
     return volumes
+
+
+def peaks_to_csv(peaks_dict, output_dir=None):
+    """Save peaks data to CSV and print summary.
+
+    Args:
+        peaks_dict: Dictionary containing peaks data and column names
+        output_dir: Optional output directory. If None, uses script directory
+    """
+    column_names = peaks_dict["columns"]
+
+    # Create DataFrame with all columns
+    factors_df = pd.DataFrame(peaks_dict["peaks"], columns=column_names)
+
+    # Print selected columns in table format
+    print("\nScattering Units Factors:")
+    print(f"{'Structure':>12} {'Lorentz':>12} {'Polarization':>12} {'Volume':>12}")
+    print("-" * 50)
+    for _, row in factors_df.iterrows():
+        print(
+            f"{row['structure_factors']:12.5f} {row['lorentz_factors']:12.5f} "
+            f"{row['polarization_factors']:12.5f} {row['volumes']:12.5f}"
+        )
+
+    # Get script directory if no output dir specified
+    if output_dir is None:
+        output_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Create output filename
+    filename = "peaks.csv"
+    csv_path = os.path.join(output_dir, filename)
+
+    # Save full DataFrame to CSV
+    factors_df.to_csv(csv_path, index=False)
+    print(f"\nPeaks data saved to {csv_path}")
+
+    return csv_path

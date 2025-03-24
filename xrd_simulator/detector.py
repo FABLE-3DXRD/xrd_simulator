@@ -15,7 +15,7 @@ Below follows a detailed description of the detector class attributes and functi
 import xrd_simulator.cuda
 import numpy as np
 from xrd_simulator import utils
-from xrd_simulator.utils import ensure_torch
+from xrd_simulator.utils import ensure_torch, peaks_to_csv
 import dill
 import torch
 
@@ -155,16 +155,21 @@ class Detector:
     def project_peaks(
         self, peaks_dict, frames_to_render, lorentz, polarization, structure_factor
     ):
+        """Project peaks onto detector and save filtered data."""
+        # Filter peaks and update dict in one step
+        peaks_dict["peaks"] = peaks_dict["peaks"][
+            self.contains(peaks_dict["peaks"][:, 22], peaks_dict["peaks"][:, 23])
+        ]
 
-        peaks = peaks_dict["peaks"]
-
-        # Filter out peaks not hitting the detector
-        peaks = peaks[self.contains(peaks[:, 22], peaks[:, 23])]
-
-        # Add frame number at the end of the tensor
+        # Add frame number
         bin_edges = torch.linspace(0, 1, steps=frames_to_render)
-        frame = torch.bucketize(peaks[:, 6].contiguous(), bin_edges).unsqueeze(1) - 1
-        peaks = torch.cat((peaks, frame), dim=1)
+        frame = (
+            torch.bucketize(
+                peaks_dict["peaks"][:, 6].contiguous(), bin_edges
+            ).unsqueeze(1)
+            - 1
+        )
+        peaks_dict["peaks"] = torch.cat((peaks_dict["peaks"], frame), dim=1)
         peaks_dict["columns"].append("frame")
 
         """
@@ -184,9 +189,9 @@ class Detector:
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
         pixel_indices = torch.cat(
             (
-                ((peaks[:, 22]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks[:, 23]) / self.pixel_size_y).unsqueeze(1),
-                peaks[:, 25].unsqueeze(1),
+                ((peaks_dict["peaks"][:, 22]) / self.pixel_size_z).unsqueeze(1),
+                ((peaks_dict["peaks"][:, 23]) / self.pixel_size_y).unsqueeze(1),
+                peaks_dict["peaks"][:, 25].unsqueeze(1),
             ),
             dim=1,
         ).to(torch.int32)
@@ -195,17 +200,17 @@ class Detector:
         in x and 1 pixel in y compared to previous versions of the code which was rounding up.
         """
 
-        frames_n = peaks[:, 25].unique().shape[0]
+        frames_n = peaks_dict["peaks"][:, 25].unique().shape[0]
 
         # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
             (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
         )
         # Generate the relative intensity for all the diffraction peaks using the different factors.
-        structure_factors = peaks[:, 5]
-        lorentz_factors = peaks[:, 19]
-        polarization_factors = peaks[:, 20]
-        volumes = peaks[:, 21]
+        structure_factors = peaks_dict["peaks"][:, 5]
+        lorentz_factors = peaks_dict["peaks"][:, 19]
+        polarization_factors = peaks_dict["peaks"][:, 20]
+        volumes = peaks_dict["peaks"][:, 21]
 
         relative_intensity = (
             (structure_factors * volumes)  # small numbers first
@@ -319,7 +324,7 @@ class Detector:
         scattering_units = peaks_dict["scattering_units"]
         diffraction_frames = []
         for frame_index in frames_bundle:
-            frame = np.zeros(
+            frames = np.zeros(
                 (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
             )
             for i, scattering_unit in enumerate(scattering_units):
@@ -329,20 +334,20 @@ class Detector:
                     scattering_unit,
                     zd,
                     yd,
-                    frame,
+                    frames,
                     lorentz,
                     polarization,
                     structure_factor,
                 )
             if kernel is not None:
-                frame = self._apply_point_spread_function(frame, kernel)
-            diffraction_frames.append(frame)
+                frames = self._apply_point_spread_function(frames)
+            diffraction_frames.append(frames)
         return np.array(diffraction_frames)
 
     def _apply_point_spread_function(self, frames):
         """Apply the point spread function to the detector frames."""
         kernel = ensure_torch(self._get_point_spread_function_kernel())
-
+        frames = ensure_torch(frames)
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         if frames.ndim == 3:
