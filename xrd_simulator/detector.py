@@ -347,13 +347,13 @@ class Detector:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         if frames.ndim == 3:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
-        frames_n = frames.shape[1]
 
-        kernel = kernel.repeat(frames_n, frames_n, 1, 1)
+        kernel = kernel.unsqueeze(0).unsqueeze(0)
 
+        padding = kernel.shape[-1] // 2
         # Perform the convolution
         with torch.no_grad():
-            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=1)
+            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=padding)
 
         return output
 
