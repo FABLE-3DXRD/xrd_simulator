@@ -57,7 +57,15 @@ class Detector:
     """
 
     def __init__(
-        self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
+        self,
+        pixel_size_z,
+        pixel_size_y,
+        det_corner_0,
+        det_corner_1,
+        det_corner_2,
+        gaussian_kernel_size=3,
+        gaussian_sigma=1.0,
+        supersampling=1,
     ):
         self.det_corner_0 = ensure_torch(det_corner_0)
         self.det_corner_1 = ensure_torch(det_corner_1)
@@ -75,7 +83,9 @@ class Detector:
         self.normal = self.normal / torch.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
-        self._point_spread_kernel_shape = (5, 5)
+        self.kernel_size = gaussian_kernel_size
+        self.sigma = gaussian_sigma
+        self.supersampling = supersampling
 
     def point_spread_function(self, z, y):
         return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
@@ -153,7 +163,12 @@ class Detector:
         return diffraction_frames
 
     def project_peaks(
-        self, peaks_dict, frames_to_render, lorentz, polarization, structure_factor
+        self,
+        peaks_dict,
+        frames_to_render,
+        lorentz,
+        polarization,
+        structure_factor,
     ):
         """Project peaks onto detector and save filtered data."""
         # Filter peaks and update dict in one step
@@ -185,37 +200,45 @@ class Detector:
         8: 'G0_y'              18: 'Source_z'
         9: 'G0_z'              19: 'lorentz_factors'
         """
+        # Generate the relative intensity for all the diffraction peaks using the different factors.
+        relative_intensity = peaks_dict["peaks"][:, 21]  # volumes
+        if structure_factor:
+            relative_intensity = (
+                relative_intensity * peaks_dict["peaks"][:, 5]
+            )  # structure_factors
+        if polarization:
+            relative_intensity = (
+                relative_intensity * peaks_dict["peaks"][:, 20]
+            )  # polarization_factors
+        if lorentz:
+            relative_intensity = (
+                relative_intensity * peaks_dict["peaks"][:, 19]
+            )  # lorentz_factors
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
+        supsamp = self.supersampling
         pixel_indices = torch.cat(
             (
-                ((peaks_dict["peaks"][:, 22]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks_dict["peaks"][:, 23]) / self.pixel_size_y).unsqueeze(1),
+                ((peaks_dict["peaks"][:, 22]) * supsamp / self.pixel_size_z).unsqueeze(
+                    1
+                ),
+                ((peaks_dict["peaks"][:, 23]) * supsamp / self.pixel_size_y).unsqueeze(
+                    1
+                ),
                 peaks_dict["peaks"][:, 25].unsqueeze(1),
             ),
             dim=1,
         ).to(torch.int32)
 
-        """This truncates the pixels to zero, which shifts the position of dose deposited by 1 pixel
-        in x and 1 pixel in y compared to previous versions of the code which was rounding up.
-        """
-
         frames_n = peaks_dict["peaks"][:, 25].unique().shape[0]
 
         # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
-            (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
-        )
-        # Generate the relative intensity for all the diffraction peaks using the different factors.
-        structure_factors = peaks_dict["peaks"][:, 5]
-        lorentz_factors = peaks_dict["peaks"][:, 19]
-        polarization_factors = peaks_dict["peaks"][:, 20]
-        volumes = peaks_dict["peaks"][:, 21]
-
-        relative_intensity = (
-            (structure_factors * volumes)  # small numbers first
-            * polarization_factors  # medium range
-            * lorentz_factors  # large numbers last
+            (
+                frames_n,
+                self.pixel_coordinates.shape[0] * supsamp,
+                self.pixel_coordinates.shape[1] * supsamp,
+            )
         )
 
         # Turn from lists of peaks to rendered frames
@@ -319,7 +342,7 @@ class Detector:
         lorentz,
         polarization,
         structure_factor,
-        verbose=True,
+        verbose=False,
     ):
         scattering_units = peaks_dict["scattering_units"]
         diffraction_frames = []
@@ -346,19 +369,31 @@ class Detector:
 
     def _apply_point_spread_function(self, frames):
         """Apply the point spread function to the detector frames."""
-        kernel = ensure_torch(self._get_point_spread_function_kernel())
+        # kernel = ensure_torch(self._get_point_spread_function_kernel(supsamp))
         frames = ensure_torch(frames)
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         if frames.ndim == 3:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
-
-        kernel = kernel.unsqueeze(0).unsqueeze(0)
-
+        supsamp = self.supersampling
+        # kernel = kernel.unsqueeze(0).unsqueeze(0)
+        kernel = self.gaussian_kernel_2d()
         padding = kernel.shape[-1] // 2
         # Perform the convolution
         with torch.no_grad():
             output = torch.nn.functional.conv2d(frames, weight=kernel, padding=padding)
+            output = (
+                output.reshape(
+                    1,
+                    frames.shape[1],
+                    frames.shape[2] // supsamp,
+                    supsamp,
+                    frames.shape[3] // supsamp,
+                    supsamp,
+                )
+                .sum(dim=3)
+                .sum(dim=4)
+            )
 
         return output
 
@@ -578,24 +613,16 @@ class Detector:
             loaded.pixel_size_y = ensure_torch(loaded.pixel_size_y)
             return loaded
 
-    def _get_point_spread_function_kernel(self):
-        """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape."""
-        sz, sy = self.point_spread_kernel_shape
-        axz = np.linspace(-(sz - 1) / 2.0, (sz - 1) / 2.0, sz)
-        axy = np.linspace(-(sy - 1) / 2.0, (sy - 1) / 2.0, sy)
-        Z, Y = np.meshgrid(axz, axy, indexing="ij")
-        kernel = np.zeros(self.point_spread_kernel_shape)
-        for i in range(Z.shape[0]):
-            for j in range(Y.shape[1]):
-                kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
-        assert (
-            len(kernel[kernel < 0]) == 0
-        ), "Point spread function must be strictly positive, but negative values were found."
-        assert (
-            np.sum(kernel) > 1e-8
-        ), "The integrated value of the point spread function over the defined kernel domain is close to zero."
+    def gaussian_kernel_2d(self) -> torch.Tensor:
+        """Generates a 2D Gaussian kernel with shape (1, 1, H, W)."""
+        kernel_size = self.kernel_size
+        sigma = self.sigma
 
-        return kernel / np.sum(kernel)
+        ax = torch.arange(kernel_size, dtype=torch.float64) - (kernel_size - 1) / 2.0
+        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
+        kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
+        kernel /= kernel.sum()
+        return kernel.view(1, 1, kernel_size, kernel_size)
 
     def _get_pixel_coordinates(self):
         zds = torch.arange(0, self.zmax, self.pixel_size_z)
@@ -612,25 +639,6 @@ class Detector:
             + Yds * self.ydhat.reshape(1, 1, 3)
         )
         return pixel_coordinates
-
-    def _centroid_render(
-        self, scattering_unit, zd, yd, frame, lorentz, polarization, structure_factor
-    ):
-        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
-        sample scattering region centroid to the detector plane. The intensity is deposited into a single
-        detector pixel regardless of the geometrical shape of the scattering_unit.
-        """
-        # zd, yd = scattering_unit.zd, scattering_unit.yd
-
-        if self.contains(zd, yd):
-            intensity_scaling_factor = self._get_intensity_factor(
-                scattering_unit, lorentz, polarization, structure_factor
-            )
-            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            if np.isinf(intensity_scaling_factor):
-                frame[row, col] += np.inf
-            else:
-                frame[row, col] += scattering_unit.volume * intensity_scaling_factor
 
     def _centroid_render_with_scintillator(
         self, scattering_unit, zd, yd, frame, lorentz, polarization, structure_factor
