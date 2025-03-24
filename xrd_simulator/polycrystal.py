@@ -1,82 +1,69 @@
-"""The polycrystal module is used to represent a polycrystalline sample. The :class:`xrd_simulator.polycrystal.Polycrystal`
-object holds the function :func:`xrd_simulator.polycrystal.Polycrystal.diffract` which may be used to compute diffraction.
-To move the sample spatially, the function :func:`xrd_simulator.polycrystal.Polycrystal.transform` can be used.
-Here is a minimal example of how to instantiate a polycrystal object and save it to disc:
+"""Polycrystal module for representing and simulating polycrystalline samples.
 
-    Examples:
-        .. literalinclude:: examples/example_init_polycrystal.py
-
-Below follows a detailed description of the polycrystal class attributes and functions.
-
+This module provides the Polycrystal class which handles:
+- Multi-phase polycrystal representation as a tetrahedral mesh
+- Diffraction computation
+- Spatial transformations
+- Crystal orientations and strains
 """
 
+from typing import Dict, List
 import copy
-import xrd_simulator.cuda
-import warnings
 import numpy as np
+import numpy.typing as npt
+import torch
+from torch import Tensor
 import dill
 from xfab import tools
+
 from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization
-import torch
-import matplotlib.pyplot as plt
-from xrd_simulator.utils import (
-    ensure_torch,
-    ensure_numpy,
-    compute_tetrahedra_volumes,
-    peaks_to_csv,
-)
+from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
 from xrd_simulator.scattering_unit import ScatteringUnit
+from xrd_simulator.beam import Beam
+from xrd_simulator.detector import Detector
+from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.mesh import TetraMesh
+from xrd_simulator.phase import Phase
 
 torch.set_default_dtype(torch.float64)
 
 
 class Polycrystal:
-    """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
+    """A multi-phase polycrystal represented as a tetrahedral mesh.
 
-    The polycrystal is created in laboratory coordinates. At instantiation it is assumed that the sample and
-    lab coordinate systems are aligned.
+    Each element in the mesh can be a single crystal. The polycrystal is created in
+    laboratory coordinates with sample and lab coordinate systems initially aligned.
 
     Args:
-        mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample. (At instantiation it is assumed that the sample and lab coordinate systems
-            are aligned.)
-        orientation (:obj:`numpy array`): Per element orientation matrices (sometimes known by the capital letter U),
-            (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is the same for all elements. The orientation
-            matrix maps from crystal coordinates to sample coordinates.
-        strain (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor, in lab coordinates, (``shape=(N,3,3)``)
-            or (``shape=(3,3)``) if the strain is the same for all elements elements.
-        phases (:obj:`xrd_simulator.phase.Phase` or :obj:`list` of :obj:`xrd_simulator.phase.Phase`): Phase of the
-            polycrystal, or for multiphase samples, a list of all phases present in the polycrystal.
-        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
-            gives the xrd_simulator.phase.Phase object of element number i. None if the sample is composed of a single phase.
-            (Defaults to None)
+        mesh (TetraMesh): Tetrahedral mesh defining sample geometry
+        orientation (np.ndarray | torch.Tensor): Per-element orientation matrices (U)
+            with shape (N,3,3) or (3,3) if same for all elements
+        strain (np.ndarray | torch.Tensor): Per-element Green-Lagrange strain tensor
+            with shape (N,3,3) or (3,3) if same for all elements
+        phases (Phase | List[Phase]): Single phase or list of phases present
+        element_phase_map (Optional[np.ndarray]): Indices mapping elements to phases.
+            Required for multi-phase samples. Defaults to None.
 
     Attributes:
-        mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.
-        mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a sample metadata={'angle':angle,
-                               'angles':n_angles,
-                               'steps':n_scans,
-                               'beam':beam_file,
-                               'sample':polycrystal_file,
-                               'detector':detector_file},coordinate system. This quantity is not updated when the sample transforms.
-        orientation_lab (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the lab coordinate
-            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
-        orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
-            coordinate system.,  this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_lab (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a fixed lab frame coordinate
-            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_sample (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a sample coordinate
-            system., this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
-        phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
-        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
-            gives the xrd_simulator.phase.Phase object of element number i.
-
+        mesh_lab (TetraMesh): Mesh in lab coordinates (updated during transforms)
+        mesh_sample (TetraMesh): Mesh in sample coordinates (fixed)
+        orientation_lab (torch.Tensor): Crystal-to-lab orientation matrices
+        orientation_sample (torch.Tensor): Crystal-to-sample orientation matrices
+        strain_lab (torch.Tensor): Strain tensors in lab coordinates
+        strain_sample (torch.Tensor): Strain tensors in sample coordinates
+        phases (List[Phase]): List of unique phases
+        element_phase_map (torch.Tensor): Phase index per element
     """
 
-    def __init__(self, mesh, orientation, strain, phases, element_phase_map=None):
+    def __init__(
+        self,
+        mesh: TetraMesh,
+        orientation: npt.NDArray | Tensor,
+        strain: npt.NDArray | Tensor,
+        phases: Phase | list[Phase],
+        element_phase_map: npt.NDArray | Tensor | None = None,
+    ) -> None:
 
         orientation = ensure_torch(orientation)
         strain = ensure_torch(strain)
@@ -106,45 +93,31 @@ class Polycrystal:
 
     def diffract(
         self,
-        beam,
-        rigid_body_motion,
-        min_bragg_angle=0,
-        max_bragg_angle=90
-        * np.pi
-        / 180,  # Can go higher, but this is a reasonable default
-        powder=False,
-        detector=None,
-    ):
-        """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
+        beam: Beam,
+        rigid_body_motion: RigidBodyMotion,
+        min_bragg_angle: float = 0,
+        max_bragg_angle: float = 90 * np.pi / 180,
+        powder: bool = False,
+        detector: Detector | None = None,
+    ) -> Dict[str, Tensor | List[ScatteringUnit]]:
+        """Compute diffraction from the rotating and translating polycrystal.
 
-        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector torch.
-        The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
-        option.
+        Simulates diffraction while the sample is illuminated by an x-ray beam.
+        Returns peaks and optional scattering units that can be rendered on a detector.
 
         Args:
-            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
-            detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
-                computed.
-            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
-                Defaults to 0.
-            max_bragg_angle (:obj:`float`): Maximum Bragg angle (radians) after which to not compute diffraction. By default
-                the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample-beam
-                intersection centroid for time=0 in the rigid_body_motion.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
-                computation. Defaults to 1, i.e a single processes.
-            number_of_frames (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
-                to be collected. Defaulrenderts to 1, which means that the detector reads diffraction during the full rigid body
-                motion and integrates out the signal to a single torch. The number_of_frames keyword primarily allows for single
-                rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
-            proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
-                For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.
-            BB_intersection (:obj:`bool`): Set to True in order to assume the beam as a square prism, the scattering volume for the tetrahedra
-                to be the whole tetrahedron and the scattering tetrahedra to be all those whose centroids are included in the square prism.
-                Greatly speeds up computation, valid approximation for powder-like samples.
+            beam: Monochromatic x-ray beam
+            rigid_body_motion: Sample transformation over time domain [0,1]
+            min_bragg_angle: Minimum Bragg angle in radians
+            max_bragg_angle: Maximum Bragg angle in radians
+            powder: If True, use powder approximation
+            detector: Optional detector for automatic Bragg angle bounds
 
+        Returns:
+            Dictionary containing:
+                - peaks: Tensor of diffraction peaks
+                - columns: Column names for peaks tensor
+                - scattering_units: List of ScatteringUnit objects
         """
 
         # beam.wave_vector = ensure_torch(beam.wave_vector)
@@ -409,12 +382,12 @@ class Polycrystal:
             torch.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2, 1)
         )
 
-    def save(self, path, save_mesh_as_xdmf=True):
+    def save(self, path: str, save_mesh_as_xdmf: bool = True) -> None:
         """Save polycrystal to disc (via pickling).
 
         Args:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
-            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycrystal mesh with associated
+            save_mesh_as_xdmf (:obj=`bool`): If true, saves the polycrystal mesh with associated
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
                 The results can be vizualised with for instance paraview (https://www.paraview.org/).
                 The resulting data fields of the mesh data are the 6 unique components of the strain
@@ -464,7 +437,7 @@ class Polycrystal:
             self.mesh_sample.save(xdmf_path, element_data=element_data)
 
     @classmethod
-    def load(cls, path):
+    def load(cls, path: str) -> "Polycrystal":
         """Load polycrystal from disc (via pickling).
 
         Args:
@@ -498,7 +471,9 @@ class Polycrystal:
             )
             return loaded
 
-    def _instantiate_orientation(self, orientation, mesh):
+    def _instantiate_orientation(
+        self, orientation: npt.NDArray | Tensor, mesh: TetraMesh
+    ) -> Tensor:
         """Instantiate the orientations using for smart multi shape handling."""
         if orientation.shape == (3, 3):
             orientation_lab = torch.repeat_interleave(
@@ -512,7 +487,9 @@ class Polycrystal:
             raise ValueError("orientation input is of incompatible shape")
         return orientation_lab
 
-    def _instantiate_strain(self, strain, mesh):
+    def _instantiate_strain(
+        self, strain: npt.NDArray | Tensor, mesh: TetraMesh
+    ) -> npt.NDArray:
         """Instantiate the strain using for smart multi shape handling."""
         if strain.shape == (3, 3):
             strain_lab = np.repeat(
@@ -524,7 +501,12 @@ class Polycrystal:
             raise ValueError("strain input is of incompatible shape")
         return strain_lab
 
-    def _instantiate_phase(self, phases, element_phase_map, mesh):
+    def _instantiate_phase(
+        self,
+        phases: Phase | list[Phase],
+        element_phase_map: npt.NDArray | Tensor | None,
+        mesh: TetraMesh,
+    ) -> tuple[Tensor, list[Phase]]:
         """Instantiate the phases using for smart multi shape handling."""
         if not isinstance(phases, list):
             phases = [phases]
@@ -537,8 +519,13 @@ class Polycrystal:
         return element_phase_map, phases
 
     def _instantiate_eB(
-        self, orientation_lab, strain_lab, phases, element_phase_map, mesh
-    ):
+        self,
+        orientation_lab: Tensor,
+        strain_lab: npt.NDArray,
+        phases: list[Phase],
+        element_phase_map: Tensor,
+        mesh: TetraMesh,
+    ) -> npt.NDArray:
         """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
 
         (These are upper triangular matrices such that
@@ -558,7 +545,13 @@ class Polycrystal:
 
         return _eB
 
-    def _get_bragg_angle_bounds(self, detector, beam, min_bragg_angle, max_bragg_angle):
+    def _get_bragg_angle_bounds(
+        self,
+        detector: Detector,
+        beam: Beam,
+        min_bragg_angle: float,
+        max_bragg_angle: float,
+    ) -> tuple[float, float]:
         """Compute a maximum Bragg angle cut of based on the beam sample interection region centroid and detector corners.
 
         If the beam graces or misses the sample, the sample centroid is used.
@@ -588,7 +581,8 @@ class Polycrystal:
         )
         return min_bragg_angle, max_bragg_angle
 
-    def _move_mesh_to_gpu(mesh):
+    @staticmethod
+    def _move_mesh_to_gpu(mesh: TetraMesh) -> TetraMesh:
         mesh.coord = ensure_torch(mesh.coord)
         mesh.enod = ensure_torch(mesh.enod, dtype=torch.int32)
         mesh.dof = ensure_torch(mesh.dof)
