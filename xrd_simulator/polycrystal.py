@@ -20,7 +20,12 @@ from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization
 import torch
 import matplotlib.pyplot as plt
-from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
+from xrd_simulator.utils import (
+    ensure_torch,
+    ensure_numpy,
+    compute_tetrahedra_volumes,
+    peaks_to_csv,
+)
 from xrd_simulator.scattering_unit import ScatteringUnit
 
 torch.set_default_dtype(torch.float64)
@@ -248,11 +253,13 @@ class Polycrystal:
             # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
             grain_indices = torch.where(element_phase_map == i)[0]
             miller_indices = ensure_torch(phase.miller_indices)
-
+            print(f"Number of grains: {len(grain_indices)}")
+            print(f"Initial miller indices: {len(miller_indices)}")
             # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-            structure_factors = torch.sqrt(
-                torch.sum(ensure_torch(phase.structure_factors) ** 2, axis=1)
+            structure_factors = torch.sum(
+                ensure_torch(phase.structure_factors) ** 2, axis=1
             )
+
             miller_indices = miller_indices[structure_factors > 1e-6]
             structure_factors = structure_factors[structure_factors > 1e-6]
 
@@ -260,7 +267,7 @@ class Polycrystal:
             G_0 = laue.get_G(
                 orientation_lab[grain_indices], eB[grain_indices], miller_indices
             )
-
+            print(f"G_0 shape: {G_0.shape}")
             # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
             grains, planes, times, G0_xyz = (
                 laue.find_solutions_to_tangens_half_angle_equation(
@@ -275,7 +282,7 @@ class Polycrystal:
             # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
             # Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
             del G_0
-
+            print(f"G_0_reflected shape: {G0_xyz.shape}")
             structure_factors = structure_factors[planes].unsqueeze(1)
             grain_indices = grain_indices[grains].unsqueeze(1)
             miller_indices = miller_indices[planes]
