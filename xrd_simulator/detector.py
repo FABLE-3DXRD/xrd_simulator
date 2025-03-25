@@ -37,22 +37,24 @@ class Detector:
             (ydhat is the unit vector from det_corner_0 towards det_corner_1)
         det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
+        gaussian_sigma (:obj:`float`, optional): Standard deviation of the Gaussian point spread function in pixels.
+            Defaults to 1.0.
+        kernel_threshold (:obj:`float`, optional): Intensity threshold used to determine the kernel size.
+            The kernel will extend until the Gaussian tail drops below this value. Defaults to 0.05.
 
     Attributes:
         pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
         pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
         det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction frames which
+        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction frames
         zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
-        normal (:obj:`numpy array`): Detector normal, fromed as the cross product: numpy.cross(self.zdhat, self.ydhat)
+        normal (:obj:`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
         zmax,ymax (:obj:`numpy array`): Detector width and height.
         pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
-        point_spread_function  (:obj:`callable`): Scalar point spread function called as point_spread_function(z, y). The
-            z and y coordinates are assumed to be in local units of pixels. I.e point_spread_function(0, 0) returns the
-            value of the pointspread function at the location of the point being spread. This is meant to model blurring
-            due to detector optics. Defaults to a Gaussian with standard deviation 1.0 and mean at (z,y)=(0,0).
-
+        gaussian_sigma (:obj:`float`): Standard deviation of the Gaussian point spread function.
+        kernel_threshold (:obj:`float`): Threshold value that determines the kernel size.
+        gaussian_kernel (:obj:`torch.Tensor`): Pre-computed normalized 2D Gaussian kernel.
 
     """
 
@@ -63,9 +65,8 @@ class Detector:
         det_corner_0,
         det_corner_1,
         det_corner_2,
-        gaussian_kernel_size=3,
         gaussian_sigma=1.0,
-        supersampling=1,
+        kernel_threshold=0.05,
     ):
         self.det_corner_0 = ensure_torch(det_corner_0)
         self.det_corner_1 = ensure_torch(det_corner_1)
@@ -83,12 +84,9 @@ class Detector:
         self.normal = self.normal / torch.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
-        self.kernel_size = gaussian_kernel_size
-        self.sigma = gaussian_sigma
-        self.supersampling = supersampling
-
-    def point_spread_function(self, z, y):
-        return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
+        self.gaussian_sigma = gaussian_sigma
+        self.kernel_threshold = kernel_threshold
+        self.gaussian_kernel = self.gaussian_kernel_2d()
 
     @property
     def point_spread_kernel_shape(self):
@@ -216,15 +214,11 @@ class Detector:
             )  # lorentz_factors
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
-        supsamp = self.supersampling
+
         pixel_indices = torch.cat(
             (
-                ((peaks_dict["peaks"][:, 22]) * supsamp / self.pixel_size_z).unsqueeze(
-                    1
-                ),
-                ((peaks_dict["peaks"][:, 23]) * supsamp / self.pixel_size_y).unsqueeze(
-                    1
-                ),
+                ((peaks_dict["peaks"][:, 22]) / self.pixel_size_z).unsqueeze(1),
+                ((peaks_dict["peaks"][:, 23]) / self.pixel_size_y).unsqueeze(1),
                 peaks_dict["peaks"][:, 25].unsqueeze(1),
             ),
             dim=1,
@@ -236,8 +230,8 @@ class Detector:
         diffraction_frames = torch.zeros(
             (
                 frames_n,
-                self.pixel_coordinates.shape[0] * supsamp,
-                self.pixel_coordinates.shape[1] * supsamp,
+                self.pixel_coordinates.shape[0],
+                self.pixel_coordinates.shape[1],
             )
         )
 
@@ -293,7 +287,7 @@ class Detector:
                 region. If ```method=centroid_with_scintillator`` a centroid type raytracing is used, but the scintillator
                 point spread is applied before deposition unto the pixel grid, revealing sub pixel shifts in the scattering events.
             verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
+            number_of_processes (:obj=`int`): Optional keyword specifying the number of desired processes to use for diffraction
                 computation. Defaults to 1, i.e a single processes.
         Returns:
             A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
@@ -369,31 +363,19 @@ class Detector:
 
     def _apply_point_spread_function(self, frames):
         """Apply the point spread function to the detector frames."""
-        # kernel = ensure_torch(self._get_point_spread_function_kernel(supsamp))
+        # kernel = ensure_torch(self._get_point_spread_function_kernel())
         frames = ensure_torch(frames)
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         if frames.ndim == 3:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
-        supsamp = self.supersampling
+
         # kernel = kernel.unsqueeze(0).unsqueeze(0)
-        kernel = self.gaussian_kernel_2d()
+        kernel = self.gaussian_kernel
         padding = kernel.shape[-1] // 2
         # Perform the convolution
         with torch.no_grad():
             output = torch.nn.functional.conv2d(frames, weight=kernel, padding=padding)
-            output = (
-                output.reshape(
-                    1,
-                    frames.shape[1],
-                    frames.shape[2] // supsamp,
-                    supsamp,
-                    frames.shape[3] // supsamp,
-                    supsamp,
-                )
-                .sum(dim=3)
-                .sum(dim=4)
-            )
 
         return output
 
@@ -407,12 +389,12 @@ class Detector:
         """Compute bragg angle and azimuth angle for a detector pixel index.
 
         Args:
-            pixel_zd_index (:obj:`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_index (:obj:`float`): Coordinate in microns along detector yd axis.
+            pixel_zd_index (:obj=`float`): Coordinate in microns along detector zd axis.
+            pixel_yd_index (:obj=`float`): Coordinate in microns along detector yd axis.
             scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to ensure_torch([0, 0, 0]).
 
         Returns:
-            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
+            (:obj=`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
         """
         # TODO: unit test
         pixel_zd_coord = pixel_zd_index * self.pixel_size_z
@@ -435,12 +417,12 @@ class Detector:
         """Compute bragg angle and azimuth angle  for a detector coordinate.
 
         Args:
-            pixel_zd_coord (:obj:`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_coord (:obj:`float`): Coordinate in microns along detector yd axis.
+            pixel_zd_coord (:obj=`float`): Coordinate in microns along detector zd axis.
+            pixel_yd_coord (:obj=`float`): Coordinate in microns along detector yd axis.
             scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to ensure_torch([0, 0, 0]).
 
         Returns:
-            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
+            (:obj=`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
         """
         # TODO: unit test
         khat = incoming_wavevector / np.linalg.norm(incoming_wavevector)
@@ -461,11 +443,11 @@ class Detector:
         """Get detector intersection in detector coordinates of every single ray originating from source_point.
 
         Args:
-            ray_direction (:obj:`numpy array`): Vectors in direction of the xray propagation
-            source_point (:obj:`numpy array`): Origin of the ray.
+            ray_direction (:obj=`numpy array`): Vectors in direction of the xray propagation
+            source_point (:obj=`numpy array`): Origin of the ray.
 
         Returns:
-            (:obj:`tuple`) zd, yd in detector plane coordinates.
+            (:obj=`tuple`) zd, yd in detector plane coordinates.
 
         """
         s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
@@ -493,11 +475,11 @@ class Detector:
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
 
         Args:
-            zd (:obj:`float`): Detector z coordinate
-            yd (:obj:`float`): Detector y coordinate
+            zd (:obj=`float`): Detector z coordinate
+            yd (:obj=`float`): Detector y coordinate
 
         Returns:
-            (:obj:`boolean`) True if the zd,yd is within the detector bounds.
+            (:obj=`boolean`) True if the zd,yd is within the detector bounds.
 
         """
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
@@ -506,12 +488,12 @@ class Detector:
         """Compute parametric projection of scattering region unto detector.
 
         Args:
-            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
-            box (:obj:`tuple` of :obj:`int`): indices of the detector frame over which to compute the projection.
+            scattering_unit (:obj=`xrd_simulator.ScatteringUnit`): The scattering region.
+            box (:obj=`tuple` of :obj=`int`): indices of the detector frame over which to compute the projection.
                 i.e the subgrid of the detector is taken as: array[[box[0]:box[1], box[2]:box[3]].
 
         Returns:
-            (:obj:`numpy array`) clip lengths between scattering_unit polyhedron and rays traced from the detector.
+            (:obj=`numpy array`) clip lengths between scattering_unit polyhedron and rays traced from the detector.
 
         """
 
@@ -544,11 +526,11 @@ class Detector:
         """Compute the cone around a wavevector such that the cone wraps the detector corners.
 
         Args:
-            k (:obj:`numpy array`): Wavevector forming the central axis of cone ```shape=(3,)```.
-            source_point (:obj:`numpy array`): Origin of the wavevector ```shape=(3,)```.
+            k (:obj=`numpy array`): Wavevector forming the central axis of cone ```shape=(3,)```.
+            source_point (:obj=`numpy array`): Origin of the wavevector ```shape=(3,)```.
 
         Returns:
-            (:obj:`float`) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after
+            (:obj=`float`) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after
                 which scattering will systematically miss the detector.
 
         """
@@ -575,7 +557,7 @@ class Detector:
         """Save the detector object to disc (via pickling). Change the arrays formats to np first.
 
         Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
+            path (:obj=`str`): File path at which to save, ending with the desired filename.
 
         """
 
@@ -589,7 +571,7 @@ class Detector:
         """Load the detector object from disc (via pickling).
 
         Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+            path (:obj=`str`): File path at which to load, ending with the desired filename.
 
         .. warning::
             This function will unpickle data from the provied path. The pickle module
@@ -614,14 +596,35 @@ class Detector:
             return loaded
 
     def gaussian_kernel_2d(self) -> torch.Tensor:
-        """Generates a 2D Gaussian kernel with shape (1, 1, H, W)."""
-        kernel_size = self.kernel_size
-        sigma = self.sigma
+        """
+        Generates a normalized 2D Gaussian kernel with dynamic size based on intensity threshold.
 
-        ax = torch.arange(kernel_size, dtype=torch.float64) - (kernel_size - 1) / 2.0
+        Args:
+            sigma (float): Standard deviation of the Gaussian.
+            threshold (float): Allowed remaining intensity outside the kernel (default 5%).
+
+        Returns:
+            torch.Tensor: 2D Gaussian kernel of shape (1, 1, H, W).
+        """
+        sigma = ensure_torch(self.gaussian_sigma)
+        threshold = self.kernel_threshold
+
+        # Determine the radius where tail drops below threshold / 2 (1D axis)
+        radius = 1
+        while True:
+            value = torch.exp(-(radius**2) / (2 * sigma**2))
+            if value < threshold / 2:
+                break
+            radius += 1
+
+        kernel_size = 2 * radius + 1  # Ensure odd size
+
+        # Create coordinate grid
+        ax = torch.arange(kernel_size, dtype=torch.float64) - radius
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
         kernel /= kernel.sum()
+
         return kernel.view(1, 1, kernel_size, kernel_size)
 
     def _get_pixel_coordinates(self):
@@ -684,11 +687,11 @@ class Detector:
         self, scattering_unit, frame, lorentz, polarization, structure_factor
     ):
         """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
-        This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
+        This is generally very computationally expensive compared to the simpler (:obj=`function`):_centroid_render
         function.
 
         NOTE: If the projection of the scattering_unit does not hit any pixel centroids of the detector fallback to
-        the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
+        the (:obj=`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
         """
         box = self._get_projected_bounding_box(scattering_unit)
         if box is not None:
@@ -745,10 +748,10 @@ class Detector:
         """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
 
         Args:
-            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
+            scattering_unit (:obj=`xrd_simulator.ScatteringUnit`): The scattering region.
 
         Returns:
-            (:obj:`tuple` of :obj:`int`) indices that can be used to slice the detector frame array and get the pixels that
+            (:obj=`tuple` of :obj=`int`) indices that can be used to slice the detector frame array and get the pixels that
                 are within the bounding box.
 
         """
