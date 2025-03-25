@@ -18,6 +18,7 @@ from xrd_simulator import utils
 from xrd_simulator.utils import ensure_torch, peaks_to_csv
 import dill
 import torch
+import torch.nn.functional as F
 
 torch.set_default_dtype(torch.float64)
 
@@ -67,6 +68,9 @@ class Detector:
         det_corner_2,
         gaussian_sigma=1.0,
         kernel_threshold=0.05,
+        use_lorentz=True,
+        use_polarization=True,
+        use_structure_factor=True,
     ):
         self.det_corner_0 = ensure_torch(det_corner_0)
         self.det_corner_1 = ensure_torch(det_corner_1)
@@ -87,6 +91,10 @@ class Detector:
         self.gaussian_sigma = gaussian_sigma
         self.kernel_threshold = kernel_threshold
         self.gaussian_kernel = self.gaussian_kernel_2d()
+
+        self.lorentz_factor = use_lorentz
+        self.polarization_factor = use_polarization
+        self.structure_factor = use_structure_factor
 
     @property
     def point_spread_kernel_shape(self):
@@ -115,47 +123,36 @@ class Detector:
         self,
         peaks_dict,
         frames_to_render=0,
-        powder=False,
-        lorentz=True,
-        polarization=True,
-        structure_factor=True,
         method="centroid",
     ):
-
-        # Intersect scattering vectors with detector plane
-        zd_yd_angle = self.get_intersection(
-            peaks_dict["peaks"][:, 13:16], peaks_dict["peaks"][:, 16:19]
-        )
-
-        peaks_dict["peaks"] = torch.cat((peaks_dict["peaks"], zd_yd_angle), dim=1)
-        peaks_dict["columns"].extend(["zd", "yd", "incident_angle"])
+        peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
         """
-        Column names of peaks are
-        0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-        1: 'phase_number'       11: 'Gy'        21: 'volumes'
-        2: 'h'                  12: 'Gz'        22: 'zd'
-        3: 'k'                  13: 'K_out_x'   23: 'yd'
-        4: 'l'                  14: 'K_out_y'   24: 'incident_angle'
-        5: 'structure_factors'  15: 'K_out_z'
-        6: 'diffraction_times'  16: 'Source_x'
-        7: 'G0_x'              17: 'Source_y'
-        8: 'G0_y'              18: 'Source_z'
-        9: 'G0_z'              19: 'lorentz_factors'
+            Column names of peaks are
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        21: 'volumes'
+            2: 'h'                  12: 'Gz'        22: '2theta'
+            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
+            4: 'l'                  14: 'K_out_y'   24: 'zd'
+            5: 'structure_factors'  15: 'K_out_z'   25: 'yd'
+            6: 'diffraction_times'  16: 'Source_x'  26: 'incident_angle'
+            7: 'G0_x'               17: 'Source_y'  27: 'frame'
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'lorentz_factors'           
         """
 
-        if powder is True:
-            diffraction_frames = self.project_peaks(
-                peaks_dict, frames_to_render, lorentz, polarization, structure_factor
-            )
+        if method is "project":
+            diffraction_frames = self._render_and_convolve(peaks_dict)
+
+        elif method is "centroid_with_scintillator":
+            pass
+        elif method is "centroid":
+            diffraction_frames = self.project_peaks(peaks_dict)
         else:
-            diffraction_frames = self.project_scattering_units(
-                peaks_dict,
-                frames_to_render,
-                lorentz,
-                polarization,
-                structure_factor,
-                method,
+            raise ValueError(
+                "No such method: "
+                + method
+                + " exist, method should be one of project or centroid"
             )
 
         return diffraction_frames
@@ -163,52 +160,19 @@ class Detector:
     def project_peaks(
         self,
         peaks_dict,
-        frames_to_render,
-        lorentz,
-        polarization,
-        structure_factor,
     ):
-        """Project peaks onto detector and save filtered data."""
-        # Filter peaks and update dict in one step
-        peaks_dict["peaks"] = peaks_dict["peaks"][
-            self.contains(peaks_dict["peaks"][:, 22], peaks_dict["peaks"][:, 23])
-        ]
 
-        # Add frame number
-        bin_edges = torch.linspace(0, 1, steps=frames_to_render)
-        frame = (
-            torch.bucketize(
-                peaks_dict["peaks"][:, 6].contiguous(), bin_edges
-            ).unsqueeze(1)
-            - 1
-        )
-        peaks_dict["peaks"] = torch.cat((peaks_dict["peaks"], frame), dim=1)
-        peaks_dict["columns"].append("frame")
-
-        """
-        Column names of peaks are
-        0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-        1: 'phase_number'       11: 'Gy'        21: 'volumes'
-        2: 'h'                  12: 'Gz'        22: 'zd'
-        3: 'k'                  13: 'K_out_x'   23: 'yd'
-        4: 'l'                  14: 'K_out_y'   24: 'incident_angle'
-        5: 'structure_factors'  15: 'K_out_z'   25: 'frame'
-        6: 'diffraction_times'  16: 'Source_x'
-        7: 'G0_x'              17: 'Source_y'
-        8: 'G0_y'              18: 'Source_z'
-        9: 'G0_z'              19: 'lorentz_factors'
-        """
         # Generate the relative intensity for all the diffraction peaks using the different factors.
         relative_intensity = peaks_dict["peaks"][:, 21]  # volumes
-        if structure_factor:
+        if self.structure_factor:
             relative_intensity = (
                 relative_intensity * peaks_dict["peaks"][:, 5]
             )  # structure_factors
-        if polarization:
+        if self.polarization_factor:
             relative_intensity = (
                 relative_intensity * peaks_dict["peaks"][:, 20]
             )  # polarization_factors
-        if lorentz:
+        if self.lorentz_factor:
             relative_intensity = (
                 relative_intensity * peaks_dict["peaks"][:, 19]
             )  # lorentz_factors
@@ -217,14 +181,14 @@ class Detector:
 
         pixel_indices = torch.cat(
             (
-                ((peaks_dict["peaks"][:, 22]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks_dict["peaks"][:, 23]) / self.pixel_size_y).unsqueeze(1),
-                peaks_dict["peaks"][:, 25].unsqueeze(1),
+                ((peaks_dict["peaks"][:, 24]) / self.pixel_size_z).unsqueeze(1),
+                ((peaks_dict["peaks"][:, 25]) / self.pixel_size_y).unsqueeze(1),
+                peaks_dict["peaks"][:, 27].unsqueeze(1),
             ),
             dim=1,
         ).to(torch.int32)
 
-        frames_n = peaks_dict["peaks"][:, 25].unique().shape[0]
+        frames_n = peaks_dict["peaks"][:, 27].unique().shape[0]
 
         # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
@@ -254,91 +218,18 @@ class Detector:
             result[:, 2].int(), result[:, 0].int(), result[:, 1].int()
         ] = result[:, 3]
 
-        diffraction_frames = self._apply_point_spread_function(diffraction_frames)
+        diffraction_frames = self._conv2d_gaussian_kernel(diffraction_frames)
 
         return diffraction_frames
-
-    def project_scattering_units(
-        self,
-        peaks_dict,
-        frames_to_render=1,
-        lorentz=True,
-        polarization=True,
-        structure_factor=True,
-        method="centroid",
-    ):
-        """Render a pixelated diffraction frame onto the detector plane .
-
-        NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
-        the pixel area.
-
-        Args:
-            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
-                to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
-            lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
-            polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
-            structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
-            method (:obj:`str`): Rendering method, must be one of ```project``` , ```centroid``` or ```centroid_with_scintillator```.
-                Defaults to ```centroid```. The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit
-                onto the detector by tracing a line from the sample scattering region centroid to the detector plane. The intensity
-                is deposited into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
-                ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
-                possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
-                region. If ```method=centroid_with_scintillator`` a centroid type raytracing is used, but the scintillator
-                point spread is applied before deposition unto the pixel grid, revealing sub pixel shifts in the scattering events.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj=`int`): Optional keyword specifying the number of desired processes to use for diffraction
-                computation. Defaults to 1, i.e a single processes.
-        Returns:
-            A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
-            pixel size.
-
-        NOTE: This function can be overwitten to do more advanced models for intensity.
-
-        """
-
-        if method == "project":
-            renderer = self._projection_render
-            kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid":
-            renderer = self._centroid_render
-            kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid_with_scintillator":
-            renderer = self._centroid_render_with_scintillator
-            kernel = None
-        else:
-            raise ValueError(
-                "No such method: "
-                + method
-                + " exist, method should be one of project or centroid"
-            )
-
-        frames_bundle = list(range(frames_to_render))
-
-        diffraction_frames = self._render_and_convolve(
-            peaks_dict,
-            frames_bundle,
-            kernel,
-            renderer,
-            lorentz,
-            polarization,
-            structure_factor,
-        )
-
-        return diffraction_frames.squeeze()
 
     def _render_and_convolve(
         self,
         peaks_dict,
-        frames_bundle,
-        kernel,
         renderer,
-        lorentz,
-        polarization,
-        structure_factor,
-        verbose=False,
     ):
         scattering_units = peaks_dict["scattering_units"]
+        kernel = self.gaussian_kernel
+        frames_bundle = peaks_dict["peaks"][:, 27].unique()
         diffraction_frames = []
         for frame_index in frames_bundle:
             frames = np.zeros(
@@ -352,16 +243,16 @@ class Detector:
                     zd,
                     yd,
                     frames,
-                    lorentz,
-                    polarization,
-                    structure_factor,
+                    self.lorentz_factor,
+                    self.polarization_factor,
+                    self.structure_factor,
                 )
             if kernel is not None:
-                frames = self._apply_point_spread_function(frames)
+                frames = self._conv2d_gaussian_kernel(frames)
             diffraction_frames.append(frames)
         return np.array(diffraction_frames)
 
-    def _apply_point_spread_function(self, frames):
+    def _conv2d_gaussian_kernel(self, frames):
         """Apply the point spread function to the detector frames."""
         # kernel = ensure_torch(self._get_point_spread_function_kernel())
         frames = ensure_torch(frames)
@@ -484,7 +375,7 @@ class Detector:
         """
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
-    def project(self, scattering_unit, box):
+    def project_convex_hull(self, scattering_unit, box):
         """Compute parametric projection of scattering region unto detector.
 
         Args:
@@ -627,6 +518,62 @@ class Detector:
 
         return kernel.view(1, 1, kernel_size, kernel_size)
 
+    def voigt_kernel_minimal(self, gamma: float) -> torch.Tensor:
+        """
+        Generate a minimal 2D Voigt kernel by convolving a Gaussian kernel with a Lorentzian kernel,
+        then cropping it to retain at least (1 - tolerance) of the total energy.
+
+        Args:
+            G (torch.Tensor): Gaussian kernel of shape (1, 1, H, W), normalized.
+            gamma (float): HWHM of the Lorentzian component, in pixels.
+            tolerance (float): Allowed energy loss outside the cropped kernel (default: 0.05 = 5%).
+
+        Returns:
+            torch.Tensor: Normalized Voigt kernel of shape (1, 1, H_out, W_out)
+        """
+
+        G = self.gaussian_kernel
+        tolerance = self.kernel_threshold
+
+        assert (
+            G.dim() == 4 and G.shape[0] == 1 and G.shape[1] == 1
+        ), "G must be (1, 1, H, W)"
+        G = G[0, 0]  # Strip batch and channel for now
+
+        # Step 1: Build Lorentzian kernel (start with a conservative radius)
+        radius = 1
+        while True:
+            val = 1 / (1 + (radius / gamma) ** 2)
+            if val < tolerance / 2:
+                break
+            radius += 1
+
+        size = 2 * radius + 1
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
+        r = torch.sqrt(xx**2 + yy**2)
+        L = 1 / (1 + (r / gamma) ** 2)
+        L /= L.sum()
+
+        # Step 2: Convolve Gaussian and Lorentzian → Voigt kernel
+        pad_g = (L.shape[-1] // 2, L.shape[-1] // 2, L.shape[-2] // 2, L.shape[-2] // 2)
+        G_padded = F.pad(G, pad_g, mode="constant", value=0)
+        L = L.view(1, 1, *L.shape)
+        V = F.conv2d(G_padded.unsqueeze(0).unsqueeze(0), L)
+        V = V[0, 0]
+        V /= V.sum()
+
+        # Step 3: Crop to minimal area keeping at least (1 - tolerance) of total energy
+        center = V.shape[0] // 2
+        for r in range(1, center + 1):
+            cropped = V[center - r : center + r + 1, center - r : center + r + 1]
+            if cropped.sum() >= 1 - tolerance:
+                cropped /= cropped.sum()
+                return cropped.view(1, 1, cropped.shape[0], cropped.shape[1])
+
+        # Fallback (shouldn't happen): return full Voigt
+        return V.view(1, 1, V.shape[0], V.shape[1])
+
     def _get_pixel_coordinates(self):
         zds = torch.arange(0, self.zmax, self.pixel_size_z)
         yds = torch.arange(0, self.ymax, self.pixel_size_y)
@@ -695,7 +642,7 @@ class Detector:
         """
         box = self._get_projected_bounding_box(scattering_unit)
         if box is not None:
-            projection = self.project(scattering_unit, box)
+            projection = self.project_convex_hull(scattering_unit, box)
             if np.sum(projection) == 0:
                 # The projection of the scattering_unit did not hit any pixel centroids of the detector.
                 # i.e the scattering_unit is small in comparison to the detector
@@ -788,18 +735,36 @@ class Detector:
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
 
-    def to_torch(self):
-        self.det_corner_0 = ensure_torch(self.det_corner_0)
-        self.det_corner_1 = ensure_torch(self.det_corner_1)
-        self.det_corner_2 = ensure_torch(self.det_corner_2)
+    def _peaks_detector_intersection(self, peaks_dict, frames_to_render):
+        """
+        Computes detector intersections, filters visible peaks, and assigns frame indices.
 
-        self.pixel_size_z = ensure_torch(self.pixel_size_z)
-        self.pixel_size_y = ensure_torch(self.pixel_size_y)
+        Args:
+            peaks_dict (dict): Contains "peaks" (Tensor) and "columns" (List of column names)
+            frames_to_render (int): Number of output frames
+            get_intersection (callable): Function(K_out, Source) → (zd, yd, angle)
+            contains (callable): Function(zd, yd) → boolean mask
 
-        self.zmax = ensure_torch(self.zmax)
-        self.ymax = ensure_torch(self.ymax)
+        Returns:
+            dict: Updated peaks_dict with new columns: "zd", "yd", "incident_angle", "frame"
+        """
+        peaks = peaks_dict["peaks"]
 
-        self.zdhat = ensure_torch(self.zdhat)
-        self.ydhat = ensure_torch(self.ydhat)
-        self.normal = ensure_torch(self.normal)
-        self.pixel_coordinates = ensure_torch(self.pixel_coordinates)
+        # Intersect scattering vectors with detector plane
+        zd_yd_angle = self.get_intersection(peaks[:, 13:16], peaks[:, 16:19])
+        peaks = torch.cat((peaks, zd_yd_angle), dim=1)
+        peaks_dict["columns"].extend(["zd", "yd", "incident_angle"])
+
+        # Filter visible peaks
+        mask = self.contains(peaks[:, 24], peaks[:, 25])
+        peaks = peaks[mask]
+
+        # Assign frame index based on normalized diffraction time (column 6)
+        time = peaks[:, 6]
+        bins = torch.linspace(0, 1, frames_to_render)
+        frame = torch.bucketize(time, bins).unsqueeze(1) - 1
+        peaks = torch.cat((peaks, frame), dim=1)
+        peaks_dict["columns"].append("frame")
+
+        peaks_dict["peaks"] = peaks
+        return peaks_dict

@@ -1,6 +1,10 @@
 import torch
+import numpy as np
 
-def lorentz(k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor) -> torch.Tensor | float:
+
+def lorentz(
+    k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor
+) -> torch.Tensor | float:
     """Compute the Lorentz intensity factor for all reflections.
 
     This function calculates the Lorentz factor for X-ray diffraction based on
@@ -36,12 +40,12 @@ def lorentz(k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor) -> 
     angle between the rotation axis and the scattering plane normal.
     """
     kp = k_out.reshape(-1, 3) if k_out.dim() == 1 else k_out
-    
+
     # Normalize k for dot product calculation
     k_norm_sq = torch.linalg.norm(k_in) ** 2
     k_kp_norm = torch.matmul(k_in, kp.T) / k_norm_sq
     theta = torch.arccos(k_kp_norm) / 2.0
-    
+
     # Calculate korthogonal same way as in old version
     korthogonal = kp - k_in.reshape(1, 3) * (k_kp_norm.reshape(-1, 1))
     korth_norm = torch.linalg.norm(korthogonal, dim=1)
@@ -49,14 +53,17 @@ def lorentz(k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor) -> 
 
     # Apply tolerance conditions
     tol = 0.5
-    condition = ((torch.abs(torch.rad2deg(eta)) < tol) | 
-                (torch.abs(torch.rad2deg(eta)) > 180 - tol) |
-                (torch.rad2deg(theta) < tol))
-    
+    condition = (
+        (torch.abs(torch.rad2deg(eta)) < tol)
+        | (torch.abs(torch.rad2deg(eta)) > 180 - tol)
+        | (torch.rad2deg(theta) < tol)
+    )
+
     result = 1.0 / (torch.sin(2 * theta) * torch.abs(torch.sin(eta)))
-    result = torch.where(condition, torch.tensor(float('inf')), result)
-    
+    result = torch.where(condition, torch.tensor(float("inf")), result)
+
     return result.squeeze()  # Remove singleton dimensions for single vector input
+
 
 def polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | float:
     """Compute the Polarization intensity factor for all reflections.
@@ -96,3 +103,24 @@ def polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | f
     # Calculate dot product between pol_vec and each normalized k_out
     dot_products = torch.matmul(kp_norm, pol_vec)
     return 1 - dot_products**2
+
+
+def scherrer(
+    volumes: torch.Tensor, two_theta: torch.Tensor, wavelength: float, K: float = 0.9
+) -> torch.Tensor:
+    """Calculate Scherrer peak broadening FWHM.
+
+    Args:
+        volumes: Crystallite volumes in cubic microns
+        two_theta: Scattering angles in radians
+        wavelength: X-ray wavelength in Angstroms
+        K: Scherrer shape factor (default 0.9 for spherical crystallites)
+
+    Returns:
+        Peak FWHM in radians
+    """
+
+    crystallite_size = (
+        2.0 * (3 * volumes / (4 * np.pi)) ** (1 / 3) * 10_000
+    )  # Convert microm to Angstroms
+    return K * wavelength / (crystallite_size * torch.cos(two_theta / 2))
