@@ -768,3 +768,107 @@ class Detector:
 
         peaks_dict["peaks"] = peaks
         return peaks_dict
+
+    def _voigt_kernel(
+        G: torch.Tensor, gamma: float, tolerance: float = 0.05
+    ) -> torch.Tensor:
+        """
+        Generate a minimal 2D Voigt kernel by convolving a Gaussian kernel with a Lorentzian kernel,
+        then cropping it to retain at least (1 - tolerance) of the total energy.
+
+        Args:
+            G (torch.Tensor): Gaussian kernel of shape (1, 1, H, W), normalized.
+            gamma (float): HWHM of the Lorentzian component, in pixels.
+            tolerance (float): Allowed energy loss outside the cropped kernel (default: 0.05 = 5%).
+
+        Returns:
+            torch.Tensor: Normalized Voigt kernel of shape (1, 1, H_out, W_out)
+        """
+
+        assert (
+            G.dim() == 4 and G.shape[0] == 1 and G.shape[1] == 1
+        ), "G must be (1, 1, H, W)"
+        G = G[0, 0]  # Strip batch and channel for now
+
+        # Step 1: Build Lorentzian kernel (start with a conservative radius)
+        radius = 1
+        while True:
+            val = 1 / (1 + (radius / gamma) ** 2)
+            if val < tolerance / 2:
+                break
+            radius += 1
+
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
+        r = torch.sqrt(xx**2 + yy**2)
+        L = 1 / (1 + (r / gamma) ** 2)
+        L /= L.sum()
+
+        # Step 2: Convolve Gaussian and Lorentzian → Voigt kernel
+        pad_g = (L.shape[-1] // 2, L.shape[-1] // 2, L.shape[-2] // 2, L.shape[-2] // 2)
+        G_padded = F.pad(G, pad_g, mode="constant", value=0)
+        L = L.view(1, 1, *L.shape)
+        V = F.conv2d(G_padded.unsqueeze(0).unsqueeze(0), L)
+        V = V[0, 0]
+        V /= V.sum()
+
+        # Step 3: Crop to minimal area keeping at least (1 - tolerance) of total energy
+        center = V.shape[0] // 2
+        for r in range(1, center + 1):
+            cropped = V[center - r : center + r + 1, center - r : center + r + 1]
+            if cropped.sum() >= 1 - tolerance:
+                cropped /= cropped.sum()
+                return cropped.view(1, 1, cropped.shape[0], cropped.shape[1])
+
+        # Fallback (shouldn't happen): return full Voigt
+        return V.view(1, 1, V.shape[0], V.shape[1])
+
+    def _deposit_kernel(tensor, kernel, center_x, center_y):
+        """
+        Vectorized deposition of a 5x5 kernel into a tensor at fractional coordinates (center_x, center_y)
+        using bilinear splatting, without loops.
+        """
+        kh, kw = kernel.shape
+        device = tensor.device
+
+        # Generate kernel grid offsets (relative to center)
+        ky, kx = torch.meshgrid(
+            torch.arange(kh, dtype=torch.float32, device=device) - (kh - 1) / 2,
+            torch.arange(kw, dtype=torch.float32, device=device) - (kw - 1) / 2,
+            indexing="ij",
+        )
+        kx = kx.flatten()  # Shape (25,)
+        ky = ky.flatten()  # Shape (25,)
+
+        # Absolute positions in tensor space
+        pos_x = center_x + kx
+        pos_y = center_y + ky
+
+        # Integer and fractional parts
+        x0 = torch.floor(pos_x).long()
+        y0 = torch.floor(pos_y).long()
+        dx = pos_x - x0.float()
+        dy = pos_y - y0.float()
+
+        # Four surrounding indices and weights (shape: 4*25 = 100)
+        xi = torch.stack([x0, x0, x0 + 1, x0 + 1]).flatten()  # Shape [100]
+        yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()  # Shape [100]
+        weights = torch.stack(
+            [(1 - dx) * (1 - dy), (1 - dx) * dy, dx * (1 - dy), dx * dy]
+        ).flatten()  # Shape [100]
+
+        # Values to scatter (kernel_flat repeated 4 times, multiplied by weights)
+        kernel_flat = kernel.flatten().to(device)  # Shape [25]
+        values = weights * kernel_flat.repeat_interleave(4)  # Shape [100]
+
+        # Filter valid indices
+        valid = (xi >= 0) & (xi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
+        xi_valid = xi[valid]
+        yi_valid = yi[valid]
+        values_valid = values[valid]
+
+        # Deposit all values in one operation
+        tensor.index_put_(
+            indices=(xi_valid, yi_valid), values=values_valid, accumulate=True
+        )
+        return tensor
