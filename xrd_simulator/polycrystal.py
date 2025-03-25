@@ -17,7 +17,7 @@ import dill
 from xfab import tools
 
 from xrd_simulator import utils, laue
-from xrd_simulator.scattering_factors import lorentz, polarization
+from xrd_simulator.scattering_factors import lorentz, polarization, scherrer
 from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
 from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator.beam import Beam
@@ -145,11 +145,12 @@ class Polycrystal:
                 beam, rigid_body_motion, peaks
             )
 
-        """ Column names labeled like:
+        """
+            Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
             1: 'phase_number'       11: 'Gy'        21: 'volumes'
-            2: 'h'                  12: 'Gz'        
-            3: 'k'                  13: 'K_out_x'   
+            2: 'h'                  12: 'Gz'        22: '2theta'
+            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
             4: 'l'                  14: 'K_out_y'   
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
@@ -157,6 +158,7 @@ class Polycrystal:
             8: 'G0_y'               18: 'Source_z'
             9: 'G0_z'               19: 'lorentz_factors'           
         """
+
         column_names = [
             "grain_index",
             "phase_number",
@@ -180,6 +182,8 @@ class Polycrystal:
             "lorentz_factors",
             "polarization_factors",
             "volumes",
+            "2theta",
+            "scherrer_fwhm",
         ]
 
         # Wrap the peaks columns and scattering units into a dict to preserve information
@@ -286,8 +290,14 @@ class Polycrystal:
         Sources_xyz = rigid_body_motion(
             espherecentroids[peaks[:, 0].int()], peaks[:, 6]
         )
-
+        # tetrahedra volumes
         volumes = self.mesh_volumes[peaks[:, 0].int()]
+
+        # Calculate 2theta (scattering angle)
+        k_in = beam.wave_vector / torch.linalg.norm(beam.wave_vector)
+        k_out = K_out_xyz / torch.linalg.norm(K_out_xyz, dim=1, keepdim=True)
+        two_theta = torch.arccos(torch.sum(k_in * k_out, dim=1))
+        scherrer_fwhm = scherrer(volumes, two_theta, beam.wavelength)
 
         peaks = torch.cat(
             (
@@ -298,6 +308,8 @@ class Polycrystal:
                 lorentz_factors.unsqueeze(1),
                 polarization_factors.unsqueeze(1),
                 volumes.unsqueeze(1),
+                two_theta.unsqueeze(1),
+                scherrer_fwhm.unsqueeze(1),
             ),
             dim=1,
         )
@@ -306,8 +318,8 @@ class Polycrystal:
             Column names of peaks are
             0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
             1: 'phase_number'       11: 'Gy'        21: 'volumes'
-            2: 'h'                  12: 'Gz'        
-            3: 'k'                  13: 'K_out_x'   
+            2: 'h'                  12: 'Gz'        22: '2theta'
+            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
             4: 'l'                  14: 'K_out_y'   
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
