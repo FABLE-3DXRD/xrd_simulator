@@ -716,15 +716,6 @@ class Detector:
     def _peaks_detector_intersection(self, peaks_dict, frames_to_render):
         """
         Computes detector intersections, filters visible peaks, and assigns frame indices.
-
-        Args:
-            peaks_dict (dict): Contains "peaks" (Tensor) and "columns" (List of column names)
-            frames_to_render (int): Number of output frames
-            get_intersection (callable): Function(K_out, Source) → (zd, yd, angle)
-            contains (callable): Function(zd, yd) → boolean mask
-
-        Returns:
-            dict: Updated peaks_dict with new columns: "zd", "yd", "incident_angle", "frame"
         """
         peaks = peaks_dict["peaks"]
 
@@ -738,8 +729,8 @@ class Detector:
         peaks = peaks[mask]
 
         # Assign frame index based on normalized diffraction time (column 6)
-        time = peaks[:, 6]
-        bins = torch.linspace(0, 1, frames_to_render)
+        time = peaks[:, 6].contiguous()  # Make time tensor contiguous
+        bins = torch.linspace(0, 1, frames_to_render, device=time.device).contiguous()  # Make bins contiguous
         frame = torch.bucketize(time, bins).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
@@ -839,79 +830,68 @@ class Detector:
                 padded_kernels.append(k_padded)
             else:
                 padded_kernels.append(k)
-                
-        return torch.cat(padded_kernels, dim=0)
+        # Combine kernels and normalize as a batch
+        kernels = torch.cat(padded_kernels, dim=0)
+        kernels = kernels / kernels.sum(dim=(2,3), keepdim=True)
+        return kernels
 
-    def _deposit_kernels_batch(self, tensor: torch.Tensor, kernels: torch.Tensor, centers_z: torch.Tensor, centers_y: torch.Tensor) -> torch.Tensor:
-        """
-        Vectorized deposition of multiple kernels into a tensor at fractional coordinates using bilinear splatting.
-        
-        Parameters
-        ----------
-        tensor : torch.Tensor
-            Target tensor to deposit kernels into, shape (H, W)
-        kernels : torch.Tensor
-            Batch of kernels to deposit, shape (N, 1, kh, kw)
-        centers_z : torch.Tensor
-            Z coordinates for kernel centers, shape (N,)
-        centers_y : torch.Tensor
-            Y coordinates for kernel centers, shape (N,)
-            
-        Returns
-        -------
-        torch.Tensor
-            Updated tensor with deposited kernels
-        """
+    def _deposit_kernels_batch(self, tensor: torch.Tensor, kernels: torch.Tensor, 
+                            centers_z: torch.Tensor, centers_y: torch.Tensor) -> torch.Tensor:
+        """Deposit multiple kernels onto a tensor using bilinear interpolation."""
         N = kernels.shape[0]
         kh, kw = kernels.shape[-2:]
         device = tensor.device
         
-        # Generate kernel grid offsets (relative to center)
+        # Generate kernel grid offsets
         ky, kx = torch.meshgrid(
             torch.arange(kh, dtype=torch.float32, device=device) - (kh - 1) / 2,
             torch.arange(kw, dtype=torch.float32, device=device) - (kw - 1) / 2,
             indexing="ij"
         )
         
-        # Expand offsets for batch processing
-        kx = kx.flatten().repeat(N)  # Shape (N*kh*kw,)
-        ky = ky.flatten().repeat(N)  # Shape (N*kh*kw,)
+        # Make tensors contiguous and flatten
+        kx = kx.contiguous().flatten().repeat(N)
+        ky = ky.contiguous().flatten().repeat(N)
         
-        # Expand centers to match offset dimensions
-        centers_z = centers_z.repeat_interleave(kh * kw)  # Shape (N*kh*kw,)
-        centers_y = centers_y.repeat_interleave(kh * kw)  # Shape (N*kh*kw,)
+        # Ensure centers are contiguous
+        centers_z = centers_z.contiguous().repeat_interleave(kh * kw)
+        centers_y = centers_y.contiguous().repeat_interleave(kh * kw)
         
-        # Absolute positions in tensor space
+        # Get positions and weights
         pos_z = centers_z + kx
         pos_y = centers_y + ky
         
-        # Integer and fractional parts
         z0 = torch.floor(pos_z).long()
         y0 = torch.floor(pos_y).long()
         dz = pos_z - z0.float()
         dy = pos_y - y0.float()
         
-        # Four surrounding indices and weights
+        # Calculate bilinear weights
+        w00 = (1 - dz) * (1 - dy)
+        w01 = (1 - dz) * dy
+        w10 = dz * (1 - dy)
+        w11 = dz * dy
+        
+        # Get kernel values and ensure contiguous memory
+        kernel_values = kernels.reshape(N, -1).contiguous()
+        k_flat = kernel_values.repeat_interleave(4, dim=0).flatten()
+        
+        # Stack positions and weights
         zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
         yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
-        weights = torch.stack([
-            (1 - dz) * (1 - dy),
-            (1 - dz) * dy,
-            dz * (1 - dy),
-            dz * dy
-        ]).flatten()
+        weights = torch.stack([w00, w01, w10, w11]).flatten()
         
-        # Values to scatter (kernels flattened and repeated 4 times, multiplied by weights)
-        kernel_values = kernels.reshape(N, -1).repeat_interleave(4, dim=0)
-        values = weights * kernel_values.flatten()
-        
-        # Filter valid indices
+        # Filter valid positions
         valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
         zi_valid = zi[valid]
         yi_valid = yi[valid]
-        values_valid = values[valid]
+        weights_valid = weights[valid]
+        k_valid = k_flat[valid]
         
-        # Deposit all values in one operation
+        # Ensure final values are contiguous
+        values_valid = (k_valid * weights_valid).contiguous()
+        
+        # Deposit with proper contribution weights
         tensor.index_put_(
             indices=(zi_valid, yi_valid),
             values=values_valid,
