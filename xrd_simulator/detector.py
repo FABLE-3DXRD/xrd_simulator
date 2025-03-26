@@ -744,7 +744,7 @@ class Detector:
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
 
-        peaks_dict["peaks"] = peaks.contiguous()
+        peaks_dict["peaks"] = peaks
         return peaks_dict
 
     def _voigt_kernel_batch(self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor) -> torch.Tensor:
