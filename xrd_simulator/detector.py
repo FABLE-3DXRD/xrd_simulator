@@ -244,7 +244,7 @@ class Detector:
                 
             # Generate Voigt kernels for all peaks in this frame
             kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
-            kernels = self.gaussian_kernel
+
             # Scale kernels by intensities
             kernels = kernels * intensities.view(-1, 1, 1, 1)
             
@@ -744,7 +744,7 @@ class Detector:
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
 
-        peaks_dict["peaks"] = peaks
+        peaks_dict["peaks"] = peaks.contiguous()
         return peaks_dict
 
     def _voigt_kernel_batch(self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor) -> torch.Tensor:
