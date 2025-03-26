@@ -96,34 +96,11 @@ class Detector:
         self.polarization_factor = use_polarization
         self.structure_factor = use_structure_factor
 
-    @property
-    def point_spread_kernel_shape(self):
-        """point_spread_kernel_shape  (:obj:`tuple`): Number of pixels in zdhat and ydhat over which to apply the pointspread
-        function for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction
-        frame. The values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).
-
-        NOTE: The point_spread_function is automatically normalised over the point_spread_kernel_shape domain such that the
-            final convolution over the detector diffraction frame is intensity preserving.
-        """
-        return self._point_spread_kernel_shape
-
-    @point_spread_kernel_shape.setter
-    def point_spread_kernel_shape(self, kernel_shape):
-
-        if kernel_shape[0] % 2 == 0 or kernel_shape[1] % 2 == 0:
-            raise ValueError(
-                "Point spread function kernel shape must be odd in both dimensions, but shape "
-                + str(kernel_shape)
-                + " was provided."
-            )
-        else:
-            self._point_spread_kernel_shape = kernel_shape
-
     def render(
         self,
         peaks_dict,
         frames_to_render=0,
-        method="centroid",
+        method="centroids",
     ):
         peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
@@ -140,24 +117,20 @@ class Detector:
             8: 'G0_y'               18: 'Source_z'
             9: 'G0_z'               19: 'lorentz_factors'           
         """
-
-        if method is "project":
-            diffraction_frames = self._render_and_convolve(peaks_dict)
-
-        elif method is "centroid_with_scintillator":
-            pass
-        elif method is "centroid":
-            diffraction_frames = self.project_peaks(peaks_dict)
+        if method == "centroids":
+            diffraction_frames = self._render_peak_centroids(peaks_dict)
+        elif method == "profiles":
+            diffraction_frames = self._render_peak_profiles(peaks_dict)
+        elif method == "volumes":
+            diffraction_frames = self._render_projected_volumes(peaks_dict)
         else:
             raise ValueError(
-                "No such method: "
-                + method
-                + " exist, method should be one of project or centroid"
+                f"Invalid method: {method}. Must be one of: 'centroids', 'profiles', or 'volumes'"
             )
 
         return diffraction_frames
 
-    def project_peaks(
+    def _render_peak_centroids(
         self,
         peaks_dict,
     ):
@@ -222,7 +195,67 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_and_convolve(
+    def _render_peak_profiles(self, peaks_dict) -> torch.Tensor:
+        """Deposit Voigt kernels on detector for each diffraction peak.
+        
+        Parameters
+        ----------
+        peaks_dict : dict
+            Dictionary containing peaks information with keys:
+            - 'peaks': torch.Tensor with columns for peak properties
+            - 'columns': List of column names
+            
+        Returns
+        -------
+        torch.Tensor 
+            Rendered diffraction frames with shape (num_frames, H, W)
+        """
+        peaks = peaks_dict["peaks"]
+        frames_n = int(peaks[:, 27].max() + 1)  # Get number of frames
+        
+        # Create empty frames tensor
+        frames = torch.zeros(
+            (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+            device=peaks.device
+        )
+        
+        # Group peaks by frame
+        for frame_idx in range(frames_n):
+            frame_mask = peaks[:, 27] == frame_idx
+            frame_peaks = peaks[frame_mask]
+            
+            if len(frame_peaks) == 0:
+                continue
+                
+            # Get relevant parameters for this frame's peaks
+            fwhm_rad = frame_peaks[:, 23]  # Scherrer FWHM
+            incident_angles = frame_peaks[:, 26]  # Incident angles
+            zd = frame_peaks[:, 24] / self.pixel_size_z  # Convert to pixel coordinates
+            yd = frame_peaks[:, 25] / self.pixel_size_y
+            
+            # Calculate intensities
+            intensities = frame_peaks[:, 21]  # volumes
+            if self.structure_factor:
+                intensities = intensities * frame_peaks[:, 5]  # structure_factors
+            if self.polarization_factor:
+                intensities = intensities * frame_peaks[:, 20]  # polarization_factors
+            if self.lorentz_factor:
+                intensities = intensities * frame_peaks[:, 19]  # lorentz_factors
+                
+            # Generate Voigt kernels for all peaks in this frame
+            kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
+            kernels = self.gaussian_kernel
+            # Scale kernels by intensities
+            kernels = kernels * intensities.view(-1, 1, 1, 1)
+            
+            # Deposit all kernels for this frame
+            frames[frame_idx] = self._deposit_kernels_batch(
+                frames[frame_idx], kernels, zd, yd
+            )
+        
+        return frames
+
+    def _render_projected_volumes(
         self,
         peaks_dict,
         renderer,
@@ -518,61 +551,6 @@ class Detector:
 
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    def voigt_kernel_minimal(self, gamma: float) -> torch.Tensor:
-        """
-        Generate a minimal 2D Voigt kernel by convolving a Gaussian kernel with a Lorentzian kernel,
-        then cropping it to retain at least (1 - tolerance) of the total energy.
-
-        Args:
-            G (torch.Tensor): Gaussian kernel of shape (1, 1, H, W), normalized.
-            gamma (float): HWHM of the Lorentzian component, in pixels.
-            tolerance (float): Allowed energy loss outside the cropped kernel (default: 0.05 = 5%).
-
-        Returns:
-            torch.Tensor: Normalized Voigt kernel of shape (1, 1, H_out, W_out)
-        """
-
-        G = self.gaussian_kernel
-        tolerance = self.kernel_threshold
-
-        assert (
-            G.dim() == 4 and G.shape[0] == 1 and G.shape[1] == 1
-        ), "G must be (1, 1, H, W)"
-        G = G[0, 0]  # Strip batch and channel for now
-
-        # Step 1: Build Lorentzian kernel (start with a conservative radius)
-        radius = 1
-        while True:
-            val = 1 / (1 + (radius / gamma) ** 2)
-            if val < tolerance / 2:
-                break
-            radius += 1
-
-        size = 2 * radius + 1
-        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
-        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
-        r = torch.sqrt(xx**2 + yy**2)
-        L = 1 / (1 + (r / gamma) ** 2)
-        L /= L.sum()
-
-        # Step 2: Convolve Gaussian and Lorentzian → Voigt kernel
-        pad_g = (L.shape[-1] // 2, L.shape[-1] // 2, L.shape[-2] // 2, L.shape[-2] // 2)
-        G_padded = F.pad(G, pad_g, mode="constant", value=0)
-        L = L.view(1, 1, *L.shape)
-        V = F.conv2d(G_padded.unsqueeze(0).unsqueeze(0), L)
-        V = V[0, 0]
-        V /= V.sum()
-
-        # Step 3: Crop to minimal area keeping at least (1 - tolerance) of total energy
-        center = V.shape[0] // 2
-        for r in range(1, center + 1):
-            cropped = V[center - r : center + r + 1, center - r : center + r + 1]
-            if cropped.sum() >= 1 - tolerance:
-                cropped /= cropped.sum()
-                return cropped.view(1, 1, cropped.shape[0], cropped.shape[1])
-
-        # Fallback (shouldn't happen): return full Voigt
-        return V.view(1, 1, V.shape[0], V.shape[1])
 
     def _get_pixel_coordinates(self):
         zds = torch.arange(0, self.zmax, self.pixel_size_z)
@@ -769,106 +747,175 @@ class Detector:
         peaks_dict["peaks"] = peaks
         return peaks_dict
 
-    def _voigt_kernel(
-        G: torch.Tensor, gamma: float, tolerance: float = 0.05
-    ) -> torch.Tensor:
+    def _voigt_kernel_batch(self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor) -> torch.Tensor:
         """
-        Generate a minimal 2D Voigt kernel by convolving a Gaussian kernel with a Lorentzian kernel,
-        then cropping it to retain at least (1 - tolerance) of the total energy.
-
-        Args:
-            G (torch.Tensor): Gaussian kernel of shape (1, 1, H, W), normalized.
-            gamma (float): HWHM of the Lorentzian component, in pixels.
-            tolerance (float): Allowed energy loss outside the cropped kernel (default: 0.05 = 5%).
-
-        Returns:
-            torch.Tensor: Normalized Voigt kernel of shape (1, 1, H_out, W_out)
+        Generate multiple 2D Voigt kernels for different gamma values in a vectorized way.
+        
+        Parameters
+        ----------
+        fwhm_rad : torch.Tensor
+            FWHM values in radians, shape (N,)
+        incident_angles : torch.Tensor
+            Incident angles in degrees for each peak, shape (N,)
+                
+        Returns
+        -------
+        torch.Tensor
+            Batch of normalized Voigt kernels with shape (N, 1, H, W)
         """
-
-        assert (
-            G.dim() == 4 and G.shape[0] == 1 and G.shape[1] == 1
-        ), "G must be (1, 1, H, W)"
-        G = G[0, 0]  # Strip batch and channel for now
-
-        # Step 1: Build Lorentzian kernel (start with a conservative radius)
-        radius = 1
+        # Convert FWHM from radians to pixels
+        detector_distance = torch.linalg.norm(self.det_corner_0)
+        incident_angles_rad = incident_angles * torch.pi / 180
+        R = detector_distance / torch.cos(incident_angles_rad)
+        
+        # Convert to pixels (use pixel_size_z as reference)
+        gammas = (fwhm_rad * R / self.pixel_size_z) / 2  # HWHM
+        
+        G = self.gaussian_kernel
+        tolerance = self.kernel_threshold
+        
+        # Get Gaussian kernel size
+        gaussian_radius = G.shape[-1] // 2
+        
+        # Find required radius for largest Lorentzian
+        max_gamma = gammas.max()
+        lorentzian_radius = 1
         while True:
-            val = 1 / (1 + (radius / gamma) ** 2)
+            val = 1 / (1 + (lorentzian_radius / max_gamma) ** 2)
             if val < tolerance / 2:
                 break
-            radius += 1
-
-        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+            lorentzian_radius += 1
+        
+        # Use larger of the two radii to ensure proper energy retention
+        radius = max(gaussian_radius, lorentzian_radius)
+        size = 2 * radius + 1
+        
+        # Create coordinate grid
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64, device=gammas.device)
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         r = torch.sqrt(xx**2 + yy**2)
-        L = 1 / (1 + (r / gamma) ** 2)
-        L /= L.sum()
+        
+        # Generate Lorentzian kernels
+        L = 1 / (1 + (r.unsqueeze(0) / gammas.view(-1, 1, 1)) ** 2)
+        L = L / L.sum(dim=(1, 2)).view(-1, 1, 1)
+        L = L.unsqueeze(1)  # shape (N, 1, H, W)
+        
+        # Pad Gaussian to match Lorentzian size
+        pad_size = size - G.shape[-1]
+        if pad_size > 0:
+            pad = pad_size // 2
+            G_padded = F.pad(G, (pad, pad, pad, pad), mode="constant", value=0)
+        else:
+            G_padded = G
+        
+        # Convolve
+        V = torch.zeros((len(gammas), 1, size, size), device=L.device)
+        for i in range(len(gammas)):
+            L_i = L[i:i+1]
+            V[i] = F.conv2d(G_padded, L_i, padding=radius)
+        
+        # Normalize and ensure energy retention
+        V = V / V.sum(dim=(2, 3)).view(-1, 1, 1, 1)
+        
+        # Find minimum size that retains required energy for each kernel
+        final_kernels = []
+        for i in range(len(gammas)):
+            kernel = V[i, 0]
+            center = kernel.shape[0] // 2
+            for r in range(1, center + 1):
+                cropped = kernel[center-r:center+r+1, center-r:center+r+1]
+                if cropped.sum() >= 1 - tolerance:
+                    cropped = cropped / cropped.sum()
+                    final_kernels.append(cropped.unsqueeze(0).unsqueeze(0))
+                    break
+        
+        # Pad smaller kernels to match largest
+        max_size = max(k.shape[-1] for k in final_kernels)
+        padded_kernels = []
+        for k in final_kernels:
+            if k.shape[-1] < max_size:
+                pad = (max_size - k.shape[-1]) // 2
+                k_padded = F.pad(k, (pad, pad, pad, pad), mode="constant", value=0)
+                padded_kernels.append(k_padded)
+            else:
+                padded_kernels.append(k)
+                
+        return torch.cat(padded_kernels, dim=0)
 
-        # Step 2: Convolve Gaussian and Lorentzian → Voigt kernel
-        pad_g = (L.shape[-1] // 2, L.shape[-1] // 2, L.shape[-2] // 2, L.shape[-2] // 2)
-        G_padded = F.pad(G, pad_g, mode="constant", value=0)
-        L = L.view(1, 1, *L.shape)
-        V = F.conv2d(G_padded.unsqueeze(0).unsqueeze(0), L)
-        V = V[0, 0]
-        V /= V.sum()
-
-        # Step 3: Crop to minimal area keeping at least (1 - tolerance) of total energy
-        center = V.shape[0] // 2
-        for r in range(1, center + 1):
-            cropped = V[center - r : center + r + 1, center - r : center + r + 1]
-            if cropped.sum() >= 1 - tolerance:
-                cropped /= cropped.sum()
-                return cropped.view(1, 1, cropped.shape[0], cropped.shape[1])
-
-        # Fallback (shouldn't happen): return full Voigt
-        return V.view(1, 1, V.shape[0], V.shape[1])
-
-    def _deposit_kernel(tensor, kernel, center_x, center_y):
+    def _deposit_kernels_batch(self, tensor: torch.Tensor, kernels: torch.Tensor, centers_z: torch.Tensor, centers_y: torch.Tensor) -> torch.Tensor:
         """
-        Vectorized deposition of a 5x5 kernel into a tensor at fractional coordinates (center_x, center_y)
-        using bilinear splatting, without loops.
+        Vectorized deposition of multiple kernels into a tensor at fractional coordinates using bilinear splatting.
+        
+        Parameters
+        ----------
+        tensor : torch.Tensor
+            Target tensor to deposit kernels into, shape (H, W)
+        kernels : torch.Tensor
+            Batch of kernels to deposit, shape (N, 1, kh, kw)
+        centers_z : torch.Tensor
+            Z coordinates for kernel centers, shape (N,)
+        centers_y : torch.Tensor
+            Y coordinates for kernel centers, shape (N,)
+            
+        Returns
+        -------
+        torch.Tensor
+            Updated tensor with deposited kernels
         """
-        kh, kw = kernel.shape
+        N = kernels.shape[0]
+        kh, kw = kernels.shape[-2:]
         device = tensor.device
-
+        
         # Generate kernel grid offsets (relative to center)
         ky, kx = torch.meshgrid(
             torch.arange(kh, dtype=torch.float32, device=device) - (kh - 1) / 2,
             torch.arange(kw, dtype=torch.float32, device=device) - (kw - 1) / 2,
-            indexing="ij",
+            indexing="ij"
         )
-        kx = kx.flatten()  # Shape (25,)
-        ky = ky.flatten()  # Shape (25,)
-
+        
+        # Expand offsets for batch processing
+        kx = kx.flatten().repeat(N)  # Shape (N*kh*kw,)
+        ky = ky.flatten().repeat(N)  # Shape (N*kh*kw,)
+        
+        # Expand centers to match offset dimensions
+        centers_z = centers_z.repeat_interleave(kh * kw)  # Shape (N*kh*kw,)
+        centers_y = centers_y.repeat_interleave(kh * kw)  # Shape (N*kh*kw,)
+        
         # Absolute positions in tensor space
-        pos_x = center_x + kx
-        pos_y = center_y + ky
-
+        pos_z = centers_z + kx
+        pos_y = centers_y + ky
+        
         # Integer and fractional parts
-        x0 = torch.floor(pos_x).long()
+        z0 = torch.floor(pos_z).long()
         y0 = torch.floor(pos_y).long()
-        dx = pos_x - x0.float()
+        dz = pos_z - z0.float()
         dy = pos_y - y0.float()
-
-        # Four surrounding indices and weights (shape: 4*25 = 100)
-        xi = torch.stack([x0, x0, x0 + 1, x0 + 1]).flatten()  # Shape [100]
-        yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()  # Shape [100]
-        weights = torch.stack(
-            [(1 - dx) * (1 - dy), (1 - dx) * dy, dx * (1 - dy), dx * dy]
-        ).flatten()  # Shape [100]
-
-        # Values to scatter (kernel_flat repeated 4 times, multiplied by weights)
-        kernel_flat = kernel.flatten().to(device)  # Shape [25]
-        values = weights * kernel_flat.repeat_interleave(4)  # Shape [100]
-
+        
+        # Four surrounding indices and weights
+        zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
+        yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
+        weights = torch.stack([
+            (1 - dz) * (1 - dy),
+            (1 - dz) * dy,
+            dz * (1 - dy),
+            dz * dy
+        ]).flatten()
+        
+        # Values to scatter (kernels flattened and repeated 4 times, multiplied by weights)
+        kernel_values = kernels.reshape(N, -1).repeat_interleave(4, dim=0)
+        values = weights * kernel_values.flatten()
+        
         # Filter valid indices
-        valid = (xi >= 0) & (xi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
-        xi_valid = xi[valid]
+        valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
+        zi_valid = zi[valid]
         yi_valid = yi[valid]
         values_valid = values[valid]
-
+        
         # Deposit all values in one operation
         tensor.index_put_(
-            indices=(xi_valid, yi_valid), values=values_valid, accumulate=True
+            indices=(zi_valid, yi_valid),
+            values=values_valid,
+            accumulate=True
         )
+        
         return tensor
