@@ -19,6 +19,7 @@ from xrd_simulator.utils import ensure_torch, peaks_to_csv
 import dill
 import torch
 import torch.nn.functional as F
+from scipy.special import wofz
 
 torch.set_default_dtype(torch.float64)
 
@@ -114,13 +115,13 @@ class Detector:
             5: 'structure_factors'  15: 'K_out_z'   25: 'yd'
             6: 'diffraction_times'  16: 'Source_x'  26: 'incident_angle'
             7: 'G0_x'               17: 'Source_y'  27: 'frame'
-            8: 'G0_y'               18: 'Source_z'
+            8: 'G0_y'               18: 'Source_z'  28: 'relative_intensity'
             9: 'G0_z'               19: 'lorentz_factors'           
         """
         if method == "centroids":
-            diffraction_frames = self._render_peak_centroids(peaks_dict)
+            diffraction_frames = self._render_peak_centroids(peaks_dict["peaks"])
         elif method == "profiles":
-            diffraction_frames = self._render_peak_profiles(peaks_dict)
+            diffraction_frames = self._render_peak_profiles(peaks_dict["peaks"])
         elif method == "volumes":
             diffraction_frames = self._render_projected_volumes(peaks_dict)
         else:
@@ -132,36 +133,21 @@ class Detector:
 
     def _render_peak_centroids(
         self,
-        peaks_dict,
+        peaks,
     ):
-
-        # Generate the relative intensity for all the diffraction peaks using the different factors.
-        relative_intensity = peaks_dict["peaks"][:, 21]  # volumes
-        if self.structure_factor:
-            relative_intensity = (
-                relative_intensity * peaks_dict["peaks"][:, 5]
-            )  # structure_factors
-        if self.polarization_factor:
-            relative_intensity = (
-                relative_intensity * peaks_dict["peaks"][:, 20]
-            )  # polarization_factors
-        if self.lorentz_factor:
-            relative_intensity = (
-                relative_intensity * peaks_dict["peaks"][:, 19]
-            )  # lorentz_factors
 
         # Create a 3 colum matrix with X,Y and frame coordinates for each peak
 
         pixel_indices = torch.cat(
             (
-                ((peaks_dict["peaks"][:, 24]) / self.pixel_size_z).unsqueeze(1),
-                ((peaks_dict["peaks"][:, 25]) / self.pixel_size_y).unsqueeze(1),
-                peaks_dict["peaks"][:, 27].unsqueeze(1),
+                ((peaks[:, 24]) / self.pixel_size_z).unsqueeze(1),
+                ((peaks[:, 25]) / self.pixel_size_y).unsqueeze(1),
+                peaks[:, 27].unsqueeze(1),
             ),
             dim=1,
         ).to(torch.int32)
 
-        frames_n = peaks_dict["peaks"][:, 27].unique().shape[0]
+        frames_n = peaks[:, 27].unique().shape[0]
 
         # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
@@ -179,7 +165,7 @@ class Detector:
         )
 
         # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
-        counts = torch.bincount(inverse_indices, weights=relative_intensity)
+        counts = torch.bincount(inverse_indices, weights=peaks[:, 28])
 
         # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
         result = torch.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(
@@ -195,64 +181,58 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_peak_profiles(self, peaks_dict) -> torch.Tensor:
+    def _render_peak_profiles(self, peaks: torch.Tensor) -> torch.Tensor:
         """Deposit Voigt kernels on detector for each diffraction peak.
-        
+        Assumes peaks have already been processed by _peaks_detector_intersection.
+
         Parameters
         ----------
-        peaks_dict : dict
-            Dictionary containing peaks information with keys:
-            - 'peaks': torch.Tensor with columns for peak properties
-            - 'columns': List of column names
-            
+        peaks : torch.Tensor
+            Processed peaks tensor with precalculated intensities and frame indices
+
         Returns
         -------
-        torch.Tensor 
+        torch.Tensor
             Rendered diffraction frames with shape (num_frames, H, W)
         """
-        peaks = peaks_dict["peaks"]
         frames_n = int(peaks[:, 27].max() + 1)  # Get number of frames
-        
+
         # Create empty frames tensor
         frames = torch.zeros(
-            (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
-            device=peaks.device
+            (
+                frames_n,
+                self.pixel_coordinates.shape[0],
+                self.pixel_coordinates.shape[1],
+            ),
+            device=peaks.device,
         )
-        
+
         # Group peaks by frame
         for frame_idx in range(frames_n):
             frame_mask = peaks[:, 27] == frame_idx
             frame_peaks = peaks[frame_mask]
-            
+
             if len(frame_peaks) == 0:
                 continue
-                
-            # Get relevant parameters for this frame's peaks
+
+            # Get parameters for this frame's peaks
             fwhm_rad = frame_peaks[:, 23]  # Scherrer FWHM
             incident_angles = frame_peaks[:, 26]  # Incident angles
             zd = frame_peaks[:, 24] / self.pixel_size_z  # Convert to pixel coordinates
             yd = frame_peaks[:, 25] / self.pixel_size_y
-            
-            # Calculate intensities
-            intensities = frame_peaks[:, 21]  # volumes
-            if self.structure_factor:
-                intensities = intensities * frame_peaks[:, 5]  # structure_factors
-            if self.polarization_factor:
-                intensities = intensities * frame_peaks[:, 20]  # polarization_factors
-            if self.lorentz_factor:
-                intensities = intensities * frame_peaks[:, 19]  # lorentz_factors
-                
+            intensities = frame_peaks[:, 28]  # Precalculated intensities
+
             # Generate Voigt kernels for all peaks in this frame
             kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
 
             # Scale kernels by intensities
             kernels = kernels * intensities.view(-1, 1, 1, 1)
-            
+
             # Deposit all kernels for this frame
             frames[frame_idx] = self._deposit_kernels_batch(
                 frames[frame_idx], kernels, zd, yd
             )
-        
+
         return frames
 
     def _render_projected_volumes(
@@ -551,7 +531,6 @@ class Detector:
 
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-
     def _get_pixel_coordinates(self):
         zds = torch.arange(0, self.zmax, self.pixel_size_z)
         yds = torch.arange(0, self.ymax, self.pixel_size_y)
@@ -716,6 +695,19 @@ class Detector:
     def _peaks_detector_intersection(self, peaks_dict, frames_to_render):
         """
         Computes detector intersections, filters visible peaks, and assigns frame indices.
+        Also calculates and stores combined intensity factors.
+
+        Parameters
+        ----------
+        peaks_dict : dict
+            Dictionary containing peaks information
+        frames_to_render : int
+            Number of frames to render
+
+        Returns
+        -------
+        dict
+            Updated peaks dictionary with intersections and intensity information
         """
         peaks = peaks_dict["peaks"]
 
@@ -729,26 +721,42 @@ class Detector:
         peaks = peaks[mask]
 
         # Assign frame index based on normalized diffraction time (column 6)
-        time = peaks[:, 6].contiguous()  # Make time tensor contiguous
-        bins = torch.linspace(0, 1, frames_to_render, device=time.device).contiguous()  # Make bins contiguous
+        time = peaks[:, 6].contiguous()
+        bins = torch.linspace(0, 1, frames_to_render, device=time.device).contiguous()
         frame = torch.bucketize(time, bins).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
 
+        # Calculate combined intensity factors
+        intensity = peaks[:, 21]  # volumes
+        if self.structure_factor:
+            intensity = intensity * peaks[:, 5]  # structure_factors
+        if self.polarization_factor:
+            intensity = intensity * peaks[:, 20]  # polarization_factors
+        if self.lorentz_factor:
+            intensity = intensity * peaks[:, 19]  # lorentz_factors
+
+        # Add intensity as new column
+        intensity = intensity.unsqueeze(1)
+        peaks = torch.cat((peaks, intensity), dim=1)
+        peaks_dict["columns"].append("intensity")
+
         peaks_dict["peaks"] = peaks
         return peaks_dict
 
-    def _voigt_kernel_batch(self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor) -> torch.Tensor:
+    def _voigt_kernel_batch(
+        self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor
+    ) -> torch.Tensor:
         """
-        Generate multiple 2D Voigt kernels for different gamma values in a vectorized way.
-        
+        Generate multiple 2D Voigt kernels using scipy.special.wofz (Faddeeva function).
+
         Parameters
         ----------
         fwhm_rad : torch.Tensor
             FWHM values in radians, shape (N,)
         incident_angles : torch.Tensor
             Incident angles in degrees for each peak, shape (N,)
-                
+
         Returns
         -------
         torch.Tensor
@@ -758,144 +766,168 @@ class Detector:
         detector_distance = torch.linalg.norm(self.det_corner_0)
         incident_angles_rad = incident_angles * torch.pi / 180
         R = detector_distance / torch.cos(incident_angles_rad)
-        
-        # Convert to pixels (use pixel_size_z as reference)
+
+        # Convert to pixels
         gammas = (fwhm_rad * R / self.pixel_size_z) / 2  # HWHM
-        
-        G = self.gaussian_kernel
-        tolerance = self.kernel_threshold
-        
-        # Get Gaussian kernel size
-        gaussian_radius = G.shape[-1] // 2
-        
-        # Find required radius for largest Lorentzian
+        sigma = self.gaussian_sigma
+
+        # Compute radius based on maximum gamma
         max_gamma = gammas.max()
-        lorentzian_radius = 1
+        threshold = self.kernel_threshold / 2
+
+        radius = torch.tensor(1.0)
         while True:
-            val = 1 / (1 + (lorentzian_radius / max_gamma) ** 2)
-            if val < tolerance / 2:
+            g_val = torch.exp(-(radius**2) / (2 * sigma**2))
+            l_val = 1 / (1 + (radius / max_gamma) ** 2)
+            if g_val < threshold and l_val < threshold:
                 break
-            lorentzian_radius += 1
-        
-        # Use larger of the two radii to ensure proper energy retention
-        radius = max(gaussian_radius, lorentzian_radius)
-        size = 2 * radius + 1
-        
+            radius = radius * 2
+
         # Create coordinate grid
-        ax = torch.arange(-radius, radius + 1, dtype=torch.float64, device=gammas.device)
+        ax = torch.arange(
+            -radius, radius + 1, dtype=torch.float64, device=gammas.device
+        )
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         r = torch.sqrt(xx**2 + yy**2)
-        
-        # Generate Lorentzian kernels
-        L = 1 / (1 + (r.unsqueeze(0) / gammas.view(-1, 1, 1)) ** 2)
-        L = L / L.sum(dim=(1, 2)).view(-1, 1, 1)
-        L = L.unsqueeze(1)  # shape (N, 1, H, W)
-        
-        # Pad Gaussian to match Lorentzian size
-        pad_size = size - G.shape[-1]
-        if pad_size > 0:
-            pad = pad_size // 2
-            G_padded = F.pad(G, (pad, pad, pad, pad), mode="constant", value=0)
-        else:
-            G_padded = G
-        
-        # Convolve
-        V = torch.zeros((len(gammas), 1, size, size), device=L.device)
-        for i in range(len(gammas)):
-            L_i = L[i:i+1]
-            V[i] = F.conv2d(G_padded, L_i, padding=radius)
-        
-        # Normalize and ensure energy retention
-        V = V / V.sum(dim=(2, 3)).view(-1, 1, 1, 1)
-        
-        # Find minimum size that retains required energy for each kernel
-        final_kernels = []
-        for i in range(len(gammas)):
-            kernel = V[i, 0]
+
+        # Pre-allocate output tensors
+        kernels = []
+        max_size = 0
+
+        # Convert only the required arrays to numpy for scipy
+        r_np = r.cpu().numpy()
+        sigma_np = float(sigma)
+
+        # Generate kernels for all peaks
+        for gamma in gammas:
+            # Use scipy.special.wofz for Voigt profile computation
+            gamma_np = float(gamma)
+            kernel = torch.from_numpy(voigt_profile(r_np, sigma_np, gamma_np)).to(
+                gammas.device
+            )
+
+            kernel = kernel / kernel.sum()  # Normalize
+
+            # Binary search for minimum size that retains required energy
             center = kernel.shape[0] // 2
-            for r in range(1, center + 1):
-                cropped = kernel[center-r:center+r+1, center-r:center+r+1]
-                if cropped.sum() >= 1 - tolerance:
-                    cropped = cropped / cropped.sum()
-                    final_kernels.append(cropped.unsqueeze(0).unsqueeze(0))
-                    break
-        
-        # Pad smaller kernels to match largest
-        max_size = max(k.shape[-1] for k in final_kernels)
+            left, right = 1, center
+            while left < right:
+                mid = (left + right) // 2
+                window = kernel[
+                    center - mid : center + mid + 1, center - mid : center + mid + 1
+                ]
+                if window.sum() >= 1 - self.kernel_threshold:
+                    right = mid
+                else:
+                    left = mid + 1
+
+            # Crop and normalize
+            r = left
+            cropped = kernel[center - r : center + r + 1, center - r : center + r + 1]
+            cropped = cropped / cropped.sum()
+
+            kernels.append(cropped.unsqueeze(0).unsqueeze(0))
+            max_size = max(max_size, 2 * r + 1)
+
+        # Pad all kernels to max_size
         padded_kernels = []
-        for k in final_kernels:
+        for k in kernels:
             if k.shape[-1] < max_size:
                 pad = (max_size - k.shape[-1]) // 2
                 k_padded = F.pad(k, (pad, pad, pad, pad), mode="constant", value=0)
                 padded_kernels.append(k_padded)
             else:
                 padded_kernels.append(k)
-        # Combine kernels and normalize as a batch
-        kernels = torch.cat(padded_kernels, dim=0)
-        kernels = kernels / kernels.sum(dim=(2,3), keepdim=True)
-        return kernels
 
-    def _deposit_kernels_batch(self, tensor: torch.Tensor, kernels: torch.Tensor, 
-                            centers_z: torch.Tensor, centers_y: torch.Tensor) -> torch.Tensor:
+        # Combine kernels
+        return torch.cat(padded_kernels, dim=0)
+
+    def _deposit_kernels_batch(
+        self,
+        tensor: torch.Tensor,
+        kernels: torch.Tensor,
+        centers_z: torch.Tensor,
+        centers_y: torch.Tensor,
+    ) -> torch.Tensor:
         """Deposit multiple kernels onto a tensor using bilinear interpolation."""
         N = kernels.shape[0]
         kh, kw = kernels.shape[-2:]
         device = tensor.device
-        
+
         # Generate kernel grid offsets
         ky, kx = torch.meshgrid(
             torch.arange(kh, dtype=torch.float32, device=device) - (kh - 1) / 2,
             torch.arange(kw, dtype=torch.float32, device=device) - (kw - 1) / 2,
-            indexing="ij"
+            indexing="ij",
         )
-        
+
         # Make tensors contiguous and flatten
         kx = kx.contiguous().flatten().repeat(N)
         ky = ky.contiguous().flatten().repeat(N)
-        
+
         # Ensure centers are contiguous
         centers_z = centers_z.contiguous().repeat_interleave(kh * kw)
         centers_y = centers_y.contiguous().repeat_interleave(kh * kw)
-        
+
         # Get positions and weights
         pos_z = centers_z + kx
         pos_y = centers_y + ky
-        
+
         z0 = torch.floor(pos_z).long()
         y0 = torch.floor(pos_y).long()
         dz = pos_z - z0.float()
         dy = pos_y - y0.float()
-        
+
         # Calculate bilinear weights
         w00 = (1 - dz) * (1 - dy)
         w01 = (1 - dz) * dy
         w10 = dz * (1 - dy)
         w11 = dz * dy
-        
+
         # Get kernel values and ensure contiguous memory
         kernel_values = kernels.reshape(N, -1).contiguous()
         k_flat = kernel_values.repeat_interleave(4, dim=0).flatten()
-        
+
         # Stack positions and weights
         zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
         yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
         weights = torch.stack([w00, w01, w10, w11]).flatten()
-        
+
         # Filter valid positions
         valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
         zi_valid = zi[valid]
         yi_valid = yi[valid]
         weights_valid = weights[valid]
         k_valid = k_flat[valid]
-        
+
         # Ensure final values are contiguous
         values_valid = (k_valid * weights_valid).contiguous()
-        
+
         # Deposit with proper contribution weights
         tensor.index_put_(
-            indices=(zi_valid, yi_valid),
-            values=values_valid,
-            accumulate=True
+            indices=(zi_valid, yi_valid), values=values_valid, accumulate=True
         )
-        
+
         return tensor
+
+
+def voigt_profile(r, sigma, gamma):
+    """
+    Compute Voigt profile using the Faddeeva function.
+
+    Parameters
+    ----------
+    r : ndarray
+        Radial distances
+    sigma : float
+        Gaussian width parameter
+    gamma : float
+        Lorentzian width parameter
+
+    Returns
+    -------
+    ndarray
+        Computed Voigt profile
+    """
+    z = (r + 1j * gamma) / (sigma * np.sqrt(2))
+    return np.real(wofz(z)) / (sigma * np.sqrt(2 * np.pi))
