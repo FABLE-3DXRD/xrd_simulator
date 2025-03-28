@@ -12,14 +12,16 @@ Below follows a detailed description of the detector class attributes and functi
 
 """
 
-import xrd_simulator.cuda
-import numpy as np
-from xrd_simulator import utils
-from xrd_simulator.utils import ensure_torch, peaks_to_csv
+from typing import Dict, List, Optional, Tuple, Union
+import numpy.typing as npt
 import dill
+from scipy.special import wofz
+import numpy as np
 import torch
 import torch.nn.functional as F
-from scipy.special import wofz
+
+from xrd_simulator import utils
+from xrd_simulator.utils import ensure_torch
 
 torch.set_default_dtype(torch.float64)
 
@@ -39,39 +41,39 @@ class Detector:
             (ydhat is the unit vector from det_corner_0 towards det_corner_1)
         det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        gaussian_sigma (:obj:`float`, optional): Standard deviation of the Gaussian point spread function in pixels.
+        gaussian_sigma (:obj=`float`, optional): Standard deviation of the Gaussian point spread function in pixels.
             Defaults to 1.0.
-        kernel_threshold (:obj:`float`, optional): Intensity threshold used to determine the kernel size.
+        kernel_threshold (:obj=`float`, optional): Intensity threshold used to determine the kernel size.
             The kernel will extend until the Gaussian tail drops below this value. Defaults to 0.05.
 
     Attributes:
-        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
-        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
+        pixel_size_z (:obj=`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+        pixel_size_y (:obj=`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
+        det_corner_0,det_corner_1,det_corner_2 (:obj=`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction frames
-        zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
-        normal (:obj:`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
-        zmax,ymax (:obj:`numpy array`): Detector width and height.
-        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
-        gaussian_sigma (:obj:`float`): Standard deviation of the Gaussian point spread function.
-        kernel_threshold (:obj:`float`): Threshold value that determines the kernel size.
-        gaussian_kernel (:obj:`torch.Tensor`): Pre-computed normalized 2D Gaussian kernel.
+        frames (:obj=`list` of :obj=`list` of :obj=`scattering_unit.ScatteringUnit`): Analytical diffraction frames
+        zdhat,ydhat (:obj=`numpy array`): Detector basis vectors.
+        normal (:obj=`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
+        zmax,ymax (:obj=`numpy array`): Detector width and height.
+        pixel_coordinates  (:obj=`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
+        gaussian_sigma (:obj=`float`): Standard deviation of the Gaussian point spread function.
+        kernel_threshold (:obj=`float`): Threshold value that determines the kernel size.
+        gaussian_kernel (:obj=`torch.Tensor`): Pre-computed normalized 2D Gaussian kernel.
 
     """
 
     def __init__(
         self,
-        pixel_size_z,
-        pixel_size_y,
-        det_corner_0,
-        det_corner_1,
-        det_corner_2,
-        gaussian_sigma=1.0,
-        kernel_threshold=0.05,
-        use_lorentz=True,
-        use_polarization=True,
-        use_structure_factor=True,
+        pixel_size_z: float,
+        pixel_size_y: float,
+        det_corner_0: npt.NDArray,
+        det_corner_1: npt.NDArray,
+        det_corner_2: npt.NDArray,
+        gaussian_sigma: float = 1.0,
+        kernel_threshold: float = 0.05,
+        use_lorentz: bool = True,
+        use_polarization: bool = True,
+        use_structure_factor: bool = True,
     ):
         self.det_corner_0 = ensure_torch(det_corner_0)
         self.det_corner_1 = ensure_torch(det_corner_1)
@@ -91,7 +93,7 @@ class Detector:
         self.pixel_coordinates = self._get_pixel_coordinates()
         self.gaussian_sigma = gaussian_sigma
         self.kernel_threshold = kernel_threshold
-        self.gaussian_kernel = self.gaussian_kernel_2d()
+        self.gaussian_kernel = self._generate_gaussian_kernel()
 
         self.lorentz_factor = use_lorentz
         self.polarization_factor = use_polarization
@@ -99,25 +101,25 @@ class Detector:
 
     def render(
         self,
-        peaks_dict,
-        frames_to_render=0,
-        method="gauss",
-    ):
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        frames_to_render: int = 0,
+        method: str = "gauss",
+    ) -> torch.Tensor:
+        """Render diffraction frames from peak data.
+
+        Args:
+            peaks_dict: Dictionary containing peak information and metadata
+            frames_to_render: Number of frames to generate (0 = auto)
+            method: Rendering method, one of: 'gauss', 'voigt', or 'volumes'
+
+        Returns:
+            Rendered diffraction frames tensor
+
+        Raises:
+            ValueError: If invalid rendering method specified
+        """
         peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
-        """
-            Column names of peaks are
-            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
-            1: 'phase_number'       11: 'Gy'        21: 'volumes'
-            2: 'h'                  12: 'Gz'        22: '2theta'
-            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
-            4: 'l'                  14: 'K_out_y'   24: 'zd'
-            5: 'structure_factors'  15: 'K_out_z'   25: 'yd'
-            6: 'diffraction_times'  16: 'Source_x'  26: 'incident_angle'
-            7: 'G0_x'               17: 'Source_y'  27: 'frame'
-            8: 'G0_y'               18: 'Source_z'  28: 'relative_intensity'
-            9: 'G0_z'               19: 'lorentz_factors'           
-        """
         if method == "gauss":
             diffraction_frames = self._render_gauss_peaks(peaks_dict["peaks"])
         elif method == "voigt":
@@ -131,13 +133,15 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_gauss_peaks(
-        self,
-        peaks,
-    ):
+    def _render_gauss_peaks(self, peaks: torch.Tensor) -> torch.Tensor:
+        """Render Gaussian peaks onto detector frames.
 
-        # Create a 3 colum matrix with X,Y and frame coordinates for each peak
+        Args:
+            peaks: Peak data tensor containing positions and intensities
 
+        Returns:
+            Rendered diffraction frames with Gaussian peaks
+        """
         pixel_indices = torch.cat(
             (
                 ((peaks[:, 24]) / self.pixel_size_z).unsqueeze(1),
@@ -149,7 +153,6 @@ class Detector:
 
         frames_n = peaks[:, 27].unique().shape[0]
 
-        # Create the future frames as an empty tensor
         diffraction_frames = torch.zeros(
             (
                 frames_n,
@@ -158,21 +161,16 @@ class Detector:
             )
         )
 
-        # Turn from lists of peaks to rendered frames
-        # Step 1: Find unique coordinates and the inverse indices
         unique_coords, inverse_indices = torch.unique(
             pixel_indices, dim=0, return_inverse=True
         )
 
-        # Step 2: Count occurrences of each unique coordinate, weighting by the relative intensity
         counts = torch.bincount(inverse_indices, weights=peaks[:, 28])
 
-        # Step 3: Combine unique coordinates and their counts into a new tensor (mx4)
         result = torch.cat((unique_coords, counts.unsqueeze(1)), dim=1).type_as(
             diffraction_frames
         )
 
-        # Step 4: Use the new column as a pixel value to be added to each coordinate
         diffraction_frames[
             result[:, 2].int(), result[:, 0].int(), result[:, 1].int()
         ] = result[:, 3]
@@ -234,11 +232,9 @@ class Detector:
 
             while start_idx < len(frame_peaks):
 
-                # Process current batch
                 end_idx = min(start_idx + batch_size, len(frame_peaks))
                 batch_peaks = frame_peaks[start_idx:end_idx]
 
-                # Get parameters for this batch
                 fwhm_rad = batch_peaks[:, 23]
                 incident_angles = batch_peaks[:, 26]
                 zd = batch_peaks[:, 24] / self.pixel_size_z
@@ -248,24 +244,21 @@ class Detector:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-                # Generate and deposit kernels
                 kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
                 kernels = kernels * intensities.view(-1, 1, 1, 1)
                 frames[frame_idx] = self._deposit_kernels_batch(
                     frames[frame_idx], kernels, zd, yd
                 )
 
-                # Success - move to next batch
                 del kernels
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
                 start_idx = end_idx
 
-                # Report progress
                 progress = int((start_idx / len(frame_peaks)) * 100)
                 print(
-                    f"Frame {frame_idx+1}: {progress}% complete (batch: {batch_size})"
+                    f"Frame {frame_idx+1}: {progress}% complete (batch size: {batch_size})"
                 )
 
             print(f"Completed frame {frame_idx+1}/{frames_n}")
@@ -274,9 +267,18 @@ class Detector:
 
     def _render_projected_volumes(
         self,
-        peaks_dict,
-        renderer,
-    ):
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        renderer: callable,
+    ) -> npt.NDArray:
+        """Render projected volumes onto detector frames.
+
+        Args:
+            peaks_dict: Dictionary containing peak information and metadata
+            renderer: Function to render scattering units
+
+        Returns:
+            Rendered diffraction frames with projected volumes
+        """
         scattering_units = peaks_dict["scattering_units"]
         kernel = self.gaussian_kernel
         frames_bundle = peaks_dict["peaks"][:, 27].unique()
@@ -302,142 +304,74 @@ class Detector:
             diffraction_frames.append(frames)
         return np.array(diffraction_frames)
 
-    def _conv2d_gaussian_kernel(self, frames):
+    def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
         """Apply the point spread function to the detector frames."""
-        # kernel = ensure_torch(self._get_point_spread_function_kernel())
         frames = ensure_torch(frames)
         if frames.ndim == 2:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
         if frames.ndim == 3:
             frames = frames.unsqueeze(0)  # Add channel dimension if only 1 image
 
-        # kernel = kernel.unsqueeze(0).unsqueeze(0)
-        kernel = self.gaussian_kernel
+        # Add required dimensions for conv2d (N,C,H,W)
+        kernel = self.gaussian_kernel.unsqueeze(0).unsqueeze(0)
+
         padding = kernel.shape[-1] // 2
-        # Perform the convolution
         with torch.no_grad():
             output = torch.nn.functional.conv2d(frames, weight=kernel, padding=padding)
 
         return output
 
-    def pixel_index_to_theta_eta(
-        self,
-        incoming_wavevector,
-        pixel_zd_index,
-        pixel_yd_index,
-        scattering_origin=ensure_torch([0, 0, 0]),
-    ):
-        """Compute bragg angle and azimuth angle for a detector pixel index.
+    def get_intersection(
+        self, ray_direction: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Get detector intersection coordinates for rays.
 
         Args:
-            pixel_zd_index (:obj=`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_index (:obj=`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to ensure_torch([0, 0, 0]).
+            ray_direction: Direction vectors for each ray, shape (N,3)
+            source_point: Origin points for each ray, shape (N,3)
 
         Returns:
-            (:obj=`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
-        """
-        # TODO: unit test
-        pixel_zd_coord = pixel_zd_index * self.pixel_size_z
-        pixel_yd_coord = pixel_yd_index * self.pixel_size_y
-        theta, eta = self.pixel_coord_to_theta_eta(
-            incoming_wavevector,
-            pixel_zd_coord,
-            pixel_yd_coord,
-            scattering_origin=scattering_origin,
-        )
-        return theta, eta
-
-    def pixel_coord_to_theta_eta(
-        self,
-        incoming_wavevector,
-        pixel_zd_coord,
-        pixel_yd_coord,
-        scattering_origin=ensure_torch([0, 0, 0]),
-    ):
-        """Compute bragg angle and azimuth angle  for a detector coordinate.
-
-        Args:
-            pixel_zd_coord (:obj=`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_coord (:obj=`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to ensure_torch([0, 0, 0]).
-
-        Returns:
-            (:obj=`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
-        """
-        # TODO: unit test
-        khat = incoming_wavevector / np.linalg.norm(incoming_wavevector)
-        kp = (
-            self.det_corner_0
-            + pixel_zd_coord * self.zdhat
-            + pixel_yd_coord * self.ydhat
-            - scattering_origin
-        )
-        kprimehat = kp / np.linalg.norm(kp)
-        theta = np.arccos(khat.dot(kprimehat)) / 2.0
-        korthogonal = kprimehat - (khat * kprimehat.dot(khat))
-        eta = np.arccos(self.zdhat.dot(korthogonal) / np.linalg.norm(korthogonal))
-        eta *= np.sign((np.cross(self.zdhat, korthogonal)).dot(-incoming_wavevector))
-        return theta, eta
-
-    def get_intersection(self, ray_direction, source_point):
-        """Get detector intersection in detector coordinates of every single ray originating from source_point.
-
-        Args:
-            ray_direction (:obj=`numpy array`): Vectors in direction of the xray propagation
-            source_point (:obj=`numpy array`): Origin of the ray.
-
-        Returns:
-            (:obj=`tuple`) zd, yd in detector plane coordinates.
-
+            Intersection coordinates (zd,yd) and incident angles, shape (N,3)
         """
         s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
             ray_direction, self.normal
         )
 
         intersection = source_point + ray_direction * s.unsqueeze(1)
-        # such that backwards rays are not considered to intersect the detector
-        # i.e only rays that can intersect the detector plane by propagating
-        # forward along the photon path are considered.
         intersection[s < 0] = np.nan
         zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
         yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
 
-        # Calculate incident angle
         ray_dir_norm = ray_direction / torch.norm(ray_direction, dim=1).unsqueeze(-1)
         normal_norm = self.normal / torch.linalg.norm(self.normal)
-        cosine_theta = torch.matmul(
-            ray_dir_norm, -normal_norm
-        )  # The detector normal by default goes against the beam
+        cosine_theta = torch.matmul(ray_dir_norm, -normal_norm)
         incident_angle_deg = torch.arccos(cosine_theta) * (180 / torch.pi)
         return torch.stack((zd, yd, incident_angle_deg), dim=1)
 
-    def contains(self, zd, yd):
-        """Determine if the detector coordinate zd,yd lies within the detector bounds.
+    def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
+        """Check if detector coordinates are within bounds.
 
         Args:
-            zd (:obj=`float`): Detector z coordinate
-            yd (:obj=`float`): Detector y coordinate
+            zd: Z coordinates to check
+            yd: Y coordinates to check
 
         Returns:
-            (:obj=`boolean`) True if the zd,yd is within the detector bounds.
-
+            Boolean mask of valid coordinates
         """
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
-    def project_convex_hull(self, scattering_unit, box):
-        """Compute parametric projection of scattering region unto detector.
+    def project_convex_hull(
+        self, scattering_unit: "ScatteringUnit", box: Tuple[int, int, int, int]
+    ) -> npt.NDArray:
+        """Project scattering unit's convex hull onto detector region.
 
         Args:
-            scattering_unit (:obj=`xrd_simulator.ScatteringUnit`): The scattering region.
-            box (:obj=`tuple` of :obj=`int`): indices of the detector frame over which to compute the projection.
-                i.e the subgrid of the detector is taken as: array[[box[0]:box[1], box[2]:box[3]].
+            scattering_unit: Unit to project
+            box: (min_z, max_z, min_y, max_y) bounds for projection
 
         Returns:
-            (:obj=`numpy array`) clip lengths between scattering_unit polyhedron and rays traced from the detector.
-
+            Array of clip lengths between hull and detector rays
         """
-
         ray_points = self.pixel_coordinates[
             box[0] : box[1], box[2] : box[3], :
         ].reshape((box[1] - box[0]) * (box[3] - box[2]), 3)
@@ -463,17 +397,17 @@ class Detector:
 
         return clip_lengths
 
-    def get_wrapping_cone(self, k, source_point):
-        """Compute the cone around a wavevector such that the cone wraps the detector corners.
+    def get_wrapping_cone(
+        self, k: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Compute cone that wraps detector corners around wavevector.
 
         Args:
-            k (:obj=`numpy array`): Wavevector forming the central axis of cone ```shape=(3,)```.
-            source_point (:obj=`numpy array`): Origin of the wavevector ```shape=(3,)```.
+            k: Central wavevector of cone, shape (3,)
+            source_point: Cone vertex point, shape (3,)
 
         Returns:
-            (:obj=`float`) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after
-                which scattering will systematically miss the detector.
-
+            Half-angle of cone opening in radians
         """
         fourth_corner_of_detector = self.det_corner_2 + (
             self.det_corner_1 - self.det_corner_0[:]
@@ -491,34 +425,32 @@ class Detector:
         normalised_local_coord_geom_mat = geom_mat / torch.linalg.norm(geom_mat, axis=0)
         cone_opening = torch.arccos(
             torch.matmul(normalised_local_coord_geom_mat.T, k / torch.linalg.norm(k))
-        )  # These are two time Bragg angles
+        )
         return torch.max(cone_opening) / 2.0
 
-    def save(self, path):
-        """Save the detector object to disc (via pickling). Change the arrays formats to np first.
+    def save(self, path: str) -> None:
+        """Save detector to disk.
 
         Args:
-            path (:obj=`str`): File path at which to save, ending with the desired filename.
-
+            path: Output file path (.det extension added if missing)
         """
-
         if not path.endswith(".det"):
             path = path + ".det"
         with open(path, "wb") as f:
             dill.dump(self, f, dill.HIGHEST_PROTOCOL)
 
     @classmethod
-    def load(cls, path):
-        """Load the detector object from disc (via pickling).
+    def load(cls, path: str) -> "Detector":
+        """Load detector from disk.
 
         Args:
-            path (:obj=`str`): File path at which to load, ending with the desired filename.
+            path: Path to .det file
 
-        .. warning::
-            This function will unpickle data from the provied path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Returns:
+            Loaded Detector instance
 
+        Raises:
+            ValueError: If file extension is not .det
         """
         if not path.endswith(".det"):
             raise ValueError("The loaded motion file must end with .det")
@@ -536,21 +468,16 @@ class Detector:
             loaded.pixel_size_y = ensure_torch(loaded.pixel_size_y)
             return loaded
 
-    def gaussian_kernel_2d(self) -> torch.Tensor:
+    def _generate_gaussian_kernel(self) -> torch.Tensor:
         """
         Generates a normalized 2D Gaussian kernel with dynamic size based on intensity threshold.
 
-        Args:
-            sigma (float): Standard deviation of the Gaussian.
-            threshold (float): Allowed remaining intensity outside the kernel (default 5%).
-
         Returns:
-            torch.Tensor: 2D Gaussian kernel of shape (1, 1, H, W).
+            torch.Tensor: 2D Gaussian kernel of shape (H, W).
         """
         sigma = ensure_torch(self.gaussian_sigma)
         threshold = self.kernel_threshold
 
-        # Determine the radius where tail drops below threshold / 2 (1D axis)
         radius = 1
         while True:
             value = torch.exp(-(radius**2) / (2 * sigma**2))
@@ -558,17 +485,21 @@ class Detector:
                 break
             radius += 1
 
-        kernel_size = 2 * radius + 1  # Ensure odd size
+        kernel_size = 2 * radius + 1
 
-        # Create coordinate grid
         ax = torch.arange(kernel_size, dtype=torch.float64) - radius
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
         kernel /= kernel.sum()
 
-        return kernel.view(1, 1, kernel_size, kernel_size)
+        return kernel  # Return as (H,W) instead of (1,1,H,W)
 
-    def _get_pixel_coordinates(self):
+    def _get_pixel_coordinates(self) -> torch.Tensor:
+        """Calculate real-space coordinates for each detector pixel.
+
+        Returns:
+            Tensor of shape (Z,Y,3) containing pixel coordinates
+        """
         zds = torch.arange(0, self.zmax, self.pixel_size_z)
         yds = torch.arange(0, self.ymax, self.pixel_size_y)
         Z, Y = torch.meshgrid(zds, yds, indexing="ij")
@@ -585,8 +516,13 @@ class Detector:
         return pixel_coordinates
 
     def _projection_render(
-        self, scattering_unit, frame, lorentz, polarization, structure_factor
-    ):
+        self,
+        scattering_unit: "ScatteringUnit",
+        frame: npt.NDArray,
+        lorentz: bool,
+        polarization: bool,
+        structure_factor: bool,
+    ) -> None:
         """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
         This is generally very computationally expensive compared to the simpler (:obj=`function`):_centroid_render
         function.
@@ -598,9 +534,6 @@ class Detector:
         if box is not None:
             projection = self.project_convex_hull(scattering_unit, box)
             if np.sum(projection) == 0:
-                # The projection of the scattering_unit did not hit any pixel centroids of the detector.
-                # i.e the scattering_unit is small in comparison to the detector
-                # pixels.
                 self._centroid_render(
                     scattering_unit, frame, lorentz, polarization, structure_factor
                 )
@@ -619,10 +552,27 @@ class Detector:
                     )
 
     def _get_intensity_factor(
-        self, scattering_unit, lorentz, polarization, structure_factor
-    ):
+        self,
+        scattering_unit: "ScatteringUnit",
+        lorentz: bool,
+        polarization: bool,
+        structure_factor: bool,
+    ) -> float:
+        """Calculate combined intensity scaling factor.
+
+        Args:
+            scattering_unit: Unit to get factors for
+            lorentz: Whether to include Lorentz factor
+            polarization: Whether to include polarization
+            structure_factor: Whether to include structure factor
+
+        Returns:
+            Combined intensity scaling factor
+
+        Raises:
+            ValueError: If structure factors needed but not available
+        """
         intensity_factor = 1.0
-        # TODO: Consider solid angle intensity rescaling and air scattering.
         if lorentz:
             intensity_factor *= scattering_unit.lorentz_factor
         if polarization:
@@ -640,12 +590,16 @@ class Detector:
 
         return intensity_factor
 
-    def _detector_coordinate_to_pixel_index(self, zd, yd):
+    def _detector_coordinate_to_pixel_index(
+        self, zd: float, yd: float
+    ) -> Tuple[int, int]:
         row_index = int(zd / self.pixel_size_z)
         col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
 
-    def _get_projected_bounding_box(self, scattering_unit):
+    def _get_projected_bounding_box(
+        self, scattering_unit: "ScatteringUnit"
+    ) -> Optional[Tuple[int, int, int, int]]:
         """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
 
         Args:
@@ -689,7 +643,11 @@ class Detector:
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
 
-    def _peaks_detector_intersection(self, peaks_dict, frames_to_render):
+    def _peaks_detector_intersection(
+        self,
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        frames_to_render: int,
+    ) -> Dict[str, Union[torch.Tensor, List[str]]]:
         """
         Computes detector intersections, filters visible peaks, and assigns frame indices.
         Also calculates and stores combined intensity factors.
@@ -708,32 +666,27 @@ class Detector:
         """
         peaks = peaks_dict["peaks"]
 
-        # Intersect scattering vectors with detector plane
         zd_yd_angle = self.get_intersection(peaks[:, 13:16], peaks[:, 16:19])
         peaks = torch.cat((peaks, zd_yd_angle), dim=1)
         peaks_dict["columns"].extend(["zd", "yd", "incident_angle"])
 
-        # Filter visible peaks
         mask = self.contains(peaks[:, 24], peaks[:, 25])
         peaks = peaks[mask]
 
-        # Assign frame index based on normalized diffraction time (column 6)
         time = peaks[:, 6].contiguous()
         bins = torch.linspace(0, 1, frames_to_render).contiguous()
         frame = torch.bucketize(time, bins).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
 
-        # Calculate combined intensity factors
-        intensity = peaks[:, 21]  # volumes
+        intensity = peaks[:, 21]
         if self.structure_factor:
-            intensity = intensity * peaks[:, 5]  # structure_factors
+            intensity = intensity * peaks[:, 5]
         if self.polarization_factor:
-            intensity = intensity * peaks[:, 20]  # polarization_factors
+            intensity = intensity * peaks[:, 20]
         if self.lorentz_factor:
-            intensity = intensity * peaks[:, 19]  # lorentz_factors
+            intensity = intensity * peaks[:, 19]
 
-        # Add intensity as new column
         intensity = intensity.unsqueeze(1)
         peaks = torch.cat((peaks, intensity), dim=1)
         peaks_dict["columns"].append("intensity")
@@ -759,16 +712,13 @@ class Detector:
         torch.Tensor
             Batch of normalized Voigt kernels with shape (N, 1, H, W)
         """
-        # Convert FWHM from radians to pixels
         detector_distance = torch.linalg.norm(self.det_corner_0)
         incident_angles_rad = incident_angles * torch.pi / 180
         R = detector_distance / torch.cos(incident_angles_rad)
 
-        # Convert to pixels
-        gammas = (fwhm_rad * R / self.pixel_size_z) / 2  # HWHM
+        gammas = (fwhm_rad * R / self.pixel_size_z) / 2
         sigma = self.gaussian_sigma
 
-        # Compute radius based on maximum gamma
         max_gamma = gammas.max()
         threshold = self.kernel_threshold / 2
 
@@ -780,30 +730,39 @@ class Detector:
                 break
             radius = radius * 2
 
-        # Create coordinate grid
         ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
         yy, zz = torch.meshgrid(ax, ax, indexing="ij")
         r = torch.sqrt(yy**2 + zz**2)
 
-        # Pre-allocate output tensors
         kernels = []
         max_size = 0
 
-        # Convert only the required arrays to numpy for scipy
+        def voigt_profile(r: npt.NDArray, sigma: float, gamma: float) -> npt.NDArray:
+            """Compute Voigt profile using Faddeeva function.
+
+            Args:
+                r: Radial distances
+                sigma: Gaussian width parameter
+                gamma: Lorentzian width parameter
+
+            Returns:
+                Computed Voigt profile values
+            """
+            z = (r + 1j * gamma) / (sigma * np.sqrt(2))
+            return np.real(wofz(z)) / (sigma * np.sqrt(2 * np.pi))
+
         r_np = r.cpu().numpy()
         sigma_np = float(sigma)
 
-        # Generate kernels for all peaks
         for gamma in gammas:
-            # Use scipy.special.wofz for Voigt profile computation
             gamma_np = float(gamma)
-            kernel = torch.from_numpy(voigt_profile(r_np, sigma_np, gamma_np)).to(
-                gammas.device
-            )
+            if gamma_np / self.gaussian_sigma < 0.01:
+                kernel = self.gaussian_kernel
+            else:
+                kernel = torch.from_numpy(voigt_profile(r_np, sigma_np, gamma_np))
 
-            kernel = kernel / kernel.sum()  # Normalize
+            kernel = kernel / kernel.sum()
 
-            # Binary search for minimum size that retains required energy
             center = kernel.shape[0] // 2
             left, right = 1, center
             while left < right:
@@ -816,7 +775,6 @@ class Detector:
                 else:
                     left = mid + 1
 
-            # Crop and normalize
             r = left
             cropped = kernel[center - r : center + r + 1, center - r : center + r + 1]
             cropped = cropped / cropped.sum()
@@ -824,7 +782,6 @@ class Detector:
             kernels.append(cropped.unsqueeze(0).unsqueeze(0))
             max_size = max(max_size, 2 * r + 1)
 
-        # Pad all kernels to max_size
         padded_kernels = []
         for k in kernels:
             if k.shape[-1] < max_size:
@@ -834,98 +791,74 @@ class Detector:
             else:
                 padded_kernels.append(k)
 
-        # Combine kernels
         return torch.cat(padded_kernels, dim=0)
 
     def _deposit_kernels_batch(
         self,
         tensor: torch.Tensor,
         kernels: torch.Tensor,
-        centers_z: torch.Tensor,  # z coordinate comes first
-        centers_y: torch.Tensor,  # y coordinate comes second
+        centers_z: torch.Tensor,
+        centers_y: torch.Tensor,
     ) -> torch.Tensor:
-        """Deposit multiple kernels onto a tensor using bilinear interpolation."""
-        N = kernels.shape[0]
-        kh, kw = kernels.shape[-2:]  # kernel height and width
+        """Deposit multiple kernels onto a tensor using bilinear interpolation.
 
-        # Generate kernel grid offsets (z,y order)
+        Args:
+            tensor: Target tensor to deposit onto
+            kernels: Batch of kernels to deposit, shape (N,1,H,W)
+            centers_z: Z coordinates for kernel centers
+            centers_y: Y coordinates for kernel centers
+
+        Returns:
+            Updated tensor with deposited kernels
+        """
+        N = kernels.shape[0]
+        kh, kw = kernels.shape[-2:]
+
         kz, ky = torch.meshgrid(
             torch.arange(kh, dtype=torch.float32) - (kh - 1) / 2,
             torch.arange(kw, dtype=torch.float32) - (kw - 1) / 2,
-            indexing="ij",  # important: keep ij indexing for z,y order
+            indexing="ij",
         )
 
-        # Make tensors contiguous and flatten
-        kz = kz.flatten().repeat(N)  # z first
-        ky = ky.flatten().repeat(N)  # y second
+        kz = kz.flatten().repeat(N)
+        ky = ky.flatten().repeat(N)
 
-        # Ensure centers are contiguous
         centers_z = centers_z.repeat_interleave(kh * kw)
         centers_y = centers_y.repeat_interleave(kh * kw)
 
-        # Get positions and weights (maintain z,y order)
-        pos_z = centers_z + kz  # z coordinate
-        pos_y = centers_y + ky  # y coordinate
+        pos_z = centers_z + kz
+        pos_y = centers_y + ky
         del centers_z, centers_y, kz, ky
 
-        # Floor positions for interpolation
         z0 = torch.floor(pos_z).long()
         y0 = torch.floor(pos_y).long()
         dz = pos_z - z0.float()
         dy = pos_y - y0.float()
         del pos_z, pos_y
 
-        # Calculate bilinear weights
         w00 = (1 - dz) * (1 - dy)
         w01 = (1 - dz) * dy
         w10 = dz * (1 - dy)
         w11 = dz * dy
         del dz, dy
 
-        # Get kernel values and ensure contiguous memory
         kernel_values = kernels.reshape(N, -1).contiguous()
         k_flat = kernel_values.repeat_interleave(4, dim=0).flatten()
         del kernel_values
 
-        # Stack positions and weights (maintain z,y order)
         zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
         yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
         weights = torch.stack([w00, w01, w10, w11]).flatten()
         del z0, y0, w00, w01, w10, w11
 
-        # Filter valid positions
         valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
 
-        # Directly compute weighted values and deposit them
         tensor.index_put_(
-            indices=(zi[valid], yi[valid]),  # Access valid indices directly
-            values=(k_flat[valid] * weights[valid]),  # Compute product directly
+            indices=(zi[valid], yi[valid]),
+            values=(k_flat[valid] * weights[valid]),
             accumulate=True,
         )
 
-        # Clean up intermediates
         del zi, yi, weights, k_flat, valid
 
         return tensor
-
-
-def voigt_profile(r, sigma, gamma):
-    """
-    Compute Voigt profile using the Faddeeva function.
-
-    Parameters
-    ----------
-    r : ndarray
-        Radial distances
-    sigma : float
-        Gaussian width parameter
-    gamma : float
-        Lorentzian width parameter
-
-    Returns
-    -------
-    ndarray
-        Computed Voigt profile
-    """
-    z = (r + 1j * gamma) / (sigma * np.sqrt(2))
-    return np.real(wofz(z)) / (sigma * np.sqrt(2 * np.pi))
