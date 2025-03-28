@@ -101,7 +101,7 @@ class Detector:
         self,
         peaks_dict,
         frames_to_render=0,
-        method="centroids",
+        method="gauss",
     ):
         peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
@@ -118,20 +118,20 @@ class Detector:
             8: 'G0_y'               18: 'Source_z'  28: 'relative_intensity'
             9: 'G0_z'               19: 'lorentz_factors'           
         """
-        if method == "centroids":
-            diffraction_frames = self._render_peak_centroids(peaks_dict["peaks"])
-        elif method == "profiles":
-            diffraction_frames = self._render_peak_profiles(peaks_dict["peaks"])
+        if method == "gauss":
+            diffraction_frames = self._render_gauss_peaks(peaks_dict["peaks"])
+        elif method == "voigt":
+            diffraction_frames = self._render_voigt_peaks(peaks_dict["peaks"])
         elif method == "volumes":
             diffraction_frames = self._render_projected_volumes(peaks_dict)
         else:
             raise ValueError(
-                f"Invalid method: {method}. Must be one of: 'centroids', 'profiles', or 'volumes'"
+                f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', or 'volumes'"
             )
 
         return diffraction_frames
 
-    def _render_peak_centroids(
+    def _render_gauss_peaks(
         self,
         peaks,
     ):
@@ -181,32 +181,44 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_peak_profiles(self, peaks: torch.Tensor) -> torch.Tensor:
-        """Deposit Voigt kernels on detector for each diffraction peak.
-        Assumes peaks have already been processed by _peaks_detector_intersection.
+    def _render_voigt_peaks(self, peaks: torch.Tensor) -> torch.Tensor:
+        """Deposit Voigt kernels starting with small batches and gradually increasing.
 
         Parameters
         ----------
         peaks : torch.Tensor
             Processed peaks tensor with precalculated intensities and frame indices
+        initial_batch_size : int, optional
+            Initial number of peaks to process per batch, by default 10
+        max_batch_size : int, optional
+            Maximum batch size to try, by default 1000
 
         Returns
         -------
         torch.Tensor
-            Rendered diffraction frames with shape (num_frames, H, W)
+            Rendered diffraction frames
         """
-        frames_n = int(peaks[:, 27].max() + 1)  # Get number of frames
-
-        # Create empty frames tensor
+        crystallite_size = (
+            2.0
+            * (3 * peaks[:, 21] / (4 * np.pi)) ** (1 / 3)
+            * 1000  # microns to nanometers
+        )
+        q25, q50, q75 = torch.quantile(
+            crystallite_size, torch.tensor([0.25, 0.5, 0.75])
+        )
+        print(
+            f"\nCrystallite size quartiles (nm):"
+            f"\n  25th: {q25:.2f}"
+            f"\n  50th: {q50:.2f}"
+            f"\n  75th: {q75:.2f}"
+            f"\nCrystallite size range: {crystallite_size.min():.2f} - {crystallite_size.max():.2f}"
+        )
+        batch_size = int(crystallite_size.min() * 10)
+        frames_n = int(peaks[:, 27].max() + 1)
         frames = torch.zeros(
-            (
-                frames_n,
-                self.pixel_coordinates.shape[0],
-                self.pixel_coordinates.shape[1],
-            )
+            (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
         )
 
-        # Group peaks by frame
         for frame_idx in range(frames_n):
             frame_mask = peaks[:, 27] == frame_idx
             frame_peaks = peaks[frame_mask]
@@ -214,23 +226,49 @@ class Detector:
             if len(frame_peaks) == 0:
                 continue
 
-            # Get parameters for this frame's peaks
-            fwhm_rad = frame_peaks[:, 23]  # Scherrer FWHM
-            incident_angles = frame_peaks[:, 26]  # Incident angles
-            zd = frame_peaks[:, 24] / self.pixel_size_z  # Convert to pixel coordinates
-            yd = frame_peaks[:, 25] / self.pixel_size_y
-            intensities = frame_peaks[:, 28]  # Precalculated intensities
-
-            # Generate Voigt kernels for all peaks in this frame
-            kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
-
-            # Scale kernels by intensities
-            kernels = kernels * intensities.view(-1, 1, 1, 1)
-
-            # Deposit all kernels for this frame
-            frames[frame_idx] = self._deposit_kernels_batch(
-                frames[frame_idx], kernels, zd, yd
+            print(
+                f"Processing frame {frame_idx+1}/{frames_n} with {len(frame_peaks)} peaks"
             )
+
+            start_idx = 0
+
+            while start_idx < len(frame_peaks):
+
+                # Process current batch
+                end_idx = min(start_idx + batch_size, len(frame_peaks))
+                batch_peaks = frame_peaks[start_idx:end_idx]
+
+                # Get parameters for this batch
+                fwhm_rad = batch_peaks[:, 23]
+                incident_angles = batch_peaks[:, 26]
+                zd = batch_peaks[:, 24] / self.pixel_size_z
+                yd = batch_peaks[:, 25] / self.pixel_size_y
+                intensities = batch_peaks[:, 28]
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                # Generate and deposit kernels
+                kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
+                kernels = kernels * intensities.view(-1, 1, 1, 1)
+                frames[frame_idx] = self._deposit_kernels_batch(
+                    frames[frame_idx], kernels, zd, yd
+                )
+
+                # Success - move to next batch
+                del kernels
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                start_idx = end_idx
+
+                # Report progress
+                progress = int((start_idx / len(frame_peaks)) * 100)
+                print(
+                    f"Frame {frame_idx+1}: {progress}% complete (batch: {batch_size})"
+                )
+
+            print(f"Completed frame {frame_idx+1}/{frames_n}")
 
         return frames
 
@@ -545,46 +583,6 @@ class Detector:
             + Yds * self.ydhat.reshape(1, 1, 3)
         )
         return pixel_coordinates
-
-    def _centroid_render_with_scintillator(
-        self, scattering_unit, zd, yd, frame, lorentz, polarization, structure_factor
-    ):
-        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
-        sample scattering region centroid to the detector plane. The intensity is deposited by placing the detector
-        point spread function at the hit location and rendering it unto the detector grid.
-
-        NOTE: this is different from self._centroid_render which applies the point spread function as a post-proccessing
-        step using convolution. Here the point spread is simulated to take place in the scintillator, before reaching the
-        chip.
-        """
-        # zd, yd = scattering_unit.zd, scattering_unit.yd
-        if self.contains(zd, yd):
-            intensity_scaling_factor = self._get_intensity_factor(
-                scattering_unit, lorentz, polarization, structure_factor
-            )
-
-            a, b = self.point_spread_kernel_shape
-            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            zd_in_pixels = zd / self.pixel_size_z
-            yd_in_pixels = yd / self.pixel_size_y
-            rl, rh = row - a // 2 - 1, row + a // 2 + 1
-            cl, ch = col - b // 2 - 1, col + b // 2 + 1
-            rl, rh = np.max([rl, 0]), np.min([rh, self.pixel_coordinates.shape[0] - 1])
-            cl, ch = np.max([cl, 0]), np.min([ch, self.pixel_coordinates.shape[1] - 1])
-            zg = np.linspace(rl, rh, rh - rl + 1) + 0.5  # pixel centre coordinates in z
-            yg = np.linspace(cl, ch, ch - cl + 1) + 0.5  # pixel centre coordinates in y
-            Z, Y = np.meshgrid(zg, yg, indexing="ij")
-            drifted_kernel = self.point_spread_function(
-                Z - zd_in_pixels, Y - yd_in_pixels
-            )
-            drifted_kernel = drifted_kernel / np.sum(drifted_kernel)
-
-            if np.isinf(intensity_scaling_factor):
-                frame[rl : rh + 1, cl : ch + 1] = np.inf
-            else:
-                frame[rl : rh + 1, cl : ch + 1] += (
-                    scattering_unit.volume * intensity_scaling_factor * drifted_kernel
-                )
 
     def _projection_render(
         self, scattering_unit, frame, lorentz, polarization, structure_factor
