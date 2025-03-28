@@ -203,8 +203,7 @@ class Detector:
                 frames_n,
                 self.pixel_coordinates.shape[0],
                 self.pixel_coordinates.shape[1],
-            ),
-            device=peaks.device,
+            )
         )
 
         # Group peaks by frame
@@ -722,7 +721,7 @@ class Detector:
 
         # Assign frame index based on normalized diffraction time (column 6)
         time = peaks[:, 6].contiguous()
-        bins = torch.linspace(0, 1, frames_to_render, device=time.device).contiguous()
+        bins = torch.linspace(0, 1, frames_to_render).contiguous()
         frame = torch.bucketize(time, bins).unsqueeze(1) - 1
         peaks = torch.cat((peaks, frame), dim=1)
         peaks_dict["columns"].append("frame")
@@ -784,11 +783,9 @@ class Detector:
             radius = radius * 2
 
         # Create coordinate grid
-        ax = torch.arange(
-            -radius, radius + 1, dtype=torch.float64, device=gammas.device
-        )
-        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
-        r = torch.sqrt(xx**2 + yy**2)
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+        yy, zz = torch.meshgrid(ax, ax, indexing="ij")
+        r = torch.sqrt(yy**2 + zz**2)
 
         # Pre-allocate output tensors
         kernels = []
@@ -846,67 +843,70 @@ class Detector:
         self,
         tensor: torch.Tensor,
         kernels: torch.Tensor,
-        centers_z: torch.Tensor,
-        centers_y: torch.Tensor,
+        centers_z: torch.Tensor,  # z coordinate comes first
+        centers_y: torch.Tensor,  # y coordinate comes second
     ) -> torch.Tensor:
         """Deposit multiple kernels onto a tensor using bilinear interpolation."""
         N = kernels.shape[0]
-        kh, kw = kernels.shape[-2:]
-        device = tensor.device
+        kh, kw = kernels.shape[-2:]  # kernel height and width
 
-        # Generate kernel grid offsets
-        ky, kx = torch.meshgrid(
-            torch.arange(kh, dtype=torch.float32, device=device) - (kh - 1) / 2,
-            torch.arange(kw, dtype=torch.float32, device=device) - (kw - 1) / 2,
-            indexing="ij",
+        # Generate kernel grid offsets (z,y order)
+        kz, ky = torch.meshgrid(
+            torch.arange(kh, dtype=torch.float32) - (kh - 1) / 2,
+            torch.arange(kw, dtype=torch.float32) - (kw - 1) / 2,
+            indexing="ij",  # important: keep ij indexing for z,y order
         )
 
         # Make tensors contiguous and flatten
-        kx = kx.contiguous().flatten().repeat(N)
-        ky = ky.contiguous().flatten().repeat(N)
+        kz = kz.flatten().repeat(N)  # z first
+        ky = ky.flatten().repeat(N)  # y second
 
         # Ensure centers are contiguous
-        centers_z = centers_z.contiguous().repeat_interleave(kh * kw)
-        centers_y = centers_y.contiguous().repeat_interleave(kh * kw)
+        centers_z = centers_z.repeat_interleave(kh * kw)
+        centers_y = centers_y.repeat_interleave(kh * kw)
 
-        # Get positions and weights
-        pos_z = centers_z + kx
-        pos_y = centers_y + ky
+        # Get positions and weights (maintain z,y order)
+        pos_z = centers_z + kz  # z coordinate
+        pos_y = centers_y + ky  # y coordinate
+        del centers_z, centers_y, kz, ky
 
+        # Floor positions for interpolation
         z0 = torch.floor(pos_z).long()
         y0 = torch.floor(pos_y).long()
         dz = pos_z - z0.float()
         dy = pos_y - y0.float()
+        del pos_z, pos_y
 
         # Calculate bilinear weights
         w00 = (1 - dz) * (1 - dy)
         w01 = (1 - dz) * dy
         w10 = dz * (1 - dy)
         w11 = dz * dy
+        del dz, dy
 
         # Get kernel values and ensure contiguous memory
         kernel_values = kernels.reshape(N, -1).contiguous()
         k_flat = kernel_values.repeat_interleave(4, dim=0).flatten()
+        del kernel_values
 
-        # Stack positions and weights
+        # Stack positions and weights (maintain z,y order)
         zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
         yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
         weights = torch.stack([w00, w01, w10, w11]).flatten()
+        del z0, y0, w00, w01, w10, w11
 
         # Filter valid positions
         valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
-        zi_valid = zi[valid]
-        yi_valid = yi[valid]
-        weights_valid = weights[valid]
-        k_valid = k_flat[valid]
 
-        # Ensure final values are contiguous
-        values_valid = (k_valid * weights_valid).contiguous()
-
-        # Deposit with proper contribution weights
+        # Directly compute weighted values and deposit them
         tensor.index_put_(
-            indices=(zi_valid, yi_valid), values=values_valid, accumulate=True
+            indices=(zi[valid], yi[valid]),  # Access valid indices directly
+            values=(k_flat[valid] * weights[valid]),  # Compute product directly
+            accumulate=True,
         )
+
+        # Clean up intermediates
+        del zi, yi, weights, k_flat, valid
 
         return tensor
 
