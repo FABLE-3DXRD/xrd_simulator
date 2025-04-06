@@ -38,6 +38,7 @@ import sys
 import xrd_simulator.cuda
 import torch
 import pandas as pd
+from xrd_simulator.cuda import device
 
 torch.set_default_dtype(torch.float64)
 
@@ -321,8 +322,8 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    crystal_strain = ensure_torch(crystal_strain)
-    B0 = ensure_torch(B0)
+    crystal_strain = ensure_torch(crystal_strain).to(device)
+    B0 = ensure_torch(B0).to(device)
 
     C = 2 * crystal_strain + torch.eye(3)
 
@@ -339,7 +340,7 @@ def _epsilon_to_b(crystal_strain, B0):
         F = torch.transpose(torch.linalg.cholesky(C), 1, 0)
 
     B = torch.matmul(torch.linalg.inv(F), B0)
-    B = B.cpu()
+
     return B
 
 

@@ -22,6 +22,7 @@ import torch.nn.functional as F
 
 from xrd_simulator import utils
 from xrd_simulator.utils import ensure_torch
+from xrd_simulator.cuda import device
 
 torch.set_default_dtype(torch.float64)
 
@@ -75,12 +76,12 @@ class Detector:
         use_polarization: bool = True,
         use_structure_factor: bool = True,
     ):
-        self.det_corner_0 = ensure_torch(det_corner_0)
-        self.det_corner_1 = ensure_torch(det_corner_1)
-        self.det_corner_2 = ensure_torch(det_corner_2)
+        self.det_corner_0 = ensure_torch(det_corner_0).to(device)
+        self.det_corner_1 = ensure_torch(det_corner_1).to(device)
+        self.det_corner_2 = ensure_torch(det_corner_2).to(device)
 
-        self.pixel_size_z = ensure_torch(pixel_size_z)
-        self.pixel_size_y = ensure_torch(pixel_size_y)
+        self.pixel_size_z = ensure_torch(pixel_size_z).to(device)
+        self.pixel_size_y = ensure_torch(pixel_size_y).to(device)
 
         self.zmax = torch.linalg.norm(self.det_corner_2 - self.det_corner_0)
         self.ymax = torch.linalg.norm(self.det_corner_1 - self.det_corner_0)
@@ -103,7 +104,7 @@ class Detector:
         self,
         peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
         frames_to_render: int = 0,
-        method: str = "gauss",
+        method: str = "centroid",
     ) -> torch.Tensor:
         """Render diffraction frames from peak data.
 
@@ -120,7 +121,7 @@ class Detector:
         """
         peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
-        if method == "gauss":
+        if method == "centroid":
             diffraction_frames = self._render_gauss_peaks(peaks_dict["peaks"])
         elif method == "voigt":
             diffraction_frames = self._render_voigt_peaks(peaks_dict["peaks"])
