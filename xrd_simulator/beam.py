@@ -13,6 +13,7 @@ import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 import torch
+from xrd_simulator.cuda import device
 
 torch.set_default_dtype(torch.float64)
 from xrd_simulator.utils import ensure_torch, ensure_numpy
@@ -53,12 +54,12 @@ class Beam:
             (2 * np.pi / wavelength)
             * xray_propagation_direction
             / np.linalg.norm(xray_propagation_direction)
-        )
+        ).to(device)
         self.wavelength = wavelength
         self.set_beam_vertices(ensure_torch(beam_vertices))
         self.polarization_vector = ensure_torch(
             polarization_vector / np.linalg.norm(polarization_vector)
-        )
+        ).to(device)
         assert torch.allclose(
             torch.dot(self.polarization_vector, self.wave_vector), ensure_torch(0.0)
         ), "The xray polarization vector is not orthogonal to the wavevector."
@@ -74,14 +75,14 @@ class Beam:
         assert (
             ch.points.shape[0] == ch.vertices.shape[0]
         ), "The provided beam vertices does not form a convex hull"
-        self.vertices = beam_vertices.clone()
+        self.vertices = beam_vertices.clone().to(device)
         self.centroid = torch.mean(self.vertices, axis=0)
         self.halfspaces = ConvexHull(
             ensure_numpy(self.vertices), qhull_options="QJ"
         ).equations
         self.halfspaces = ensure_torch(
             np.unique(self.halfspaces.round(decimals=6), axis=0)
-        )
+        ).to(device)
 
     def contains(self, points: torch.Tensor) -> torch.Tensor:
         """Check if the beam contains a number of point(s).

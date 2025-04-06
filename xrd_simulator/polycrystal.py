@@ -25,6 +25,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
+from xrd_simulator.cuda import device
 
 torch.set_default_dtype(torch.float64)
 
@@ -64,13 +65,15 @@ class Polycrystal:
         phases: Phase | list[Phase],
         element_phase_map: npt.NDArray | Tensor | None = None,
     ) -> None:
-
-        orientation = ensure_torch(orientation)
-        strain = ensure_torch(strain)
+        mesh = self._move_mesh_to_torch(mesh)
+        orientation = ensure_torch(orientation).to(device)
+        strain = ensure_torch(strain).to(device)
 
         # Compute and store mesh volumes during initialization
         element_vertices = mesh.coord[mesh.enod]
-        self.mesh_volumes = compute_tetrahedra_volumes(ensure_torch(element_vertices))
+        self.mesh_volumes = compute_tetrahedra_volumes(
+            ensure_torch(element_vertices)
+        ).to(device)
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -88,8 +91,8 @@ class Polycrystal:
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
         self.mesh_sample = copy.deepcopy(mesh)
-        self.strain_sample = np.copy(self.strain_lab)
-        self.orientation_sample = np.copy(self.orientation_lab)
+        self.strain_sample = copy.deepcopy(self.strain_lab)
+        self.orientation_sample = copy.deepcopy(self.orientation_lab)
 
     def diffract(
         self,
@@ -229,11 +232,11 @@ class Polycrystal:
 
             # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
             grain_indices = torch.where(element_phase_map == i)[0]
-            miller_indices = ensure_torch(phase.miller_indices)
+            miller_indices = ensure_torch(phase.miller_indices).to(device)
             # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
             structure_factors = torch.sum(
                 ensure_torch(phase.structure_factors) ** 2, axis=1
-            )
+            ).to(device)
 
             miller_indices = miller_indices[structure_factors > 1e-6]
             structure_factors = structure_factors[structure_factors > 1e-6]
@@ -373,7 +376,7 @@ class Polycrystal:
         # Replace the last column (full tet volumes) with intersection volumes
         filtered_peaks = np.hstack((filtered_peaks[:, :-1], scattering_volumes))
 
-        return ensure_torch(filtered_peaks), scattering_units
+        return ensure_torch(filtered_peaks).to(device), scattering_units
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
@@ -501,14 +504,16 @@ class Polycrystal:
 
     def _instantiate_strain(
         self, strain: npt.NDArray | Tensor, mesh: TetraMesh
-    ) -> npt.NDArray:
+    ) -> Tensor:
         """Instantiate the strain using for smart multi shape handling."""
         if strain.shape == (3, 3):
-            strain_lab = np.repeat(
-                strain.reshape(1, 3, 3), mesh.number_of_elements, axis=0
-            )
+            strain_lab = torch.repeat_interleave(
+                ensure_torch(strain).unsqueeze(0),
+                mesh.number_of_elements,
+                dim=0,
+            ).to(device)
         elif strain.shape == (mesh.number_of_elements, 3, 3):
-            strain_lab = np.copy(strain)
+            strain_lab = ensure_torch(strain).to(device)
         else:
             raise ValueError("strain input is of incompatible shape")
         return strain_lab
@@ -537,20 +542,20 @@ class Polycrystal:
         phases: list[Phase],
         element_phase_map: Tensor,
         mesh: TetraMesh,
-    ) -> npt.NDArray:
+    ) -> Tensor:
         """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
 
         (These are upper triangular matrices such that
             G_s = U * B G_hkl
         where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
         and U are the crystal element orientation matrices.)
-
         """
-        _eB = np.zeros((mesh.number_of_elements, 3, 3))
-        B0s = np.zeros((len(phases), 3, 3))
+        _eB = torch.zeros((mesh.number_of_elements, 3, 3), device=device)
+        B0s = torch.zeros((len(phases), 3, 3), device=device)
+
         for i, phase in enumerate(phases):
-            B0s[i] = tools.form_b_mat(phase.unit_cell)
-            grain_indices = np.where(ensure_torch(element_phase_map) == i)[0]
+            B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell)).to(device)
+            grain_indices = torch.where(element_phase_map == i)[0]
             _eB[grain_indices] = utils.lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )
@@ -574,9 +579,9 @@ class Polycrystal:
         ]
         mesh_nodes_contained_by_beam = ensure_torch(mesh_nodes_contained_by_beam)
         if mesh_nodes_contained_by_beam.shape[0] != 0:
-            source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0)
+            source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0).to(device)
         else:
-            source_point = ensure_torch(self.mesh_lab.centroid)
+            source_point = ensure_torch(self.mesh_lab.centroid).to(device)
         max_bragg_angle = detector.get_wrapping_cone(
             beam.wave_vector, source_point
         ).item()
@@ -593,15 +598,14 @@ class Polycrystal:
         )
         return min_bragg_angle, max_bragg_angle
 
-    @staticmethod
-    def _move_mesh_to_gpu(mesh: TetraMesh) -> TetraMesh:
-        mesh.coord = ensure_torch(mesh.coord)
-        mesh.enod = ensure_torch(mesh.enod, dtype=torch.int32)
-        mesh.dof = ensure_torch(mesh.dof)
-        mesh.efaces = ensure_torch(mesh.efaces, dtype=torch.int32)
-        mesh.enormals = ensure_torch(mesh.enormals)
-        mesh.ecentroids = ensure_torch(mesh.ecentroids)
-        mesh.eradius = ensure_torch(mesh.eradius)
-        mesh.espherecentroids = ensure_torch(mesh.espherecentroids)
-        mesh.centroid = ensure_torch(mesh.centroid)
+    def _move_mesh_to_torch(self, mesh: TetraMesh) -> TetraMesh:
+        mesh.coord = ensure_torch(mesh.coord).to(device)
+        mesh.enod = ensure_torch(mesh.enod).to(device).to(dtype=torch.int32)
+        mesh.dof = ensure_torch(mesh.dof).to(device)
+        mesh.efaces = ensure_torch(mesh.efaces).to(device).to(dtype=torch.int32)
+        mesh.enormals = ensure_torch(mesh.enormals).to(device)
+        mesh.ecentroids = ensure_torch(mesh.ecentroids).to(device)
+        mesh.eradius = ensure_torch(mesh.eradius).to(device)
+        mesh.espherecentroids = ensure_torch(mesh.espherecentroids).to(device)
+        mesh.centroid = ensure_torch(mesh.centroid).to(device)
         return mesh
