@@ -197,11 +197,19 @@ class Beam:
             },  # typical solve time is ~1-2 ms
         )
         if res.success:
+
+             # res.slack == 0 means that the interior point is touching the boundary
             if np.any(res.slack == 0):
+                # if some constraints are active, we need to find a point inside the convex hull
+                # of the active constraints. This is done by solving the linear system
+                # A * dx = -1e-5, where A is the matrix of active constraints. This may
+                # give us a point inside the convex hull of the active constraints as x + dx.
+                # Here 1e-5 is a fixed constant that is assumed to be small compared to the
+                # element domain hull size.
                 A = halfspaces[res.slack == 0, :-1]
-                dx = np.linalg.solve(
-                    A.T.dot(A), A.T.dot(-np.ones((A.shape[0],)) * 1e-5)
-                )
+                dx = np.linalg.lstsq(
+                    A, -np.ones((A.shape[0],)) * 1e-5, rcond=None
+                )[0]
                 trial = res.x + dx
             else:
                 trial = res.x
