@@ -3,11 +3,10 @@ import setuptools
 with open("README.rst", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-
 setuptools.setup(
     name="xrd_simulator",
     version="0.5",
-    author="Axel Henningsson",
+    author="Axel Henningsson, Marc Raventós",
     author_email="nilsaxelhenningsson@gmail.com, marcraven@gmail.com",
     description="Tools for diffraction simulation of s3dxrd and powder type experiments.",
     long_description=long_description,
@@ -17,25 +16,43 @@ setuptools.setup(
         "Documentation": "https://axelhenningsson.github.io/xrd_simulator/",
     },
     classifiers=[
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    python_requires=">=3.10",
+    python_requires=">=3.9",
     install_requires=[
-        "matplotlib",
-        "numpy",
+        # Core numeric/scientific
+        "numpy>=1.24.0",
+        "scipy>=1.11.0",
+        "pandas>=2.0.0",
+
+        # Deep learning (optional)
+        "torch>=2.5.0.dev20240131",
+
+        # Mesh generation and processing
+        "meshpy",
         "meshio",
-        "pygalmesh",
-        "scipy",
+
+        # Visualization
+        "matplotlib",
+
+        # Scientific computing
         "numba",
+        "xfab",
+
+        # I/O and serialization
         "pycifrw",
         "dill",
-        "xfab",
         "netcdf4",
         "h5py",
-        "torch",
         "tifffile",
+
+        # Type hints
+        "typing-extensions>=4.9.0",
+    ],
+    dependency_links=[
+        "https://download.pytorch.org/whl/nightly/cu121",
     ],
 )

@@ -28,6 +28,8 @@ Functions:
     _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
 """
 
+from __future__ import annotations
+
 import os
 import logging
 from itertools import combinations
@@ -35,12 +37,77 @@ from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
 import numpy as np
 import sys
-import xrd_simulator.cuda
-import torch
+import logging as _logging
+
+# Import torch and the optional local cuda helpers robustly. Some environments
+# (broken pdbpp / fancycompleter installs) can raise unexpected exceptions
+# during the torch import chain which would make importing this package fail
+# at import time. We catch broad exceptions here so the package can be imported
+# and produce a clear warning; code that requires torch will raise later when
+# actually used.
+CUDA_AVAILABLE = False
+try:
+    import torch
+except Exception as _e:  # pragma: no cover - environment dependent
+    torch = None
+    _logging.getLogger(__name__).warning(
+        "Failed to import torch in xrd_simulator.utils: %s. "
+        "If you expect to use GPU/torch features, please fix your torch/pdbpp installation.",
+        _e,
+    )
+else:
+    # Set default dtype used across the package
+    torch.set_default_dtype(torch.float64)
+    try:
+        # local cuda helpers are optional; don't let them break imports
+        import xrd_simulator.cuda  # noqa: F401
+        CUDA_AVAILABLE = True
+    except Exception as _e:  # pragma: no cover - optional dependency may fail
+        _logging.getLogger(__name__).warning(
+            "Could not import xrd_simulator.cuda (continuing without CUDA support): %s", _e
+        )
+
 import pandas as pd
 from xrd_simulator.cuda import device
 
-torch.set_default_dtype(torch.float64)
+
+def set_device(use_gpu=None, verbose=True):
+    """
+    Set the computing device for xrd_simulator.
+    
+    Args:
+        use_gpu (bool, optional): Use GPU if True, CPU if False, auto-detect if None.
+                                   If None, checks the XRD_USE_GPU environment variable.
+        verbose (bool): Print status messages.
+    
+    Returns:
+        str: Device being used ('cuda' or 'cpu')
+    
+    Examples:
+        >>> import xrd_simulator
+        >>> # Force GPU usage
+        >>> xrd_simulator.set_device(use_gpu=True)
+        'cuda'
+        
+        >>> # Force CPU usage
+        >>> xrd_simulator.set_device(use_gpu=False)
+        'cpu'
+        
+        >>> # Auto-detect from environment variable
+        >>> # Set XRD_USE_GPU=true in your shell before running
+        >>> xrd_simulator.set_device()
+        
+        Command line usage:
+        $ XRD_USE_GPU=true python my_script.py
+        $ XRD_USE_GPU=false python my_script.py
+    """
+    try:
+        from xrd_simulator.cuda import configure_device
+        return configure_device(use_gpu=use_gpu, verbose=verbose)
+    except ImportError:
+        if verbose:
+            print("CUDA support not available.")
+        return "cpu"
 
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
@@ -120,50 +187,47 @@ def _print_progress(progress_fraction, message):
     if progress_fraction == 1.0:
         print("")
 
-
-def _clip_line_with_convex_polyhedron(
+def _clip_line_with_convex_polyhedron_torch(
     line_points, line_direction, plane_points, plane_normals
 ):
-    """Compute lengths of parallel lines clipped by a convex polyhedron defined by 2d planes.
-
-    For algorithm description see: Mike Cyrus and Jay Beck. “Generalized two- and three-
-    dimensional clipping”. (1978) The algorithms is based on solving orthogonal equations and
-    sorting the resulting plane line interestion points to find which are entry and which are
-    exit points through the convex polyhedron.
+    """Torch-native vectorized clipping for many parallel lines.
 
     Args:
-        line_points (:obj:`numpy array`): base points of rays
-            (exterior to polyhedron), ``shape=(n,3)``
-        line_direction  (:obj:`numpy array`): normalized ray direction
-            (all rays have the same direction),  ``shape=(3,)``
-        plane_points (:obj:`numpy array`): point in each polyhedron face plane, ``shape=(m,3)``
-        plane_normals (:obj:`numpy array`): outwards element face normals. ``shape=(m,3)``
+        line_points: Base points of rays (exterior to polyhedron), shape=(n,3)
+        line_direction: Normalized ray direction (all rays have same direction), shape=(3,)
+        plane_points: Point in each polyhedron face plane, shape=(m,3)
+        plane_normals: Outwards element face normals, shape=(m,3)
 
     Returns:
-        clip_lengths (:obj:`numpy array`) : intersection lengths.  ``shape=(n,)``
-
+        torch.Tensor: Intersection lengths, shape=(n,) on same device as line_points
     """
-    clip_lengths = np.zeros((line_points.shape[0],))
-    t_2 = np.dot(plane_normals, line_direction)
-    te_mask = t_2 < 0
-    tl_mask = t_2 > 0
-    for i, line_point in enumerate(line_points):
+    # Convert inputs to torch (ensure_torch handles already-tensor inputs efficiently)
+    line_points = ensure_torch(line_points)
+    line_direction = ensure_torch(line_direction)
+    plane_points = ensure_torch(plane_points)
+    plane_normals = ensure_torch(plane_normals)
 
-        # find parametric line-plane intersection based on orthogonal equations
-        t_1 = np.sum(np.multiply(plane_points - line_point, plane_normals), axis=1)
+    t2 = torch.matmul(plane_normals, line_direction)  # (m,)
+    te_mask = t2 < 0
+    tl_mask = t2 > 0
 
-        # Zero division for a ray parallel to plane, numpy gives np.inf so it
-        # is ok!
-        t_i = t_1 / t_2
+    if not te_mask.any() or not tl_mask.any():
+        return torch.zeros(line_points.shape[0], device=line_points.device, dtype=line_points.dtype)
 
-        # Sort intersections points as potential entry and exit points
-        t_e = np.max(t_i[te_mask])
-        t_l = np.min(t_i[tl_mask])
+    # d = n_i · p_i 
+    d = torch.sum(plane_normals * plane_points, dim=1)  # (m,)
 
-        if t_l > t_e:
-            clip_lengths[i] = t_l - t_e
+    # Compute all line-plane intersections at once
+    lp_dot_n = torch.matmul(line_points, plane_normals.T)  # (n,m)
+    numerator = d.unsqueeze(0) - lp_dot_n  # (n,m)
+    t_i = numerator / t2.unsqueeze(0)
 
-    return clip_lengths
+    # entry = max over negative denom planes, exit = min over positive denom planes
+    t_e = torch.max(t_i[:, te_mask], dim=1).values
+    t_l = torch.min(t_i[:, tl_mask], dim=1).values
+
+    # Return clipped lengths, using zero for non-intersecting lines
+    return torch.where(t_l > t_e + 1e-12, t_l - t_e, 0.0)
 
 
 def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
@@ -204,6 +268,11 @@ def lab_strain_to_B_matrix(
         coordinates. ``shape=(n,3,3)``
 
     """
+    device = strain_tensor.device
+    strain_tensor = ensure_torch(strain_tensor)
+    crystal_orientation = ensure_torch(crystal_orientation)
+    B0 = ensure_torch(B0)
+
     if strain_tensor.ndim == 2:
         strain_tensor = strain_tensor.unsqueeze(0)
     if crystal_orientation.ndim == 2:
@@ -322,8 +391,9 @@ def _b_to_epsilon(B_matrix, B0):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    crystal_strain = ensure_torch(crystal_strain).to(device)
-    B0 = ensure_torch(B0).to(device)
+    device = crystal_strain.device
+    crystal_strain = ensure_torch(crystal_strain)
+    B0 = ensure_torch(B0)
 
     C = 2 * crystal_strain + torch.eye(3)
 
@@ -340,7 +410,6 @@ def _epsilon_to_b(crystal_strain, B0):
         F = torch.transpose(torch.linalg.cholesky(C), 1, 0)
 
     B = torch.matmul(torch.linalg.inv(F), B0)
-
     return B
 
 
@@ -349,16 +418,24 @@ def _get_misorientations(orientations):
     Compute the minimal angles necessary to rotate a series of SO3 elements back into their mean orientation.
 
     Args:
-        orientations (:obj: `numpy.array`): Orientation matrices, shape=(N,3,3)
+        orientations (:obj: `numpy.array` or :obj: `torch.Tensor`): Orientation matrices, shape=(N,3,3)
 
     Returns:
         :obj: `numpy.array`: misorientations in units of radians, shape=(N,)
     """
-    mean_orientation = Rotation.mean(Rotation.from_matrix(orientations)).as_matrix()
-    misorientations = np.zeros((orientations.shape[0],))
-    for i, U in enumerate(orientations):
-        difference_rotation = Rotation.from_matrix(U.dot(mean_orientation.T))
+    # Convert to numpy for scipy.spatial.transform.Rotation operations
+    if torch.is_tensor(orientations):
+        orientations_np = orientations.cpu().detach().numpy()
+    else:
+        orientations_np = orientations
+        
+    mean_orientation = Rotation.mean(Rotation.from_matrix(orientations_np)).as_matrix()
+    misorientations = np.zeros((orientations_np.shape[0],))
+    
+    for i, U in enumerate(orientations_np):  # Use numpy array for iteration
+        difference_rotation = Rotation.from_matrix(np.dot(U, mean_orientation.T))
         misorientations[i] = Rotation.magnitude(difference_rotation)
+    
     return misorientations
 
 
@@ -378,17 +455,18 @@ def _compute_sides(points):
     reshaped_points = points[:, np.newaxis, :, :]
 
     # Compute the differences between each pair of points
-    differences = reshaped_points - reshaped_points.transpose(0, 2, 1, 3)
+    differences = reshaped_points - reshaped_points.permute(0, 2, 1, 3)
 
     # Compute the squared distances along the last axis
-    squared_distances = np.sum(differences**2, axis=-1)
+    squared_distances = torch.sum(differences**2, dim=-1)
 
     # Compute the distances by taking the square root of the squared distances
-    dist_mat = np.sqrt(squared_distances)
+    dist_mat = torch.sqrt(squared_distances)
 
     # Extract the 1-to-1 values from the distance matrix
-    distances = np.hstack(
-        (dist_mat[:, 0, 1:], dist_mat[:, 1, 2:], dist_mat[:, 2, 3][:, np.newaxis])
+    distances = torch.cat(
+        (dist_mat[:, 0, 1:], dist_mat[:, 1, 2:], dist_mat[:, 2, 3].unsqueeze(1)),
+        dim=1,
     )
 
     return distances
@@ -399,16 +477,16 @@ def _circumsphere_of_segments(segments):
     Computes the circumcenters and circumradii of multiple line segments.
 
     Args:
-        segments (:obj: `numpy.array`): An array of shape (n, 2, 3), where `n` is the number of line segments.
+        segments (:obj: `torch.Tensor`): A tensor of shape (n, 2, 3), where `n` is the number of line segments.
                                    Each line segment is defined by 2 vertices in 3D space.
 
     Returns:
-        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
-             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the line segments.
-             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the line segments.
+        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
+             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the line segments.
+             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the line segments.
     """
-    centers = np.mean(segments, axis=1)
-    radii = np.linalg.norm(centers - segments[:, 0, :], axis=1)
+    centers = torch.mean(segments, dim=1)
+    radii = torch.linalg.norm(centers - segments[:, 0, :], dim=1)
     return centers, radii * 1.0001  # because loss of floating point precision
 
 
@@ -417,27 +495,27 @@ def _circumsphere_of_triangles(triangles):
     Computes the circumcenters and circumradii of multiple triangles.
 
     Args:
-        triangles (:obj: `numpy.array`): An array of shape (n, 3, 3), where `n` is the number of triangles.
+        triangles (:obj: `torch.Tensor`): A tensor of shape (n, 3, 3), where `n` is the number of triangles.
                                    Each triangle is defined by 3 vertices in 3D space.
 
     Returns:
-        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
-             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the triangles.
-             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the triangles.
+        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
+             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the triangles.
+             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the triangles.
     """
     ab = triangles[:, 1, :] - triangles[:, 0, :]
     ac = triangles[:, 2, :] - triangles[:, 0, :]
 
-    abXac = np.cross(ab, ac)
-    acXab = np.cross(ac, ab)
+    abXac = torch.cross(ab, ac, dim=1)
+    acXab = torch.cross(ac, ab, dim=1)
 
     a_to_centre = (
-        np.cross(abXac, ab) * ((np.linalg.norm(ac, axis=1) ** 2)[:, np.newaxis])
-        + np.cross(acXab, ac) * ((np.linalg.norm(ab, axis=1) ** 2)[:, np.newaxis])
-    ) / (2 * (np.linalg.norm(abXac, axis=1) ** 2)[:, np.newaxis])
+        torch.cross(abXac, ab, dim=1) * ((torch.linalg.norm(ac, dim=1) ** 2).unsqueeze(1))
+        + torch.cross(acXab, ac, dim=1) * ((torch.linalg.norm(ab, dim=1) ** 2).unsqueeze(1))
+    ) / (2 * (torch.linalg.norm(abXac, dim=1) ** 2).unsqueeze(1))
 
     centers = triangles[:, 0, :] + a_to_centre
-    radii = np.linalg.norm(a_to_centre, axis=1)
+    radii = torch.linalg.norm(a_to_centre, dim=1)
 
     return centers, radii * 1.0001  # because loss of floating point precision
 
@@ -447,13 +525,13 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     Computes the circumcenters and circumradii of multiple tetrahedrons.
 
     Args:
-        tetrahedra (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
+        tetrahedra (:obj: `torch.Tensor`): A tensor of shape (n, 4, 3), where `n` is the number of tetrahedrons.
                                     Each tetrahedron is defined by 4 vertices in 3D space.
 
     Returns:
-        tuple(:obj: `numpy.array`, :obj: `numpy.array`): A tuple containing:
-             - centers (:obj: `numpy.array`): An array of shape (n, 3) containing the circumcenters of the tetrahedrons.
-             - radii (:obj: `numpy.array`): An array of shape (n,) containing the circumradii of the tetrahedrons.
+        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
+             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the tetrahedrons.
+             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the tetrahedrons.
     """
 
     v0 = tetrahedra[:, 0, :]
@@ -461,30 +539,31 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     v2 = tetrahedra[:, 2, :]
     v3 = tetrahedra[:, 3, :]
 
-    A = np.vstack(
-        (
-            (v1 - v0).T[np.newaxis, :],
-            (v2 - v0).T[np.newaxis, :],
-            (v3 - v0).T[np.newaxis, :],
-        )
-    ).transpose(2, 0, 1)
+    A = torch.stack(
+        [
+            (v1 - v0).T,
+            (v2 - v0).T,
+            (v3 - v0).T,
+        ],
+        dim=0
+    ).permute(2, 0, 1)
+    
     B = (
         0.5
-        * np.vstack(
-            (
-                np.linalg.norm(v1, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
-                np.linalg.norm(v2, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
-                np.linalg.norm(v3, axis=1) ** 2 - np.linalg.norm(v0, axis=1) ** 2,
-            )
+        * torch.stack(
+            [
+                torch.linalg.norm(v1, dim=1) ** 2 - torch.linalg.norm(v0, dim=1) ** 2,
+                torch.linalg.norm(v2, dim=1) ** 2 - torch.linalg.norm(v0, dim=1) ** 2,
+                torch.linalg.norm(v3, dim=1) ** 2 - torch.linalg.norm(v0, dim=1) ** 2,
+            ],
+            dim=0
         ).T
     )
 
-    centers = np.matmul(np.linalg.inv(A), B[:, :, np.newaxis])[:, :, 0]
-    radii = np.linalg.norm(
-        (tetrahedra.transpose(2, 0, 1) - centers.transpose(1, 0)[:, :, np.newaxis])[
-            :, :, 0
-        ],
-        axis=0,
+    centers = torch.matmul(torch.linalg.inv(A), B.unsqueeze(2)).squeeze(2)
+    radii = torch.linalg.norm(
+        (tetrahedra.permute(2, 0, 1) - centers.T.unsqueeze(2))[:, :, 0],
+        dim=0,
     )
 
     return centers, radii * 1.0001  # because loss of floating point precision
@@ -524,8 +603,10 @@ def list_vars(vars):
     print("===================================================")
 
 
-def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor:
+def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> torch.Tensor:
     """Convert input to torch tensor if it isn't already.
+    
+    The device is automatically determined from torch's default device (set by torch.set_default_device).
 
     Args:
         data: Input data to convert. Can be:
@@ -533,25 +614,39 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple) -> torch.Tensor
             - torch tensor
             - list
             - tuple
+        dtype: Optional dtype for the tensor. If None, uses torch.float64.
 
     Returns:
-        torch.Tensor: The input data converted to a torch tensor with float64 dtype
+        torch.Tensor: The input data converted to a torch tensor with specified dtype (default: float64)
 
     Examples:
         >>> ensure_torch([1, 2, 3])
         tensor([1., 2., 3.], dtype=torch.float64)
-        >>> ensure_torch(np.array([1, 2, 3]))
-        tensor([1., 2., 3.], dtype=torch.float64)
+        >>> ensure_torch(np.array([1, 2, 3]), dtype=torch.int64)
+        tensor([1, 2, 3], dtype=torch.int64)
         >>> ensure_torch(ensure_torch([1, 2, 3]))
         tensor([1., 2., 3.], dtype=torch.float64)
     """
+    if torch is None:
+        raise ImportError(
+            "torch is required for ensure_torch but failed to import. "
+            "See earlier import warnings for details."
+        )
+
+    # Automatically determine device from torch's default device
+    # This respects torch.set_default_device() set by cuda.py
+    device = torch.tensor(0.0).device
+
+    if dtype is None:
+        dtype = torch.float64
+
     if isinstance(data, np.ndarray):
-        return torch.from_numpy(data).to(torch.float64)
+        return torch.from_numpy(data).to(device=device, dtype=dtype)
     elif torch.is_tensor(data):
-        return data.to(torch.float64)
+        return data.to(device=device, dtype=dtype)
     elif isinstance(data, (list, tuple)):
-        return torch.tensor(data, dtype=torch.float64)
-    return torch.tensor(data, dtype=torch.float64)
+        return torch.tensor(data, dtype=dtype)
+    return torch.tensor(data, dtype=dtype)
 
 
 def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
@@ -576,7 +671,9 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
         array([1., 2., 3.])
     """
     if torch.is_tensor(data):
-        return data.cpu().detach().numpy().astype(np.float64)
+        if data.is_cuda:
+            data = data.cpu()
+        return data.detach().numpy().astype(np.float64)
     elif isinstance(data, np.ndarray):
         return data.astype(np.float64)
     elif isinstance(data, (list, tuple)):

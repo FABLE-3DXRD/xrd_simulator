@@ -4,7 +4,8 @@ worry about any of the "under the hood" scripting.
 """
 
 import numpy as np
-import pygalmesh
+import meshpy.tet as tet
+import meshio
 from scipy.spatial.transform import Rotation
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
@@ -160,14 +161,46 @@ def polycrystal_from_odf(
     dz = sample_bounding_cylinder_height / 2.0
     R = float(sample_bounding_cylinder_radius)
 
-    cylinder = pygalmesh.generate_mesh(
-        pygalmesh.Cylinder(-dz, dz, R, max_cell_circumradius),
-        max_cell_circumradius=max_cell_circumradius,
-        max_edge_size_at_feature_edges=max_cell_circumradius,
-        verbose=False,
+    def round_trip_connect(start, end):
+        return [(i, i+1) for i in range(start, end)] + [(end, start)]
+    
+    # Generate points for the cylinder
+    n = int(2 * np.pi * R / max_cell_circumradius)
+    angles = np.linspace(0, 2*np.pi, n, endpoint=False)
+    
+    # Bottom and top circles
+    bottom_points = [(R*np.cos(angle), R*np.sin(angle), -dz) 
+                    for angle in angles]
+    top_points = [(R*np.cos(angle), R*np.sin(angle), dz) 
+                  for angle in angles]
+    
+    # Add center points for top and bottom
+    points = bottom_points + top_points + [(0, 0, -dz), (0, 0, dz)]
+    
+    # Create mesh info
+    mesh_info = tet.MeshInfo()
+    mesh_info.set_points(points)
+    
+    # Set facets
+    facets = (
+        round_trip_connect(0, n-1) +                   # bottom circle
+        round_trip_connect(n, 2*n-1) +                 # top circle
+        [(i, i+n) for i in range(n)] +                # sides
+        [(i, 2*n) for i in range(n)] +                # bottom center connections
+        [(i+n, 2*n+1) for i in range(n)]              # top center connections
     )
-
-    mesh = TetraMesh._build_tetramesh(cylinder)
+    mesh_info.set_facets(facets)
+    
+    # Generate mesh
+    mesh = tet.build(mesh_info, max_volume=(max_cell_circumradius**3)/6.0)
+    
+    # Convert to meshio format
+    vertices = np.array(mesh.points)
+    elements = np.array(mesh.elements)
+    mesh_obj = meshio.Mesh(vertices, [("tetra", elements)])
+    
+    # Build TetraMesh
+    mesh = TetraMesh._build_tetramesh(mesh_obj)
 
     # Sample is uniformly single phase
     phases = [Phase(unit_cell, sgname, path_to_cif_file)]

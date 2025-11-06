@@ -84,33 +84,29 @@ class Beam:
             np.unique(self.halfspaces.round(decimals=6), axis=0)
         ).to(device)
 
-    def contains(self, points: torch.Tensor) -> torch.Tensor:
+    def contains(self, points):
         """Check if the beam contains a number of point(s).
 
         Args:
-            points (:obj:`torch.Tensor`): Point(s) to evaluate ``shape=(3,n)`` or ``shape=(3,)``.
+            points (:obj:`torch.Tensor` or :obj:`numpy array`): Point(s) to evaluate ``shape=(3,n)`` or ``shape=(3,)``.
 
         Returns:
-            torch.Tensor: Tensor with 1 if the point is contained by the beam and 0 otherwise, if single point is passed this returns
-            scalar 1 or 0.
+            Boolean array or tensor with True if the point is contained by the beam and False otherwise.
+            If single point is passed this returns a single boolean value.
 
         """
         points = ensure_torch(points)
-        normal_distances = torch.matmul(self.halfspaces[:, :3], points)
+        normals = self.halfspaces[:, 0:3]
+        offsets = self.halfspaces[:, 3:4]
+        
         if len(points.shape) == 1:
-            return torch.all(normal_distances + self.halfspaces[:, 3] < 0)
+            # Single point: shape (3,)
+            normal_distances = torch.matmul(normals, points.unsqueeze(1))  # shape (N, 1)
+            return torch.all(normal_distances + offsets < 0)
         else:
-            return (
-                torch.sum(
-                    (
-                        normal_distances
-                        + self.halfspaces[:, 3].reshape(self.halfspaces.shape[0], 1)
-                    )
-                    >= 0,
-                    axis=0,
-                )
-                == 0
-            )
+            # Multiple points: shape (3, n)
+            normal_distances = torch.matmul(normals, points)  # shape (N, n)
+            return torch.all(normal_distances + offsets < 0, dim=0)  # shape (n,)
 
     def intersect(self, vertices: torch.Tensor) -> ConvexHull | None:
         """Compute the beam intersection with a convex polyhedra.
@@ -123,11 +119,10 @@ class Beam:
             input vertices, or None if no intersection exists.
 
         """
-        vertices = ensure_torch(vertices)
-        for vertex in vertices:
-            if not self.contains(vertex):
-                break
-        else:
+
+        # Batch check all vertices at once for efficiency
+        vertices_contained = self.contains(vertices.T)  # shape (N,)
+        if torch.all(vertices_contained):
             return ConvexHull(
                 vertices.cpu().numpy()
             )  # Tetra completely contained by beam

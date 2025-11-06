@@ -17,10 +17,11 @@ Below follows a detailed description of the mesh class attributes and functions.
 """
 
 import numpy as np
-import pygalmesh
+import meshpy.tet as tet
 import meshio
-from xrd_simulator import utils
-from xrd_simulator import motion
+import torch
+from xrd_simulator import utils, motion
+from xrd_simulator.utils import ensure_torch, ensure_numpy
 
 
 class TetraMesh(object):
@@ -85,9 +86,7 @@ class TetraMesh(object):
     def generate_mesh_from_levelset(
         cls, level_set, bounding_radius, max_cell_circumradius
     ):
-        """Generate a mesh from a level set using `the pygalmesh package`_:
-
-        .. _the pygalmesh package: https://github.com/nschloe/pygalmesh
+        """Generate a mesh from a level set using meshpy.
 
         Args:
             level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
@@ -95,19 +94,36 @@ class TetraMesh(object):
             bounding_radius (:obj:`float`): Bounding radius of mesh.
             max_cell_circumradius (:obj:`float`): Bound for element radii.
 
+        Returns:
+            TetraMesh: The generated tetrahedral mesh
         """
-
-        class LevelSet(pygalmesh.DomainBase):
-            def __init__(self):
-                super().__init__()
-                self.eval = level_set
-                self.get_bounding_sphere_squared_radius = lambda: bounding_radius**2
-
-        mesh = pygalmesh.generate_mesh(
-            LevelSet(), max_cell_circumradius=max_cell_circumradius, verbose=False
-        )
-
-        return cls._build_tetramesh(mesh)
+        # Create grid of points within bounding sphere
+        n = int(2 * bounding_radius / max_cell_circumradius)
+        x = np.linspace(-bounding_radius, bounding_radius, n)
+        y = np.linspace(-bounding_radius, bounding_radius, n)
+        z = np.linspace(-bounding_radius, bounding_radius, n)
+        X, Y, Z = np.meshgrid(x, y, z)
+        
+        # Evaluate levelset function
+        points = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
+        values = np.array([level_set(p) for p in points])
+        
+        # Keep points where levelset is positive
+        points = points[values > 0]
+        
+        # Create mesh info object
+        mesh_info = tet.MeshInfo()
+        mesh_info.set_points(points.tolist())
+        
+        # Generate mesh
+        mesh = tet.build(mesh_info, max_volume=(max_cell_circumradius**3)/6.0)
+        
+        # Convert to meshio format
+        vertices = np.array(mesh.points)
+        elements = np.array(mesh.elements)
+        mesh_obj = meshio.Mesh(vertices, [("tetra", elements)])
+        
+        return cls._build_tetramesh(mesh_obj)
 
     def translate(self, translation_vector):
         """Translate the mesh.
@@ -142,19 +158,18 @@ class TetraMesh(object):
             time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
-        #self._mesh.points = rigid_body_motion(self._mesh.points, time=time)
-        self.coord = rigid_body_motion(self.coord,time=time)
+        self.coord = rigid_body_motion(self.coord, time=time)
 
+        # Reshape and rotate normals
         s1, s2, s3 = self.enormals.shape
         self.enormals = self.enormals.reshape(s1 * s2, 3)
-
         self.enormals = rigid_body_motion.rotate(self.enormals, time=time)
         self.enormals = self.enormals.reshape(s1, s2, s3)
 
+        # Update centroids and sphere data
         self.ecentroids = rigid_body_motion(self.ecentroids, time=time)
         self.espherecentroids = rigid_body_motion(self.espherecentroids, time=time)
-
-        self.centroid = rigid_body_motion(self.centroid.reshape(1, 3), time=time)[0]
+        self.centroid = rigid_body_motion(self.centroid.unsqueeze(0), time=time).squeeze(0)
 
     def save(self, file, element_data=None):
         """Save the tetra mesh to .xdmf paraview readable format for visualization.
@@ -171,10 +186,17 @@ class TetraMesh(object):
 
         if element_data is not None:
             for key in element_data:
-                element_data[key] = [list(element_data[key])]
+                if torch.is_tensor(element_data[key]):
+                    element_data[key] = [list(utils.ensure_numpy(element_data[key]))]
+                else:
+                    element_data[key] = [list(element_data[key])]
+        
+        # Convert coord and enod to numpy if they're torch tensors
+        coord = utils.ensure_numpy(self.coord) if torch.is_tensor(self.coord) else self.coord
+        enod = utils.ensure_numpy(self.enod) if torch.is_tensor(self.enod) else self.enod
 
         meshio.write_points_cells(
-            save_path, self.coord, [("tetra", self.enod)], cell_data=element_data
+            save_path, coord, [("tetra", enod)], cell_data=element_data
         )
 
     @classmethod
@@ -192,42 +214,64 @@ class TetraMesh(object):
 
     @classmethod
     def _build_tetramesh(cls, mesh):
+        """Build a TetraMesh object from a meshio mesh, converting data to tensors immediately.
+        
+        Args:
+            mesh: A meshio.Mesh object with points and tetra cells.
+            
+        Returns:
+            TetraMesh: A new mesh object with all data as torch tensors.
+        """
         tetmesh = cls()
-        tetmesh._mesh = mesh
+        
+        # Convert core mesh data to tensors immediately
+        tetmesh.coord = utils.ensure_torch(mesh.points, dtype=torch.float64)
+        tetmesh.enod = utils.ensure_torch(mesh.cells_dict["tetra"], dtype=torch.int64)
+        
+        # Store tensor versions in _mesh for persistence
+        tetmesh._mesh = meshio.Mesh(
+            points=utils.ensure_numpy(tetmesh.coord),
+            cells=[("tetra", utils.ensure_numpy(tetmesh.enod))]
+        )
+        
+        # Complete initialization using tensor data
         tetmesh._set_fem_matrices()
         tetmesh._expand_mesh_data()
         return tetmesh
 
     def _compute_mesh_faces(self, enod):
         """Compute all element faces nodal numbers. We create a matrix of all possible permutations and then we index the enod matrix."""
-        permutations = np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]])
+        # Ensure input enod is long tensor
+        if not torch.is_tensor(enod):
+            enod = torch.tensor(enod, dtype=torch.int64)
+        elif enod.dtype != torch.int64:
+            enod = enod.to(dtype=torch.int64)
+            
+        # Create permutations as long tensor
+        permutations = torch.tensor([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]], 
+                                  dtype=torch.int64, device=enod.device)
         efaces = enod[:, permutations]
         return efaces
 
     def _compute_mesh_normals(self, coord, enod, efaces):
         """Compute all element faces outwards unit vector normals."""
         vertices = coord[efaces]
-        normals = np.cross(
+        normals = torch.cross(
             vertices[:, :, 1, :] - vertices[:, :, 0, :],
             vertices[:, :, 2, :] - vertices[:, :, 0, :],
+            dim=2
         )
-        faces_centers = np.mean(vertices, axis=2)
-        centroids = np.mean(faces_centers, axis=1)
-        centroid_to_face = faces_centers - centroids[:, np.newaxis, :]
-        signs = np.sum(centroid_to_face * normals, axis=-1)
-        signs[signs >= 0] = 1
-        signs[signs < 0] = -1
-        enormals = (
-            normals
-            / np.linalg.norm(normals, axis=2, keepdims=True)
-            * signs[:, :, np.newaxis]
-        )
-
+        faces_centers = torch.mean(vertices, dim=2)
+        centroids = torch.mean(faces_centers, dim=1)
+        centroid_to_face = faces_centers - centroids.unsqueeze(1)
+        signs = torch.sum(centroid_to_face * normals, dim=-1)
+        signs = torch.where(signs >= 0, torch.tensor(1.0, device=signs.device), torch.tensor(-1.0, device=signs.device))
+        enormals = normals / torch.linalg.norm(normals, dim=2, keepdim=True) * signs.unsqueeze(-1)
         return enormals
 
     def _compute_mesh_centroids(self, coord, enod):
         """Compute centroids of elements."""
-        ecentroids = np.mean(coord[enod], axis=1)
+        ecentroids = torch.mean(coord[enod], dim=1)
         return ecentroids
 
     def _compute_mesh_volumes(self, enod, coord):
@@ -236,7 +280,7 @@ class TetraMesh(object):
         a = vertices[:, 1, :] - vertices[:, 0, :]
         b = vertices[:, 2, :] - vertices[:, 0, :]
         c = vertices[:, 3, :] - vertices[:, 0, :]
-        evolumes = (1 / 6.0) * np.sum((np.cross(a, b, axis=1) * c), axis=1)
+        evolumes = (1 / 6.0) * torch.sum(torch.cross(a, b, dim=1) * c, dim=1)
         return evolumes
 
     def _compute_mesh_spheres(self, coord, enod):
@@ -249,105 +293,136 @@ class TetraMesh(object):
         2. Calculate the minimal sphere for the three most distant vertices.
         3. Calculate the sphere containing all four vertices on their surface.
 
-        The first sphere that contains all vertices of each tetrahedron is selected.
-
         Parameters:
         ----------
-        coord : numpy.ndarray
-            Array of coordinates with dimensions (vertices, xyz).
-        enod : numpy.ndarray
-            Array of tetrahedron vertex indices with dimensions (tetrahedrons, vertices).
+        coord : torch.Tensor
+            Tensor of coordinates with dimensions (vertices, xyz).
+        enod : torch.Tensor
+            Tensor of tetrahedron vertex indices with dimensions (tetrahedrons, vertices).
 
         Returns:
         -------
-        eradius : numpy.ndarray
-            Array of radii for the minimal bounding spheres of each tetrahedron.
-        espherecentroids : numpy.ndarray
-            Array of centroids for the minimal bounding spheres of each tetrahedron.
+        eradius : torch.Tensor
+            Tensor of radii for the minimal bounding spheres of each tetrahedron.
+        espherecentroids : torch.Tensor
+            Tensor of centroids for the minimal bounding spheres of each tetrahedron.
         """
         vertices = coord[enod]
         n_tetra = enod.shape[0]
-        range_n_tetra = range(n_tetra)
-        pairs = np.array([[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]])
-        all_pairs = np.tile([0, 1, 2, 3], (n_tetra, 1))
+        pairs = torch.tensor(
+            [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]],
+            dtype=torch.int64,
+            device=coord.device,
+        )
+        all_pairs = torch.tile(
+            torch.tensor([0, 1, 2, 3], dtype=torch.int64, device=coord.device),
+            (n_tetra, 1),
+        )
 
-        # We compute the length of every tetrahedron side
+        # Compute length of every tetrahedron side
         sides = utils._compute_sides(vertices)
 
-        # We compute the vertices that are further apart
-        max_sides_index = np.argmax(sides, axis=1)
+        # Find vertices that are furthest apart
+        max_sides_index = torch.argmax(sides, dim=1)
         furthest2_indices = pairs[max_sides_index]
 
-        # We compute the other 2 vertices of the tetrahedra
-        mask = np.zeros((n_tetra, 4), dtype=bool)
-        mask[range_n_tetra, furthest2_indices[:, 0]] = 1
-        mask[range_n_tetra, furthest2_indices[:, 1]] = 1
+        # Compute other 2 vertices of the tetrahedra
+        mask = torch.zeros((n_tetra, 4), dtype=torch.bool, device=coord.device)
+        mask[torch.arange(n_tetra, device=coord.device), furthest2_indices[:, 0]] = True
+        mask[torch.arange(n_tetra, device=coord.device), furthest2_indices[:, 1]] = True
         other2_indices = all_pairs[~mask].reshape(-1, 2)
 
-        # We compute the smallest spheres that pass through the farthest-apart vertices and check if the other-2 vertices fall in
-        furthest2_vertices = vertices.transpose(1, 0, 2)[
-            furthest2_indices.transpose(1, 0), range_n_tetra
-        ].transpose(1, 0, 2)
-        other2_vertices = vertices.transpose(1, 0, 2)[
-            other2_indices.transpose(1, 0), range_n_tetra
-        ].transpose(1, 0, 2)
+        # Compute smallest spheres through farthest-apart vertices
+        furthest2_vertices = vertices.permute(1, 0, 2)[
+            furthest2_indices.T, torch.arange(n_tetra, device=coord.device)
+        ].permute(1, 0, 2)
+        other2_vertices = vertices.permute(1, 0, 2)[
+            other2_indices.T, torch.arange(n_tetra, device=coord.device)
+        ].permute(1, 0, 2)
         centers_1D, radii_1D = utils._circumsphere_of_segments(furthest2_vertices)
-        dist_centers_1D_to_vertices = np.linalg.norm(
-            other2_vertices - centers_1D[:, np.newaxis, :], axis=2
+        dist_centers_1D_to_vertices = torch.linalg.norm(
+            other2_vertices - centers_1D.unsqueeze(1), dim=2
         )
-        spheres_solved_with_1D = np.all(
-            (dist_centers_1D_to_vertices - radii_1D[:, np.newaxis]) <= 0, axis=1
+        spheres_solved_with_1D = torch.all(
+            (dist_centers_1D_to_vertices - radii_1D.unsqueeze(1)) <= 0, dim=1
         )
 
-        # We compute the smallest spheres that pass through the farthest 3 vertices and check if the remaining vertex falls in
-        next_furthest_index = np.argmax(dist_centers_1D_to_vertices, axis=1)
-        third_vertex = other2_vertices.transpose(1, 0, 2)[
-            next_furthest_index, range_n_tetra
+        # Compute spheres through farthest 3 vertices
+        next_furthest_index = torch.argmax(dist_centers_1D_to_vertices, dim=1)
+        third_vertex = other2_vertices.permute(1, 0, 2)[
+            next_furthest_index, torch.arange(n_tetra, device=coord.device)
         ]
-        largest_triangles = np.append(
-            furthest2_vertices, third_vertex[:, np.newaxis, :], axis=1
+        largest_triangles = torch.cat(
+            [furthest2_vertices, third_vertex.unsqueeze(1)], dim=1
         )
         centers_2D, radii_2D = utils._circumsphere_of_triangles(largest_triangles)
-        dist_centers_2D_to_vertices = np.linalg.norm(
-            vertices - centers_2D[:, np.newaxis, :], axis=2
+        dist_centers_2D_to_vertices = torch.linalg.norm(
+            vertices - centers_2D.unsqueeze(1), dim=2
         )
-        spheres_solved_with_2D = np.all(
-            (dist_centers_2D_to_vertices - radii_2D[:, np.newaxis]) <= 0, axis=1
+        spheres_solved_with_2D = torch.all(
+            (dist_centers_2D_to_vertices - radii_2D.unsqueeze(1)) <= 0, dim=1
         )
 
-        # Finally we compute the spheres that contain the 4 points on the surfaces for the remaining tetrahedrons
+        # Compute spheres containing all 4 points
         centers_3D, radii_3D = utils._circumsphere_of_tetrahedrons(vertices)
 
-        # We select the 1D case if possible, otherwise the 2D case, and finally the 3D case
-        espherecentroids = np.where(
-            spheres_solved_with_1D[:, np.newaxis],
+        # Select appropriate solution based on containment tests
+        espherecentroids = torch.where(
+            spheres_solved_with_1D.unsqueeze(1),
             centers_1D,
-            np.where(spheres_solved_with_2D[:, np.newaxis], centers_2D, centers_3D),
+            torch.where(spheres_solved_with_2D.unsqueeze(1), centers_2D, centers_3D)
         )
-        eradius = np.where(
+        eradius = torch.where(
             spheres_solved_with_1D,
             radii_1D,
-            np.where(spheres_solved_with_2D, radii_2D, radii_3D),
+            torch.where(spheres_solved_with_2D, radii_2D, radii_3D)
         )
 
         return eradius, espherecentroids
 
     def _set_fem_matrices(self):
-        """Extract and set mesh FEM matrices from pygalmesh object."""
-        self.coord = np.array(self._mesh.points)
-        self.enod = np.array(self._mesh.cells_dict["tetra"])
-        self.dof = np.arange(0, self.coord.shape[0] * 3).reshape(self.coord.shape[0], 3)
+        """Extract and set mesh FEM matrices from meshio object and convert to torch tensors."""
+        # Convert coordinates to float64 tensor
+        self.coord = utils.ensure_torch(self._mesh.points, dtype=torch.float64)
+        
+        # Convert element indices to long (int64) tensor for indexing
+        self.enod = utils.ensure_torch(self._mesh.cells_dict["tetra"], dtype=torch.int64)
+        if self.enod.dtype != torch.int64:
+            self.enod = self.enod.to(dtype=torch.int64)
+            
+        # Generate and convert DOF indices to long tensor
+        self.dof = utils.ensure_torch(
+            np.arange(0, self.coord.shape[0] * 3).reshape(self.coord.shape[0], 3), 
+            dtype=torch.int64
+        )
+        
         self.number_of_elements = self.enod.shape[0]
 
     def _expand_mesh_data(self):
         """Compute extended mesh quantities such as element faces and normals."""
+        # Compute mesh faces, ensuring long tensor indices
         self.efaces = self._compute_mesh_faces(self.enod)
-        self.enormals = self._compute_mesh_normals(self.coord, self.enod, self.efaces)
-        self.ecentroids = self._compute_mesh_centroids(self.coord, self.enod)
-        self.eradius, self.espherecentroids = self._compute_mesh_spheres(
-            self.coord, self.enod
+        if self.efaces.dtype != torch.int64:
+            self.efaces = self.efaces.to(dtype=torch.int64)
+            
+        # Compute mesh normals and other geometric properties
+        self.enormals = utils.ensure_torch(
+            self._compute_mesh_normals(self.coord, self.enod, self.efaces),
+            dtype=torch.float64
         )
-        self.centroid = np.mean(self.ecentroids, axis=0)
-        self.evolumes = self._compute_mesh_volumes(self.enod, self.coord)
-
-        # TODO: considering leveraging this in beam.py for speed
+        self.ecentroids = utils.ensure_torch(
+            self._compute_mesh_centroids(self.coord, self.enod),
+            dtype=torch.float64
+        )
+        
+        # Compute bounding spheres
+        eradius_np, espherecentroids_np = self._compute_mesh_spheres(self.coord, self.enod)
+        self.eradius = utils.ensure_torch(eradius_np, dtype=torch.float64)
+        self.espherecentroids = utils.ensure_torch(espherecentroids_np, dtype=torch.float64)
+        
+        # Compute global properties
+        self.centroid = torch.mean(self.ecentroids, dim=0)
+        self.evolumes = utils.ensure_torch(
+            self._compute_mesh_volumes(self.enod, self.coord),
+            dtype=torch.float64
+        )

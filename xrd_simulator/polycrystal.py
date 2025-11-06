@@ -7,7 +7,7 @@ This module provides the Polycrystal class which handles:
 - Crystal orientations and strains
 """
 
-from typing import Dict, List
+from typing import Dict
 import copy
 import numpy as np
 import numpy.typing as npt
@@ -15,11 +15,11 @@ import torch
 from torch import Tensor
 import dill
 from xfab import tools
+from scipy.spatial import ConvexHull
 
 from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization, scherrer
 from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
-from xrd_simulator.scattering_unit import ScatteringUnit
 from xrd_simulator.beam import Beam
 from xrd_simulator.detector import Detector
 from xrd_simulator.motion import RigidBodyMotion
@@ -91,8 +91,8 @@ class Polycrystal:
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
         self.mesh_sample = copy.deepcopy(mesh)
-        self.strain_sample = copy.deepcopy(self.strain_lab)
-        self.orientation_sample = copy.deepcopy(self.orientation_lab)
+        self.strain_sample = self.strain_lab.clone()
+        self.orientation_sample = self.orientation_lab.clone()
 
     def diffract(
         self,
@@ -100,9 +100,8 @@ class Polycrystal:
         rigid_body_motion: RigidBodyMotion,
         min_bragg_angle: float = 0,
         max_bragg_angle: float = 90 * np.pi / 180,
-        powder: bool = False,
         detector: Detector | None = None,
-    ) -> Dict[str, Tensor | List[ScatteringUnit]]:
+    ) -> Dict[str, Tensor | list[ConvexHull]]:
         """Compute diffraction from the rotating and translating polycrystal.
 
         Simulates diffraction while the sample is illuminated by an x-ray beam.
@@ -120,10 +119,10 @@ class Polycrystal:
             Dictionary containing:
                 - peaks: Tensor of diffraction peaks
                 - columns: Column names for peaks tensor
-                - scattering_units: List of ScatteringUnit objects
+                - convex_hulls: List of convex hull objects for large grains
+                - scattered_vectors: K_out vectors for projection
         """
 
-        # beam.wave_vector = ensure_torch(beam.wave_vector)
         if detector is not None:
             min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
                 detector, beam, min_bragg_angle, max_bragg_angle
@@ -136,17 +135,47 @@ class Polycrystal:
 
         peaks = self.compute_peaks(beam, rigid_body_motion)
 
-        if powder is True:
-            # Filter out tets not illuminated
-            peaks = peaks[peaks[:, 17] < (beam.vertices[:, 1].max())]
-            peaks = peaks[peaks[:, 17] > (beam.vertices[:, 1].min())]
-            peaks = peaks[peaks[:, 18] < (beam.vertices[:, 2].max())]
-            peaks = peaks[peaks[:, 18] > (beam.vertices[:, 2].min())]
-            scattering_units = []
-        else:
-            peaks, scattering_units = self.compute_scattering_units(
-                beam, rigid_body_motion, peaks
-            )
+        # Filter peaks by beam illumination using source positions
+        source_points = peaks[:, 16:19].T  # Get source points (x,y,z) and transpose for contains method
+        illuminated_peaks = beam.contains(source_points)
+        peaks = peaks[illuminated_peaks]
+
+        # Add peak indices as a unique identifier for each peak
+        peak_indices = torch.arange(len(peaks), device=peaks.device).unsqueeze(1)
+        peaks = torch.cat([peaks, peak_indices], dim=1)  # Add peak_index column (now column 24)
+        
+        # Initialize dictionary for convex hulls
+        convex_hulls = {}
+        
+        # Determine minimum volume from detector if available
+        if detector is not None:
+            # Calculate minimum volume in cubic microns (pixel_size is in microns)
+            min_grain_size =  min(detector.pixel_size_y, detector.pixel_size_z)
+            
+            # Get indices of peaks with volumes larger than pixel volume
+            large_volume_mask = peaks[:, 21] >= min_grain_size
+            
+            # Compute convex hulls only for large grains
+            if torch.any(large_volume_mask):
+                large_volume_peaks = peaks[large_volume_mask]
+                # Get element vertices and transform to diffraction time
+                element_vertices_0 = self.mesh_lab.coord[
+                    self.mesh_lab.enod[large_volume_peaks[:, 0].long()]
+                ]
+                element_vertices = rigid_body_motion(
+                    element_vertices_0, large_volume_peaks[:, 6]
+                )
+                
+                # Compute convex hulls for beam-element intersections
+                # Get peak indices for the large volume peaks
+                peak_ids = large_volume_peaks[:, -1].long()  # last column contains peak_index
+                
+                for i, vertices in enumerate(element_vertices):
+                    scattering_region = beam.intersect(vertices)
+                    if scattering_region is not None:
+                        # Store hull with peak_id as key
+                        peak_id = peak_ids[i].item()
+                        convex_hulls[peak_id] = scattering_region
 
         """
             Column names of peaks are
@@ -164,7 +193,7 @@ class Polycrystal:
 
         column_names = [
             "grain_index",
-            "phase_number",
+            "phase_number", 
             "h",
             "k",
             "l",
@@ -174,7 +203,7 @@ class Polycrystal:
             "G0_y",
             "G0_z",
             "Gx",
-            "Gy",
+            "Gy", 
             "Gz",
             "K_out_x",
             "K_out_y",
@@ -187,13 +216,18 @@ class Polycrystal:
             "volumes",
             "2theta",
             "scherrer_fwhm",
+            "peak_index"  # Unique identifier for each diffraction peak
         ]
 
-        # Wrap the peaks columns and scattering units into a dict to preserve information
+        # Wrap the peaks columns and hull mapping into a dict to preserve information
         peaks_dict = {
             "peaks": peaks,
             "columns": column_names,
-            "scattering_units": scattering_units,
+            "hull_map": convex_hulls,  # Dictionary mapping peak_index to hull
+            "scattered_vectors": peaks[:, 13:16],  # Store K_out vectors needed for projection
+            "incident_vector": beam.wave_vector,
+            "wavelength": beam.wavelength,
+            "rotation_axis": rigid_body_motion.rotation_axis
         }
 
         return peaks_dict
@@ -206,7 +240,17 @@ class Polycrystal:
                 - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
 
         Returns:
-            list: A list of ScatteringUnit objects representing diffraction events.
+            Tensor: A tensor containing diffraction peak data with columns:
+                0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+                1: 'phase_number'       11: 'Gy'        21: 'volumes' 
+                2: 'h'                  12: 'Gz'        22: '2theta'
+                3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
+                4: 'l'                  14: 'K_out_y'   24: 'peak_index'
+                5: 'structure_factors'  15: 'K_out_z'
+                6: 'diffraction_times'  16: 'Source_x'
+                7: 'G0_x'               17: 'Source_y'      
+                8: 'G0_y'               18: 'Source_z'
+                9: 'G0_z'               19: 'lorentz_factors'
         """
 
         beam = beam
@@ -257,7 +301,17 @@ class Polycrystal:
             )
 
             # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
-            # Column names of peaks are 'grain_index','phase_number','h','k','l','structure_factors','times','G0_x','G0_y','G0_z')
+            # Column names of peaks are:
+            # 0: grain_index        10: Gx          20: polarization_factors
+            # 1: phase_number       11: Gy          21: volumes
+            # 2: h                  12: Gz          22: 2theta
+            # 3: k                  13: K_out_x     23: scherrer_fwhm
+            # 4: l                  14: K_out_y     24: large_grain
+            # 5: structure_factors  15: K_out_z
+            # 6: diffraction_times  16: Source_x
+            # 7: G0_x              17: Source_y
+            # 8: G0_y              18: Source_z
+            # 9: G0_z              19: lorentz_factors
             del G_0
             structure_factors = structure_factors[planes].unsqueeze(1)
             grain_indices = grain_indices[grains].unsqueeze(1)
@@ -376,7 +430,7 @@ class Polycrystal:
         # Replace the last column (full tet volumes) with intersection volumes
         filtered_peaks = np.hstack((filtered_peaks[:, :-1], scattering_volumes))
 
-        return ensure_torch(filtered_peaks).to(device), scattering_units
+        return ensure_torch(filtered_peaks), scattering_units
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
@@ -435,7 +489,9 @@ class Polycrystal:
             misorientations = utils._get_misorientations(self.orientation_sample)
 
             for U, misorientation in zip(self.orientation_sample, misorientations):
-                phi_1, PHI, phi_2 = tools.u_to_euler(U)
+                # Convert tensor to numpy for xfab tools
+                U_np = ensure_numpy(U)
+                phi_1, PHI, phi_2 = tools.u_to_euler(U_np)
                 element_data["Bunge Euler Angle phi_1 [degrees]"].append(
                     np.degrees(phi_1)
                 )
@@ -504,16 +560,13 @@ class Polycrystal:
 
     def _instantiate_strain(
         self, strain: npt.NDArray | Tensor, mesh: TetraMesh
-    ) -> Tensor:
+    ) -> npt.NDArray:
         """Instantiate the strain using for smart multi shape handling."""
+        strain = ensure_torch(strain)
         if strain.shape == (3, 3):
-            strain_lab = torch.repeat_interleave(
-                ensure_torch(strain).unsqueeze(0),
-                mesh.number_of_elements,
-                dim=0,
-            ).to(device)
+            strain_lab = strain.unsqueeze(0).repeat(mesh.number_of_elements, 1, 1)
         elif strain.shape == (mesh.number_of_elements, 3, 3):
-            strain_lab = ensure_torch(strain).to(device)
+            strain_lab = np.copy(strain)
         else:
             raise ValueError("strain input is of incompatible shape")
         return strain_lab
@@ -538,7 +591,7 @@ class Polycrystal:
     def _instantiate_eB(
         self,
         orientation_lab: Tensor,
-        strain_lab: npt.NDArray,
+        strain_lab: Tensor,
         phases: list[Phase],
         element_phase_map: Tensor,
         mesh: TetraMesh,
@@ -550,11 +603,11 @@ class Polycrystal:
         where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
         and U are the crystal element orientation matrices.)
         """
-        _eB = torch.zeros((mesh.number_of_elements, 3, 3), device=device)
-        B0s = torch.zeros((len(phases), 3, 3), device=device)
 
+        _eB = torch.zeros((mesh.number_of_elements, 3, 3))
+        B0s = torch.zeros((len(phases), 3, 3))
         for i, phase in enumerate(phases):
-            B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell)).to(device)
+            B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell))
             grain_indices = torch.where(element_phase_map == i)[0]
             _eB[grain_indices] = utils.lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
@@ -574,14 +627,15 @@ class Polycrystal:
         If the beam graces or misses the sample, the sample centroid is used.
         """
 
-        mesh_nodes_contained_by_beam = self.mesh_lab.coord[
-            beam.contains(self.mesh_lab.coord.T), :
-        ]
-        mesh_nodes_contained_by_beam = ensure_torch(mesh_nodes_contained_by_beam)
-        if mesh_nodes_contained_by_beam.shape[0] != 0:
-            source_point = torch.mean(mesh_nodes_contained_by_beam, axis=0).to(device)
+        # Get points contained by beam
+        points_contained = beam.contains(self.mesh_lab.coord.T)
+        if torch.any(points_contained):
+            # Use boolean indexing with torch tensors
+            mesh_nodes_contained_by_beam = self.mesh_lab.coord[points_contained]
+            source_point = torch.mean(mesh_nodes_contained_by_beam, dim=0)
         else:
-            source_point = ensure_torch(self.mesh_lab.centroid).to(device)
+            source_point = ensure_torch(self.mesh_lab.centroid)
+        
         max_bragg_angle = detector.get_wrapping_cone(
             beam.wave_vector, source_point
         ).item()

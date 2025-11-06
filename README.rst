@@ -56,6 +56,13 @@ Introduction
 Before reading all the boring documentation (`which is hosted here`_) let's dive into some end to end
 examples to get us started on a good flavour.
 
+**Important Notes:**
+
+   * The **ScatteringUnit** class has been **deprecated**. The project now uses ``Polycrystal`` objects 
+     directly for all diffraction simulations.
+   * **Mesh generation**: The project is transitioning from ``pygalmesh`` to ``meshpy`` for tetrahedral 
+     mesh generation due to lack of Python 3.13 support in pygalmesh.
+
 The ``xrd_simulator`` is built around four python objects which reflect a diffraction experiment:
 
    * A **beam** of x-rays (using the ``xrd_simulator.beam`` module)
@@ -197,6 +204,39 @@ Many more options for experimental setups and intensity rendering exist, have fu
 The above example code can be found as a `single .py file here.`_
 
 ======================================
+GPU/CPU Control
+======================================
+``xrd_simulator`` supports both CPU and GPU (CUDA) computing. You can control which device to use in several ways:
+
+**Environment Variable (Recommended for scripts):**
+
+   .. code:: bash
+
+      # Use GPU
+      XRD_USE_GPU=true python my_script.py
+      
+      # Use CPU
+      XRD_USE_GPU=false python my_script.py
+
+**Programmatic Control (Recommended for library usage):**
+
+   .. code:: python
+
+      import xrd_simulator
+      
+      # Force GPU usage
+      xrd_simulator.set_device(use_gpu=True)
+      
+      # Force CPU usage
+      xrd_simulator.set_device(use_gpu=False)
+
+**Interactive Prompt (Default):**
+
+If neither option is set and CUDA is available, you will be prompted interactively.
+
+For more details, see the `GPU Usage Guide`_.
+
+======================================
 Installation
 ======================================
 
@@ -238,10 +278,11 @@ This will then again require the `pygalmesh`_ dependencies to be resolved before
 
 Credits
 ===============================
-``xrd_simulator`` makes good use of xfab and pygalmesh. The source code of these repos can be found here:
+``xrd_simulator`` makes good use of xfab. Mesh generation is transitioning from pygalmesh to meshpy 
+due to lack of Python 3.13 support in pygalmesh. The source code of these repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `https://github.com/nschloe/pygalmesh`_
+* `https://github.com/nschloe/pygalmesh`_ (being phased out in favor of meshpy due to lack of Python 3.13 support)
 
 Citation
 ===============================
@@ -282,3 +323,5 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 .. _can be found here.: https://github.com/conda-forge/xrd_simulator-feedstock
 
 .. _conda-forge channel: https://anaconda.org/conda-forge/xrd_simulator
+
+.. _GPU Usage Guide: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/GPU_USAGE.md

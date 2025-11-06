@@ -1,0 +1,88 @@
+#------------------------------------------------------------------------------
+#$Date: 2015-09-29 09:00:15 +0300 (Tue, 29 Sep 2015) $
+#$Revision: 158992 $
+#$URL: file:///home/coder/svn-repositories/cod/cif/1/53/29/1532971.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/
+#
+# All data on this site have been placed in the public domain by the
+# contributors.
+#
+data_1532971
+loop_
+_publ_author_name
+'Nagakura, S.'
+'Toyoshima, M.'
+_publ_section_title
+;
+ Crystal structure and morphology of the ordered phase in iron-carbon
+ martensite
+;
+_journal_name_full
+'Transactions of the Japan Institute of Metals'
+_journal_page_first              100
+_journal_page_last               110
+_journal_volume                  20
+_journal_year                    1979
+_chemical_formula_sum            'C0.63 Fe4'
+_chemical_name_systematic        'Fe4 C0.63'
+_space_group_IT_number           53
+_symmetry_space_group_name_Hall  '-P 2ac 2'
+_symmetry_space_group_name_H-M   'P m n a'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            12
+_cell_length_a                   4.009
+_cell_length_b                   4.009
+_cell_length_c                   36.672
+_cell_volume                     589.395
+_citation_journal_id_ASTM        TJIMAA
+_cod_data_source_file            Nagakura_TJIMAA_1979_1042.cif
+_cod_data_source_block           C0.63Fe4
+_cod_original_cell_volume        589.3953
+_cod_database_code               1532971
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-x+1/2,-y,z+1/2
+x,-y,-z
+-x+1/2,y,-z+1/2
+-x,-y,-z
+x-1/2,y,-z-1/2
+-x,y,z
+x-1/2,-y,z-1/2
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_U_iso_or_equiv
+C12 C 0 0.25 -0.4792 0.1875 0.0
+Fe7 Fe 0 0.25 -0.2708 1 0.0
+Fe8 Fe 0 0.25 0.3125 1 0.0
+C5 C 0 0.25 -0.1458 0.1875 0.0
+Fe12 Fe 0 0.25 0.4792 1 0.0
+C6 C 0 0.25 -0.2292 0.1875 0.0
+C9 C 0 0.25 0.3542 0.1875 0.0
+Fe2 Fe 0 0.25 0.0625 1 0.0
+C1 C 0 0.25 0.0208 0.0625 0.0
+Fe1 Fe 0 0.25 -0.0208 1 0.0
+C11 C 0 0.25 0.4375 0.1875 0.0
+Fe9 Fe 0 0.25 -0.3542 1 0.0
+Fe11 Fe 0 0.25 -0.4375 1 0.0
+Fe6 Fe 0 0.25 0.2292 1 0.0
+C2 C 0 0.25 0.1042 0.0625 0.0
+Fe3 Fe 0 0.25 -0.1042 1 0.0
+C8 C 0 0.25 -0.3125 0.1875 0.0
+C3 C 0 0.25 0.1875 0.0625 0.0
+C7 C 0 0.25 0.2708 0.1875 0.0
+C10 C 0 0.25 -0.3958 0.1875 0.0
+Fe4 Fe 0 0.25 0.1458 1 0.0
+Fe5 Fe 0 0.25 -0.1875 1 0.0
+Fe10 Fe 0 0.25 0.3958 1 0.0
+C4 C 0 0.25 -0.0625 0.1875 0.0
