@@ -16,7 +16,7 @@ Below follows a detailed description of the RigidBodyMotion class attributes and
 import dill
 import torch
 from xrd_simulator.utils import ensure_torch
-from xrd_simulator.cuda import device
+from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 
@@ -56,10 +56,10 @@ class RigidBodyMotion:
             rotation_angle < torch.pi and rotation_angle > 0
         ), "The rotation angle must be in [0 pi]"
         self.rotator = _RodriguezRotator(rotation_axis)
-        self.rotation_axis = ensure_torch(rotation_axis).to(device)
-        self.rotation_angle = ensure_torch(rotation_angle).to(device)
-        self.translation = ensure_torch(translation).to(device)
-        self.origin = ensure_torch(origin).to(device)
+        self.rotation_axis = ensure_torch(rotation_axis)
+        self.rotation_angle = ensure_torch(rotation_angle)
+        self.translation = ensure_torch(translation)
+        self.origin = ensure_torch(origin)
 
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
@@ -76,8 +76,8 @@ class RigidBodyMotion:
 
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
-        vectors = ensure_torch(vectors).to(device)
-        time = ensure_torch(time).to(device)
+        vectors = ensure_torch(vectors)
+        time = ensure_torch(time)
 
         if len(vectors.shape) == 1:
             translation = self.translation
@@ -219,20 +219,18 @@ class _RodriguezRotator(object):
     """
 
     def __init__(self, rotation_axis):
-        rotation_axis = ensure_torch(rotation_axis).to(device)
+        rotation_axis = ensure_torch(rotation_axis)
         assert torch.allclose(
             torch.linalg.norm(rotation_axis), ensure_torch(1.0)
         ), "The rotation axis must be length unity."
         self.rotation_axis = rotation_axis
         rx, ry, rz = self.rotation_axis
-        self.K = ensure_torch([[0, -rz, ry], [rz, 0, -rx], [-ry, rx, 0]]).to(device)
-        self.K2 = torch.matmul(self.K, self.K).to(device)
+        self.K = ensure_torch([[0, -rz, ry], [rz, 0, -rx], [-ry, rx, 0]])
+        self.K2 = torch.matmul(self.K, self.K)
 
     def get_rotation_matrix(self, rotation_angle):
         """Get the rotation matrix for a given rotation angle."""
-        identity_matrix = torch.eye(
-            3, dtype=self.K.dtype, device=self.K.device
-        ).unsqueeze(2)
+        identity_matrix = torch.eye(3, dtype=self.K.dtype).unsqueeze(2)
         sin_term = torch.sin(rotation_angle) * self.K.unsqueeze(2)
         cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
 

@@ -25,7 +25,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
-from xrd_simulator.cuda import device
+from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 
@@ -66,14 +66,14 @@ class Polycrystal:
         element_phase_map: npt.NDArray | Tensor | None = None,
     ) -> None:
         mesh = self._move_mesh_to_torch(mesh)
-        orientation = ensure_torch(orientation).to(device)
-        strain = ensure_torch(strain).to(device)
+        orientation = ensure_torch(orientation)
+        strain = ensure_torch(strain)
 
         # Compute and store mesh volumes during initialization
         element_vertices = mesh.coord[mesh.enod]
         self.mesh_volumes = compute_tetrahedra_volumes(
             ensure_torch(element_vertices)
-        ).to(device)
+        )
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -276,11 +276,11 @@ class Polycrystal:
 
             # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
             grain_indices = torch.where(element_phase_map == i)[0]
-            miller_indices = ensure_torch(phase.miller_indices).to(device)
+            miller_indices = ensure_torch(phase.miller_indices)
             # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
             structure_factors = torch.sum(
                 ensure_torch(phase.structure_factors) ** 2, axis=1
-            ).to(device)
+            )
 
             miller_indices = miller_indices[structure_factors > 1e-6]
             structure_factors = structure_factors[structure_factors > 1e-6]
@@ -653,13 +653,14 @@ class Polycrystal:
         return min_bragg_angle, max_bragg_angle
 
     def _move_mesh_to_torch(self, mesh: TetraMesh) -> TetraMesh:
-        mesh.coord = ensure_torch(mesh.coord).to(device)
-        mesh.enod = ensure_torch(mesh.enod).to(device).to(dtype=torch.int32)
-        mesh.dof = ensure_torch(mesh.dof).to(device)
-        mesh.efaces = ensure_torch(mesh.efaces).to(device).to(dtype=torch.int32)
-        mesh.enormals = ensure_torch(mesh.enormals).to(device)
-        mesh.ecentroids = ensure_torch(mesh.ecentroids).to(device)
-        mesh.eradius = ensure_torch(mesh.eradius).to(device)
-        mesh.espherecentroids = ensure_torch(mesh.espherecentroids).to(device)
-        mesh.centroid = ensure_torch(mesh.centroid).to(device)
+        """Convert mesh arrays from numpy to torch using the default device."""
+        mesh.coord = ensure_torch(mesh.coord)
+        mesh.enod = ensure_torch(mesh.enod).to(dtype=torch.int32)
+        mesh.dof = ensure_torch(mesh.dof)
+        mesh.efaces = ensure_torch(mesh.efaces).to(dtype=torch.int32)
+        mesh.enormals = ensure_torch(mesh.enormals)
+        mesh.ecentroids = ensure_torch(mesh.ecentroids)
+        mesh.eradius = ensure_torch(mesh.eradius)
+        mesh.espherecentroids = ensure_torch(mesh.espherecentroids)
+        mesh.centroid = ensure_torch(mesh.centroid)
         return mesh

@@ -14,16 +14,22 @@ import os
 import sys
 import time
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-import phases
 import meshio
 
 # Add parent directory to import xrd_simulator
 script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 sys.path.insert(0, parent_dir)
+
+# Configure device before importing xrd_simulator modules
+from xrd_simulator import cuda
+# Default to CPU for initial setup - will be changed per test
+device = cuda.configure_device(use_gpu=False, verbose=False)
+
+import torch
+torch.set_default_dtype(torch.float64)
 
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.polycrystal import Polycrystal
@@ -32,6 +38,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.utils import ensure_numpy
 from scipy.spatial.transform import Rotation as R
+import phases
 
 
 def load_mesh_from_xdmf(filepath):
@@ -121,12 +128,8 @@ def create_polycrystal(mesh):
 
 def set_device(use_gpu):
     """Set PyTorch device to CPU or GPU and ensure all new tensors use it."""
-    if use_gpu and torch.cuda.is_available():
-        torch.set_default_device("cuda")
-        device = "cuda"
-    else:
-        torch.set_default_device("cpu")
-        device = "cpu"
+    # Use configure_device to properly set the device
+    device = cuda.configure_device(use_gpu=use_gpu, verbose=False)
     
     torch.set_default_dtype(torch.float64)
     

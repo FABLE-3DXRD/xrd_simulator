@@ -35,6 +35,7 @@ def configure_device(use_gpu=None, verbose=True):
         >>> configure_device(use_gpu=True, verbose=False)
         'cuda'
     """
+    global device
     if use_gpu is None:
         # Check environment variable
         env_var = os.environ.get('XRD_USE_GPU', '').lower()
@@ -64,23 +65,29 @@ def configure_device(use_gpu=None, verbose=True):
             
             if use_gpu:
                 torch.set_default_device("cuda")
+                device = "cuda"
                 if verbose:
                     print("Running on GPU (CUDA)...")
-                return "cuda"
+                return device
             else:
+                torch.set_default_device("cpu")
+                device = "cpu"
                 if verbose:
                     print("Running on CPU...")
-                return "cpu"
+                return device
         else:
             if verbose:
                 if use_gpu:
                     print("CUDA requested but not available. Falling back to CPU.")
                 else:
                     print("CUDA is not available. Using CPU.")
-            return "cpu"
+            torch.set_default_device("cpu")
+            device = "cpu"
+            return device
     except Exception as e:
         if verbose:
             print(f"An error occurred while configuring device: {e}")
             print("Falling back to CPU.")
         torch.set_default_device("cpu")
-        return "cpu"
+        device = "cpu"
+        return device

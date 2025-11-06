@@ -22,6 +22,7 @@ import torch.nn.functional as F
 
 from xrd_simulator import utils
 from xrd_simulator.utils import ensure_torch, ensure_numpy
+from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 
@@ -75,12 +76,12 @@ class Detector:
         use_polarization: bool = True,
         use_structure_factor: bool = True,
     ):
-        self.det_corner_0 = ensure_torch(det_corner_0).to(device)
-        self.det_corner_1 = ensure_torch(det_corner_1).to(device)
-        self.det_corner_2 = ensure_torch(det_corner_2).to(device)
+        self.det_corner_0 = ensure_torch(det_corner_0)
+        self.det_corner_1 = ensure_torch(det_corner_1)
+        self.det_corner_2 = ensure_torch(det_corner_2)
 
-        self.pixel_size_z = ensure_torch(pixel_size_z).to(device)
-        self.pixel_size_y = ensure_torch(pixel_size_y).to(device)
+        self.pixel_size_z = ensure_torch(pixel_size_z)
+        self.pixel_size_y = ensure_torch(pixel_size_y)
 
         self.zmax = torch.linalg.norm(self.det_corner_2 - self.det_corner_0)
         self.ymax = torch.linalg.norm(self.det_corner_1 - self.det_corner_0)
@@ -390,8 +391,7 @@ class Detector:
                         if torch.isinf(intensity):
                             frames[box[0]:box[1], box[2]:box[3]] = float('inf')
                         else:
-                            # Keep computation on device
-                            projection_torch = ensure_torch(projection).to(device)
+                            projection_torch = ensure_torch(projection)
                             result = projection_torch * intensity
                             result = result * self.pixel_size_z * self.pixel_size_y
                             frames[box[0]:box[1], box[2]:box[3]] += result
@@ -531,6 +531,10 @@ class Detector:
         Returns:
             Half-angle of cone opening in radians
         """
+        # Ensure k and source_point are torch tensors
+        k = ensure_torch(k)
+        source_point = ensure_torch(source_point)
+        
         fourth_corner_of_detector = self.det_corner_2 + (
             self.det_corner_1 - self.det_corner_0[:]
         )
@@ -597,7 +601,10 @@ class Detector:
         Returns:
             torch.Tensor: 2D Gaussian kernel of shape (H, W).
         """
-        sigma = ensure_torch(self.gaussian_sigma)
+        # Get device from det_corner_0 to ensure kernel is on same device
+        dev = self.det_corner_0.device
+        
+        sigma = ensure_torch(self.gaussian_sigma).to(dev)
         threshold = self.kernel_threshold
 
         radius = 1
@@ -609,7 +616,7 @@ class Detector:
 
         kernel_size = 2 * radius + 1
 
-        ax = torch.arange(kernel_size, dtype=torch.float64) - radius
+        ax = torch.arange(kernel_size, dtype=torch.float64, device=dev) - radius
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
         kernel /= kernel.sum()
@@ -622,11 +629,14 @@ class Detector:
         Returns:
             Tensor of shape (Z,Y,3) containing pixel coordinates
         """
-        zds = torch.arange(0, self.zmax, self.pixel_size_z)
-        yds = torch.arange(0, self.ymax, self.pixel_size_y)
+        # Get device from det_corner_0 to ensure all tensors are on same device
+        dev = self.det_corner_0.device
+        
+        zds = torch.arange(0, self.zmax, self.pixel_size_z, device=dev)
+        yds = torch.arange(0, self.ymax, self.pixel_size_y, device=dev)
         Z, Y = torch.meshgrid(zds, yds, indexing="ij")
-        Zds = torch.zeros((len(zds), len(yds), 3))
-        Yds = torch.zeros((len(zds), len(yds), 3))
+        Zds = torch.zeros((len(zds), len(yds), 3), device=dev)
+        Yds = torch.zeros((len(zds), len(yds), 3), device=dev)
         for i in range(3):
             Zds[:, :, i] = Z
             Yds[:, :, i] = Y
