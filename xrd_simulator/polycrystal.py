@@ -15,7 +15,6 @@ import torch
 from torch import Tensor
 import dill
 from xfab import tools
-from scipy.spatial import ConvexHull
 
 from xrd_simulator import utils, laue
 from xrd_simulator.scattering_factors import lorentz, polarization, scherrer
@@ -101,11 +100,11 @@ class Polycrystal:
         min_bragg_angle: float = 0,
         max_bragg_angle: float = 90 * np.pi / 180,
         detector: Detector | None = None,
-    ) -> Dict[str, Tensor | list[ConvexHull]]:
+    ) -> Dict[str, Tensor | list]:
         """Compute diffraction from the rotating and translating polycrystal.
 
         Simulates diffraction while the sample is illuminated by an x-ray beam.
-        Returns peaks and optional scattering units that can be rendered on a detector.
+        Returns peaks that can be rendered on a detector.
 
         Args:
             beam: Monochromatic x-ray beam
@@ -119,8 +118,10 @@ class Polycrystal:
             Dictionary containing:
                 - peaks: Tensor of diffraction peaks
                 - columns: Column names for peaks tensor
-                - convex_hulls: List of convex hull objects for large grains
                 - scattered_vectors: K_out vectors for projection
+                - mesh_lab: Mesh for computing convex hulls (if needed)
+                - rigid_body_motion: Motion object (if needed)
+                - beam: Beam object (if needed)
         """
 
         if detector is not None:
@@ -143,39 +144,6 @@ class Polycrystal:
         # Add peak indices as a unique identifier for each peak
         peak_indices = torch.arange(len(peaks), device=peaks.device).unsqueeze(1)
         peaks = torch.cat([peaks, peak_indices], dim=1)  # Add peak_index column (now column 24)
-        
-        # Initialize dictionary for convex hulls
-        convex_hulls = {}
-        
-        # Determine minimum volume from detector if available
-        if detector is not None:
-            # Calculate minimum volume in cubic microns (pixel_size is in microns)
-            min_grain_size =  min(detector.pixel_size_y, detector.pixel_size_z)
-            
-            # Get indices of peaks with volumes larger than pixel volume
-            large_volume_mask = peaks[:, 21] >= min_grain_size
-            
-            # Compute convex hulls only for large grains
-            if torch.any(large_volume_mask):
-                large_volume_peaks = peaks[large_volume_mask]
-                # Get element vertices and transform to diffraction time
-                element_vertices_0 = self.mesh_lab.coord[
-                    self.mesh_lab.enod[large_volume_peaks[:, 0].long()]
-                ]
-                element_vertices = rigid_body_motion(
-                    element_vertices_0, large_volume_peaks[:, 6]
-                )
-                
-                # Compute convex hulls for beam-element intersections
-                # Get peak indices for the large volume peaks
-                peak_ids = large_volume_peaks[:, -1].long()  # last column contains peak_index
-                
-                for i, vertices in enumerate(element_vertices):
-                    scattering_region = beam.intersect(vertices)
-                    if scattering_region is not None:
-                        # Store hull with peak_id as key
-                        peak_id = peak_ids[i].item()
-                        convex_hulls[peak_id] = scattering_region
 
         """
             Column names of peaks are
@@ -219,15 +187,18 @@ class Polycrystal:
             "peak_index"  # Unique identifier for each diffraction peak
         ]
 
-        # Wrap the peaks columns and hull mapping into a dict to preserve information
+        # Wrap the peaks columns into a dict to preserve information
         peaks_dict = {
             "peaks": peaks,
             "columns": column_names,
-            "hull_map": convex_hulls,  # Dictionary mapping peak_index to hull
             "scattered_vectors": peaks[:, 13:16],  # Store K_out vectors needed for projection
             "incident_vector": beam.wave_vector,
             "wavelength": beam.wavelength,
-            "rotation_axis": rigid_body_motion.rotation_axis
+            "rotation_axis": rigid_body_motion.rotation_axis,
+            # Store mesh and motion data for on-demand hull computation
+            "mesh_lab": self.mesh_lab,
+            "rigid_body_motion": rigid_body_motion,
+            "beam": beam
         }
 
         return peaks_dict
@@ -386,51 +357,6 @@ class Polycrystal:
         """
 
         return peaks
-
-    def compute_scattering_units(self, beam, rigid_body_motion, peaks):
-        peaks = ensure_numpy(peaks)
-        beam = beam
-        rigid_body_motion = rigid_body_motion
-        phases = self.phases
-        element_vertices_0 = self.mesh_lab.coord[
-            self.mesh_lab.enod[peaks[:, 0].astype(int)]
-        ]  # For each peak: tet x vertex x coordinate
-        element_vertices = rigid_body_motion(
-            element_vertices_0, peaks[:, 6]
-        )  # vertices and times
-
-        scattering_units = []
-        filtered_peaks = []
-        scattering_volumes = []
-
-        """Compute the true intersection of each tet with the beam to get the true scattering volume."""
-        for ei in range(element_vertices.shape[0]):
-            scattering_region = beam.intersect(element_vertices[ei])
-
-            if scattering_region is not None:
-                scattering_unit = ScatteringUnit(
-                    scattering_region,
-                    peaks[ei, 13:16],  # outgoing wavevector
-                    beam.wave_vector,
-                    beam.wavelength,
-                    beam.polarization_vector,
-                    rigid_body_motion.rotation_axis,
-                    peaks[ei, 6],  # time
-                    phases[peaks[ei, 1].astype(int)],  # phase
-                    list(peaks[ei, 2:5].astype(int)),  # hkl index
-                    ei,
-                )
-                filtered_peaks.append(peaks[ei, :])
-                scattering_units.append(scattering_unit)
-                scattering_volumes.append(scattering_unit.volume)  # Store volume
-
-        filtered_peaks = np.vstack(filtered_peaks)
-        scattering_volumes = np.array(scattering_volumes)[:, np.newaxis]
-
-        # Replace the last column (full tet volumes) with intersection volumes
-        filtered_peaks = np.hstack((filtered_peaks[:, :-1], scattering_volumes))
-
-        return ensure_torch(filtered_peaks), scattering_units
 
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)

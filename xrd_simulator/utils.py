@@ -187,7 +187,7 @@ def _print_progress(progress_fraction, message):
     if progress_fraction == 1.0:
         print("")
 
-def _clip_line_with_convex_polyhedron_torch(
+def _clip_line_with_convex_polyhedron(
     line_points, line_direction, plane_points, plane_normals
 ):
     """Torch-native vectorized clipping for many parallel lines.

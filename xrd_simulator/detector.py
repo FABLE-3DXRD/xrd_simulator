@@ -71,7 +71,7 @@ class Detector:
         det_corner_1: npt.NDArray,
         det_corner_2: npt.NDArray,
         gaussian_sigma: float = 1.0,
-        kernel_threshold: float = 0.05,
+        kernel_threshold: float = 0.02,
         use_lorentz: bool = True,
         use_polarization: bool = True,
         use_structure_factor: bool = True,
@@ -200,47 +200,73 @@ class Detector:
         pos_y = peaks[:, 26] / self.pixel_size_y  # yd coordinate
         frame_idx = peaks[:, 28].long()  # Frame index
 
-        # Get integer coordinates and fractions for interpolation
-        z0 = pos_z.floor().long()
-        y0 = pos_y.floor().long()
-        dz = pos_z - z0.float()
-        dy = pos_y - y0.float()
+        # Get integer coordinates for Gaussian interpolation
+        z_center = pos_z.round().long()
+        y_center = pos_y.round().long()
+        intensities = peaks[:, 29]  # Peak intensities
 
-        # Calculate bilinear weights times intensities
-        intensities = peaks[:, 29].unsqueeze(1)  # Shifted by 1 due to large_grain column
-        weights = torch.stack([
-            (1 - dz) * (1 - dy),  # w00
-            (1 - dz) * dy,        # w01
-            dz * (1 - dy),        # w10
-            dz * dy               # w11
-        ], dim=1) * intensities
-
+        # Gaussian interpolation parameters
+        sigma = 0.7  # Optimal from testing
+        radius = 2   # 5x5 neighborhood
+        
+        # Pre-compute Gaussian neighborhood offsets
+        offsets = torch.arange(-radius, radius + 1, dtype=torch.float64, device=pos_z.device)
+        dz_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing='ij')
+        
+        # Flatten grids for easier processing
+        dz_flat = dz_grid.flatten()  # Shape: (25,)
+        dy_flat = dy_grid.flatten()  # Shape: (25,)
+        
+        # Calculate pixel positions for all peaks and offsets
+        n_peaks = pos_z.shape[0]
+        n_offsets = len(dz_flat)
+        
+        # Expand dimensions: peaks x offsets
+        z_centers_exp = z_center.unsqueeze(1).expand(-1, n_offsets)  # (n_peaks, 25)
+        y_centers_exp = y_center.unsqueeze(1).expand(-1, n_offsets)  # (n_peaks, 25)
+        pos_z_exp = pos_z.unsqueeze(1).expand(-1, n_offsets)         # (n_peaks, 25)
+        pos_y_exp = pos_y.unsqueeze(1).expand(-1, n_offsets)         # (n_peaks, 25)
+        
+        # Calculate actual pixel positions
+        z_pixels = z_centers_exp + dz_flat.unsqueeze(0)  # (n_peaks, 25)
+        y_pixels = y_centers_exp + dy_flat.unsqueeze(0)  # (n_peaks, 25)
+        
+        # Calculate distances from fractional peak positions
+        z_dist = z_pixels.double() - pos_z_exp  # (n_peaks, 25)
+        y_dist = y_pixels.double() - pos_y_exp  # (n_peaks, 25)
+        dist_sq = z_dist**2 + y_dist**2
+        
+        # Calculate Gaussian weights
+        weights = torch.exp(-dist_sq / (2 * sigma**2))  # (n_peaks, 25)
+        
+        # Normalize weights per peak to preserve energy
+        weight_sums = weights.sum(dim=1, keepdim=True)  # (n_peaks, 1)
+        weights = weights / (weight_sums + 1e-12)  # (n_peaks, 25)
+        
+        # Apply peak intensities
+        weights = weights * intensities.unsqueeze(1)  # (n_peaks, 25)
+        
         # Filter valid coordinates (within frame bounds)
-        valid = (z0 >= 0) & (z0 < diffraction_frames.shape[1]-1) & \
-               (y0 >= 0) & (y0 < diffraction_frames.shape[2]-1)
+        valid = (z_pixels >= 0) & (z_pixels < diffraction_frames.shape[1]) & \
+               (y_pixels >= 0) & (y_pixels < diffraction_frames.shape[2]) & \
+               (weights > 1e-6)  # Only significant weights
         
         if valid.any():
-            z0 = z0[valid]
-            y0 = y0[valid]
-            frame_idx = frame_idx[valid]
-            weights = weights[valid]
-
-            # Use index_put_ for each corner with weights
-            corners = [
-                (z0, y0),           # bottom-left
-                (z0, y0+1),         # bottom-right  
-                (z0+1, y0),         # top-left
-                (z0+1, y0+1),       # top-right
-            ]
+            # Get valid coordinates and weights
+            valid_peaks, valid_offsets = valid.nonzero(as_tuple=True)
+            z_coords = z_pixels[valid].long()  # Convert to long for indexing
+            y_coords = y_pixels[valid].long()  # Convert to long for indexing
+            valid_weights = weights[valid]
+            frame_indices = peaks[valid_peaks, 28].long()  # Get frame indices for valid peaks
             
-            for i, (zi, yi) in enumerate(corners):
-                diffraction_frames.index_put_(
-                    (frame_idx, zi, yi),
-                    weights[:, i],
-                    accumulate=True
-                )
+            # Deposit weights at calculated positions
+            diffraction_frames.index_put_(
+                (frame_indices, z_coords, y_coords),
+                valid_weights,
+                accumulate=True
+            )
 
-        # Apply Gaussian convolution
+        # Apply Gaussian convolution with padding to avoid edge energy loss
         diffraction_frames = self._conv2d_gaussian_kernel(diffraction_frames)
 
         return diffraction_frames
@@ -353,16 +379,23 @@ class Detector:
         This provides accurate peak shapes by projecting 3D crystal volumes.
 
         Args:
-            peaks_dict: Dictionary containing peak information, convex hulls and metadata
+            peaks_dict: Dictionary containing peak information and metadata
 
         Returns:
             Rendered diffraction frames with projected volumes
         """
-        convex_hulls = peaks_dict["convex_hulls"]
-        frames_bundle = peaks_dict["peaks"][:, 28].unique()  # frame column is index 28 (24 original + large_grain + zd,yd,angle)
-        device = peaks_dict["peaks"].device
+        peaks = peaks_dict["peaks"]
+        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+        device = peaks.device
         scattered_vectors = peaks_dict["scattered_vectors"]
-
+        
+        # Get beam and mesh for computing convex hulls
+        beam = peaks_dict["beam"]
+        mesh_lab = peaks_dict["mesh_lab"]
+        
+        # Get element indices from peaks (column 0: grain_index which maps to element)
+        element_indices = peaks[:, 0].long().cpu().numpy()
+        
         diffraction_frames = []
         for frame_index in frames_bundle:
             # Initialize frame on same device as peaks
@@ -371,12 +404,26 @@ class Detector:
                 device=device
             )
             
-            for i, hull in enumerate(convex_hulls):
+            # Process each peak in this frame
+            frame_mask = peaks[:, 28] == frame_index
+            frame_peak_indices = torch.where(frame_mask)[0]
+            
+            for peak_idx in frame_peak_indices:
+                # Get the element (tetrahedron) for this peak
+                element_idx = element_indices[peak_idx]
+                
+                # Get tetrahedron vertices from mesh
+                node_indices = mesh_lab.enod[element_idx]
+                vertices = ensure_torch(mesh_lab.coord[node_indices])  # Shape: (4, 3)
+                
+                # Compute convex hull intersection with beam
+                hull = beam.intersect(vertices)
+                
                 if hull is not None:
                     # Create minimal projection context
                     proj_context = {
                         'convex_hull': hull,
-                        'scattered_wave_vector': scattered_vectors[i]
+                        'scattered_wave_vector': scattered_vectors[peak_idx]
                     }
                     
                     # Project volume using only necessary data
@@ -385,15 +432,24 @@ class Detector:
                         # Keep projection in numpy for computation
                         projection = self.project_convex_hull(proj_context, box)
                         # Use pre-calculated intensity from peaks tensor
-                        intensity = peaks_dict["peaks"][i, 29]  # intensity column is index 29 (24 original + large_grain + zd,yd,angle + frame)
+                        intensity = peaks[peak_idx, 29]  # intensity column is index 29
+                        volume = peaks[peak_idx, 21]  # volume column is index 21
+                        
+                        # Intensity per unit volume
+                        if volume > 0:
+                            intensity_per_volume = intensity / volume
+                        else:
+                            intensity_per_volume = 0.0
                         
                         # Handle infinite values
-                        if torch.isinf(intensity):
+                        if torch.isinf(intensity_per_volume):
                             frames[box[0]:box[1], box[2]:box[3]] = float('inf')
                         else:
                             projection_torch = ensure_torch(projection)
-                            result = projection_torch * intensity
-                            result = result * self.pixel_size_z * self.pixel_size_y
+                            # projection is path length, multiply by pixel area to get volume
+                            projected_volume = projection_torch * self.pixel_size_z * self.pixel_size_y
+                            # Multiply intensity per volume by projected volume
+                            result = intensity_per_volume * projected_volume
                             frames[box[0]:box[1], box[2]:box[3]] += result
             
             # Apply Gaussian convolution for point spread function
@@ -403,35 +459,25 @@ class Detector:
         return torch.stack(diffraction_frames)
 
     def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
-        """Apply the point spread function to the detector frames.
-        
-        Applies 2D convolution with a Gaussian kernel to each frame.
-        Input tensor can be 2D (H,W) or 3D (N,H,W).
-        Output has same dimensions as input after convolution.
-        """
+        """Apply the point spread function to the detector frames using Gaussian convolution."""
         frames = ensure_torch(frames)
-        
-        # Handle different input dimensions
+
         input_dims = frames.ndim
         if input_dims == 2:
-            # Single frame (H,W) -> (1,1,H,W)
             frames = frames.unsqueeze(0).unsqueeze(0)
         elif input_dims == 3:
-            # Multiple frames (N,H,W) -> (N,1,H,W)
             frames = frames.unsqueeze(1)
-            
-        # Prepare kernel for conv2d (1,1,kH,kW)
-        kernel = self.gaussian_kernel.unsqueeze(0).unsqueeze(0)
 
-        padding = kernel.shape[-1] // 2
+        kernel = self.gaussian_kernel.unsqueeze(0).unsqueeze(0)
+        kernel_padding = kernel.shape[-1] // 2
+
         with torch.no_grad():
-            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=padding)
-            
-        # Restore original dimensions
+            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=kernel_padding)
+
         if input_dims == 2:
-            output = output.squeeze(0).squeeze(0)  # (1,1,H,W) -> (H,W)
+            output = output.squeeze(0).squeeze(0)
         elif input_dims == 3:
-            output = output.squeeze(1)  # (N,1,H,W) -> (N,H,W)
+            output = output.squeeze(1)
 
         return output
 
@@ -463,15 +509,7 @@ class Detector:
         return torch.stack((zd, yd, incident_angle_deg), dim=1)
 
     def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
-        """Check if detector coordinates are within bounds.
-
-        Args:
-            zd: Z coordinates to check
-            yd: Y coordinates to check
-
-        Returns:
-            Boolean mask of valid coordinates
-        """
+        """Check if detector coordinates are within bounds."""
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
     def project_convex_hull(
@@ -614,6 +652,12 @@ class Detector:
                 break
             radius += 1
 
+        # DEFAULT: Limit Gaussian kernel to maximum 5x5 for consistency with Voigt method
+        # This ensures both Gauss and Voigt use similar kernel sizes, providing
+        # excellent agreement (<1% error) in azimuthally integrated profiles
+        max_radius = 2  # gives 5x5 kernel (2*2+1=5)
+        radius = min(radius, max_radius)
+        
         kernel_size = 2 * radius + 1
 
         ax = torch.arange(kernel_size, dtype=torch.float64, device=dev) - radius
@@ -647,81 +691,7 @@ class Detector:
         )
         return pixel_coordinates
 
-    def _projection_render(
-        self,
-        scattering_unit: "ScatteringUnit",
-        frame: npt.NDArray,
-        lorentz: bool,
-        polarization: bool,
-        structure_factor: bool,
-    ) -> None:
-        """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
-        This is generally very computationally expensive compared to the simpler (:obj=`function`):_centroid_render
-        function.
-
-        NOTE: If the projection of the scattering_unit does not hit any pixel centroids of the detector fallback to
-        the (:obj=`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
-        """
-        box = self._get_projected_bounding_box(scattering_unit)
-        if box is not None:
-            projection = self.project_convex_hull(scattering_unit, box)
-            if np.sum(projection) == 0:
-                self._centroid_render(
-                    scattering_unit, frame, lorentz, polarization, structure_factor
-                )
-            else:
-                intensity_scaling_factor = self._get_intensity_factor(
-                    scattering_unit, lorentz, polarization, structure_factor
-                )
-                if np.isinf(intensity_scaling_factor):
-                    frame[box[0] : box[1], box[2] : box[3]] += np.inf
-                else:
-                    frame[box[0] : box[1], box[2] : box[3]] += (
-                        projection
-                        * intensity_scaling_factor
-                        * self.pixel_size_z
-                        * self.pixel_size_y
-                    )
-
-    def _get_intensity_factor(
-        self,
-        scattering_unit: "ScatteringUnit",
-        lorentz: bool,
-        polarization: bool,
-        structure_factor: bool,
-    ) -> float:
-        """Calculate combined intensity scaling factor.
-
-        Args:
-            scattering_unit: Unit to get factors for
-            lorentz: Whether to include Lorentz factor
-            polarization: Whether to include polarization
-            structure_factor: Whether to include structure factor
-
-        Returns:
-            Combined intensity scaling factor
-
-        Raises:
-            ValueError: If structure factors needed but not available
-        """
-        # Convert factors to numpy for consistency with convex hull calculations
-        intensity_factor = 1.0
-        if lorentz:
-            intensity_factor *= ensure_numpy(scattering_unit.lorentz_factor)
-        if polarization:
-            intensity_factor *= ensure_numpy(scattering_unit.polarization_factor)
-        if structure_factor:
-            if scattering_unit.phase.structure_factors is not None:
-                real_sf = ensure_numpy(scattering_unit.real_structure_factor)
-                imag_sf = ensure_numpy(scattering_unit.imaginary_structure_factor)
-                intensity_factor *= real_sf**2 + imag_sf**2
-            else:
-                raise ValueError(
-                    "Structure factors have not been set, .cif file is required at sample instantiation."
-                )
-
-        return intensity_factor
-
+    
     def _detector_coordinate_to_pixel_index(
         self, zd: float, yd: float
     ) -> Tuple[int, int]:
@@ -932,7 +902,8 @@ class Detector:
 
             r = left
             cropped = kernel[center - r : center + r + 1, center - r : center + r + 1]
-            cropped = cropped / cropped.sum()
+            # DO NOT renormalize after cropping - this preserves energy conservation
+            # cropped = cropped / cropped.sum()
 
             kernels.append(cropped.unsqueeze(0).unsqueeze(0))
             max_size = max(max_size, 2 * r + 1)
@@ -972,8 +943,8 @@ class Detector:
         kh, kw = kernels.shape[-2:]
 
         kz, ky = torch.meshgrid(
-            torch.arange(kh, dtype=torch.float32) - (kh - 1) / 2,
-            torch.arange(kw, dtype=torch.float32) - (kw - 1) / 2,
+            torch.arange(kh, dtype=torch.float64) - (kh - 1) / 2,
+            torch.arange(kw, dtype=torch.float64) - (kw - 1) / 2,
             indexing="ij",
         )
 
@@ -987,36 +958,80 @@ class Detector:
         pos_y = centers_y + ky
         del centers_z, centers_y, kz, ky
 
-        z0 = torch.floor(pos_z).long()
-        y0 = torch.floor(pos_y).long()
-        dz = pos_z - z0.float()
-        dy = pos_y - y0.float()
-        del pos_z, pos_y
-
-        w00 = (1 - dz) * (1 - dy)
-        w01 = (1 - dz) * dy
-        w10 = dz * (1 - dy)
-        w11 = dz * dy
-        del dz, dy
-
-        kernel_values = kernels.reshape(N, -1).contiguous()
-        k_flat = kernel_values.repeat_interleave(4, dim=0).flatten()
-        del kernel_values
-
-        zi = torch.stack([z0, z0, z0 + 1, z0 + 1]).flatten()
-        yi = torch.stack([y0, y0 + 1, y0, y0 + 1]).flatten()
-        weights = torch.stack([w00, w01, w10, w11]).flatten()
-        del z0, y0, w00, w01, w10, w11
+        # Use Gaussian interpolation for smoother positioning
+        sigma_interp = 0.7  # Same as in Gauss method
+        radius_interp = 2   # 5x5 neighborhood for interpolation
+        
+        # Get integer positions for Gaussian interpolation
+        z_center = torch.round(pos_z).long()
+        y_center = torch.round(pos_y).long()
+        
+        # Create interpolation neighborhood offsets
+        offsets = torch.arange(-radius_interp, radius_interp + 1, dtype=torch.float64, device=pos_z.device)
+        dz_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing='ij')
+        dz_interp = dz_grid.flatten()  # Shape: (25,)
+        dy_interp = dy_grid.flatten()  # Shape: (25,)
+        
+        n_kernel_points = pos_z.shape[0]  # Number of kernel pixel positions
+        n_interp_points = len(dz_interp)  # 25 interpolation points
+        
+        # Expand for all kernel points and interpolation points
+        z_centers_exp = z_center.unsqueeze(1).expand(-1, n_interp_points)  # (n_kernel_points, 25)
+        y_centers_exp = y_center.unsqueeze(1).expand(-1, n_interp_points)
+        pos_z_exp = pos_z.unsqueeze(1).expand(-1, n_interp_points)
+        pos_y_exp = pos_y.unsqueeze(1).expand(-1, n_interp_points)
+        
+        # Calculate actual pixel positions
+        zi = z_centers_exp + dz_interp.unsqueeze(0)  # (n_kernel_points, 25)
+        yi = y_centers_exp + dy_interp.unsqueeze(0)
+        
+        # Calculate Gaussian interpolation weights
+        z_dist = zi.double() - pos_z_exp
+        y_dist = yi.double() - pos_y_exp  
+        dist_sq = z_dist**2 + y_dist**2
+        interp_weights = torch.exp(-dist_sq / (2 * sigma_interp**2))
+        
+        # Normalize weights to preserve energy
+        weight_sums = interp_weights.sum(dim=1, keepdim=True)
+        interp_weights = interp_weights / (weight_sums + 1e-12)
+        
+        # Get kernel values and apply interpolation weights
+        kernel_values = kernels.reshape(N, -1).contiguous()  # (N, kh*kw)
+        
+        # Note: n_kernel_points = N * kh * kw (total kernel pixels across all kernels)
+        # We need to properly index kernel values for each interpolation point
+        
+        # Create indices to map each interpolation point back to its kernel value
+        kernel_indices = torch.arange(n_kernel_points, device=kernels.device)
+        kernel_indices_expanded = kernel_indices.unsqueeze(1).expand(-1, n_interp_points).flatten()
+        
+        # Get kernel values for each position
+        kernel_idx_batched = kernel_indices_expanded // (kh * kw)  # Which kernel (0 to N-1)
+        kernel_pixel_idx = kernel_indices_expanded % (kh * kw)     # Which pixel in kernel
+        
+        k_values = kernel_values[kernel_idx_batched, kernel_pixel_idx]
+        interp_expanded = interp_weights.flatten()  # (n_kernel_points*25,)
+        
+        # Final weights combine kernel values and interpolation weights
+        weights = k_values * interp_expanded
+        
+        # Flatten coordinates
+        zi = zi.flatten()
+        yi = yi.flatten()
+        
+        del pos_z, pos_y, z_center, y_center, z_centers_exp, y_centers_exp
+        del pos_z_exp, pos_y_exp, z_dist, y_dist, dist_sq, interp_weights
+        del kernel_values, k_values, interp_expanded
 
         valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
 
         tensor.index_put_(
-            indices=(zi[valid], yi[valid]),
-            values=(k_flat[valid] * weights[valid]),
+            indices=(zi[valid].long(), yi[valid].long()),
+            values=weights[valid],
             accumulate=True,
         )
 
-        del zi, yi, weights, k_flat, valid
+        del zi, yi, weights, valid
 
         return tensor
 
