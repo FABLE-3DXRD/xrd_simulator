@@ -486,13 +486,13 @@ class Polycrystal:
 
     def _instantiate_strain(
         self, strain: npt.NDArray | Tensor, mesh: TetraMesh
-    ) -> npt.NDArray:
+    ) -> Tensor:
         """Instantiate the strain using for smart multi shape handling."""
         strain = ensure_torch(strain)
         if strain.shape == (3, 3):
             strain_lab = strain.unsqueeze(0).repeat(mesh.number_of_elements, 1, 1)
         elif strain.shape == (mesh.number_of_elements, 3, 3):
-            strain_lab = np.copy(strain)
+            strain_lab = strain  # Fixed: was np.copy(strain) which returned numpy array
         else:
             raise ValueError("strain input is of incompatible shape")
         return strain_lab
