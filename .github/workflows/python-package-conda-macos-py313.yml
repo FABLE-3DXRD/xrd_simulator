@@ -1,8 +1,6 @@
 name: macos conda-build
 
-on:
-  push:
-    branches: [ main ]
+on: [push]
 
 jobs:
   build-mac:
