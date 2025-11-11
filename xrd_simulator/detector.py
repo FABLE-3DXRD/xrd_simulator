@@ -19,12 +19,10 @@ from scipy.special import wofz
 import numpy as np
 import torch
 import torch.nn.functional as F
-from scipy.spatial import ConvexHull
-from skimage.draw import polygon
 
 from xrd_simulator import utils
 from xrd_simulator.utils import ensure_torch, ensure_numpy
-from xrd_simulator import cuda
+
 
 torch.set_default_dtype(torch.float64)
 

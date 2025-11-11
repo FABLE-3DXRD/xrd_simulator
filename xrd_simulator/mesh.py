@@ -21,7 +21,6 @@ import meshpy.tet as tet
 import meshio
 import torch
 from xrd_simulator import utils, motion
-from xrd_simulator.utils import ensure_torch, ensure_numpy
 
 
 class TetraMesh(object):

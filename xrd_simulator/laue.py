@@ -4,7 +4,7 @@ for the advanced user, access to these functions may be of interest.
 """
 import numpy as np
 import torch
-from xrd_simulator import utils,cuda
+
 torch.set_default_dtype(torch.float64)
 
 def get_G(U, B, G_hkl):
@@ -30,8 +30,6 @@ def get_G(U, B, G_hkl):
         
     return torch.matmul(torch.matmul(U, B), G_hkl.T)
 
-
-
 def get_bragg_angle(G, wavelength):
     """Compute a Bragg angle given a diffraction (scattering) vector.
 
@@ -44,7 +42,6 @@ def get_bragg_angle(G, wavelength):
 
     """
     return np.arcsin(np.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
-
 
 def get_sin_theta_and_norm_G(G, wavelength):
     """Compute a Bragg angle given a diffraction (scattering) vector.

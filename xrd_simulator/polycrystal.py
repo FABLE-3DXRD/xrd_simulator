@@ -24,7 +24,6 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
-from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 

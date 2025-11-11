@@ -68,7 +68,6 @@ else:
         )
 
 import pandas as pd
-from xrd_simulator.cuda import device
 
 
 def set_device(use_gpu=None, verbose=True):

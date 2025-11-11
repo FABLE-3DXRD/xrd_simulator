@@ -21,7 +21,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    python_requires=">=3.9",
+    python_requires=">=3.13",
     install_requires=[
         # Core numeric/scientific
         "numpy>=1.24.0",
@@ -37,6 +37,8 @@ setuptools.setup(
 
         # Visualization
         "matplotlib",
+        "Pillow>=9.0.0",
+        "scikit-image",
 
         # Scientific computing
         "numba",

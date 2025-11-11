@@ -16,7 +16,6 @@ Below follows a detailed description of the RigidBodyMotion class attributes and
 import dill
 import torch
 from xrd_simulator.utils import ensure_torch
-from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 

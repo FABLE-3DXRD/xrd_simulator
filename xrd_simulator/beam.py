@@ -13,7 +13,6 @@ import dill
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
 import torch
-from xrd_simulator import cuda
 
 torch.set_default_dtype(torch.float64)
 from xrd_simulator.utils import ensure_torch, ensure_numpy
