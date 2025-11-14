@@ -6,6 +6,7 @@ This module provides the Polycrystal class which handles:
 - Spatial transformations
 - Crystal orientations and strains
 """
+from __future__ import annotations
 
 from typing import Dict
 import copy

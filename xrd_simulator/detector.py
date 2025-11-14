@@ -14,11 +14,12 @@ Below follows a detailed description of the detector class attributes and functi
 
 from typing import Dict, List, Optional, Tuple, Union, Any
 import numpy.typing as npt
-import dill
-from scipy.special import wofz
+
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+from scipy.special import wofz
 
 from xrd_simulator import utils
 from xrd_simulator.utils import ensure_torch, ensure_numpy
@@ -983,13 +984,19 @@ class Detector:
         gammas = (fwhm_rad * R / self.pixel_size_z) / 2
         sigma = self.gaussian_sigma
 
-        max_gamma = gammas.max()
-        threshold = self.kernel_threshold / 2
+        # Compute a safe scalar max_gamma and determine kernel radius in Python ints
+        max_gamma = float(gammas.max().item()) if gammas.numel() > 0 else 0.0
+        if max_gamma <= 0:
+            max_gamma = 1e-12
+        threshold = float(self.kernel_threshold) / 2.0
 
-        radius = torch.tensor(1.0)
+        sigma_f = float(sigma)
+
+        radius = 1
+        # Use Python numeric computation here to avoid tensor/float mixing
         while True:
-            g_val = torch.exp(-(radius**2) / (2 * sigma**2))
-            l_val = 1 / (1 + (radius / max_gamma) ** 2)
+            g_val = np.exp(-(radius ** 2) / (2 * sigma_f ** 2))
+            l_val = 1.0 / (1.0 + (radius / max_gamma) ** 2)
             if g_val < threshold and l_val < threshold:
                 break
             radius = radius * 2
@@ -1240,4 +1247,3 @@ class Detector:
         print(f"Free:            {info['free_gb']:>8.1f} GB")
         print(f"Utilization:     {info['utilization_percent']:>7.1f}%")
         print("="*60 + "\n")
-

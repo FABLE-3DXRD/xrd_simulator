@@ -60,8 +60,9 @@ examples to get us started on a good flavour.
 
    * The **ScatteringUnit** class has been **deprecated**. The project now uses ``Polycrystal`` objects 
      directly for all diffraction simulations.
-   * **Mesh generation**: The project is transitioning from ``pygalmesh`` to ``meshpy`` for tetrahedral 
-     mesh generation due to lack of Python 3.13 support in pygalmesh.
+    * **Mesh generation**: The project removed ``pygalmesh`` and adopted ``meshpy`` for tetrahedral
+       mesh generation to guarantee compatibility with Python 3.13 and later. This avoids external
+       dependency issues previously required for building ``pygalmesh`` on newer Python versions.
 
 The ``xrd_simulator`` is built around four python objects which reflect a diffraction experiment:
 
@@ -255,14 +256,14 @@ This is meant to work across OS-systems and requires an `Anaconda`_ installation
 
 Anaconda installation (Windows)
 ======================================
-To install with anaconda on windows you must make sure that external dependencies of `pygalmesh`_ are preinstalled
-on your system. Documentation on installing these package `can be found elsewhere.`_
+For Windows installation via Anaconda, no special `pygalmesh` build dependencies are required because
+the project now uses ``meshpy`` which provides prebuilt wheels on common platforms. Installation
+instructions for platform-specific issues can be found in the project docs.
 
 Pip Installation
 ======================================
-Pip installation is possible, however, external dependencies of `pygalmesh`_ must the be preinstalled
-on your system. Installation of these will be OS dependent and documentation
-`can be found elsewhere.`_::
+Pip installation is possible. The project uses ``meshpy`` for mesh generation (rather than ``pygalmesh``),
+so there are fewer external build steps on modern Python versions. Install with::
 
    pip install xrd-simulator
 
@@ -274,15 +275,15 @@ Naturally one may also install from the sources::
    cd xrd_simulator
    python setup.py install
 
-This will then again require the `pygalmesh`_ dependencies to be resolved beforehand.
+This will not require `pygalmesh` build dependencies because ``meshpy`` is used instead.
 
 Credits
 ===============================
-``xrd_simulator`` makes good use of xfab. Mesh generation is transitioning from pygalmesh to meshpy 
-due to lack of Python 3.13 support in pygalmesh. The source code of these repos can be found here:
+``xrd_simulator`` makes good use of xfab. The project removed ``pygalmesh`` and adopted ``meshpy``
+to ensure compatibility with Python 3.13 and newer. The source code of related repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `https://github.com/nschloe/pygalmesh`_ (being phased out in favor of meshpy due to lack of Python 3.13 support)
+* `meshpy`_ (preferred for tetrahedral mesh generation; guarantees Python 3.13+ compatibility)
 
 Citation
 ===============================
@@ -300,11 +301,7 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _Anaconda: https://www.anaconda.com/products/individual
 
-.. _pygalmesh: https://github.com/nschloe/pygalmesh
-
-.. _https://github.com/nschloe/pygalmesh: https://github.com/nschloe/pygalmesh
-
-.. _can be found elsewhere.: https://github.com/nschloe/pygalmesh#installation
+.. _meshpy: https://github.com/inducer/meshpy
 
 .. _scanning-3dxrd: https://doi.org/10.1107/S1600576720001016
 

@@ -7,6 +7,7 @@ for the specified xray beam geometry. Here is a minimal example of how to instan
 
 Below follows a detailed description of the beam class attributes and functions.
 """
+from __future__ import annotations
 
 import numpy as np
 import dill
