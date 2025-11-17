@@ -237,6 +237,43 @@ class _RodriguezRotator(object):
         rotation_matrix = rotation_matrix.permute(2, 0, 1)
 
         return rotation_matrix
+    
+    def get_rotation_matrices(self, rotation_angle):
+        """
+        Compute 3×3 rotation matrices for one or many rotation angles.
+
+        Args:
+            rotation_angle: scalar tensor or shape (N,)
+
+        Returns:
+            If scalar → (3, 3)
+            If N angles → (N, 3, 3)
+        """
+        # Ensure rotation_angle is (..., 1, 1) for broadcasting
+        # rotation_angle: scalar → shape (1,1,1)
+        #                 vector (N,) → shape (N,1,1)
+        rot = rotation_angle[..., None, None]
+
+        # K and K2 are 3×3 tensors — add batch dims for broadcasting
+        K  = self.K[None, :, :]      # (1,3,3)
+        K2 = self.K2[None, :, :]     # (1,3,3)
+
+        # Identity matrix, broadcastable
+        I = torch.eye(3, dtype=self.K.dtype, device=self.K.device)[None, :, :]  # (1,3,3)
+
+        # Rodrigues’ formula
+        sin_term = torch.sin(rot) * K
+        cos_term = (1 - torch.cos(rot)) * K2
+
+        R = I + sin_term + cos_term  # shape: (N,3,3) or (1,3,3)
+
+        # Return correct shape:
+        # if input was scalar → return (3,3)
+        if rotation_angle.ndim == 0:
+            return R[0]
+        else:
+            return R
+
 
     def __call__(self, vectors, rotation_angle):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].

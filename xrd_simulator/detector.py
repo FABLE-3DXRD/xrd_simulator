@@ -14,7 +14,8 @@ Below follows a detailed description of the detector class attributes and functi
 
 from typing import Dict, List, Optional, Tuple, Union, Any
 import numpy.typing as npt
-
+import dill
+from scipy.special import wofz
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -22,7 +23,8 @@ import torch.nn.functional as F
 from scipy.special import wofz
 
 from xrd_simulator import utils
-from xrd_simulator.utils import ensure_torch, ensure_numpy
+from xrd_simulator.utils import ensure_torch, ensure_numpy, peaks_dict_to_dataframe
+
 
 
 torch.set_default_dtype(torch.float64)
@@ -105,9 +107,10 @@ class Detector:
         self,
         peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
         frames_to_render: int = 0,
-        method: str = "centroid",
+        method: str = "gauss"
     ) -> torch.Tensor:
-        """Render diffraction frames using different peak profile methods.
+        """
+        Render diffraction frames using different peak profile methods.
 
         Available methods:
         - 'gauss': Fast Gaussian profiles, ideal for quick analysis and perfect crystals
@@ -127,30 +130,26 @@ class Detector:
         Raises:
             ValueError: If invalid method specified
         """
-        peaks_dict = self._peaks_detector_intersection(peaks_dict, frames_to_render)
 
-        # Report crystallite size statistics
         peaks = peaks_dict["peaks"]
-        crystallite_size = (
-            2.0 * (3 * peaks[:, 21] / (4 * np.pi)) ** (1 / 3) * 1000  # microns to nanometers
-        )
-        q25, q50, q75 = torch.quantile(
-            crystallite_size, torch.tensor([0.25, 0.5, 0.75])
-        )
-        print(
-            f"\nCrystallite size quartiles (nm):"
-            f"\n  25th: {q25:.2f}"
-            f"\n  50th: {q50:.2f}"
-            f"\n  75th: {q75:.2f}"
-            f"\nCrystallite size range: {crystallite_size.min():.2f} - {crystallite_size.max():.2f}"
-        )
+        columns = peaks_dict["columns"]
+        beam = peaks_dict.get("beam", None)
+        lab_mesh = peaks_dict.get("mesh_lab", None)
+        rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
+
+        peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
+
 
         if method == "gauss":
-            diffraction_frames = self._render_gauss_peaks(peaks_dict["peaks"])
+            diffraction_frames = self._render_gauss_peaks(peaks)
         elif method == "voigt":
-            diffraction_frames = self._render_voigt_peaks(peaks_dict["peaks"], crystallite_size)
+            diffraction_frames = self._render_voigt_peaks(peaks)
         elif method == "volumes":
-            diffraction_frames = self._render_projected_volumes(peaks_dict)
+            diffraction_frames = self._render_projected_volumes(peaks,beam,lab_mesh,rigid_body_motion)
+#        elif method == "auto":
+#            diffraction_frames = self._render_voigt_peaks(peaks)
+#            diffraction_frames += self._render_projected_volumes(peaks,beam,lab_mesh,rigid_body_motion)      
+#            diffraction_frames += self._render_gauss_peaks(peaks)     
         else:
             raise ValueError(
                 f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', or 'volumes'"
@@ -158,7 +157,7 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_gauss_peaks(self, peaks: torch.Tensor) -> torch.Tensor:
+    def _render_gauss_peaks(self, peaks) -> torch.Tensor:
         """Render Gaussian peaks onto detector frames using optimized interpolation.
 
         OPTIMIZATION: This method uses σ=1.21 for Gaussian interpolation, which is
@@ -284,7 +283,7 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_voigt_peaks(self, peaks: torch.Tensor, crystallite_size: torch.Tensor) -> torch.Tensor:
+    def _render_voigt_peaks(self, peaks) -> torch.Tensor:
         """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
         
         DEVICE OPTIMIZATION STRATEGY:
@@ -301,9 +300,7 @@ class Detector:
         Parameters
         ----------
         peaks : torch.Tensor
-            Processed peaks tensor with precalculated intensities and frame indices
-        crystallite_size : torch.Tensor
-            Crystallite size in nanometers for batch size calculation
+            Processed peaks tensor with precalculated intensities and fraalculation
 
         Returns
         -------
@@ -334,7 +331,9 @@ class Detector:
             avg_kernel_size = 100 * 100 * 8  # bytes (float64)
             batch_size = max(int((target_memory_usage * 1024**3) / avg_kernel_size), 100)
         else:
-            # CPU fallback: use conservative batch size based on crystallite size
+            # CPU fallback: use conservative batch size based on crysta
+            crystallite_size = (
+            2.0 * (3 * peaks[:, 21] / (4 * np.pi)) ** (1 / 3) * 1000)  # microns to nanometersllite size
             batch_size = max(int(crystallite_size.min() * 100), 100)
         
         print(f"[Voigt Rendering] Batch size: {batch_size} peaks per batch")
@@ -399,10 +398,7 @@ class Detector:
 
         return frames
 
-    def _render_projected_volumes(
-        self,
-        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]]
-    ) -> torch.Tensor:
+    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion) -> torch.Tensor:
         """Render projected volumes onto detector frames using volume projection.
         This provides accurate peak shapes by projecting 3D crystal volumes.
 
@@ -412,19 +408,24 @@ class Detector:
         Returns:
             Rendered diffraction frames with projected volumes
         """
-        peaks = peaks_dict["peaks"]
+
         frames_bundle = peaks[:, 28].unique()  # frame column is index 28
         device = peaks.device
-        scattered_vectors = peaks_dict["scattered_vectors"]
-        
-        # Get beam and mesh for computing convex hulls
-        beam = peaks_dict["beam"]
-        mesh_lab = peaks_dict["mesh_lab"]
+        scattered_vectors = peaks[:, 13:16]
         
         # Get element indices from peaks (column 0: grain_index which maps to element)
         element_indices = peaks[:, 0].long().cpu().numpy()
-        
+        times = peaks[:, 6]
         diffraction_frames = []
+        #Experimental part >>>
+        # Get rotation matrices for each peak
+        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrices(rigid_body_motion.rotation_angle*times)
+        node_indices = mesh_lab.enod[element_indices]
+        vertices = ensure_torch(mesh_lab.coord[node_indices])
+        rotated_vertices = torch.matmul(vertices, rotation_matrices)
+        
+        #End of the experimental part <<<
+
         for frame_index in frames_bundle:
             # Initialize frame on same device as peaks
             frames = torch.zeros(
@@ -437,15 +438,9 @@ class Detector:
             frame_peak_indices = torch.where(frame_mask)[0]
             
             for peak_idx in frame_peak_indices:
-                # Get the element (tetrahedron) for this peak
-                element_idx = element_indices[peak_idx]
-                
-                # Get tetrahedron vertices from mesh
-                node_indices = mesh_lab.enod[element_idx]
-                vertices = ensure_torch(mesh_lab.coord[node_indices])  # Shape: (4, 3)
                 
                 # Compute convex hull intersection with beam
-                hull = beam.intersect(vertices)
+                hull = beam.intersect(rotated_vertices[peak_idx])
                 
                 if hull is not None:
                     # Create minimal projection context
@@ -884,7 +879,8 @@ class Detector:
 
     def _peaks_detector_intersection(
         self,
-        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        peaks: torch.Tensor,
+        columns: list[str],
         frames_to_render: int,
     ) -> Dict[str, Union[torch.Tensor, List[str]]]:
         """
@@ -903,35 +899,28 @@ class Detector:
         dict
             Updated peaks dictionary with intersections and intensity_factors column
         """
-        peaks = peaks_dict["peaks"]
+
 
         zd_yd_angle = self.get_intersection(peaks[:, 13:16], peaks[:, 16:19])
         peaks = torch.cat((peaks, zd_yd_angle), dim=1)
-        peaks_dict["columns"].extend(["zd", "yd", "incident_angle"])
+        columns.extend(["zd", "yd", "incident_angle"])
 
         # Filter peaks by detector bounds
         mask = self.contains(peaks[:, 25], peaks[:, 26])  # Shifted by 1 due to large_grain column
         peaks = peaks[mask]
-        
-        # Filter auxiliary data by same mask if present
-        if "convex_hulls" in peaks_dict:
-            peaks_dict["convex_hulls"] = [h for i, h in enumerate(peaks_dict["convex_hulls"]) if mask[i]]
-        if "scattered_vectors" in peaks_dict:
-            peaks_dict["scattered_vectors"] = peaks_dict["scattered_vectors"][mask]
-
         time = peaks[:, 6].contiguous()
         
         # Handle frame assignment: when frames_to_render==1, assign all to frame 0
         if frames_to_render <= 1:
             frame = torch.zeros((peaks.shape[0], 1), dtype=torch.int64, device=peaks.device)
         else:
-            bins = torch.linspace(0, 1, frames_to_render).contiguous()
+            bins = torch.linspace(0, 1, steps=frames_to_render+1).contiguous()
             frame = torch.bucketize(time, bins).unsqueeze(1) - 1
             # Clamp frame indices to valid range [0, frames_to_render-1]
             frame = torch.clamp(frame, 0, frames_to_render - 1)
         
         peaks = torch.cat((peaks, frame), dim=1)
-        peaks_dict["columns"].append("frame")
+        columns.append("frame")
 
         # Compute intensity factors (scattering strength per unit volume)
         # This is the product of structure, polarization, and Lorentz factors
@@ -945,19 +934,14 @@ class Detector:
 
         intensity_factors = intensity_factors.unsqueeze(1)
         peaks = torch.cat((peaks, intensity_factors), dim=1)
-        peaks_dict["columns"].append("intensity_factors")
+        columns.append("intensity_factors")
 
         # Filter out peaks with infinite or invalid intensity factors (geometrically impossible reflections)
         # These occur when Lorentz factor is infinite (eta near 0° or 180°, or theta near 0°)
         valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
         peaks = peaks[valid_intensity_mask]
-        
-        # Filter auxiliary data by same mask if present
-        if "scattered_vectors" in peaks_dict:
-            peaks_dict["scattered_vectors"] = peaks_dict["scattered_vectors"][valid_intensity_mask]
 
-        peaks_dict["peaks"] = peaks
-        return peaks_dict
+        return peaks, columns
 
     def _voigt_kernel_batch(
         self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor
@@ -984,19 +968,13 @@ class Detector:
         gammas = (fwhm_rad * R / self.pixel_size_z) / 2
         sigma = self.gaussian_sigma
 
-        # Compute a safe scalar max_gamma and determine kernel radius in Python ints
-        max_gamma = float(gammas.max().item()) if gammas.numel() > 0 else 0.0
-        if max_gamma <= 0:
-            max_gamma = 1e-12
-        threshold = float(self.kernel_threshold) / 2.0
+        max_gamma = gammas.max()
+        threshold = self.kernel_threshold / 2
 
-        sigma_f = float(sigma)
-
-        radius = 1
-        # Use Python numeric computation here to avoid tensor/float mixing
+        radius = torch.tensor(1.0)
         while True:
-            g_val = np.exp(-(radius ** 2) / (2 * sigma_f ** 2))
-            l_val = 1.0 / (1.0 + (radius / max_gamma) ** 2)
+            g_val = torch.exp(-(radius**2) / (2 * sigma**2))
+            l_val = 1 / (1 + (radius / max_gamma) ** 2)
             if g_val < threshold and l_val < threshold:
                 break
             radius = radius * 2

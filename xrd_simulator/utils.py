@@ -108,6 +108,62 @@ def set_device(use_gpu=None, verbose=True):
             print("CUDA support not available.")
         return "cpu"
 
+def peaks_dict_to_dataframe(peaks_dict) -> pd.DataFrame:
+    """Convert a peaks dictionary (as returned by ``Polycrystal.diffract``)
+    to a pandas DataFrame.
+
+    The function will move any torch tensors to CPU and convert them to NumPy
+    before building the DataFrame. It expects the dictionary to contain the
+    keys ``'peaks'`` and ``'columns'``. If the number of column names does not
+    match the number of columns in the peaks array the function will try to
+    recover by truncating or extending the column list with generic names.
+
+    Args:
+        peaks_dict (dict): Dictionary containing at least the keys ``'peaks'``
+            and ``'columns'``. ``peaks`` can be a torch.Tensor or a NumPy array.
+
+    Returns:
+        pandas.DataFrame: Dataframe with the peaks data and corresponding column
+        names.
+
+    Raises:
+        ValueError: If the required keys are missing or if conversion fails.
+    """
+    if not isinstance(peaks_dict, dict):
+        raise ValueError("peaks_dict must be a dictionary")
+
+    if "peaks" not in peaks_dict or "columns" not in peaks_dict:
+        raise ValueError("peaks_dict must contain 'peaks' and 'columns' keys")
+
+    peaks = peaks_dict["peaks"]
+    columns = list(peaks_dict["columns"]) if peaks_dict.get("columns") is not None else []
+
+    # Move torch tensor to CPU and convert to numpy
+    try:
+        if torch is not None and isinstance(peaks, torch.Tensor):
+            peaks_np = peaks.detach().cpu().numpy()
+        else:
+            peaks_np = np.array(peaks)
+    except Exception as e:
+        raise ValueError(f"Failed to convert peaks to numpy array: {e}")
+
+    # Ensure 2D shape
+    if peaks_np.ndim == 1:
+        peaks_np = peaks_np.reshape(1, -1)
+
+    ncols = peaks_np.shape[1]
+    if len(columns) != ncols:
+        # If columns shorter than data, extend with generic names
+        if len(columns) < ncols:
+            extra = [f"col_{i}" for i in range(len(columns), ncols)]
+            columns = columns + extra
+        else:
+            # Truncate columns if there are too many names
+            columns = columns[:ncols]
+
+    df = pd.DataFrame(peaks_np, columns=columns)
+    return df
+
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.

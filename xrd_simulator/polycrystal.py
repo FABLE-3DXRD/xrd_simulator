@@ -118,7 +118,6 @@ class Polycrystal:
             Dictionary containing:
                 - peaks: Tensor of diffraction peaks
                 - columns: Column names for peaks tensor
-                - scattered_vectors: K_out vectors for projection
                 - mesh_lab: Mesh for computing convex hulls (if needed)
                 - rigid_body_motion: Motion object (if needed)
                 - beam: Beam object (if needed)
@@ -151,7 +150,7 @@ class Polycrystal:
             1: 'phase_number'       11: 'Gy'        21: 'volumes'
             2: 'h'                  12: 'Gz'        22: '2theta'
             3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
-            4: 'l'                  14: 'K_out_y'   
+            4: 'l'                  14: 'K_out_y'   24: 'peak_index'
             5: 'structure_factors'  15: 'K_out_z'
             6: 'diffraction_times'  16: 'Source_x'
             7: 'G0_x'               17: 'Source_y'      
@@ -191,7 +190,6 @@ class Polycrystal:
         peaks_dict = {
             "peaks": peaks,
             "columns": column_names,
-            "scattered_vectors": peaks[:, 13:16],  # Store K_out vectors needed for projection
             "incident_vector": beam.wave_vector,
             "wavelength": beam.wavelength,
             "rotation_axis": rigid_body_motion.rotation_axis,
