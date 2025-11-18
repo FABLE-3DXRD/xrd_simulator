@@ -48,6 +48,7 @@ setuptools.setup(
 
         # Scientific computing
         "numba",
+        "psutil",
         "xfab",
 
         # I/O and serialization

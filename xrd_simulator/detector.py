@@ -23,8 +23,8 @@ import torch.nn.functional as F
 from scipy.special import wofz
 
 from xrd_simulator import utils
-from xrd_simulator.utils import ensure_torch, ensure_numpy, peaks_dict_to_dataframe
-
+from xrd_simulator.cuda import get_selected_device
+from xrd_simulator.utils import ensure_torch, ensure_numpy, return_device_memory
 
 
 torch.set_default_dtype(torch.float64)
@@ -162,7 +162,7 @@ class Detector:
                 device=peaks.device,
             )
 
-            # Collect contributions (each returns frames_n-length tensors)
+            # Collect contributions (each returns frames_to_render-length tensors)
             contrib_volumes = self._render_projected_volumes(peaks[large_grains_mask], beam, lab_mesh, rigid_body_motion, frames_to_render)
             contrib_gauss = self._render_gauss_peaks(peaks[medium_grains_mask], frames_to_render)
             contrib_voigt = self._render_voigt_peaks(peaks[small_grains_mask], frames_to_render)
@@ -212,21 +212,9 @@ class Detector:
                 device=self.det_corner_0.device,
             )
 
-        pixel_indices = torch.cat(
-            (
-                ((peaks[:, 25]) / self.pixel_size_z).unsqueeze(1),  # Shifted by 1 due to large_grain column
-                ((peaks[:, 26]) / self.pixel_size_y).unsqueeze(1),  # Shifted by 1
-                peaks[:, 28].unsqueeze(1),  # Frame index
-            ),
-            dim=1,
-        ).to(torch.int32)
-
-        # Use frames_to_render for consistent tensor shape
-        frames_n = frames_to_render
-
         diffraction_frames = torch.zeros(
             (
-                frames_n,
+                frames_to_render,
                 self.pixel_coordinates.shape[0],
                 self.pixel_coordinates.shape[1],
             ),
@@ -247,6 +235,8 @@ class Detector:
         volumes = peaks[:, 21]  # Element volumes
         intensities = intensity_factors * volumes  # Total peak intensity
 
+        cuda_selected = get_selected_device() == "cuda"
+
         # Gaussian interpolation parameters (OPTIMIZED for performance)
         # σ=1.21 combines interpolation + convolution into single step
         # Original: σ_interp=0.7 + 2D conv(σ=0.99) → σ_total=√(0.7²+0.99²)=1.21
@@ -259,57 +249,71 @@ class Detector:
         dz_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing='ij')
         
         # Flatten grids for easier processing
-        dz_flat = dz_grid.flatten()  # Shape: (25,)
-        dy_flat = dy_grid.flatten()  # Shape: (25,)
+        dz_flat = dz_grid.flatten().to(torch.int32)  # Shape: (25,)
+        dy_flat = dy_grid.flatten().to(torch.int32)  # Shape: (25,)
         
-        # Calculate pixel positions for all peaks and offsets
+        # Batch peaks to limit intermediate memory usage. Estimate a batch size based
+        # on free VRAM when CUDA is the selected device; otherwise fall back to a default.
+        approx_bytes_per_peak = 25 * (4 + 4 + 4 + 4 + 4)  # rough int/float32 intermediates per offset
+        if cuda_selected:
+            info = utils.get_vram_info()
+            free_bytes = max(info.get("free_gb", 0.0), 0.0) * (1024 ** 3)
+            target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
+            batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
+            # Clamp to reasonable bounds
+            batch_size = max(10_000, min(batch_size, 200_000)) if batch_size > 0 else 50_000
+        else:
+            # CPU path: approximate from available RAM if psutil is present
+            try:
+                import psutil  # type: ignore
+                free_bytes = psutil.virtual_memory().available
+                target_bytes = free_bytes * 0.5
+                batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
+                batch_size = max(10_000, min(batch_size, 200_000)) if batch_size > 0 else 50_000
+            except Exception:
+                batch_size = 50_000
+
         n_peaks = pos_z.shape[0]
-        n_offsets = len(dz_flat)
-        
-        # Expand dimensions: peaks x offsets
-        z_centers_exp = z_center.unsqueeze(1).expand(-1, n_offsets)  # (n_peaks, 25)
-        y_centers_exp = y_center.unsqueeze(1).expand(-1, n_offsets)  # (n_peaks, 25)
-        pos_z_exp = pos_z.unsqueeze(1).expand(-1, n_offsets)         # (n_peaks, 25)
-        pos_y_exp = pos_y.unsqueeze(1).expand(-1, n_offsets)         # (n_peaks, 25)
-        
-        # Calculate actual pixel positions
-        z_pixels = z_centers_exp + dz_flat.unsqueeze(0)  # (n_peaks, 25)
-        y_pixels = y_centers_exp + dy_flat.unsqueeze(0)  # (n_peaks, 25)
-        
-        # Calculate distances from fractional peak positions
-        z_dist = z_pixels.double() - pos_z_exp  # (n_peaks, 25)
-        y_dist = y_pixels.double() - pos_y_exp  # (n_peaks, 25)
-        dist_sq = z_dist**2 + y_dist**2
-        
-        # Calculate Gaussian weights
-        weights = torch.exp(-dist_sq / (2 * sigma**2))  # (n_peaks, 25)
-        
-        # Normalize weights per peak to preserve energy
-        weight_sums = weights.sum(dim=1, keepdim=True)  # (n_peaks, 1)
-        weights = weights / (weight_sums + 1e-12)  # (n_peaks, 25)
-        
-        # Apply peak intensities
-        weights = weights * intensities.unsqueeze(1)  # (n_peaks, 25)
-        
-        # Filter valid coordinates (within frame bounds)
-        valid = (z_pixels >= 0) & (z_pixels < diffraction_frames.shape[1]) & \
-               (y_pixels >= 0) & (y_pixels < diffraction_frames.shape[2]) & \
-               (weights > 1e-6)  # Only significant weights
-        
-        if valid.any():
-            # Get valid coordinates and weights
-            valid_peaks, valid_offsets = valid.nonzero(as_tuple=True)
-            z_coords = z_pixels[valid].long()  # Convert to long for indexing
-            y_coords = y_pixels[valid].long()  # Convert to long for indexing
-            valid_weights = weights[valid]
-            frame_indices = peaks[valid_peaks, 28].long()  # Get frame indices for valid peaks
+        n_batches = (n_peaks + batch_size - 1) // batch_size if batch_size > 0 else 1
+        for batch_idx, start in enumerate(range(0, n_peaks, batch_size)):
+            end = min(start + batch_size, n_peaks)
+            print(f"[Gauss] Batch {batch_idx+1}/{n_batches}: peaks {start}..{end-1}", flush=True)
+
+            z_centers_exp = z_center[start:end].to(torch.int32).unsqueeze(1)  # (chunk, 1)
+            pos_z_exp = pos_z[start:end].float().unsqueeze(1)                 # (chunk, 1)
+            z_pixels = z_centers_exp + dz_flat.unsqueeze(0)  # (chunk, 25)
+            z_dist = z_pixels.float() - pos_z_exp          # (chunk, 25)
+            del z_centers_exp, pos_z_exp
+
+            y_centers_exp = y_center[start:end].to(torch.int32).unsqueeze(1)  # (chunk, 1)
+            pos_y_exp = pos_y[start:end].float().unsqueeze(1)                 # (chunk, 1)
+            y_pixels = y_centers_exp + dy_flat.unsqueeze(0)  # (chunk, 25)
+            y_dist = y_pixels.float() - pos_y_exp          # (chunk, 25)
+            del y_centers_exp, pos_y_exp
+
+            dist_sq = z_dist**2 + y_dist**2
             
-            # Deposit weights at calculated positions
-            diffraction_frames.index_put_(
-                (frame_indices, z_coords, y_coords),
-                valid_weights,
-                accumulate=True
-            )
+            weights = torch.exp(-dist_sq / (2 * sigma**2))  # (chunk, 25)
+            weight_sums = weights.sum(dim=1, keepdim=True)
+            weights = weights / (weight_sums + 1e-12)
+            weights = weights * intensities[start:end].unsqueeze(1)
+            
+            valid = (z_pixels >= 0) & (z_pixels < diffraction_frames.shape[1]) & \
+                   (y_pixels >= 0) & (y_pixels < diffraction_frames.shape[2]) & \
+                   (weights > 1e-6)  # Only significant weights
+            
+            if valid.any():
+                valid_peaks, valid_offsets = valid.nonzero(as_tuple=True)
+                z_coords = z_pixels[valid].long()  # Convert to long for indexing
+                y_coords = y_pixels[valid].long()  # Convert to long for indexing
+                valid_weights = weights[valid]
+                frame_indices = peaks[start:end][valid_peaks, 28].long()  # Frame indices for this batch
+                
+                diffraction_frames.index_put_(
+                    (frame_indices, z_coords, y_coords),
+                    valid_weights,
+                    accumulate=True
+                )
 
         return diffraction_frames
 
@@ -341,11 +345,12 @@ class Detector:
             0-24: Original columns from polycrystal (grain_index through peak_index)
             25: zd (detector x-coordinate in pixels)
             26: yd (detector y-coordinate in pixels)
-            27: incident_angle (in degrees)
-            28: frame (frame index for time-resolved rendering)
-            29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
+        27: incident_angle (in degrees)
+        28: frame (frame index for time-resolved rendering)
+        29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
         """
         frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+        cuda_selected = get_selected_device() == "cuda"
 
                 # Early exit for empty peak list
         if peaks.shape[0] == 0:
@@ -355,36 +360,32 @@ class Detector:
             )
 
 
-        # Intelligent batch size calculation based on available VRAM
-        if torch.cuda.is_available():
-            # Get available GPU memory
-            available_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # GB
-            cached_memory = torch.cuda.memory_reserved(0) / (1024**3)  # GB
-            free_memory = available_memory - cached_memory
-            
-            # Use up to 70% of free memory for batching (leaving margin for kernels and operations)
-            target_memory_usage = free_memory * 0.7
-            
-            # Estimate memory per peak kernel (depends on kernel size)
-            # A typical Voigt kernel might be ~100x100 pixels = 10K floats = ~80KB per peak
-            avg_kernel_size = 100 * 100 * 8  # bytes (float64)
-            batch_size = max(int((target_memory_usage * 1024**3) / avg_kernel_size), 100)
-        else:
-            # CPU fallback: use conservative batch size based on crysta
-            crystallite_size = (
-            2.0 * (3 * peaks[:, 21] / (4 * np.pi)) ** (1 / 3) * 1000)  # microns to nanometersllite size
-            batch_size = max(int(crystallite_size.min() * 100), 100)
-        
+        # Estimate batch size conservatively from available memory and expected kernel footprint
+        report = return_device_memory()
+        available_memory = report["available_gb"]
+        free_memory = report["free_gb"] * 0.7  # Use only 70% of reported free memory
+
+        # Approximate kernel width in pixels from FWHM and detector geometry
+        det_distance = float(torch.linalg.norm(self.det_corner_0).item())
+        pixel_pitch = float(torch.min(self.pixel_size_z, self.pixel_size_y).item())
+        fwhm_px = (peaks[:, 23].clamp(min=1e-6) * det_distance / pixel_pitch).clamp(3.0, 128.0)
+        avg_kernel_area = float((fwhm_px ** 2).mean().item())
+
+        # Rough bytes per peak (float64 kernels + some overhead)
+        bytes_per_peak = max(avg_kernel_area * 8.0 * 2.0, 1024.0)  # *2 for buffers
+        est_batch = int((free_memory * (1024**3)) / bytes_per_peak) if bytes_per_peak > 0 else peaks.shape[0]
+
+        batch_size = max(1, min(est_batch, int(peaks.shape[0]), 5000))
+
         print(f"[Voigt Rendering] Batch size: {batch_size} peaks per batch")
-        if torch.cuda.is_available():
-            print(f"[Voigt Rendering] VRAM: {available_memory:.1f}GB total, {free_memory:.1f}GB free")
+        print(f"[Voigt Rendering] VRAM: {available_memory:.1f}GB total, {report['free_gb']:.1f}GB free")
         
-        frames_n = frames_to_render
+        frames_to_render = frames_to_render
         frames = torch.zeros(
-            (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
+            (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
         )
 
-        for frame_idx in range(frames_n):
+        for frame_idx in range(frames_to_render):
             frame_mask = peaks[:, 28] == frame_idx
             frame_peaks = peaks[frame_mask]
 
@@ -392,7 +393,7 @@ class Detector:
                 continue
 
             print(
-                f"Processing frame {frame_idx+1}/{frames_n} with {len(frame_peaks)} peaks"
+                f"Processing frame {frame_idx+1}/{frames_to_render} with {len(frame_peaks)} peaks"
             )
 
             start_idx = 0
@@ -413,7 +414,7 @@ class Detector:
                 volumes = batch_peaks[:, 21]
                 intensities = intensity_factors * volumes
 
-                if torch.cuda.is_available():
+                if cuda_selected:
                     torch.cuda.empty_cache()
 
                 kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
@@ -423,7 +424,7 @@ class Detector:
                 )
 
                 del kernels
-                if torch.cuda.is_available():
+                if cuda_selected:
                     torch.cuda.empty_cache()
 
                 start_idx = end_idx
@@ -433,7 +434,7 @@ class Detector:
                     f"Frame {frame_idx+1}: {progress}% complete ({batch_count} peaks in batch)"
                 )
 
-            print(f"Completed frame {frame_idx+1}/{frames_n}")
+            print(f"Completed frame {frame_idx+1}/{frames_to_render}")
 
         return frames
 
@@ -464,15 +465,12 @@ class Detector:
         times = peaks[:, 6]
         # Initialize all frames to zeros so we can write directly by frame index
         diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device)
-    # Experimental part >>>
         # Get rotation matrices for each peak
         rotation_matrices = rigid_body_motion.rotator.get_rotation_matrices(rigid_body_motion.rotation_angle*times)
         node_indices = mesh_lab.enod[element_indices]
         vertices = ensure_torch(mesh_lab.coord[node_indices])
         rotated_vertices = torch.matmul(vertices, rotation_matrices)
         
-        #End of the experimental part <<<
-
         for frame_index in frames_bundle:
             # Initialize frame on same device as peaks
             frames = torch.zeros(
@@ -1218,57 +1216,3 @@ class Detector:
         del zi, yi, weights, valid
 
         return tensor
-
-    def get_vram_info(self) -> Dict[str, float]:
-        """Get current VRAM usage information.
-        
-        Returns
-        -------
-        Dict[str, float]
-            Dictionary with keys:
-                - 'total_gb': Total GPU memory in GB
-                - 'allocated_gb': Currently allocated memory in GB
-                - 'reserved_gb': Currently reserved memory in GB
-                - 'free_gb': Free memory available in GB
-                - 'utilization_percent': Percentage of total memory in use
-        """
-        if not torch.cuda.is_available():
-            return {
-                'total_gb': 0,
-                'allocated_gb': 0,
-                'reserved_gb': 0,
-                'free_gb': 0,
-                'utilization_percent': 0
-            }
-        
-        device_props = torch.cuda.get_device_properties(0)
-        total_memory = device_props.total_memory / (1024**3)
-        allocated = torch.cuda.memory_allocated(0) / (1024**3)
-        reserved = torch.cuda.memory_reserved(0) / (1024**3)
-        free_memory = total_memory - reserved
-        utilization = (allocated / total_memory) * 100
-        
-        return {
-            'total_gb': total_memory,
-            'allocated_gb': allocated,
-            'reserved_gb': reserved,
-            'free_gb': free_memory,
-            'utilization_percent': utilization
-        }
-    
-    def print_vram_info(self) -> None:
-        """Print formatted VRAM usage information."""
-        info = self.get_vram_info()
-        if info['total_gb'] == 0:
-            print("CUDA not available - running on CPU")
-            return
-        
-        print("\n" + "="*60)
-        print("GPU MEMORY STATUS")
-        print("="*60)
-        print(f"Total VRAM:      {info['total_gb']:>8.1f} GB")
-        print(f"Allocated:       {info['allocated_gb']:>8.1f} GB")
-        print(f"Reserved:        {info['reserved_gb']:>8.1f} GB")
-        print(f"Free:            {info['free_gb']:>8.1f} GB")
-        print(f"Utilization:     {info['utilization_percent']:>7.1f}%")
-        print("="*60 + "\n")

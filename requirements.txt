@@ -13,3 +13,4 @@ pyFAI
 xfab
 meshio
 meshpy
+psutil

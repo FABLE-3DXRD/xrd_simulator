@@ -91,3 +91,8 @@ def configure_device(use_gpu=None, verbose=True):
         torch.set_default_device("cpu")
         device = "cpu"
         return device
+
+
+def get_selected_device() -> str:
+    """Return the currently selected device ('cuda' or 'cpu')."""
+    return device

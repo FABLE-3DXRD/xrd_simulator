@@ -33,80 +33,17 @@ from __future__ import annotations
 import os
 import logging
 from itertools import combinations
+import gc
+from typing import Dict, List
 from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
 import numpy as np
 import sys
 import logging as _logging
-
-# Import torch and the optional local cuda helpers robustly. Some environments
-# (broken pdbpp / fancycompleter installs) can raise unexpected exceptions
-# during the torch import chain which would make importing this package fail
-# at import time. We catch broad exceptions here so the package can be imported
-# and produce a clear warning; code that requires torch will raise later when
-# actually used.
-CUDA_AVAILABLE = False
-try:
-    import torch
-except Exception as _e:  # pragma: no cover - environment dependent
-    torch = None
-    _logging.getLogger(__name__).warning(
-        "Failed to import torch in xrd_simulator.utils: %s. "
-        "If you expect to use GPU/torch features, please fix your torch/pdbpp installation.",
-        _e,
-    )
-else:
-    # Set default dtype used across the package
-    torch.set_default_dtype(torch.float64)
-    try:
-        # local cuda helpers are optional; don't let them break imports
-        import xrd_simulator.cuda  # noqa: F401
-        CUDA_AVAILABLE = True
-    except Exception as _e:  # pragma: no cover - optional dependency may fail
-        _logging.getLogger(__name__).warning(
-            "Could not import xrd_simulator.cuda (continuing without CUDA support): %s", _e
-        )
-
 import pandas as pd
+import torch
 
-
-def set_device(use_gpu=None, verbose=True):
-    """
-    Set the computing device for xrd_simulator.
-    
-    Args:
-        use_gpu (bool, optional): Use GPU if True, CPU if False, auto-detect if None.
-                                   If None, checks the XRD_USE_GPU environment variable.
-        verbose (bool): Print status messages.
-    
-    Returns:
-        str: Device being used ('cuda' or 'cpu')
-    
-    Examples:
-        >>> import xrd_simulator
-        >>> # Force GPU usage
-        >>> xrd_simulator.set_device(use_gpu=True)
-        'cuda'
-        
-        >>> # Force CPU usage
-        >>> xrd_simulator.set_device(use_gpu=False)
-        'cpu'
-        
-        >>> # Auto-detect from environment variable
-        >>> # Set XRD_USE_GPU=true in your shell before running
-        >>> xrd_simulator.set_device()
-        
-        Command line usage:
-        $ XRD_USE_GPU=true python my_script.py
-        $ XRD_USE_GPU=false python my_script.py
-    """
-    try:
-        from xrd_simulator.cuda import configure_device
-        return configure_device(use_gpu=use_gpu, verbose=verbose)
-    except ImportError:
-        if verbose:
-            print("CUDA support not available.")
-        return "cpu"
+from xrd_simulator.cuda import get_selected_device
 
 def peaks_dict_to_dataframe(peaks_dict) -> pd.DataFrame:
     """Convert a peaks dictionary (as returned by ``Polycrystal.diffract``)
@@ -700,8 +637,8 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> 
     elif torch.is_tensor(data):
         return data.to(device=device, dtype=dtype)
     elif isinstance(data, (list, tuple)):
-        return torch.tensor(data, dtype=dtype)
-    return torch.tensor(data, dtype=dtype)
+        return torch.tensor(data, dtype=dtype, device=device)
+    return torch.tensor(data, dtype=dtype, device=device)
 
 
 def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
@@ -734,6 +671,236 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     elif isinstance(data, (list, tuple)):
         return np.array(data, dtype=np.float64)
     return np.array(data, dtype=np.float64)
+
+
+def get_vram_info(device_index: int = 0) -> Dict[str, float]:
+    """Get current VRAM usage information for a CUDA device."""
+    if torch is None:
+        return {
+            "total_gb": 0.0,
+            "allocated_gb": 0.0,
+            "reserved_gb": 0.0,
+            "free_gb": 0.0,
+            "utilization_percent": 0.0,
+        }
+
+    cuda_selected = get_selected_device() == "cuda"
+
+    if not cuda_selected:
+        return {
+            "total_gb": 0.0,
+            "allocated_gb": 0.0,
+            "reserved_gb": 0.0,
+            "free_gb": 0.0,
+            "utilization_percent": 0.0,
+        }
+
+    device_props = torch.cuda.get_device_properties(device_index)
+    total_memory = device_props.total_memory / (1024**3)
+    allocated = torch.cuda.memory_allocated(device_index) / (1024**3)
+    reserved = torch.cuda.memory_reserved(device_index) / (1024**3)
+    free_memory = total_memory - reserved
+    utilization = (allocated / total_memory) * 100 if total_memory else 0.0
+
+    return {
+        "total_gb": total_memory,
+        "allocated_gb": allocated,
+        "reserved_gb": reserved,
+        "free_gb": free_memory,
+        "utilization_percent": utilization,
+    }
+
+
+def print_vram_info(device_index: int = 0) -> None:
+    """Print formatted VRAM usage information."""
+    info = get_vram_info(device_index=device_index)
+    if info["total_gb"] == 0:
+        print("CUDA not available - running on CPU")
+        return
+
+    print("\n" + "=" * 60)
+    print(f"GPU MEMORY STATUS (device {device_index})")
+    print("=" * 60)
+    print(f"Total VRAM:      {info['total_gb']:>8.1f} GB")
+    print(f"Allocated:       {info['allocated_gb']:>8.1f} GB")
+    print(f"Reserved:        {info['reserved_gb']:>8.1f} GB")
+    print(f"Free:            {info['free_gb']:>8.1f} GB")
+    print(f"Utilization:     {info['utilization_percent']:>7.1f}%")
+    print("=" * 60 + "\n")
+
+
+def list_tensor_memory_info(
+    include_cpu: bool = True, include_cuda: bool = True, limit: int | None = 20
+) -> List[Dict[str, object]]:
+    """List tensors currently alive and their memory footprint.
+
+    Args:
+        include_cpu: Whether to include CPU tensors.
+        include_cuda: Whether to include CUDA tensors.
+        limit: Maximum number of entries to return (sorted by size). None for no limit.
+
+    Returns:
+        List of dicts with keys: device, dtype, shape, bytes, requires_grad.
+    """
+    if torch is None:
+        return []
+
+    tensors: List[Dict[str, object]] = []
+    for obj in gc.get_objects():
+        try:
+            if isinstance(obj, torch.Tensor):
+                dev_type = obj.device.type
+                if (dev_type == "cpu" and not include_cpu) or (dev_type == "cuda" and not include_cuda):
+                    continue
+                nbytes = obj.nelement() * obj.element_size()
+                tensors.append(
+                    {
+                        "device": str(obj.device),
+                        "dtype": str(obj.dtype),
+                        "shape": tuple(obj.shape),
+                        "bytes": nbytes,
+                        "requires_grad": bool(getattr(obj, "requires_grad", False)),
+                    }
+                )
+        except Exception:
+            continue
+
+    tensors.sort(key=lambda x: x["bytes"], reverse=True)
+    if limit is not None and limit > 0:
+        tensors = tensors[:limit]
+    return tensors
+
+
+def print_memory_report(
+    device_index: int = 0,
+    include_cpu: bool = True,
+    include_cuda: bool = True,
+    limit: int | None = 20,
+) -> Dict[str, float]:
+    """Print VRAM/CPU tensor usage and list top tensors with names when available."""
+    if torch is None:
+        print("torch not available; no tensors to report.")
+        return {"device": "none", "available_gb": 0.0, "free_gb": 0.0}
+
+    # Inline VRAM summary (CUDA only)
+    cuda_selected = get_selected_device() == "cuda"
+    report = return_device_memory()
+
+    if cuda_selected and include_cuda:
+        device_props = torch.cuda.get_device_properties(device_index)
+        total_memory = device_props.total_memory / (1024**3)
+        allocated = torch.cuda.memory_allocated(device_index) / (1024**3)
+        reserved = torch.cuda.memory_reserved(device_index) / (1024**3)
+        free_memory = total_memory - reserved
+        utilization = (allocated / total_memory) * 100 if total_memory else 0.0
+
+        print("\n" + "=" * 60)
+        print(f"GPU MEMORY STATUS (device {device_index})")
+        print("=" * 60)
+        print(f"Total VRAM:      {total_memory:>8.1f} GB")
+        print(f"Allocated:       {allocated:>8.1f} GB")
+        print(f"Reserved:        {reserved:>8.1f} GB")
+        print(f"Free:            {free_memory:>8.1f} GB")
+        print(f"Utilization:     {utilization:>7.1f}%")
+        print("=" * 60 + "\n")
+    else:
+        print("CUDA not available or excluded; showing CPU tensors only.")
+
+    def _tensor_name(t: torch.Tensor) -> str:
+        # Best-effort to find a referring dict key; may return multiple hits.
+        try:
+            for ref in gc.get_referrers(t):
+                if isinstance(ref, dict):
+                    for k, v in ref.items():
+                        if v is t and isinstance(k, str):
+                            return k
+        except Exception:
+            pass
+        return f"<tensor@{hex(id(t))}>"
+
+    # Collect tensors
+    tensors: List[Dict[str, object]] = []
+    for obj in gc.get_objects():
+        try:
+            if isinstance(obj, torch.Tensor):
+                dev_type = obj.device.type
+                if (dev_type == "cpu" and not include_cpu) or (dev_type == "cuda" and not include_cuda):
+                    continue
+                nbytes = obj.nelement() * obj.element_size()
+                tensors.append(
+                    {
+                        "name": _tensor_name(obj),
+                        "device": str(obj.device),
+                        "dtype": str(obj.dtype),
+                        "shape": tuple(obj.shape),
+                        "bytes": nbytes,
+                        "requires_grad": bool(getattr(obj, "requires_grad", False)),
+                    }
+                )
+        except Exception:
+            continue
+
+    if not tensors:
+        print("No tensors tracked.")
+        return report
+
+    tensors.sort(key=lambda x: x["bytes"], reverse=True)
+    if limit is not None and limit > 0:
+        tensors = tensors[:limit]
+
+    # CPU summary
+    if include_cpu:
+        cpu_bytes = sum(t["bytes"] for t in tensors if "cpu" in t["device"])
+        print(f"CPU tensors: {cpu_bytes / (1024**3):.3f} GB total (top {len([t for t in tensors if 'cpu' in t['device']])} listed)")
+
+    print("Top tensors by size:")
+    for idx, entry in enumerate(tensors, start=1):
+        mb = entry["bytes"] / (1024**2)
+        shape_str = "x".join(str(dim) for dim in entry["shape"])
+        print(
+            f"{idx:>2}. name={entry['name']:<20} device={entry['device']:<8} dtype={entry['dtype']:<12} "
+            f"shape={shape_str:<20} size={mb:>8.1f} MB "
+            f"grad={entry['requires_grad']}"
+        )
+    print()
+
+    return report
+
+
+def return_device_memory() -> Dict[str, float]:
+    """Return available and free memory for the current device (CUDA or CPU)."""
+    if torch is None:
+        return {"device": "none", "available_gb": 0.0, "free_gb": 0.0}
+
+    # Detect active backend
+    backend = get_selected_device()
+    if backend != "cuda":
+        # CPU path
+        try:
+            import psutil  # type: ignore
+            vm = psutil.virtual_memory()
+            return {
+                "device": "cpu",
+                "available_gb": float(vm.total / (1024**3)),
+                "free_gb": float(vm.available / (1024**3)),
+            }
+        except Exception:
+            return {"device": "cpu", "available_gb": 0.0, "free_gb": 0.0}
+
+    # CUDA path: use currently selected device
+    try:
+        device_index = torch.cuda.current_device()
+        device_props = torch.cuda.get_device_properties(device_index)
+        total_memory = device_props.total_memory / (1024**3)
+        reserved = torch.cuda.memory_reserved(device_index) / (1024**3)
+        free = total_memory - reserved
+        return {
+            "device": f"cuda:{device_index}",
+            "available_gb": float(total_memory),
+            "free_gb": float(free),
+        }
+    except Exception:
+        return {"device": f"cuda:{torch.cuda.current_device() if torch.cuda.is_available() else 'unknown'}", "available_gb": 0.0, "free_gb": 0.0}
 
 
 def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
