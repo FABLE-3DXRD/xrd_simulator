@@ -106,8 +106,10 @@ class Detector:
     def render(
         self,
         peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
-        frames_to_render: int = 0,
-        method: str = "gauss"
+        frames_to_render: int = 1,
+        method: str = "gauss",
+        volume_grain_limit = None, #depends on the detector pixel size
+        gauss_grain_limit = 0.1**3 #in cubic microns
     ) -> torch.Tensor:
         """
         Render diffraction frames using different peak profile methods.
@@ -136,28 +138,48 @@ class Detector:
         beam = peaks_dict.get("beam", None)
         lab_mesh = peaks_dict.get("mesh_lab", None)
         rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
+        if frames_to_render < 1:
+            frames_to_render = 1
+            print(f"[Detector.render] frames_to_render < 1, setting to 1")
 
         peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
 
-
-        if method == "gauss":
-            diffraction_frames = self._render_gauss_peaks(peaks)
+        if method == "volumes":
+            diffraction_frames = self._render_projected_volumes(peaks, beam, lab_mesh, rigid_body_motion, frames_to_render)
+        elif method == "gauss":
+            diffraction_frames = self._render_gauss_peaks(peaks, frames_to_render)
         elif method == "voigt":
-            diffraction_frames = self._render_voigt_peaks(peaks)
-        elif method == "volumes":
-            diffraction_frames = self._render_projected_volumes(peaks,beam,lab_mesh,rigid_body_motion)
-#        elif method == "auto":
-#            diffraction_frames = self._render_voigt_peaks(peaks)
-#            diffraction_frames += self._render_projected_volumes(peaks,beam,lab_mesh,rigid_body_motion)      
-#            diffraction_frames += self._render_gauss_peaks(peaks)     
+            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render)
+        elif method == "auto":
+            if volume_grain_limit is None:
+                volume_grain_limit = (min(self.pixel_size_y, self.pixel_size_z))**3
+            large_grains_mask = peaks[:,21] >= volume_grain_limit
+            small_grains_mask = peaks[:,21] < gauss_grain_limit
+            medium_grains_mask = (~large_grains_mask) & (~small_grains_mask)
+
+            diffraction_frames = torch.zeros(
+                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=peaks.device,
+            )
+
+            # Collect contributions (each returns frames_n-length tensors)
+            contrib_volumes = self._render_projected_volumes(peaks[large_grains_mask], beam, lab_mesh, rigid_body_motion, frames_to_render)
+            contrib_gauss = self._render_gauss_peaks(peaks[medium_grains_mask], frames_to_render)
+            contrib_voigt = self._render_voigt_peaks(peaks[small_grains_mask], frames_to_render)
+
+            # Ensure dtype/device matching and add up
+            diffraction_frames = diffraction_frames.to(contrib_voigt.device)
+            diffraction_frames += contrib_voigt
+            diffraction_frames += contrib_volumes
+            diffraction_frames += contrib_gauss
         else:
             raise ValueError(
-                f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', or 'volumes'"
+                f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', 'volumes', or 'auto'"
             )
 
         return diffraction_frames
 
-    def _render_gauss_peaks(self, peaks) -> torch.Tensor:
+    def _render_gauss_peaks(self, peaks, frames_to_render) -> torch.Tensor:
         """Render Gaussian peaks onto detector frames using optimized interpolation.
 
         OPTIMIZATION: This method uses σ=1.21 for Gaussian interpolation, which is
@@ -182,6 +204,14 @@ class Detector:
             28: frame (frame index for time-resolved rendering)
             29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
         """
+
+                # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=self.det_corner_0.device,
+            )
+
         pixel_indices = torch.cat(
             (
                 ((peaks[:, 25]) / self.pixel_size_z).unsqueeze(1),  # Shifted by 1 due to large_grain column
@@ -191,8 +221,8 @@ class Detector:
             dim=1,
         ).to(torch.int32)
 
-        # Use column 28 (frame index) to determine number of frames, not column 27
-        frames_n = int(peaks[:, 28].max().item()) + 1
+        # Use frames_to_render for consistent tensor shape
+        frames_n = frames_to_render
 
         diffraction_frames = torch.zeros(
             (
@@ -283,7 +313,7 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_voigt_peaks(self, peaks) -> torch.Tensor:
+    def _render_voigt_peaks(self, peaks, frames_to_render) -> torch.Tensor:
         """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
         
         DEVICE OPTIMIZATION STRATEGY:
@@ -315,6 +345,15 @@ class Detector:
             28: frame (frame index for time-resolved rendering)
             29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
         """
+        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+
+                # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=self.det_corner_0.device,
+            )
+
 
         # Intelligent batch size calculation based on available VRAM
         if torch.cuda.is_available():
@@ -340,7 +379,7 @@ class Detector:
         if torch.cuda.is_available():
             print(f"[Voigt Rendering] VRAM: {available_memory:.1f}GB total, {free_memory:.1f}GB free")
         
-        frames_n = int(peaks[:, 28].max() + 1)
+        frames_n = frames_to_render
         frames = torch.zeros(
             (frames_n, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
         )
@@ -398,7 +437,7 @@ class Detector:
 
         return frames
 
-    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion) -> torch.Tensor:
+    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render) -> torch.Tensor:
         """Render projected volumes onto detector frames using volume projection.
         This provides accurate peak shapes by projecting 3D crystal volumes.
 
@@ -408,16 +447,24 @@ class Detector:
         Returns:
             Rendered diffraction frames with projected volumes
         """
-
         frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+
+                # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=self.det_corner_0.device,
+            )
+
         device = peaks.device
         scattered_vectors = peaks[:, 13:16]
         
         # Get element indices from peaks (column 0: grain_index which maps to element)
         element_indices = peaks[:, 0].long().cpu().numpy()
         times = peaks[:, 6]
-        diffraction_frames = []
-        #Experimental part >>>
+        # Initialize all frames to zeros so we can write directly by frame index
+        diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device)
+    # Experimental part >>>
         # Get rotation matrices for each peak
         rotation_matrices = rigid_body_motion.rotator.get_rotation_matrices(rigid_body_motion.rotation_angle*times)
         node_indices = mesh_lab.enod[element_indices]
@@ -470,9 +517,9 @@ class Detector:
             
             # Apply Gaussian convolution for point spread function
             frames = self._conv2d_gaussian_kernel(frames)
-            diffraction_frames.append(frames)
+            diffraction_frames[frame_index.long()] = frames
             
-        return torch.stack(diffraction_frames)
+        return diffraction_frames
 
     def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
         """Apply the point spread function to the detector frames using Gaussian convolution."""
