@@ -227,18 +227,18 @@ class _RodriguezRotator(object):
         self.K = ensure_torch([[0, -rz, ry], [rz, 0, -rx], [-ry, rx, 0]])
         self.K2 = torch.matmul(self.K, self.K)
 
-    def get_rotation_matrix(self, rotation_angle):
-        """Get the rotation matrix for a given rotation angle."""
-        identity_matrix = torch.eye(3, dtype=self.K.dtype).unsqueeze(2)
-        sin_term = torch.sin(rotation_angle) * self.K.unsqueeze(2)
-        cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
+    # def get_rotation_matrix(self, rotation_angle):
+    #     """Get the rotation matrix for a given rotation angle."""
+    #     identity_matrix = torch.eye(3, dtype=self.K.dtype).unsqueeze(2)
+    #     sin_term = torch.sin(rotation_angle) * self.K.unsqueeze(2)
+    #     cos_term = (1 - torch.cos(rotation_angle)) * self.K2.unsqueeze(2)
 
-        rotation_matrix = identity_matrix + sin_term + cos_term
-        rotation_matrix = rotation_matrix.permute(2, 0, 1)
+    #     rotation_matrix = identity_matrix + sin_term + cos_term
+    #     rotation_matrix = rotation_matrix.permute(2, 0, 1)
 
-        return rotation_matrix
+    #     return rotation_matrix
     
-    def get_rotation_matrices(self, rotation_angle):
+    def get_rotation_matrix(self, rotation_angle):
         """
         Compute 3×3 rotation matrices for one or many rotation angles.
 

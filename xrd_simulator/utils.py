@@ -45,61 +45,45 @@ import torch
 
 from xrd_simulator.cuda import get_selected_device
 
+import numpy as np
+import pandas as pd
+import torch
+
+
 def peaks_dict_to_dataframe(peaks_dict) -> pd.DataFrame:
-    """Convert a peaks dictionary (as returned by ``Polycrystal.diffract``)
-    to a pandas DataFrame.
-
-    The function will move any torch tensors to CPU and convert them to NumPy
-    before building the DataFrame. It expects the dictionary to contain the
-    keys ``'peaks'`` and ``'columns'``. If the number of column names does not
-    match the number of columns in the peaks array the function will try to
-    recover by truncating or extending the column list with generic names.
-
-    Args:
-        peaks_dict (dict): Dictionary containing at least the keys ``'peaks'``
-            and ``'columns'``. ``peaks`` can be a torch.Tensor or a NumPy array.
-
-    Returns:
-        pandas.DataFrame: Dataframe with the peaks data and corresponding column
-        names.
-
-    Raises:
-        ValueError: If the required keys are missing or if conversion fails.
     """
+    Convert a peaks dictionary (from Polycrystal.diffract) into a DataFrame.
+    Handles torch tensors, numpy arrays, and fixes mismatched column lists.
+    """
+
+    # --- Validate structure ---
     if not isinstance(peaks_dict, dict):
         raise ValueError("peaks_dict must be a dictionary")
 
-    if "peaks" not in peaks_dict or "columns" not in peaks_dict:
+    try:
+        peaks = peaks_dict["peaks"]
+        columns = list(peaks_dict.get("columns", []))
+    except KeyError:
         raise ValueError("peaks_dict must contain 'peaks' and 'columns' keys")
 
-    peaks = peaks_dict["peaks"]
-    columns = list(peaks_dict["columns"]) if peaks_dict.get("columns") is not None else []
+    # --- Convert peaks to NumPy ---
+    if isinstance(peaks, torch.Tensor):
+        peaks_np = peaks.detach().cpu().numpy()
+    else:
+        peaks_np = np.asarray(peaks)
 
-    # Move torch tensor to CPU and convert to numpy
-    try:
-        if torch is not None and isinstance(peaks, torch.Tensor):
-            peaks_np = peaks.detach().cpu().numpy()
-        else:
-            peaks_np = np.array(peaks)
-    except Exception as e:
-        raise ValueError(f"Failed to convert peaks to numpy array: {e}")
-
-    # Ensure 2D shape
+    # Ensure 2D
     if peaks_np.ndim == 1:
         peaks_np = peaks_np.reshape(1, -1)
 
     ncols = peaks_np.shape[1]
-    if len(columns) != ncols:
-        # If columns shorter than data, extend with generic names
-        if len(columns) < ncols:
-            extra = [f"col_{i}" for i in range(len(columns), ncols)]
-            columns = columns + extra
-        else:
-            # Truncate columns if there are too many names
-            columns = columns[:ncols]
 
-    df = pd.DataFrame(peaks_np, columns=columns)
-    return df
+    # --- Fix column count automatically ---
+    if len(columns) != ncols:
+        columns = (columns[:ncols] +           # truncate too-long list
+                   [f"col_{i}" for i in range(len(columns), ncols)])  # pad if too short
+
+    return pd.DataFrame(peaks_np, columns=columns)
 
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
@@ -299,34 +283,6 @@ def _get_circumscribed_sphere_centroid(subset_of_points):
     B = (subset_of_points[0] - subset_of_points[1:]).T
     x = np.linalg.solve(A.dot(B), b - A.dot(subset_of_points[0]))
     return subset_of_points[0] + B.dot(x)
-
-
-def _get_bounding_ball(points):
-    """Compute a minimal bounding ball for a set of euclidean points.
-
-    This is a naive implementation that checks all possible minimal bounding balls
-    by constructing spheres that have increasingly higher number of points from the
-    point set exactly at their surface. For extremely low dimensional problems
-    (such as tetrahedrons in a mesh) this has been found to be more efficient than
-    more standard methods, such as the Emo Welzl 1991 algorithm. For larger point sets
-    however, the method quickly becomes slow.
-
-    Args:
-        points (:obj:`numpy array`): Points to be wrapped by sphere ``shape=(n,3)``
-
-    Returns:
-        (:obj:`tuple` of :obj:`numpy array` and :obj:`float`) ``centroid`` and ``radius``.
-
-    """
-    radius, centroids = [], []
-    for k in range(2, 5):
-        for subset_of_points in combinations(points, k):
-            centroids.append(
-                _get_circumscribed_sphere_centroid(np.array(subset_of_points))
-            )
-            radius.append(np.max(np.linalg.norm(points - centroids[-1], axis=1)))
-    index = np.argmin(radius)
-    return centroids[index], radius[index]
 
 
 def _set_xfab_logging(disabled):
@@ -561,39 +517,6 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     return centers, radii * 1.0001  # because loss of floating point precision
 
 
-def sizeof_fmt(num, suffix="B"):
-    """by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified"""
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
-            return "%3.1f %s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f %s%s" % (num, "Yi", suffix)
-
-
-def list_vars(vars):
-    """
-    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in list(vars.items())), key= lambda x: -x[1])[:10]:
-        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))"""
-    print("===================================================")
-    # Get CPU variable sizes
-    var_sizes = sorted(
-        ((name, sys.getsizeof(value)) for name, value in vars.items()),
-        key=lambda x: -x[1],
-    )
-    for name, size in var_sizes[:10]:
-        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
-
-    # Get GPU variable sizes
-    gpu_var_sizes = []
-    for name, value in vars.items():
-        if torch.is_tensor(value):
-            gpu_var_sizes.append((name, value.nbytes))
-
-    gpu_var_sizes = sorted(gpu_var_sizes, key=lambda x: -x[1])
-    for name, size in gpu_var_sizes[:10]:
-        print("{:>30} (GPU): {:>8}".format(name, sizeof_fmt(size)))
-    print("===================================================")
-
 
 def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> torch.Tensor:
     """Convert input to torch tensor if it isn't already.
@@ -672,110 +595,11 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
         return np.array(data, dtype=np.float64)
     return np.array(data, dtype=np.float64)
 
-
-def get_vram_info(device_index: int = 0) -> Dict[str, float]:
-    """Get current VRAM usage information for a CUDA device."""
-    if torch is None:
-        return {
-            "total_gb": 0.0,
-            "allocated_gb": 0.0,
-            "reserved_gb": 0.0,
-            "free_gb": 0.0,
-            "utilization_percent": 0.0,
-        }
-
-    cuda_selected = get_selected_device() == "cuda"
-
-    if not cuda_selected:
-        return {
-            "total_gb": 0.0,
-            "allocated_gb": 0.0,
-            "reserved_gb": 0.0,
-            "free_gb": 0.0,
-            "utilization_percent": 0.0,
-        }
-
-    device_props = torch.cuda.get_device_properties(device_index)
-    total_memory = device_props.total_memory / (1024**3)
-    allocated = torch.cuda.memory_allocated(device_index) / (1024**3)
-    reserved = torch.cuda.memory_reserved(device_index) / (1024**3)
-    free_memory = total_memory - reserved
-    utilization = (allocated / total_memory) * 100 if total_memory else 0.0
-
-    return {
-        "total_gb": total_memory,
-        "allocated_gb": allocated,
-        "reserved_gb": reserved,
-        "free_gb": free_memory,
-        "utilization_percent": utilization,
-    }
-
-
-def print_vram_info(device_index: int = 0) -> None:
-    """Print formatted VRAM usage information."""
-    info = get_vram_info(device_index=device_index)
-    if info["total_gb"] == 0:
-        print("CUDA not available - running on CPU")
-        return
-
-    print("\n" + "=" * 60)
-    print(f"GPU MEMORY STATUS (device {device_index})")
-    print("=" * 60)
-    print(f"Total VRAM:      {info['total_gb']:>8.1f} GB")
-    print(f"Allocated:       {info['allocated_gb']:>8.1f} GB")
-    print(f"Reserved:        {info['reserved_gb']:>8.1f} GB")
-    print(f"Free:            {info['free_gb']:>8.1f} GB")
-    print(f"Utilization:     {info['utilization_percent']:>7.1f}%")
-    print("=" * 60 + "\n")
-
-
-def list_tensor_memory_info(
-    include_cpu: bool = True, include_cuda: bool = True, limit: int | None = 20
-) -> List[Dict[str, object]]:
-    """List tensors currently alive and their memory footprint.
-
-    Args:
-        include_cpu: Whether to include CPU tensors.
-        include_cuda: Whether to include CUDA tensors.
-        limit: Maximum number of entries to return (sorted by size). None for no limit.
-
-    Returns:
-        List of dicts with keys: device, dtype, shape, bytes, requires_grad.
-    """
-    if torch is None:
-        return []
-
-    tensors: List[Dict[str, object]] = []
-    for obj in gc.get_objects():
-        try:
-            if isinstance(obj, torch.Tensor):
-                dev_type = obj.device.type
-                if (dev_type == "cpu" and not include_cpu) or (dev_type == "cuda" and not include_cuda):
-                    continue
-                nbytes = obj.nelement() * obj.element_size()
-                tensors.append(
-                    {
-                        "device": str(obj.device),
-                        "dtype": str(obj.dtype),
-                        "shape": tuple(obj.shape),
-                        "bytes": nbytes,
-                        "requires_grad": bool(getattr(obj, "requires_grad", False)),
-                    }
-                )
-        except Exception:
-            continue
-
-    tensors.sort(key=lambda x: x["bytes"], reverse=True)
-    if limit is not None and limit > 0:
-        tensors = tensors[:limit]
-    return tensors
-
-
 def print_memory_report(
     device_index: int = 0,
     include_cpu: bool = True,
     include_cuda: bool = True,
-    limit: int | None = 20,
+    limit: int | None = 5,
 ) -> Dict[str, float]:
     """Print VRAM/CPU tensor usage and list top tensors with names when available."""
     if torch is None:
@@ -934,40 +758,3 @@ def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
     volumes = torch.abs(torch.linalg.det(mat)) / 6.0
 
     return volumes
-
-
-def peaks_to_csv(peaks_dict, output_dir=None):
-    """Save peaks data to CSV and print summary.
-
-    Args:
-        peaks_dict: Dictionary containing peaks data and column names
-        output_dir: Optional output directory. If None, uses script directory
-    """
-    column_names = peaks_dict["columns"]
-
-    # Create DataFrame with all columns
-    factors_df = pd.DataFrame(peaks_dict["peaks"], columns=column_names)
-
-    # Print selected columns in table format
-    print("\nScattering Units Factors:")
-    print(f"{'Structure':>12} {'Lorentz':>12} {'Polarization':>12} {'Volume':>12}")
-    print("-" * 50)
-    for _, row in factors_df.iterrows():
-        print(
-            f"{row['structure_factors']:12.5f} {row['lorentz_factors']:12.5f} "
-            f"{row['polarization_factors']:12.5f} {row['volumes']:12.5f}"
-        )
-
-    # Get script directory if no output dir specified
-    if output_dir is None:
-        output_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Create output filename
-    filename = "peaks.csv"
-    csv_path = os.path.join(output_dir, filename)
-
-    # Save full DataFrame to CSV
-    factors_df.to_csv(csv_path, index=False)
-    print(f"\nPeaks data saved to {csv_path}")
-
-    return csv_path

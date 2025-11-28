@@ -26,7 +26,6 @@ from xrd_simulator import utils
 from xrd_simulator.cuda import get_selected_device
 from xrd_simulator.utils import ensure_torch, ensure_numpy, return_device_memory
 
-
 torch.set_default_dtype(torch.float64)
 
 
@@ -109,7 +108,8 @@ class Detector:
         frames_to_render: int = 1,
         method: str = "gauss",
         volume_grain_limit = None, #depends on the detector pixel size
-        gauss_grain_limit = 0.1**3 #in cubic microns
+        gauss_grain_limit = 0.1**3, #in cubic microns
+        render_dtype: torch.dtype | None = None,
     ) -> torch.Tensor:
         """
         Render diffraction frames using different peak profile methods.
@@ -138,6 +138,7 @@ class Detector:
         beam = peaks_dict.get("beam", None)
         lab_mesh = peaks_dict.get("mesh_lab", None)
         rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
+        target_dtype = render_dtype if render_dtype is not None else peaks.dtype
         if frames_to_render < 1:
             frames_to_render = 1
             print(f"[Detector.render] frames_to_render < 1, setting to 1")
@@ -145,11 +146,13 @@ class Detector:
         peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
 
         if method == "volumes":
-            diffraction_frames = self._render_projected_volumes(peaks, beam, lab_mesh, rigid_body_motion, frames_to_render)
+            diffraction_frames = self._render_projected_volumes(
+                peaks, beam, lab_mesh, rigid_body_motion, frames_to_render, target_dtype
+            )
         elif method == "gauss":
-            diffraction_frames = self._render_gauss_peaks(peaks, frames_to_render)
+            diffraction_frames = self._render_gauss_peaks(peaks, frames_to_render, target_dtype)
         elif method == "voigt":
-            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render)
+            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render, target_dtype)
         elif method == "auto":
             if volume_grain_limit is None:
                 volume_grain_limit = (min(self.pixel_size_y, self.pixel_size_z))**3
@@ -163,9 +166,15 @@ class Detector:
             )
 
             # Collect contributions (each returns frames_to_render-length tensors)
-            contrib_volumes = self._render_projected_volumes(peaks[large_grains_mask], beam, lab_mesh, rigid_body_motion, frames_to_render)
-            contrib_gauss = self._render_gauss_peaks(peaks[medium_grains_mask], frames_to_render)
-            contrib_voigt = self._render_voigt_peaks(peaks[small_grains_mask], frames_to_render)
+            contrib_volumes = self._render_projected_volumes(
+                peaks[large_grains_mask], beam, lab_mesh, rigid_body_motion, frames_to_render, target_dtype
+            )
+            contrib_gauss = self._render_gauss_peaks(
+                peaks[medium_grains_mask], frames_to_render, target_dtype
+            )
+            contrib_voigt = self._render_voigt_peaks(
+                peaks[small_grains_mask], frames_to_render, target_dtype
+            )
 
             # Ensure dtype/device matching and add up
             diffraction_frames = diffraction_frames.to(contrib_voigt.device)
@@ -179,7 +188,7 @@ class Detector:
 
         return diffraction_frames
 
-    def _render_gauss_peaks(self, peaks, frames_to_render) -> torch.Tensor:
+    def _render_gauss_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Render Gaussian peaks onto detector frames using optimized interpolation.
 
         OPTIMIZATION: This method uses σ=1.21 for Gaussian interpolation, which is
@@ -205,11 +214,12 @@ class Detector:
             29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
         """
 
-                # Early exit for empty peak list
+        # Early exit for empty peak list
         if peaks.shape[0] == 0:
             return torch.zeros(
                 (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
                 device=self.det_corner_0.device,
+                dtype=render_dtype,
             )
 
         diffraction_frames = torch.zeros(
@@ -218,7 +228,8 @@ class Detector:
                 self.pixel_coordinates.shape[0],
                 self.pixel_coordinates.shape[1],
             ),
-            device=peaks.device
+            device=peaks.device,
+            dtype=render_dtype,
         )
 
         # Get continuous pixel coordinates
@@ -256,8 +267,8 @@ class Detector:
         # on free VRAM when CUDA is the selected device; otherwise fall back to a default.
         approx_bytes_per_peak = 25 * (4 + 4 + 4 + 4 + 4)  # rough int/float32 intermediates per offset
         if cuda_selected:
-            info = utils.get_vram_info()
-            free_bytes = max(info.get("free_gb", 0.0), 0.0) * (1024 ** 3)
+            memory_report = return_device_memory()
+            free_bytes = memory_report.get("free_gb")
             target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
             batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
             # Clamp to reasonable bounds
@@ -311,13 +322,13 @@ class Detector:
                 
                 diffraction_frames.index_put_(
                     (frame_indices, z_coords, y_coords),
-                    valid_weights,
+                    valid_weights.to(render_dtype),
                     accumulate=True
                 )
 
         return diffraction_frames
 
-    def _render_voigt_peaks(self, peaks, frames_to_render) -> torch.Tensor:
+    def _render_voigt_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
         
         DEVICE OPTIMIZATION STRATEGY:
@@ -357,6 +368,7 @@ class Detector:
             return torch.zeros(
                 (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
                 device=self.det_corner_0.device,
+                dtype=render_dtype,
             )
 
 
@@ -378,31 +390,35 @@ class Detector:
         batch_size = max(1, min(est_batch, int(peaks.shape[0]), 5000))
 
         print(f"[Voigt Rendering] Batch size: {batch_size} peaks per batch")
-        print(f"[Voigt Rendering] VRAM: {available_memory:.1f}GB total, {report['free_gb']:.1f}GB free")
+        print(f"[Voigt Rendering] Memory: {available_memory:.1f}GB total, {report['free_gb']:.1f}GB free")
         
         frames_to_render = frames_to_render
         frames = torch.zeros(
-            (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
+            (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+            device=peaks.device,
+            dtype=render_dtype,
         )
+        # Keep Voigt batches small so kernels can be deposited immediately without
+        # building a giant padded tensor in memory.
+        deposit_batch_size = 32
 
         for frame_idx in range(frames_to_render):
             frame_mask = peaks[:, 28] == frame_idx
             frame_peaks = peaks[frame_mask]
+            total_frame_peaks = len(frame_peaks)
 
-            if len(frame_peaks) == 0:
+            if total_frame_peaks == 0:
                 continue
 
-            print(
-                f"Processing frame {frame_idx+1}/{frames_to_render} with {len(frame_peaks)} peaks"
-            )
-
             start_idx = 0
+            total_batches = (total_frame_peaks + batch_size - 1) // batch_size
 
             while start_idx < len(frame_peaks):
 
                 end_idx = min(start_idx + batch_size, len(frame_peaks))
                 batch_peaks = frame_peaks[start_idx:end_idx]
                 batch_count = end_idx - start_idx
+                batch_idx = start_idx // batch_size
 
                 fwhm_rad = batch_peaks[:, 23]
                 incident_angles = batch_peaks[:, 27]
@@ -414,31 +430,49 @@ class Detector:
                 volumes = batch_peaks[:, 21]
                 intensities = intensity_factors * volumes
 
-                if cuda_selected:
-                    torch.cuda.empty_cache()
+                # Stream kernels in small chunks to avoid padding a huge tensor.
+                for mini_start in range(0, batch_count, deposit_batch_size):
+                    mini_end = min(mini_start + deposit_batch_size, batch_count)
+                    mini_slice = slice(mini_start, mini_end)
 
-                kernels = self._voigt_kernel_batch(fwhm_rad, incident_angles)
-                kernels = kernels * intensities.view(-1, 1, 1, 1)
-                frames[frame_idx] = self._deposit_kernels_batch(
-                    frames[frame_idx], kernels, zd, yd
-                )
+                    kernels = self._voigt_kernel_batch(
+                        fwhm_rad[mini_slice], incident_angles[mini_slice]
+                    )
+                    kernels = kernels * intensities[mini_slice].view(-1, 1, 1, 1)
+                    kernels = kernels.to(render_dtype)
+                    frames[frame_idx] = self._deposit_kernels_batch(
+                        frames[frame_idx],
+                        kernels,
+                        zd[mini_slice],
+                        yd[mini_slice],
+                        render_dtype,
+                    )
 
-                del kernels
-                if cuda_selected:
-                    torch.cuda.empty_cache()
+                    deposit_idx = mini_start // deposit_batch_size
+                    total_deposit_batches = (
+                        batch_count + deposit_batch_size - 1
+                    ) // deposit_batch_size
+                    progress_fraction = min(
+                        1.0, (start_idx + mini_end) / max(total_frame_peaks, 1)
+                    )
+                    utils._print_progress(
+                        progress_fraction,
+                        (
+                            f"Batch {batch_idx+1}/{total_batches} "
+                            f"chunk {deposit_idx+1}/{total_deposit_batches} "
+                            f"(frame {frame_idx+1})"
+                        ),
+                    )
+
+                    del kernels
 
                 start_idx = end_idx
-
-                progress = int((start_idx / len(frame_peaks)) * 100)
-                print(
-                    f"Frame {frame_idx+1}: {progress}% complete ({batch_count} peaks in batch)"
-                )
 
             print(f"Completed frame {frame_idx+1}/{frames_to_render}")
 
         return frames
 
-    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render) -> torch.Tensor:
+    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Render projected volumes onto detector frames using volume projection.
         This provides accurate peak shapes by projecting 3D crystal volumes.
 
@@ -455,6 +489,7 @@ class Detector:
             return torch.zeros(
                 (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
                 device=self.det_corner_0.device,
+                dtype=render_dtype,
             )
 
         device = peaks.device
@@ -464,9 +499,9 @@ class Detector:
         element_indices = peaks[:, 0].long().cpu().numpy()
         times = peaks[:, 6]
         # Initialize all frames to zeros so we can write directly by frame index
-        diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device)
+        diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device, dtype=render_dtype)
         # Get rotation matrices for each peak
-        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrices(rigid_body_motion.rotation_angle*times)
+        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrix(rigid_body_motion.rotation_angle*times)
         node_indices = mesh_lab.enod[element_indices]
         vertices = ensure_torch(mesh_lab.coord[node_indices])
         rotated_vertices = torch.matmul(vertices, rotation_matrices)
@@ -475,7 +510,8 @@ class Detector:
             # Initialize frame on same device as peaks
             frames = torch.zeros(
                 (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
-                device=device
+                device=device,
+                dtype=render_dtype,
             )
             
             # Process each peak in this frame
@@ -510,7 +546,7 @@ class Detector:
                             # projection is path length, multiply by pixel area to get volume
                             projected_volume = projection_torch * self.pixel_size_z * self.pixel_size_y
                             # Multiply intensity per volume by projected volume
-                            result = intensity * projected_volume
+                            result = (intensity * projected_volume).to(render_dtype)
                             frames[box[0]:box[1], box[2]:box[3]] += result
             
             # Apply Gaussian convolution for point spread function
@@ -529,7 +565,7 @@ class Detector:
         elif input_dims == 3:
             frames = frames.unsqueeze(1)
 
-        kernel = self.gaussian_kernel.unsqueeze(0).unsqueeze(0)
+        kernel = self.gaussian_kernel.to(frames.dtype).unsqueeze(0).unsqueeze(0)
         kernel_padding = kernel.shape[-1] // 2
 
         with torch.no_grad():
@@ -860,7 +896,6 @@ class Detector:
         )
         return pixel_coordinates
 
-    
     def _detector_coordinate_to_pixel_index(
         self, zd: float, yd: float
     ) -> Tuple[int, int]:
@@ -1096,6 +1131,7 @@ class Detector:
         kernels: torch.Tensor,
         centers_z: torch.Tensor,
         centers_y: torch.Tensor,
+        render_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Deposit multiple kernels onto a tensor using Gaussian interpolation.
         
@@ -1209,7 +1245,7 @@ class Detector:
 
         tensor.index_put_(
             indices=(zi[valid].long(), yi[valid].long()),
-            values=weights[valid],
+            values=weights[valid].to(render_dtype),
             accumulate=True,
         )
 
