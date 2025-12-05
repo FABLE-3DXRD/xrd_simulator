@@ -68,7 +68,7 @@ class RigidBodyMotion:
 
         Args:
             vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)``)
-            time (:obj:`float`): Time to compute for.
+            time (:obj:`float` or :obj:`numpy array`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
 
         Returns:
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
@@ -96,10 +96,10 @@ class RigidBodyMotion:
                 centered_vectors, self.rotation_angle * time
             )
             rotated_vectors = centered_rotated_vectors + origin
-            if isinstance(time, (int, float)):
+            if time.ndim == 0 or (time.ndim == 1 and len(time) == 1):
                 return rotated_vectors + translation * time
 
-            return torch.squeeze(rotated_vectors + translation * time.unsqueeze(-1))
+            return rotated_vectors + translation * time.unsqueeze(-1)
 
         elif len(vectors.shape) == 3:
             translation = self.translation.reshape(1, 3)
@@ -125,7 +125,7 @@ class RigidBodyMotion:
 
         Args:
             vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
-            time (:obj:`float`): Time to compute for.
+            time (:obj:`float` or :obj:`numpy array`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
 
         Returns:
             Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
@@ -279,19 +279,25 @@ class _RodriguezRotator(object):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
 
         Args:
-            vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (``shape=(3,N)``)
-            rotation_angle (:obj:`float`): Radians to rotate vectors around the rotation_axis (positive rotation).
+            vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (``shape=(N,3)`` or ``shape=(3,)`` for single vector)
+            rotation_angle (:obj:`float` or :obj:`numpy array`): Radians to rotate vectors around the rotation_axis (positive rotation). Can be scalar or shape ``(N,)`` for per-vector angles.
 
         Returns:
-            Rotated vectors (:obj:`numpy array`) of ``shape=(3,N)``.
+            Rotated vectors (:obj:`numpy array`) of ``shape=(N,3)`` or ``shape=(3,)`` for single vector.
 
         """
 
         R = self.get_rotation_matrix(rotation_angle)
-        #        vectors = ensure_torch(vectors)
+        vectors = ensure_torch(vectors)
 
         if len(vectors.shape) == 1:
             vectors = vectors[None, :]
-        return torch.squeeze(
-            torch.matmul(R, vectors[:, :, None])
-        )  # Syntax valid for the rotation fo the G vectors from the grains
+        
+        # Handle both scalar and vector rotation_angle cases
+        if rotation_angle.ndim == 0:
+            # Scalar case: R is (3,3), vectors is (N,3) -> output (N,3)
+            return torch.squeeze(torch.matmul(R, vectors[:, :, None]))
+        else:
+            # Vector case: R is (N,3,3), vectors is (N,3) -> output (N,3)
+            # Use bmm: (N,3,3) × (N,3,1) -> (N,3,1) -> squeeze to (N,3)
+            return torch.bmm(R, vectors.unsqueeze(-1)).squeeze(-1)

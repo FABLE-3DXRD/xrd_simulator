@@ -235,7 +235,6 @@ class Detector:
         # Get continuous pixel coordinates
         pos_z = peaks[:, 25] / self.pixel_size_z  # zd coordinate
         pos_y = peaks[:, 26] / self.pixel_size_y  # yd coordinate
-        frame_idx = peaks[:, 28].long()  # Frame index
 
         # Get integer coordinates for Gaussian interpolation
         z_center = pos_z.round().long()
@@ -374,7 +373,6 @@ class Detector:
 
         # Estimate batch size conservatively from available memory and expected kernel footprint
         report = return_device_memory()
-        available_memory = report["available_gb"]
         free_memory = report["free_gb"] * 0.7  # Use only 70% of reported free memory
 
         # Approximate kernel width in pixels from FWHM and detector geometry
@@ -388,9 +386,6 @@ class Detector:
         est_batch = int((free_memory * (1024**3)) / bytes_per_peak) if bytes_per_peak > 0 else peaks.shape[0]
 
         batch_size = max(1, min(est_batch, int(peaks.shape[0]), 5000))
-
-        print(f"[Voigt Rendering] Batch size: {batch_size} peaks per batch")
-        print(f"[Voigt Rendering] Memory: {available_memory:.1f}GB total, {report['free_gb']:.1f}GB free")
         
         frames_to_render = frames_to_render
         frames = torch.zeros(
