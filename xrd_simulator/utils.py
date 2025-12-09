@@ -86,47 +86,7 @@ def peaks_dict_to_dataframe(peaks_dict) -> pd.DataFrame:
     return pd.DataFrame(peaks_np, columns=columns)
 
 
-def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
-    """Compute diffractogram from pixelated diffraction pattern.
 
-    Args:
-        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
-        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
-                 beam centroid line and detector along z-axis.
-        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
-                 beam centroid line and detector along y-axis.
-        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
-            radially around the azimuth)
-
-    Returns:
-        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
-
-    """
-    m, n = diffraction_pattern.shape
-    max_radius = np.max([m, n])
-    bin_centres = np.arange(0, int(max_radius + 1), binsize)
-    histogram = np.zeros((len(bin_centres),))
-    for i in range(m):
-        for j in range(n):
-            radius = np.sqrt((i - det_centre_z) ** 2 + (j - det_centre_y) ** 2)
-            bin_index = np.argmin(np.abs(bin_centres - radius))
-            histogram[bin_index] += diffraction_pattern[i, j]
-    clip_index = len(histogram) - 1
-    for k in range(len(histogram) - 1, 0, -1):
-        if histogram[k] != 0:
-            break
-        else:
-            clip_index = k
-    clip_index = np.min([clip_index + m // 10, len(histogram) - 1])
-    return bin_centres[0:clip_index], histogram[0:clip_index]
-
-
-def _contained_by_intervals(value, intervals):
-    """Assert if a float ``value`` is contained by any of a number of ``intervals``."""
-    for bracket in intervals:
-        if value >= bracket[0] and value <= bracket[1]:
-            return True
-    return False
 
 
 def _cif_open(cif_file):
@@ -206,7 +166,7 @@ def _clip_line_with_convex_polyhedron(
     return torch.where(t_l > t_e + 1e-12, t_l - t_e, 0.0)
 
 
-def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
+def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
     """Generate a unit quarternion by providing spherical angle coordinates on the S3 ball.
 
     Args:
@@ -227,7 +187,7 @@ def alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
     ).T
 
 
-def lab_strain_to_B_matrix(
+def _lab_strain_to_B_matrix(
     strain_tensor: torch.Tensor, crystal_orientation: torch.Tensor, B0: torch.Tensor
 ) -> torch.Tensor:
     """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
@@ -262,27 +222,7 @@ def lab_strain_to_B_matrix(
     return B.squeeze()
 
 
-def _get_circumscribed_sphere_centroid(subset_of_points):
-    """Compute circumscribed_sphere_centroid by solving linear systems of equations
-    enforcing the centorid to be a linear combination of the subset_of_points space.
 
-    The central idea is to substitute the squared radius in the nonlinear quadratic
-    sphere equations and proceed to find a linear system with only the sphere centroid
-    as the unknown.
-
-    Args:
-        subset_of_points (:obj:`numpy array`): Points to circumscribe with a sphere ``shape=(n,3)``
-
-    Returns:
-        (:obj:`numpy array`) with ``centroid`` of``shape=(3,)``
-
-    """
-    A = 2 * (subset_of_points[0] - subset_of_points[1:])
-    pp = np.sum(subset_of_points * subset_of_points, axis=1)
-    b = pp[0] - pp[1:]
-    B = (subset_of_points[0] - subset_of_points[1:]).T
-    x = np.linalg.solve(A.dot(B), b - A.dot(subset_of_points[0]))
-    return subset_of_points[0] + B.dot(x)
 
 
 def _set_xfab_logging(disabled):
@@ -318,23 +258,10 @@ class _verbose_manager(object):
             _set_xfab_logging(disabled=True)
 
 
-def _strain_as_tensor(strain_vector):
-    e11, e12, e13, e22, e23, e33 = strain_vector
-    return np.asarray([[e11, e12, e13], [e12, e22, e23], [e13, e23, e33]], np.float64)
-
-
 def _strain_as_vector(strain_tensor):
     return (
         list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
     )
-
-
-def _b_to_epsilon(B_matrix, B0):
-    """Handle large deformations as opposed to current xfab.tools.b_to_epsilon"""
-    B = np.asarray(B_matrix, np.float64)
-    F = np.dot(B0, np.linalg.inv(B))
-    strain_tensor = 0.5 * (F.T.dot(F) - np.eye(3))  # large deformations
-    return _strain_as_vector(strain_tensor)
 
 
 def _epsilon_to_b(crystal_strain, B0):
@@ -359,6 +286,19 @@ def _epsilon_to_b(crystal_strain, B0):
 
     B = torch.matmul(torch.linalg.inv(F), B0)
     return B
+
+def _b_to_epsilon(B_matrix, B0):
+    """Handle large deformations as opposed to current xfab.tools.b_to_epsilon.
+    
+    Inverse operation of _epsilon_to_b.
+    """
+    B_matrix = ensure_torch(B_matrix)
+    B0 = ensure_torch(B0)
+    
+    F = torch.matmul(B0, torch.linalg.inv(B_matrix))
+    strain_tensor = 0.5 * (torch.matmul(F.T, F) - torch.eye(3))  # large deformations
+    return _strain_as_vector(strain_tensor)
+
 
 
 def _get_misorientations(orientations):
@@ -727,7 +667,7 @@ def return_device_memory() -> Dict[str, float]:
         return {"device": f"cuda:{torch.cuda.current_device() if torch.cuda.is_available() else 'unknown'}", "available_gb": 0.0, "free_gb": 0.0}
 
 
-def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
+def _compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
     """Compute volumes for multiple tetrahedra.
 
     Args:
@@ -758,3 +698,96 @@ def compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
     volumes = torch.abs(torch.linalg.det(mat)) / 6.0
 
     return volumes
+
+
+# ==============================================================================
+# DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+# ==============================================================================
+# The following methods are no longer called anywhere in the codebase.
+# They are kept temporarily for backwards compatibility but will be removed.
+# ==============================================================================
+
+def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
+    """Compute diffractogram from pixelated diffraction pattern.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+
+    Args:
+        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
+        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
+                 beam centroid line and detector along z-axis.
+        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
+                 beam centroid line and detector along y-axis.
+        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
+            radially around the azimuth)
+
+    Returns:
+        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
+
+    """
+    m, n = diffraction_pattern.shape
+    max_radius = np.max([m, n])
+    bin_centres = np.arange(0, int(max_radius + 1), binsize)
+    histogram = np.zeros((len(bin_centres),))
+    for i in range(m):
+        for j in range(n):
+            radius = np.sqrt((i - det_centre_z) ** 2 + (j - det_centre_y) ** 2)
+            bin_index = np.argmin(np.abs(bin_centres - radius))
+            histogram[bin_index] += diffraction_pattern[i, j]
+    clip_index = len(histogram) - 1
+    for k in range(len(histogram) - 1, 0, -1):
+        if histogram[k] != 0:
+            break
+        else:
+            clip_index = k
+    clip_index = np.min([clip_index + m // 10, len(histogram) - 1])
+    return bin_centres[0:clip_index], histogram[0:clip_index]
+
+
+def _contained_by_intervals(value, intervals):
+    """Assert if a float ``value`` is contained by any of a number of ``intervals``.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+    """
+    for bracket in intervals:
+        if value >= bracket[0] and value <= bracket[1]:
+            return True
+    return False
+
+
+def _get_circumscribed_sphere_centroid(subset_of_points):
+    """Compute circumscribed_sphere_centroid by solving linear systems of equations
+    enforcing the centorid to be a linear combination of the subset_of_points space.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+
+    The central idea is to substitute the squared radius in the nonlinear quadratic
+    sphere equations and proceed to find a linear system with only the sphere centroid
+    as the unknown.
+
+    Args:
+        subset_of_points (:obj:`numpy array`): Points to circumscribe with a sphere ``shape=(n,3)``
+
+    Returns:
+        (:obj:`numpy array`) with ``centroid`` of``shape=(3,)``
+
+    """
+    A = 2 * (subset_of_points[0] - subset_of_points[1:])
+    pp = np.sum(subset_of_points * subset_of_points, axis=1)
+    b = pp[0] - pp[1:]
+    B = (subset_of_points[0] - subset_of_points[1:]).T
+    x = np.linalg.solve(A.dot(B), b - A.dot(subset_of_points[0]))
+    return subset_of_points[0] + B.dot(x)
+
+
+def _strain_as_tensor(strain_vector):
+    """Convert strain vector to strain tensor.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+    """
+    e11, e12, e13, e22, e23, e33 = strain_vector
+    return np.asarray([[e11, e12, e13], [e12, e22, e23], [e13, e23, e33]], np.float64)

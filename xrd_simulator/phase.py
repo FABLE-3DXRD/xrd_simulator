@@ -56,7 +56,7 @@ class Phase(object):
         self.structure_factors = None
         self.path_to_cif_file = path_to_cif_file
 
-    def setup_diffracting_planes(
+    def _setup_diffracting_planes(
             self,
             wavelength,
             min_bragg_angle,

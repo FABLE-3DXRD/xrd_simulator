@@ -33,12 +33,12 @@ class Beam:
 
     Attributes:
         vertices (:obj:`torch.Tensor`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-        wavelength (:obj=`float`): Xray wavelength in units of angstrom.
-        wave_vector (:obj=`torch.Tensor`): Beam wavevector with norm 2*pi/wavelength, ``shape=(3,)``
-        polarization_vector (:obj=`torch.Tensor`): Beam linear polarization unit vector ``shape=(3,)``.
+        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
+        wave_vector (:obj:`torch.Tensor`): Beam wavevector with norm 2*pi/wavelength, ``shape=(3,)``
+        polarization_vector (:obj:`torch.Tensor`): Beam linear polarization unit vector ``shape=(3,)``.
             Must be orthogonal to the xray propagation direction.
-        centroid (:obj=`torch.Tensor`): Beam convex hull centroid ``shape=(3,)``
-        halfspaces (:obj=`torch.Tensor`): Beam halfspace equation coefficients ``shape=(N,4)``.
+        centroid (:obj:`torch.Tensor`): Beam convex hull centroid ``shape=(3,)``
+        halfspaces (:obj:`torch.Tensor`): Beam halfspace equation coefficients ``shape=(N,4)``.
             A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
 
     """
@@ -85,7 +85,7 @@ class Beam:
             )
         )
 
-    def contains(self, points):
+    def _contains(self, points):
         """Check if the beam contains a number of point(s).
 
         Args:
@@ -109,11 +109,11 @@ class Beam:
             normal_distances = torch.matmul(normals, points)  # shape (N, n)
             return torch.all(normal_distances + offsets < 0, dim=0)  # shape (n,)
 
-    def intersect(self, vertices: torch.Tensor) -> ConvexHull | None:
+    def _intersect(self, vertices: torch.Tensor) -> ConvexHull | None:
         """Compute the beam intersection with a convex polyhedra.
 
         Args:
-            vertices (:obj=`torch.Tensor`): Vertices of a convex polyhedra with ``shape=(N,3)``.
+            vertices (:obj:`torch.Tensor`): Vertices of a convex polyhedra with ``shape=(N,3)``.
 
         Returns:
             A :class:`scipy.spatial.ConvexHull` object formed from the vertices of the intersection between beam vertices and
@@ -122,7 +122,7 @@ class Beam:
         """
 
         # Batch check all vertices at once for efficiency
-        vertices_contained = self.contains(vertices.T)  # shape (N,)
+        vertices_contained = self._contains(vertices.T)  # shape (N,)
         if torch.all(vertices_contained):
             return ConvexHull(
                 vertices.cpu().numpy()
@@ -136,12 +136,12 @@ class Beam:
         # centroid is contained by the beam, being a potential cheaply computed interior_point.
 
         centroid = torch.mean(vertices, axis=0)
-        if self.contains(centroid):
+        if self._contains(centroid):
             interior_point = centroid
         else:
             trial_points = centroid + (vertices - centroid) * 0.99
 
-            for i, is_contained in enumerate(self.contains(trial_points.T)):
+            for i, is_contained in enumerate(self._contains(trial_points.T)):
                 if is_contained:
                     interior_point = trial_points[i, :].flatten()
                     break
@@ -160,7 +160,7 @@ class Beam:
         """Save the xray beam to disc (via pickling).
 
         Args:
-            path (:obj=`str`): File path at which to save, ending with the desired filename.
+            path (:obj:`str`): File path at which to save, ending with the desired filename.
 
         """
         if not path.endswith(".beam"):
@@ -183,7 +183,7 @@ class Beam:
         """Load the xray beam from disc (via pickling).
 
         Args:
-            path (:obj=`str`): File path at which to load, ending with the desired filename.
+            path (:obj:`str`): File path at which to load, ending with the desired filename.
 
         Returns:
             Beam: Loaded Beam object.
@@ -211,10 +211,10 @@ class Beam:
         """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
 
         Args:
-            halfspaces (:obj=`numpy array`): Halfspace equations, each row holds coefficients of a halfspace (``shape=(N,4)``).
+            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficients of a halfspace (``shape=(N,4)``).
 
         Returns:
-            (:obj=`None`) if no point is found else (:obj=`numpy array`) point.
+            (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
 
         """
         halfspaces = ensure_numpy(halfspaces)
@@ -259,9 +259,9 @@ class Beam:
         selected to always be less than or equal to a rotation stepsize of 1 degree.
 
         Args:
-            sphere_centres (:obj=`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
-            sphere_radius (:obj=`torch.Tensor`): Radius of spheres ``shape=(n,)``.
-            rigid_body_motion (:obj=`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+            sphere_centres (:obj:`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
+            sphere_radius (:obj:`torch.Tensor`): Radius of spheres ``shape=(n,)``.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
 
         Returns:
@@ -301,6 +301,16 @@ class Beam:
 
         return ~not_candidates, sample_times
 
+
+
+
+    # ==============================================================================
+    # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+    # ==============================================================================
+    # The following methods are no longer called anywhere in the codebase.
+    # They are kept temporarily for backwards compatibility but will be removed.
+    # ==============================================================================
+
     def _get_proximity_intervals(
         self,
         sphere_centres: torch.Tensor,
@@ -308,18 +318,21 @@ class Beam:
         rigid_body_motion,
     ) -> list[list[list[float]]]:
         """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are intersecting beam.
+        
+        .. deprecated::
+            This method is no longer used in the codebase and will be removed in a future version.
 
         This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
         set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
 
         Args:
-            sphere_centres (:obj=`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
-            sphere_radius (:obj=`torch.Tensor`): Radius of spheres ``shape=(n,)``.
-            rigid_body_motion (:obj=`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+            sphere_centres (:obj:`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
+            sphere_radius (:obj:`torch.Tensor`): Radius of spheres ``shape=(n,)``.
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
                 polycrystal transformation as a function of time on the domain time=[0,1].
 
         Returns:
-            list: Parametric ranges in which the spheres have an intersection with the beam. [(:obj=`None`)] if no intersection exists in ```time=[0,1]```.
+            list: Parametric ranges in which the spheres have an intersection with the beam. [(:obj:`None`)] if no intersection exists in ```time=[0,1]```.
             The entry at ```[i][j]``` is a list with two floats ```[t_1,t_2]``` and gives the j:th
             intersection interval of sphere number i with the beam.
 

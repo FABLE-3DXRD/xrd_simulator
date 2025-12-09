@@ -7,7 +7,7 @@ import torch
 
 torch.set_default_dtype(torch.float64)
 
-def get_G(U, B, G_hkl):
+def _get_G(U, B, G_hkl):
     """Compute the diffraction vector
 
     .. math::
@@ -30,35 +30,9 @@ def get_G(U, B, G_hkl):
         
     return torch.matmul(torch.matmul(U, B), G_hkl.T)
 
-def get_bragg_angle(G, wavelength):
-    """Compute a Bragg angle given a diffraction (scattering) vector.
 
-    Args:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
-        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
 
-    Returns:
-        Bragg angles (:obj:`float`): in units of radians. (``shape=(n,)``)
-
-    """
-    return np.arcsin(np.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
-
-def get_sin_theta_and_norm_G(G, wavelength):
-    """Compute a Bragg angle given a diffraction (scattering) vector.
-
-    Args:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector.
-        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
-
-    Returns:
-        sin(Bragg angle) (:obj:`float`): in units of radians and ||G||.
-        norm_G (:obj:`float`): Norm of the diffraction vector.
-
-    """
-    normG = np.linalg.norm(G, axis=0)
-    return normG * wavelength / (4 * np.pi), normG
-
-def find_solutions_to_tangens_half_angle_equation(
+def _find_solutions_to_tangens_half_angle_equation(
     G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega):
     """
     Find all solutions, t, to the equation (maximum 2 solutions exist):
@@ -148,3 +122,46 @@ def find_solutions_to_tangens_half_angle_equation(
     G = G_0[grains, planes]
 
     return grains, planes, times, G
+
+
+# ==============================================================================
+# DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+# ==============================================================================
+# The following methods are no longer called anywhere in the codebase.
+# They are kept temporarily for backwards compatibility but will be removed.
+# ==============================================================================
+
+def _get_bragg_angle(G, wavelength):
+    """Compute a Bragg angle given a diffraction (scattering) vector.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+
+    Args:
+        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
+        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
+
+    Returns:
+        Bragg angles (:obj:`float`): in units of radians. (``shape=(n,)``)
+
+    """
+    return np.arcsin(np.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
+
+
+def _get_sin_theta_and_norm_G(G, wavelength):
+    """Compute a Bragg angle given a diffraction (scattering) vector.
+    
+    .. deprecated::
+        This method is no longer used in the codebase and will be removed in a future version.
+
+    Args:
+        G (:obj:`numpy array`): Sample coordinate system diffraction vector.
+        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
+
+    Returns:
+        sin(Bragg angle) (:obj:`float`): in units of radians and ||G||.
+        norm_G (:obj:`float`): Norm of the diffraction vector.
+
+    """
+    normG = np.linalg.norm(G, axis=0)
+    return normG * wavelength / (4 * np.pi), normG

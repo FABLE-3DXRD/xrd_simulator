@@ -4,7 +4,7 @@ import torch
 import numpy as np
 
 
-def lorentz(
+def _lorentz(
     k_in: torch.Tensor, k_out: torch.Tensor, rot_axis: torch.Tensor
 ) -> torch.Tensor | float:
     """Compute the Lorentz intensity factor for all reflections.
@@ -67,7 +67,7 @@ def lorentz(
     return result.squeeze()  # Remove singleton dimensions for single vector input
 
 
-def polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | float:
+def _polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | float:
     """Compute the Polarization intensity factor for all reflections.
 
     This function calculates the polarization factor for X-ray diffraction based on
@@ -107,7 +107,7 @@ def polarization(k_out: torch.Tensor, pol_vec: torch.Tensor) -> torch.Tensor | f
     return 1 - dot_products**2
 
 
-def scherrer(
+def _scherrer(
     volumes: torch.Tensor, two_theta: torch.Tensor, wavelength: float, K: float = 0.9
 ) -> torch.Tensor:
     """Calculate Scherrer peak broadening FWHM.

@@ -349,7 +349,7 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
     A1, A2, A3 = np.meshgrid(alpha_1, alpha_2, alpha_3, indexing="ij")
     A1, A2, A3 = A1.flatten(), A2.flatten(), A3.flatten()
 
-    q = utils.alpha_to_quarternion(A1, A2, A3)
+    q = utils._alpha_to_quarternion(A1, A2, A3)
 
     # Approximate volume ber bin:
     # volume_element = (np.sin(A1)**2) * np.sin(A2) * (dalpha**3)
@@ -377,7 +377,7 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
         a1 = A1[draw] + dalpha * (np.random.rand() - 0.5)
         a2 = A2[draw] + dalpha * (np.random.rand() - 0.5)
         a3 = A3[draw] + dalpha * (np.random.rand() - 0.5)
-        q_pertubated = utils.alpha_to_quarternion(a1, a2, a3)
+        q_pertubated = utils._alpha_to_quarternion(a1, a2, a3)
         rotations.append(Rotation.from_quat(q_pertubated).as_matrix().reshape(3, 3))
 
     return np.array(rotations)

@@ -18,8 +18,8 @@ import dill
 from xfab import tools
 
 from xrd_simulator import utils, laue
-from xrd_simulator.scattering_factors import lorentz, polarization, scherrer
-from xrd_simulator.utils import ensure_torch, ensure_numpy, compute_tetrahedra_volumes
+from xrd_simulator.scattering_factors import _lorentz, _polarization, _scherrerrer
+from xrd_simulator.utils import ensure_torch, ensure_numpy, _compute_tetrahedra_volumes
 from xrd_simulator.beam import Beam
 from xrd_simulator.detector import Detector
 from xrd_simulator.motion import RigidBodyMotion
@@ -70,7 +70,7 @@ class Polycrystal:
 
         # Compute and store mesh volumes during initialization
         element_vertices = mesh.coord[mesh.enod]
-        self.mesh_volumes = compute_tetrahedra_volumes(
+        self.mesh_volumes = utils._compute_tetrahedra_volumes(
             ensure_torch(element_vertices)
         )
 
@@ -129,15 +129,15 @@ class Polycrystal:
             )
 
         for phase in self.phases:
-            phase.setup_diffracting_planes(
+            phase._setup_diffracting_planes(
                 beam.wavelength, min_bragg_angle, max_bragg_angle
             )
 
-        peaks = self.compute_peaks(beam, rigid_body_motion)
+        peaks = self._compute_peaks(beam, rigid_body_motion)
 
         # Filter peaks by beam illumination using source positions
         source_points = peaks[:, 16:19].T  # Get source points (x,y,z) and transpose for contains method
-        illuminated_peaks = beam.contains(source_points)
+        illuminated_peaks = beam._contains(source_points)
         peaks = peaks[illuminated_peaks]
 
         # Add peak indices as a unique identifier for each peak
@@ -201,7 +201,7 @@ class Polycrystal:
 
         return peaks_dict
 
-    def compute_peaks(self, beam, rigid_body_motion):
+    def _compute_peaks(self, beam, rigid_body_motion):
         """
         Compute diffraction for a subset of the polycrystal.
 
@@ -255,12 +255,12 @@ class Polycrystal:
             structure_factors = structure_factors[structure_factors > 1e-6]
 
             # Get all scattering vectors for all scatterers in a given phase
-            G_0 = laue.get_G(
+            G_0 = laue._get_G(
                 orientation_lab[grain_indices], eB[grain_indices], miller_indices
             )
             # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
             grains, planes, times, G0_xyz = (
-                laue.find_solutions_to_tangens_half_angle_equation(
+                laue._find_solutions_to_tangens_half_angle_equation(
                     G_0,
                     rho_0_factor,
                     rho_1_factor,
@@ -307,11 +307,11 @@ class Polycrystal:
         K_out_xyz = Gxyz + beam.wave_vector
 
         # Lorentz factor
-        lorentz_factors = lorentz(
+        lorentz_factors = _lorentz(
             beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis
         )
         # Polarization factor
-        polarization_factors = polarization(K_out_xyz, beam.polarization_vector)
+        polarization_factors = _polarization(K_out_xyz, beam.polarization_vector)
 
         Sources_xyz = rigid_body_motion(
             espherecentroids[peaks[:, 0].int()], peaks[:, 6]
@@ -323,7 +323,7 @@ class Polycrystal:
         k_in = beam.wave_vector / torch.linalg.norm(beam.wave_vector)
         k_out = K_out_xyz / torch.linalg.norm(K_out_xyz, dim=1, keepdim=True)
         two_theta = torch.arccos(torch.sum(k_in * k_out, dim=1))
-        scherrer_fwhm = scherrer(volumes, two_theta, beam.wavelength)
+        scherrer_fwhm = _scherrer(volumes, two_theta, beam.wavelength)
 
         peaks = torch.cat(
             (
@@ -359,10 +359,14 @@ class Polycrystal:
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
 
-                This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
-                such as face normals etc. Likewise, it will update the per element crystal orientation
-                matrices (U) as well as the lab frame description of strain tensors.
-        tt`): Time between [0,1] at which to call the rigid body motion.
+        This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
+        such as face normals etc. Likewise, it will update the per element crystal orientation
+        matrices (U) as well as the lab frame description of strain tensors.
+
+        Args:
+            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
+                polycrystal transformation as a function of time on the domain time=[0,1].
+            time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
 
         """
         self.mesh_lab.update(rigid_body_motion, time)
@@ -380,7 +384,7 @@ class Polycrystal:
 
         Args:
             path (:obj:`str`): File path at which to save, ending with the desired filename.
-            save_mesh_as_xdmf (:obj=`bool`): If true, saves the polycrystal mesh with associated
+            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycrystal mesh with associated
                 strains and crystal orientations as a .xdmf for visualization (sample coordinates).
                 The results can be vizualised with for instance paraview (https://www.paraview.org/).
                 The resulting data fields of the mesh data are the 6 unique components of the strain
@@ -533,7 +537,7 @@ class Polycrystal:
         for i, phase in enumerate(phases):
             B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell))
             grain_indices = torch.where(element_phase_map == i)[0]
-            _eB[grain_indices] = utils.lab_strain_to_B_matrix(
+            _eB[grain_indices] = utils._lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )
 
@@ -552,7 +556,7 @@ class Polycrystal:
         """
 
         # Get points contained by beam
-        points_contained = beam.contains(self.mesh_lab.coord.T)
+        points_contained = beam._contains(self.mesh_lab.coord.T)
         if torch.any(points_contained):
             # Use boolean indexing with torch tensors
             mesh_nodes_contained_by_beam = self.mesh_lab.coord[points_contained]
@@ -560,7 +564,7 @@ class Polycrystal:
         else:
             source_point = ensure_torch(self.mesh_lab.centroid)
         
-        max_bragg_angle = detector.get_wrapping_cone(
+        max_bragg_angle = detector._get_wrapping_cone(
             beam.wave_vector, source_point
         ).item()
 

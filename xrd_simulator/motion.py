@@ -67,11 +67,11 @@ class RigidBodyMotion:
             currently set origin.
 
         Args:
-            vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)``)
-            time (:obj:`float` or :obj:`numpy array`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
+            vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)`` or ``shape=(N,3)`` or ``shape=(1,4,3)``)
+            time (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
+            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)`` or ``shape=(1,4,3)``.
 
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
@@ -124,11 +124,11 @@ class RigidBodyMotion:
             respecting the origin.
 
         Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
-            time (:obj:`float` or :obj:`numpy array`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
+            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)`` or ``shape=(N,3)``)
+            time (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
+            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)``.
 
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
@@ -141,11 +141,11 @@ class RigidBodyMotion:
         NOTE: This function only applies the rigid body translation.
 
         Args:
-            vectors (:obj:`numpy array`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)``)
+            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of points in 3d euclidean space to be translated (``shape=(3,N)`` or ``shape=(N,3)``)
             time (:obj:`float`): Time to compute for.
 
         Returns:
-            Transformed vectors (:obj:`numpy array`) of ``shape=(3,N)``.
+            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)``.
 
         """
         assert (
@@ -279,11 +279,11 @@ class _RodriguezRotator(object):
         """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
 
         Args:
-            vectors (:obj:`numpy array`): A set of vectors in 3d euclidean space to be rotated (``shape=(N,3)`` or ``shape=(3,)`` for single vector)
-            rotation_angle (:obj:`float` or :obj:`numpy array`): Radians to rotate vectors around the rotation_axis (positive rotation). Can be scalar or shape ``(N,)`` for per-vector angles.
+            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of vectors in 3d euclidean space to be rotated (``shape=(N,3)`` or ``shape=(3,)`` for single vector)
+            rotation_angle (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Radians to rotate vectors around the rotation_axis (positive rotation). Can be scalar or shape ``(N,)`` for per-vector angles.
 
         Returns:
-            Rotated vectors (:obj:`numpy array`) of ``shape=(N,3)`` or ``shape=(3,)`` for single vector.
+            Rotated vectors (:obj:`torch.Tensor`) of ``shape=(N,3)`` or ``shape=(3,)`` for single vector.
 
         """
 

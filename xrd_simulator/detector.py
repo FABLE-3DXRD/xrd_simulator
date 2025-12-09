@@ -50,17 +50,17 @@ class Detector:
             The kernel will extend until the Gaussian tail drops below this value. Defaults to 0.05.
 
     Attributes:
-        pixel_size_z (:obj=`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
-        pixel_size_y (:obj=`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        det_corner_0,det_corner_1,det_corner_2 (:obj=`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
+        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
+        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        frames (:obj=`list` of :obj=`list` of :obj=`scattering_unit.ScatteringUnit`): Analytical diffraction frames
-        zdhat,ydhat (:obj=`numpy array`): Detector basis vectors.
-        normal (:obj=`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
-        zmax,ymax (:obj=`numpy array`): Detector width and height.
-        pixel_coordinates  (:obj=`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
-        gaussian_sigma (:obj=`float`): Standard deviation of the Gaussian point spread function.
-        kernel_threshold (:obj=`float`): Threshold value that determines the kernel size.
+        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction frames
+        zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
+        normal (:obj:`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
+        zmax,ymax (:obj:`numpy array`): Detector width and height.
+        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
+        gaussian_sigma (:obj:`float`): Standard deviation of the Gaussian point spread function.
+        kernel_threshold (:obj:`float`): Threshold value that determines the kernel size.
         gaussian_kernel (:obj=`torch.Tensor`): Pre-computed normalized 2D Gaussian kernel.
 
     """
@@ -344,7 +344,7 @@ class Detector:
         Parameters
         ----------
         peaks : torch.Tensor
-            Processed peaks tensor with precalculated intensities and fraalculation
+            Processed peaks tensor with precalculated intensities and frame calculation
 
         Returns
         -------
@@ -516,7 +516,7 @@ class Detector:
             for peak_idx in frame_peak_indices:
                 
                 # Compute convex hull intersection with beam
-                hull = beam.intersect(rotated_vertices[peak_idx])
+                hull = beam._intersect(rotated_vertices[peak_idx])
                 
                 if hull is not None:
                     # Create minimal projection context
@@ -529,7 +529,7 @@ class Detector:
                     box = self._get_projected_bounding_box(proj_context)
                     if box is not None:
                         # Keep projection in numpy for computation
-                        projection = self.project_convex_hull(proj_context, box)
+                        projection = self._project_convex_hull(proj_context, box)
                         # Use pre-calculated intensity from peaks tensor
                         intensity = peaks[peak_idx, 29]  # intensity column is index 29                        
                         
@@ -618,7 +618,7 @@ class Detector:
         """
         # Get pixel coordinates and ensure they're in numpy
         pixel_coords = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :]
-        if pixel_coords.device.type == 'cuda':
+        if get_selected_device() == 'cuda':
             pixel_coords = pixel_coords.cpu()
         ray_points = ensure_numpy(pixel_coords).reshape(
             (box[1] - box[0]) * (box[3] - box[2]), 3
@@ -649,113 +649,7 @@ class Detector:
 
         return clip_lengths
 
-    def _ray_detector_intersection(
-        self, origin: np.ndarray, direction: np.ndarray
-    ) -> Optional[np.ndarray]:
-        """Find where a ray intersects the detector plane (for hybrid volumes method).
-        
-        Args:
-            origin: Ray origin point (3,)
-            direction: Normalized ray direction (3,)
-            
-        Returns:
-            3D intersection point or None if no intersection
-        """
-        # Detector plane equation: dot(point - det_corner_0, normal) = 0
-        # Ray equation: point = origin + t * direction
-        
-        normal = ensure_numpy(self.normal)
-        corner = ensure_numpy(self.det_corner_0)
-        
-        denom = np.dot(direction, normal)
-        
-        if abs(denom) < 1e-10:
-            return None  # Ray parallel to plane
-        
-        t = np.dot(corner - origin, normal) / denom
-        
-        if t < 0:
-            return None  # Intersection behind ray origin
-        
-        intersection = origin + t * direction
-        return intersection
 
-    def _world_to_pixel_coords(self, world_point: np.ndarray) -> Optional[Tuple[float, float]]:
-        """Convert 3D world coordinates to 2D pixel coordinates (for hybrid volumes method).
-        
-        Args:
-            world_point: 3D point in lab frame (3,)
-            
-        Returns:
-            (z_pixel, y_pixel) or None if outside detector
-        """
-        corner = ensure_numpy(self.det_corner_0)
-        zdhat = ensure_numpy(self.zdhat)
-        ydhat = ensure_numpy(self.ydhat)
-        
-        # Vector from detector corner to point
-        v = world_point - corner
-        
-        # Project onto detector axes
-        z_coord = np.dot(v, zdhat)
-        y_coord = np.dot(v, ydhat)
-        
-        # Convert to pixel coordinates
-        z_pixel = z_coord / float(self.pixel_size_z)
-        y_pixel = y_coord / float(self.pixel_size_y)
-        
-        # Check bounds
-        if (z_pixel < 0 or z_pixel >= self.pixel_coordinates.shape[0] or
-            y_pixel < 0 or y_pixel >= self.pixel_coordinates.shape[1]):
-            return None
-        
-        return (z_pixel, y_pixel)
-
-    def _compute_pixel_path_length(
-        self, ray_point: np.ndarray, ray_direction: np.ndarray, hull
-    ) -> float:
-        """Compute exact path length of ray through convex hull (for hybrid volumes method).
-        
-        Args:
-            ray_point: 3D starting point of ray (pixel position)
-            ray_direction: Normalized ray direction (scattered wave direction)
-            hull: ConvexHull object from beam intersection
-            
-        Returns:
-            Path length through hull in microns
-        """
-        # Use existing utility function for ray-polyhedron intersection
-        from scipy.spatial import ConvexHull as SciPyConvexHull
-        
-        # Get hull faces (planes)
-        hull_points = ensure_numpy(hull.points)
-        try:
-            scipy_hull = SciPyConvexHull(hull_points)
-        except:
-            return 0.0
-        
-        # Get plane normals and points
-        plane_normals = scipy_hull.equations[:, :3]  # (n_faces, 3)
-        plane_offsets = scipy_hull.equations[:, 3]   # (n_faces,)
-        
-        # Plane points (any point on each plane)
-        plane_points = hull_points[scipy_hull.simplices[:, 0]]  # (n_faces, 3)
-        
-        # Convert to torch for utility function
-        ray_point_torch = ensure_torch(ray_point).unsqueeze(0)  # (1, 3)
-        ray_direction_torch = ensure_torch(ray_direction).unsqueeze(0)  # (1, 3)
-        plane_points_torch = ensure_torch(plane_points)
-        plane_normals_torch = ensure_torch(plane_normals)
-        
-        # Compute clip length
-        clip_lengths = utils._clip_line_with_convex_polyhedron(
-            ray_point_torch,
-            ray_direction_torch,
-            plane_points_torch,
-            plane_normals_torch
-        )
-        
-        return float(clip_lengths[0])
 
     def get_wrapping_cone(
         self, k: torch.Tensor, source_point: torch.Tensor
@@ -922,8 +816,8 @@ class Detector:
         vertices_torch = ensure_torch(vertices)
         
         # Get intersections and ensure they're on CPU before numpy conversion
-        projected_vertices = self.get_intersection(scattered_vec, vertices_torch)
-        if projected_vertices.device.type == 'cuda':
+        projected_vertices = self._get_intersection(scattered_vec, vertices_torch)
+        if get_selected_device() == 'cuda':
             projected_vertices = projected_vertices.cpu()
         projected_vertices = ensure_numpy(projected_vertices)
 
@@ -1247,3 +1141,128 @@ class Detector:
         del zi, yi, weights, valid
 
         return tensor
+
+
+    # ==============================================================================
+    # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+    # ==============================================================================
+    # The following methods are no longer called anywhere in the codebase.
+    # They are kept temporarily for backwards compatibility but will be removed.
+    # ==============================================================================
+
+    def _ray_detector_intersection(
+        self, origin: np.ndarray, direction: np.ndarray
+    ) -> Optional[np.ndarray]:
+        """Find where a ray intersects the detector plane (for hybrid volumes method).
+        
+        .. deprecated::
+            This method is no longer used in the codebase and will be removed in a future version.
+        
+        Args:
+            origin: Ray origin point (3,)
+            direction: Normalized ray direction (3,)
+            
+        Returns:
+            3D intersection point or None if no intersection
+        """
+        # Detector plane equation: dot(point - det_corner_0, normal) = 0
+        # Ray equation: point = origin + t * direction
+        
+        normal = ensure_numpy(self.normal)
+        corner = ensure_numpy(self.det_corner_0)
+        
+        denom = np.dot(direction, normal)
+        
+        if abs(denom) < 1e-10:
+            return None  # Ray parallel to plane
+        
+        t = np.dot(corner - origin, normal) / denom
+        
+        if t < 0:
+            return None  # Intersection behind ray origin
+        
+        intersection = origin + t * direction
+        return intersection
+
+    def _world_to_pixel_coords(self, world_point: np.ndarray) -> Optional[Tuple[float, float]]:
+        """Convert 3D world coordinates to 2D pixel coordinates (for hybrid volumes method).
+        
+        .. deprecated::
+            This method is no longer used in the codebase and will be removed in a future version.
+        
+        Args:
+            world_point: 3D point in lab frame (3,)
+            
+        Returns:
+            (z_pixel, y_pixel) or None if outside detector
+        """
+        corner = ensure_numpy(self.det_corner_0)
+        zdhat = ensure_numpy(self.zdhat)
+        ydhat = ensure_numpy(self.ydhat)
+        
+        # Vector from detector corner to point
+        v = world_point - corner
+        
+        # Project onto detector axes
+        z_coord = np.dot(v, zdhat)
+        y_coord = np.dot(v, ydhat)
+        
+        # Convert to pixel coordinates
+        z_pixel = z_coord / float(self.pixel_size_z)
+        y_pixel = y_coord / float(self.pixel_size_y)
+        
+        # Check bounds
+        if (z_pixel < 0 or z_pixel >= self.pixel_coordinates.shape[0] or
+            y_pixel < 0 or y_pixel >= self.pixel_coordinates.shape[1]):
+            return None
+        
+        return (z_pixel, y_pixel)
+
+    def _compute_pixel_path_length(
+        self, ray_point: np.ndarray, ray_direction: np.ndarray, hull
+    ) -> float:
+        """Compute exact path length of ray through convex hull (for hybrid volumes method).
+        
+        .. deprecated::
+            This method is no longer used in the codebase and will be removed in a future version.
+        
+        Args:
+            ray_point: 3D starting point of ray (pixel position)
+            ray_direction: Normalized ray direction (scattered wave direction)
+            hull: ConvexHull object from beam intersection
+            
+        Returns:
+            Path length through hull in microns
+        """
+        # Use existing utility function for ray-polyhedron intersection
+        from scipy.spatial import ConvexHull as SciPyConvexHull
+        
+        # Get hull faces (planes)
+        hull_points = ensure_numpy(hull.points)
+        try:
+            scipy_hull = SciPyConvexHull(hull_points)
+        except:
+            return 0.0
+        
+        # Get plane normals and points
+        plane_normals = scipy_hull.equations[:, :3]  # (n_faces, 3)
+        plane_offsets = scipy_hull.equations[:, 3]   # (n_faces,)
+        
+        # Plane points (any point on each plane)
+        plane_points = hull_points[scipy_hull.simplices[:, 0]]  # (n_faces, 3)
+        
+        # Convert to torch for utility function
+        ray_point_torch = ensure_torch(ray_point).unsqueeze(0)  # (1, 3)
+        ray_direction_torch = ensure_torch(ray_direction).unsqueeze(0)  # (1, 3)
+        plane_points_torch = ensure_torch(plane_points)
+        plane_normals_torch = ensure_torch(plane_normals)
+        
+        # Compute clip length
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
+            ray_point_torch,
+            ray_direction_torch,
+            plane_points_torch,
+            plane_normals_torch
+        )
+        
+        return float(clip_lengths[0])

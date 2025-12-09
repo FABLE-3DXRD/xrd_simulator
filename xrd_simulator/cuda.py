@@ -1,4 +1,3 @@
-import os
 import torch
 
 # Default
@@ -6,43 +5,49 @@ torch.set_default_device("cpu")
 _device = "cpu"
 
 
-def configure_device(use_gpu=None, verbose=True):
+def configure_device(device=None, verbose=True):
     """
     Configure PyTorch device for xrd_simulator.
-
-    Priority:
-        1. Explicit argument use_gpu=True/False
-        2. Environment variable XRD_USE_GPU
-        3. Auto-detect (use GPU if available)
-
+    
+    Args:
+        device (str, optional): Device to use. Options:
+                               - "cpu": Force CPU
+                               - "gpu" or "cuda": Use GPU if available
+                               - None or "auto": Auto-detect (use GPU if available)
+        verbose (bool): Print device selection message.
+    
     Returns:
         str: 'cuda' or 'cpu'
+    
+    Examples:
+        >>> configure_device("gpu")      # Use GPU if available
+        >>> configure_device("cpu")      # Force CPU
+        >>> configure_device()           # Auto-detect
     """
     global _device
 
-    # 1. Explicit argument
-    if use_gpu is not None:
-        want_gpu = bool(use_gpu)
-
-    # 2. Environment variable
-    else:
-        env = os.getenv("XRD_USE_GPU", "").lower()
-        if env in ("1", "true", "yes", "y"):
-            want_gpu = True
-        elif env in ("0", "false", "no", "n"):
-            want_gpu = False
-        else:
-            want_gpu = None  # Will be auto-detected below
-
-    # 3. Auto-detect based on availability
-    if want_gpu is None:
+    # Normalize input
+    if device is not None:
+        device = str(device).lower().strip()
+    
+    # Determine if GPU is wanted
+    if device is None or device == "auto":
+        # Auto-detect: use GPU if available
         want_gpu = torch.cuda.is_available()
+    elif device in ("gpu", "cuda"):
+        want_gpu = True
+    elif device == "cpu":
+        want_gpu = False
+    else:
+        raise ValueError(
+            f"Invalid device '{device}'. Must be one of: 'cpu', 'gpu', 'cuda', 'auto', or None"
+        )
 
-    # Final decision
+    # Set device based on availability
     if want_gpu and torch.cuda.is_available():
         _device = "cuda"
     else:
-        if want_gpu and verbose:
+        if want_gpu and not torch.cuda.is_available() and verbose:
             print("CUDA requested but not available. Falling back to CPU.")
         _device = "cpu"
 
@@ -55,4 +60,5 @@ def configure_device(use_gpu=None, verbose=True):
 
 
 def get_selected_device():
+    """Get the currently configured device."""
     return _device
