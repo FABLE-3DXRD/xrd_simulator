@@ -75,23 +75,27 @@ rotation_axis = np.array([0, 0, 1])
 translation = np.array([0, 0, 0])
 motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-polycrystal.diffract(beam, detector, motion)
+peaks_dict = polycrystal.diffract(beam, detector, motion)
 
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method='project')
+    peaks_dict,
+    frames_to_render=1,
+    method='gauss')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(20)
 
-# diffraction_pattern[ diffraction_pattern<=0 ] = 1
-# diffraction_pattern = np.log(diffraction_pattern)
-plt.imshow(diffraction_pattern, cmap='jet')
-plt.title("Hits: " + str(len(detector.frames[0])))
+# Convert to numpy for plotting
+if hasattr(diffraction_pattern, 'cpu'):
+    diffraction_pattern_np = diffraction_pattern[0].cpu().numpy()
+else:
+    diffraction_pattern_np = np.array(diffraction_pattern[0])
+
+# diffraction_pattern_np[ diffraction_pattern_np<=0 ] = 1
+# diffraction_pattern_np = np.log(diffraction_pattern_np)
+plt.imshow(diffraction_pattern_np, cmap='jet')
+plt.title("Peaks: " + str(len(peaks_dict['peaks'])))
 plt.show()

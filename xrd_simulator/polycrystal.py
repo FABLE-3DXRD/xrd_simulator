@@ -18,7 +18,7 @@ import dill
 from xfab import tools
 
 from xrd_simulator import utils, laue
-from xrd_simulator.scattering_factors import _lorentz, _polarization, _scherrerrer
+from xrd_simulator.scattering_factors import _lorentz, _polarization, _scherrer
 from xrd_simulator.utils import ensure_torch, ensure_numpy, _compute_tetrahedra_volumes
 from xrd_simulator.beam import Beam
 from xrd_simulator.detector import Detector

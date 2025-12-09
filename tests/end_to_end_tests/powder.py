@@ -47,9 +47,15 @@ rotation_axis = np.array([0, 1, 0])
 translation = np.array([0, 0, 0])
 motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(frames_to_render=0, method='project')
+peaks_dict = polycrystal.diffract(beam, detector, motion)
+diffraction_pattern = detector.render(peaks_dict, frames_to_render=1, method='gauss')
 
-plt.imshow(diffraction_pattern > 0, cmap='gray')
-plt.title("Hits: " + str(len(detector.frames[0])))
+# Convert to numpy for plotting
+if hasattr(diffraction_pattern, 'cpu'):
+    diffraction_pattern_np = diffraction_pattern[0].cpu().numpy()
+else:
+    diffraction_pattern_np = np.array(diffraction_pattern[0])
+
+plt.imshow(diffraction_pattern_np > 0, cmap='gray')
+plt.title("Peaks: " + str(len(peaks_dict['peaks'])))
 plt.show()

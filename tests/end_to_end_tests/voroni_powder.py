@@ -101,55 +101,59 @@ motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 print("Diffraction computations:")
 pr = cProfile.Profile()
 pr.enable()
-polycrystal.diffract(beam, detector, motion)
+peaks_dict = polycrystal.diffract(beam, detector, motion)
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(10)
 print("")
 
-print("Detector centroid rendering:")
+print("Detector gauss rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern1 = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method="centroid")
+    peaks_dict,
+    frames_to_render=1,
+    method="gauss")
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(10)
 print("")
 
-print("Detector project rendering:")
+print("Detector voigt rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern2 = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method='project')
+    peaks_dict,
+    frames_to_render=1,
+    method='voigt')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(10)
 
-# diffraction_pattern[ diffraction_pattern<=0 ] = 1
-# diffraction_pattern = np.log(diffraction_pattern)
+# Convert to numpy for plotting
+if hasattr(diffraction_pattern1, 'cpu'):
+    diffraction_pattern1_np = diffraction_pattern1[0].cpu().numpy()
+    diffraction_pattern2_np = diffraction_pattern2[0].cpu().numpy()
+else:
+    diffraction_pattern1_np = np.array(diffraction_pattern1[0])
+    diffraction_pattern2_np = np.array(diffraction_pattern2[0])
+
+# diffraction_pattern_np[ diffraction_pattern_np<=0 ] = 1
+# diffraction_pattern_np = np.log(diffraction_pattern_np)
 
 # from scipy.signal import convolve
 
 # kernel = np.ones((4,4))
-# diffraction_pattern1 = convolve(diffraction_pattern1, kernel, mode='full', method='auto')
+# diffraction_pattern1_np = convolve(diffraction_pattern1_np, kernel, mode='full', method='auto')
 
 fig, ax = plt.subplots(1, 2)
-ax[0].imshow(diffraction_pattern1, cmap='gray')
-ax[1].imshow(diffraction_pattern2, cmap='gray')
-ax[0].set_title("Fast delta peak rendering")
-ax[1].set_title("Full projection rendering")
+ax[0].imshow(diffraction_pattern1_np, cmap='gray')
+ax[1].imshow(diffraction_pattern2_np, cmap='gray')
+ax[0].set_title("Fast Gaussian rendering")
+ax[1].set_title("Voigt profile rendering")
 ax[0].set_xlabel("Hits: " + str(len(detector.frames[0])))
 ax[1].set_xlabel("Hits: " + str(len(detector.frames[0])))
 plt.show()

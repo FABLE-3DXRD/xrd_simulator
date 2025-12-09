@@ -61,7 +61,7 @@ polycrystal = Polycrystal.load(path)
 
 
 # Full field diffraction.
-polycrystal.diffract(
+peaks_dict = polycrystal.diffract(
     beam,
     detector,
     motion,
@@ -69,12 +69,15 @@ polycrystal.diffract(
     max_bragg_angle=None,
     verbose=True)
 diffraction_pattern = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method="centroid",
-    verbose=True)
+    peaks_dict,
+    frames_to_render=1,
+    method="gauss")
+
+# Convert to numpy for analysis
+if hasattr(diffraction_pattern, 'cpu'):
+    diffraction_pattern_np = diffraction_pattern[0].cpu().numpy()
+else:
+    diffraction_pattern_np = np.array(diffraction_pattern[0])
 
 def gaussian_kernel(side_length, sigma):
     ax = np.linspace(-(side_length - 1) / 2., (side_length - 1) / 2., side_length)
@@ -83,10 +86,10 @@ def gaussian_kernel(side_length, sigma):
     return kernel / np.sum(kernel)
 
 from scipy.signal import convolve
-diffraction_pattern[diffraction_pattern==0]=1
+diffraction_pattern_np[diffraction_pattern_np==0]=1
 #kernel = gaussian_kernel(15, 0.5)
-#diffraction_pattern = convolve(diffraction_pattern, kernel, mode='same', method='auto')
-#plt.imshow(diffraction_pattern, cmap='jet')
-plt.imshow(np.log(diffraction_pattern), cmap='jet')
+#diffraction_pattern_np = convolve(diffraction_pattern_np, kernel, mode='same', method='auto')
+#plt.imshow(diffraction_pattern_np, cmap='jet')
+plt.imshow(np.log(diffraction_pattern_np), cmap='jet')
 
 plt.show()

@@ -50,20 +50,23 @@ class Detector:
             The kernel will extend until the Gaussian tail drops below this value. Defaults to 0.05.
 
     Attributes:
-        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
-        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
+        pixel_size_z (:obj=`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
+        pixel_size_y (:obj=`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
+        det_corner_0,det_corner_1,det_corner_2 (:obj=`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
             The origin of the detector is at det_corner_0.
-        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction frames
-        zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
-        normal (:obj:`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
-        zmax,ymax (:obj:`numpy array`): Detector width and height.
-        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
-        gaussian_sigma (:obj:`float`): Standard deviation of the Gaussian point spread function.
-        kernel_threshold (:obj:`float`): Threshold value that determines the kernel size.
+        frames (:obj=`list` of :obj=`list` of :obj=`scattering_unit.ScatteringUnit`): Analytical diffraction frames
+        zdhat,ydhat (:obj=`numpy array`): Detector basis vectors.
+        normal (:obj=`numpy array`): Detector normal, formed as the cross product: numpy.cross(self.zdhat, self.ydhat)
+        zmax,ymax (:obj=`numpy array`): Detector width and height.
+        pixel_coordinates  (:obj=`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
+        gaussian_sigma (:obj=`float`): Standard deviation of the Gaussian point spread function.
+        kernel_threshold (:obj=`float`): Threshold value that determines the kernel size.
         gaussian_kernel (:obj=`torch.Tensor`): Pre-computed normalized 2D Gaussian kernel.
 
     """
+    # ------------------------------------------------------------------
+    # 1. Core lifecycle
+    # ------------------------------------------------------------------
 
     def __init__(
         self,
@@ -101,6 +104,50 @@ class Detector:
         self.lorentz_factor = use_lorentz
         self.polarization_factor = use_polarization
         self.structure_factor = use_structure_factor
+
+    def save(self, path: str) -> None:
+        """Save detector to disk.
+
+        Args:
+            path: Output file path (.det extension added if missing)
+        """
+        if not path.endswith(".det"):
+            path = path + ".det"
+        with open(path, "wb") as f:
+            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load(cls, path: str) -> "Detector":
+        """Load detector from disk.
+
+        Args:
+            path: Path to .det file
+
+        Returns:
+            Loaded Detector instance
+
+        Raises:
+            ValueError: If file extension is not .det
+        """
+        if not path.endswith(".det"):
+            raise ValueError("The loaded motion file must end with .det")
+        with open(path, "rb") as f:
+            loaded = dill.load(f)
+            loaded.normal = ensure_torch(loaded.normal)
+            loaded.det_corner_0 = ensure_torch(loaded.det_corner_0)
+            loaded.det_corner_1 = ensure_torch(loaded.det_corner_1)
+            loaded.det_corner_2 = ensure_torch(loaded.det_corner_2)
+            loaded.zdhat = ensure_torch(loaded.zdhat)
+            loaded.ydhat = ensure_torch(loaded.ydhat)
+            loaded.zmax = ensure_torch(loaded.zmax)
+            loaded.ymax = ensure_torch(loaded.ymax)
+            loaded.pixel_size_z = ensure_torch(loaded.pixel_size_z)
+            loaded.pixel_size_y = ensure_torch(loaded.pixel_size_y)
+            return loaded
+
+    # ------------------------------------------------------------------
+    # 2. High-level public API
+    # ------------------------------------------------------------------
 
     def render(
         self,
@@ -188,6 +235,236 @@ class Detector:
 
         return diffraction_frames
 
+    def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
+        """Check if detector coordinates are within bounds."""
+        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
+
+    # ------------------------------------------------------------------
+    # 3. Geometry & coordinate helpers
+    # ------------------------------------------------------------------
+
+    def _get_pixel_coordinates(self) -> torch.Tensor:
+        """Calculate real-space coordinates for each detector pixel.
+
+        Returns:
+            Tensor of shape (Z,Y,3) containing pixel coordinates
+        """
+        # Get device from det_corner_0 to ensure all tensors are on same device
+        dev = self.det_corner_0.device
+        
+        zds = torch.arange(0, self.zmax, self.pixel_size_z, device=dev)
+        yds = torch.arange(0, self.ymax, self.pixel_size_y, device=dev)
+        Z, Y = torch.meshgrid(zds, yds, indexing="ij")
+        Zds = torch.zeros((len(zds), len(yds), 3), device=dev)
+        Yds = torch.zeros((len(zds), len(yds), 3), device=dev)
+        for i in range(3):
+            Zds[:, :, i] = Z
+            Yds[:, :, i] = Y
+        pixel_coordinates = (
+            self.det_corner_0.reshape(1, 1, 3)
+            + Zds * self.zdhat.reshape(1, 1, 3)
+            + Yds * self.ydhat.reshape(1, 1, 3)
+        )
+        return pixel_coordinates
+
+    def _get_intersection(
+        self, ray_direction: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Get detector intersection coordinates for rays.
+
+        Args:
+            ray_direction: Direction vectors for each ray, shape (N,3)
+            source_point: Origin points for each ray, shape (N,3)
+
+        Returns:
+            Intersection coordinates (zd,yd) and incident angles, shape (N,3)
+        """
+        s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
+            ray_direction, self.normal
+        )
+
+        intersection = source_point + ray_direction * s.unsqueeze(1)
+        intersection[s < 0] = np.nan
+        zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
+        yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
+
+        ray_dir_norm = ray_direction / torch.norm(ray_direction, dim=1).unsqueeze(-1)
+        normal_norm = self.normal / torch.linalg.norm(self.normal)
+        cosine_theta = torch.matmul(ray_dir_norm, -normal_norm)
+        incident_angle_deg = torch.arccos(cosine_theta) * (180 / torch.pi)
+        return torch.stack((zd, yd, incident_angle_deg), dim=1)
+
+    def _get_wrapping_cone(
+        self, k: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Compute cone that wraps detector corners around wavevector.
+
+        Args:
+            k: Central wavevector of cone, shape (3,)
+            source_point: Cone vertex point, shape (3,)
+
+        Returns:
+            Half-angle of cone opening in radians
+        """
+        # Ensure k and source_point are torch tensors
+        k = ensure_torch(k)
+        source_point = ensure_torch(source_point)
+        
+        fourth_corner_of_detector = self.det_corner_2 + (
+            self.det_corner_1 - self.det_corner_0[:]
+        )
+        geom_mat = torch.zeros((3, 4))
+        for i, det_corner in enumerate(
+            [
+                self.det_corner_0,
+                self.det_corner_1,
+                self.det_corner_2,
+                fourth_corner_of_detector,
+            ]
+        ):
+            geom_mat[:, i] = det_corner - source_point
+        normalised_local_coord_geom_mat = geom_mat / torch.linalg.norm(geom_mat, axis=0)
+        cone_opening = torch.arccos(
+            torch.matmul(normalised_local_coord_geom_mat.T, k / torch.linalg.norm(k))
+        )
+        return torch.max(cone_opening) / 2.0
+
+    def _detector_coordinate_to_pixel_index(
+        self, zd: float, yd: float
+    ) -> Tuple[int, int]:
+        row_index = int(zd / self.pixel_size_z)
+        col_index = int(yd / self.pixel_size_y)
+        return row_index, col_index
+
+    def _get_projected_bounding_box(
+        self, proj_context: Dict[str, Any]
+    ) -> Optional[Tuple[int, int, int, int]]:
+        """Compute bounding detector pixel indices of the bounding the projection of a convex hull.
+
+        Args:
+            proj_context: Dictionary containing convex_hull and scattered_wave_vector
+
+        Returns:
+            (:obj=`tuple` of :obj=`int`) indices that can be used to slice the detector frame array and get the pixels that
+                are within the bounding box.
+
+        """
+        # Keep vertices in numpy since they come from convex hull
+        hull = proj_context['convex_hull']
+        vertices = hull.points[hull.vertices]
+
+        # Convert to torch for intersection calculation
+        # Reshape scattered_wave_vector to (N,3) by repeating for each vertex
+        scattered_vec = ensure_torch(proj_context['scattered_wave_vector'])
+        scattered_vec = scattered_vec.unsqueeze(0).repeat(vertices.shape[0], 1)
+        vertices_torch = ensure_torch(vertices)
+        
+        # Get intersections and ensure they're on CPU before numpy conversion
+        projected_vertices = self._get_intersection(scattered_vec, vertices_torch)
+        if projected_vertices.device.type == 'cuda':
+            projected_vertices = projected_vertices.cpu()
+        projected_vertices = ensure_numpy(projected_vertices)
+
+        # Convert zmax/ymax to CPU scalars for bounds checking
+        zmax_np = float(ensure_numpy(self.zmax))
+        ymax_np = float(ensure_numpy(self.ymax))
+
+        # Calculate bounds using numpy operations
+        min_zd = max(float(np.nanmin(projected_vertices[:, 0])), 0)
+        max_zd = min(float(np.nanmax(projected_vertices[:, 0])), zmax_np)
+        min_yd = max(float(np.nanmin(projected_vertices[:, 1])), 0)
+        max_yd = min(float(np.nanmax(projected_vertices[:, 1])), ymax_np)
+
+        if min_zd > max_zd or min_yd > max_yd:
+            return None
+
+        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index(
+            min_zd, min_yd
+        )
+        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index(
+            max_zd, max_yd
+        )
+
+        max_row_indx = np.min([max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
+        max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
+
+        return min_row_indx, max_row_indx, min_col_indx, max_col_indx
+
+    # ------------------------------------------------------------------
+    # 4. Peak / frame preprocessing
+    # ------------------------------------------------------------------
+
+    def _peaks_detector_intersection(
+        self,
+        peaks: torch.Tensor,
+        columns: list[str],
+        frames_to_render: int,
+    ) -> Dict[str, Union[torch.Tensor, List[str]]]:
+        """
+        Computes detector intersections, filters visible peaks, and assigns frame indices.
+        Also calculates and stores intensity factors (scattering strength per unit volume).
+
+        Parameters
+        ----------
+        peaks_dict : dict
+            Dictionary containing peaks information
+        frames_to_render : int
+            Number of frames to render
+
+        Returns
+        -------
+        dict
+            Updated peaks dictionary with intersections and intensity_factors column
+        """
+
+
+        zd_yd_angle = self._get_intersection(peaks[:, 13:16], peaks[:, 16:19])
+        peaks = torch.cat((peaks, zd_yd_angle), dim=1)
+        columns.extend(["zd", "yd", "incident_angle"])
+
+        # Filter peaks by detector bounds
+        mask = self.contains(peaks[:, 25], peaks[:, 26])  # Shifted by 1 due to large_grain column
+        peaks = peaks[mask]
+        time = peaks[:, 6].contiguous()
+        
+        # Handle frame assignment: when frames_to_render==1, assign all to frame 0
+        if frames_to_render <= 1:
+            frame = torch.zeros((peaks.shape[0], 1), dtype=torch.int64, device=peaks.device)
+        else:
+            bins = torch.linspace(0, 1, steps=frames_to_render+1).contiguous()
+            frame = torch.bucketize(time, bins).unsqueeze(1) - 1
+            # Clamp frame indices to valid range [0, frames_to_render-1]
+            frame = torch.clamp(frame, 0, frames_to_render - 1)
+        
+        peaks = torch.cat((peaks, frame), dim=1)
+        columns.append("frame")
+
+        # Compute intensity factors (scattering strength per unit volume)
+        # This is the product of structure, polarization, and Lorentz factors
+        intensity_factors = torch.ones(peaks.shape[0], device=peaks.device)
+        if self.structure_factor:
+            intensity_factors = intensity_factors * peaks[:, 5]
+        if self.polarization_factor:
+            intensity_factors = intensity_factors * peaks[:, 20]
+        if self.lorentz_factor:
+            intensity_factors = intensity_factors * peaks[:, 19]
+
+        intensity_factors = intensity_factors.unsqueeze(1)
+        peaks = torch.cat((peaks, intensity_factors), dim=1)
+        columns.append("intensity_factors")
+
+        # Filter out peaks with infinite or invalid intensity factors (geometrically impossible reflections)
+        # These occur when Lorentz factor is infinite (eta near 0° or 180°, or theta near 0°)
+        valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
+        peaks = peaks[valid_intensity_mask]
+
+        return peaks, columns
+
+    # ------------------------------------------------------------------
+    # 5. Rendering internals – grouped by method
+    #    (order matches the 'method' options in render())
+    # ------------------------------------------------------------------
+    # 5.a Gaussian peaks
     def _render_gauss_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Render Gaussian peaks onto detector frames using optimized interpolation.
 
@@ -326,7 +603,7 @@ class Detector:
                 )
 
         return diffraction_frames
-
+    # 5.b Voigt peaks
     def _render_voigt_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
         
@@ -344,7 +621,7 @@ class Detector:
         Parameters
         ----------
         peaks : torch.Tensor
-            Processed peaks tensor with precalculated intensities and frame calculation
+            Processed peaks tensor with precalculated intensities and fraalculation
 
         Returns
         -------
@@ -466,451 +743,6 @@ class Detector:
             print(f"Completed frame {frame_idx+1}/{frames_to_render}")
 
         return frames
-
-    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
-        """Render projected volumes onto detector frames using volume projection.
-        This provides accurate peak shapes by projecting 3D crystal volumes.
-
-        Args:
-            peaks_dict: Dictionary containing peak information and metadata
-
-        Returns:
-            Rendered diffraction frames with projected volumes
-        """
-        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
-
-                # Early exit for empty peak list
-        if peaks.shape[0] == 0:
-            return torch.zeros(
-                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
-                device=self.det_corner_0.device,
-                dtype=render_dtype,
-            )
-
-        device = peaks.device
-        scattered_vectors = peaks[:, 13:16]
-        
-        # Get element indices from peaks (column 0: grain_index which maps to element)
-        element_indices = peaks[:, 0].long().cpu().numpy()
-        times = peaks[:, 6]
-        # Initialize all frames to zeros so we can write directly by frame index
-        diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device, dtype=render_dtype)
-        # Get rotation matrices for each peak
-        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrix(rigid_body_motion.rotation_angle*times)
-        node_indices = mesh_lab.enod[element_indices]
-        vertices = ensure_torch(mesh_lab.coord[node_indices])
-        rotated_vertices = torch.matmul(vertices, rotation_matrices)
-        
-        for frame_index in frames_bundle:
-            # Initialize frame on same device as peaks
-            frames = torch.zeros(
-                (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
-                device=device,
-                dtype=render_dtype,
-            )
-            
-            # Process each peak in this frame
-            frame_mask = peaks[:, 28] == frame_index
-            frame_peak_indices = torch.where(frame_mask)[0]
-            
-            for peak_idx in frame_peak_indices:
-                
-                # Compute convex hull intersection with beam
-                hull = beam._intersect(rotated_vertices[peak_idx])
-                
-                if hull is not None:
-                    # Create minimal projection context
-                    proj_context = {
-                        'convex_hull': hull,
-                        'scattered_wave_vector': scattered_vectors[peak_idx]
-                    }
-                    
-                    # Project volume using only necessary data
-                    box = self._get_projected_bounding_box(proj_context)
-                    if box is not None:
-                        # Keep projection in numpy for computation
-                        projection = self._project_convex_hull(proj_context, box)
-                        # Use pre-calculated intensity from peaks tensor
-                        intensity = peaks[peak_idx, 29]  # intensity column is index 29                        
-                        
-                        # Handle infinite values
-                        if torch.isinf(intensity):
-                            frames[box[0]:box[1], box[2]:box[3]] = float('inf')
-                        else:
-                            projection_torch = ensure_torch(projection)
-                            # projection is path length, multiply by pixel area to get volume
-                            projected_volume = projection_torch * self.pixel_size_z * self.pixel_size_y
-                            # Multiply intensity per volume by projected volume
-                            result = (intensity * projected_volume).to(render_dtype)
-                            frames[box[0]:box[1], box[2]:box[3]] += result
-            
-            # Apply Gaussian convolution for point spread function
-            frames = self._conv2d_gaussian_kernel(frames)
-            diffraction_frames[frame_index.long()] = frames
-            
-        return diffraction_frames
-
-    def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
-        """Apply the point spread function to the detector frames using Gaussian convolution."""
-        frames = ensure_torch(frames)
-
-        input_dims = frames.ndim
-        if input_dims == 2:
-            frames = frames.unsqueeze(0).unsqueeze(0)
-        elif input_dims == 3:
-            frames = frames.unsqueeze(1)
-
-        kernel = self.gaussian_kernel.to(frames.dtype).unsqueeze(0).unsqueeze(0)
-        kernel_padding = kernel.shape[-1] // 2
-
-        with torch.no_grad():
-            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=kernel_padding)
-
-        if input_dims == 2:
-            output = output.squeeze(0).squeeze(0)
-        elif input_dims == 3:
-            output = output.squeeze(1)
-
-        return output
-
-    def get_intersection(
-        self, ray_direction: torch.Tensor, source_point: torch.Tensor
-    ) -> torch.Tensor:
-        """Get detector intersection coordinates for rays.
-
-        Args:
-            ray_direction: Direction vectors for each ray, shape (N,3)
-            source_point: Origin points for each ray, shape (N,3)
-
-        Returns:
-            Intersection coordinates (zd,yd) and incident angles, shape (N,3)
-        """
-        s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
-            ray_direction, self.normal
-        )
-
-        intersection = source_point + ray_direction * s.unsqueeze(1)
-        intersection[s < 0] = np.nan
-        zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
-        yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
-
-        ray_dir_norm = ray_direction / torch.norm(ray_direction, dim=1).unsqueeze(-1)
-        normal_norm = self.normal / torch.linalg.norm(self.normal)
-        cosine_theta = torch.matmul(ray_dir_norm, -normal_norm)
-        incident_angle_deg = torch.arccos(cosine_theta) * (180 / torch.pi)
-        return torch.stack((zd, yd, incident_angle_deg), dim=1)
-
-    def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
-        """Check if detector coordinates are within bounds."""
-        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
-
-    def project_convex_hull(
-        self, proj_context: Dict[str, Any], box: Tuple[int, int, int, int]
-    ) -> npt.NDArray:
-        """Project convex hull onto detector region.
-
-        Args:
-            proj_context: Dictionary containing convex_hull and scattered_wave_vector
-            box: (min_z, max_z, min_y, max_y) bounds for projection
-
-        Returns:
-            Array of clip lengths between hull and detector rays
-        """
-        # Get pixel coordinates and ensure they're in numpy
-        pixel_coords = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :]
-        if get_selected_device() == 'cuda':
-            pixel_coords = pixel_coords.cpu()
-        ray_points = ensure_numpy(pixel_coords).reshape(
-            (box[1] - box[0]) * (box[3] - box[2]), 3
-        )
-
-        # Keep plane calculations in numpy
-        hull = proj_context['convex_hull']
-        plane_normals = ensure_numpy(hull.equations[:, 0:3])
-        plane_ofsets = ensure_numpy(hull.equations[:, 3]).reshape(
-            hull.equations.shape[0], 1
-        )
-        plane_points = -np.multiply(plane_ofsets, plane_normals)
-
-        # Keep ray direction calculation in numpy
-        scattered_vec = ensure_numpy(proj_context['scattered_wave_vector'])
-        ray_direction = scattered_vec / np.linalg.norm(scattered_vec)
-
-        # Ensure contiguous arrays for calculations
-        ray_points = np.ascontiguousarray(ray_points)
-        ray_direction = np.ascontiguousarray(ray_direction)
-        plane_points = np.ascontiguousarray(plane_points)
-        plane_normals = np.ascontiguousarray(plane_normals)
-
-        clip_lengths = utils._clip_line_with_convex_polyhedron(
-            ray_points, ray_direction, plane_points, plane_normals
-        )
-        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
-
-        return clip_lengths
-
-
-
-    def get_wrapping_cone(
-        self, k: torch.Tensor, source_point: torch.Tensor
-    ) -> torch.Tensor:
-        """Compute cone that wraps detector corners around wavevector.
-
-        Args:
-            k: Central wavevector of cone, shape (3,)
-            source_point: Cone vertex point, shape (3,)
-
-        Returns:
-            Half-angle of cone opening in radians
-        """
-        # Ensure k and source_point are torch tensors
-        k = ensure_torch(k)
-        source_point = ensure_torch(source_point)
-        
-        fourth_corner_of_detector = self.det_corner_2 + (
-            self.det_corner_1 - self.det_corner_0[:]
-        )
-        geom_mat = torch.zeros((3, 4))
-        for i, det_corner in enumerate(
-            [
-                self.det_corner_0,
-                self.det_corner_1,
-                self.det_corner_2,
-                fourth_corner_of_detector,
-            ]
-        ):
-            geom_mat[:, i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat / torch.linalg.norm(geom_mat, axis=0)
-        cone_opening = torch.arccos(
-            torch.matmul(normalised_local_coord_geom_mat.T, k / torch.linalg.norm(k))
-        )
-        return torch.max(cone_opening) / 2.0
-
-    def save(self, path: str) -> None:
-        """Save detector to disk.
-
-        Args:
-            path: Output file path (.det extension added if missing)
-        """
-        if not path.endswith(".det"):
-            path = path + ".det"
-        with open(path, "wb") as f:
-            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
-
-    @classmethod
-    def load(cls, path: str) -> "Detector":
-        """Load detector from disk.
-
-        Args:
-            path: Path to .det file
-
-        Returns:
-            Loaded Detector instance
-
-        Raises:
-            ValueError: If file extension is not .det
-        """
-        if not path.endswith(".det"):
-            raise ValueError("The loaded motion file must end with .det")
-        with open(path, "rb") as f:
-            loaded = dill.load(f)
-            loaded.normal = ensure_torch(loaded.normal)
-            loaded.det_corner_0 = ensure_torch(loaded.det_corner_0)
-            loaded.det_corner_1 = ensure_torch(loaded.det_corner_1)
-            loaded.det_corner_2 = ensure_torch(loaded.det_corner_2)
-            loaded.zdhat = ensure_torch(loaded.zdhat)
-            loaded.ydhat = ensure_torch(loaded.ydhat)
-            loaded.zmax = ensure_torch(loaded.zmax)
-            loaded.ymax = ensure_torch(loaded.ymax)
-            loaded.pixel_size_z = ensure_torch(loaded.pixel_size_z)
-            loaded.pixel_size_y = ensure_torch(loaded.pixel_size_y)
-            return loaded
-
-    def _generate_gaussian_kernel(self) -> torch.Tensor:
-        """
-        Generates a normalized 2D Gaussian kernel with dynamic size based on intensity threshold.
-
-        Returns:
-            torch.Tensor: 2D Gaussian kernel of shape (H, W).
-        """
-        # Get device from det_corner_0 to ensure kernel is on same device
-        dev = self.det_corner_0.device
-        
-        sigma = ensure_torch(self.gaussian_sigma).to(dev)
-        threshold = self.kernel_threshold
-
-        radius = 1
-        while True:
-            value = torch.exp(-(radius**2) / (2 * sigma**2))
-            if value < threshold / 2:
-                break
-            radius += 1
-
-        # DEFAULT: Limit Gaussian kernel to maximum 5x5 for consistency with Voigt method
-        # This ensures both Gauss and Voigt use similar kernel sizes, providing
-        # excellent agreement (<1% error) in azimuthally integrated profiles
-        max_radius = 2  # gives 5x5 kernel (2*2+1=5)
-        radius = min(radius, max_radius)
-        
-        kernel_size = 2 * radius + 1
-
-        ax = torch.arange(kernel_size, dtype=torch.float64, device=dev) - radius
-        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
-        kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
-        kernel /= kernel.sum()
-
-        return kernel  # Return as (H,W) instead of (1,1,H,W)
-
-    def _get_pixel_coordinates(self) -> torch.Tensor:
-        """Calculate real-space coordinates for each detector pixel.
-
-        Returns:
-            Tensor of shape (Z,Y,3) containing pixel coordinates
-        """
-        # Get device from det_corner_0 to ensure all tensors are on same device
-        dev = self.det_corner_0.device
-        
-        zds = torch.arange(0, self.zmax, self.pixel_size_z, device=dev)
-        yds = torch.arange(0, self.ymax, self.pixel_size_y, device=dev)
-        Z, Y = torch.meshgrid(zds, yds, indexing="ij")
-        Zds = torch.zeros((len(zds), len(yds), 3), device=dev)
-        Yds = torch.zeros((len(zds), len(yds), 3), device=dev)
-        for i in range(3):
-            Zds[:, :, i] = Z
-            Yds[:, :, i] = Y
-        pixel_coordinates = (
-            self.det_corner_0.reshape(1, 1, 3)
-            + Zds * self.zdhat.reshape(1, 1, 3)
-            + Yds * self.ydhat.reshape(1, 1, 3)
-        )
-        return pixel_coordinates
-
-    def _detector_coordinate_to_pixel_index(
-        self, zd: float, yd: float
-    ) -> Tuple[int, int]:
-        row_index = int(zd / self.pixel_size_z)
-        col_index = int(yd / self.pixel_size_y)
-        return row_index, col_index
-
-    def _get_projected_bounding_box(
-        self, proj_context: Dict[str, Any]
-    ) -> Optional[Tuple[int, int, int, int]]:
-        """Compute bounding detector pixel indices of the bounding the projection of a convex hull.
-
-        Args:
-            proj_context: Dictionary containing convex_hull and scattered_wave_vector
-
-        Returns:
-            (:obj=`tuple` of :obj=`int`) indices that can be used to slice the detector frame array and get the pixels that
-                are within the bounding box.
-
-        """
-        # Keep vertices in numpy since they come from convex hull
-        hull = proj_context['convex_hull']
-        vertices = hull.points[hull.vertices]
-
-        # Convert to torch for intersection calculation
-        # Reshape scattered_wave_vector to (N,3) by repeating for each vertex
-        scattered_vec = ensure_torch(proj_context['scattered_wave_vector'])
-        scattered_vec = scattered_vec.unsqueeze(0).repeat(vertices.shape[0], 1)
-        vertices_torch = ensure_torch(vertices)
-        
-        # Get intersections and ensure they're on CPU before numpy conversion
-        projected_vertices = self._get_intersection(scattered_vec, vertices_torch)
-        if get_selected_device() == 'cuda':
-            projected_vertices = projected_vertices.cpu()
-        projected_vertices = ensure_numpy(projected_vertices)
-
-        # Convert zmax/ymax to CPU scalars for bounds checking
-        zmax_np = float(ensure_numpy(self.zmax))
-        ymax_np = float(ensure_numpy(self.ymax))
-
-        # Calculate bounds using numpy operations
-        min_zd = max(float(np.nanmin(projected_vertices[:, 0])), 0)
-        max_zd = min(float(np.nanmax(projected_vertices[:, 0])), zmax_np)
-        min_yd = max(float(np.nanmin(projected_vertices[:, 1])), 0)
-        max_yd = min(float(np.nanmax(projected_vertices[:, 1])), ymax_np)
-
-        if min_zd > max_zd or min_yd > max_yd:
-            return None
-
-        min_row_indx, min_col_indx = self._detector_coordinate_to_pixel_index(
-            min_zd, min_yd
-        )
-        max_row_indx, max_col_indx = self._detector_coordinate_to_pixel_index(
-            max_zd, max_yd
-        )
-
-        max_row_indx = np.min([max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
-        max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
-
-        return min_row_indx, max_row_indx, min_col_indx, max_col_indx
-
-    def _peaks_detector_intersection(
-        self,
-        peaks: torch.Tensor,
-        columns: list[str],
-        frames_to_render: int,
-    ) -> Dict[str, Union[torch.Tensor, List[str]]]:
-        """
-        Computes detector intersections, filters visible peaks, and assigns frame indices.
-        Also calculates and stores intensity factors (scattering strength per unit volume).
-
-        Parameters
-        ----------
-        peaks_dict : dict
-            Dictionary containing peaks information
-        frames_to_render : int
-            Number of frames to render
-
-        Returns
-        -------
-        dict
-            Updated peaks dictionary with intersections and intensity_factors column
-        """
-
-
-        zd_yd_angle = self.get_intersection(peaks[:, 13:16], peaks[:, 16:19])
-        peaks = torch.cat((peaks, zd_yd_angle), dim=1)
-        columns.extend(["zd", "yd", "incident_angle"])
-
-        # Filter peaks by detector bounds
-        mask = self.contains(peaks[:, 25], peaks[:, 26])  # Shifted by 1 due to large_grain column
-        peaks = peaks[mask]
-        time = peaks[:, 6].contiguous()
-        
-        # Handle frame assignment: when frames_to_render==1, assign all to frame 0
-        if frames_to_render <= 1:
-            frame = torch.zeros((peaks.shape[0], 1), dtype=torch.int64, device=peaks.device)
-        else:
-            bins = torch.linspace(0, 1, steps=frames_to_render+1).contiguous()
-            frame = torch.bucketize(time, bins).unsqueeze(1) - 1
-            # Clamp frame indices to valid range [0, frames_to_render-1]
-            frame = torch.clamp(frame, 0, frames_to_render - 1)
-        
-        peaks = torch.cat((peaks, frame), dim=1)
-        columns.append("frame")
-
-        # Compute intensity factors (scattering strength per unit volume)
-        # This is the product of structure, polarization, and Lorentz factors
-        intensity_factors = torch.ones(peaks.shape[0], device=peaks.device)
-        if self.structure_factor:
-            intensity_factors = intensity_factors * peaks[:, 5]
-        if self.polarization_factor:
-            intensity_factors = intensity_factors * peaks[:, 20]
-        if self.lorentz_factor:
-            intensity_factors = intensity_factors * peaks[:, 19]
-
-        intensity_factors = intensity_factors.unsqueeze(1)
-        peaks = torch.cat((peaks, intensity_factors), dim=1)
-        columns.append("intensity_factors")
-
-        # Filter out peaks with infinite or invalid intensity factors (geometrically impossible reflections)
-        # These occur when Lorentz factor is infinite (eta near 0° or 180°, or theta near 0°)
-        valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
-        peaks = peaks[valid_intensity_mask]
-
-        return peaks, columns
 
     def _voigt_kernel_batch(
         self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor
@@ -1142,21 +974,206 @@ class Detector:
 
         return tensor
 
+    # 5.c Projected volumes
+    def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
+        """Render projected volumes onto detector frames using volume projection.
+        This provides accurate peak shapes by projecting 3D crystal volumes.
 
-    # ==============================================================================
+        Args:
+            peaks_dict: Dictionary containing peak information and metadata
+
+        Returns:
+            Rendered diffraction frames with projected volumes
+        """
+        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+
+                # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=self.det_corner_0.device,
+                dtype=render_dtype,
+            )
+
+        device = peaks.device
+        scattered_vectors = peaks[:, 13:16]
+        
+        # Get element indices from peaks (column 0: grain_index which maps to element)
+        element_indices = peaks[:, 0].long().cpu().numpy()
+        times = peaks[:, 6]
+        # Initialize all frames to zeros so we can write directly by frame index
+        diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device, dtype=render_dtype)
+        # Get rotation matrices for each peak
+        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrix(rigid_body_motion.rotation_angle*times)
+        node_indices = mesh_lab.enod[element_indices]
+        vertices = ensure_torch(mesh_lab.coord[node_indices])
+        rotated_vertices = torch.matmul(vertices, rotation_matrices)
+        
+        for frame_index in frames_bundle:
+            # Initialize frame on same device as peaks
+            frames = torch.zeros(
+                (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=device,
+                dtype=render_dtype,
+            )
+            
+            # Process each peak in this frame
+            frame_mask = peaks[:, 28] == frame_index
+            frame_peak_indices = torch.where(frame_mask)[0]
+            
+            for peak_idx in frame_peak_indices:
+                
+                # Compute convex hull intersection with beam
+                hull = beam._intersect(rotated_vertices[peak_idx])
+                
+                if hull is not None:
+                    # Create minimal projection context
+                    proj_context = {
+                        'convex_hull': hull,
+                        'scattered_wave_vector': scattered_vectors[peak_idx]
+                    }
+                    
+                    # Project volume using only necessary data
+                    box = self._get_projected_bounding_box(proj_context)
+                    if box is not None:
+                        # Keep projection in numpy for computation
+                        projection = self._project_convex_hull(proj_context, box)
+                        # Use pre-calculated intensity from peaks tensor
+                        intensity = peaks[peak_idx, 29]  # intensity column is index 29                        
+                        
+                        # Handle infinite values
+                        if torch.isinf(intensity):
+                            frames[box[0]:box[1], box[2]:box[3]] = float('inf')
+                        else:
+                            projection_torch = ensure_torch(projection)
+                            # projection is path length, multiply by pixel area to get volume
+                            projected_volume = projection_torch * self.pixel_size_z * self.pixel_size_y
+                            # Multiply intensity per volume by projected volume
+                            result = (intensity * projected_volume).to(render_dtype)
+                            frames[box[0]:box[1], box[2]:box[3]] += result
+            
+            # Apply Gaussian convolution for point spread function
+            frames = self._conv2d_gaussian_kernel(frames)
+            diffraction_frames[frame_index.long()] = frames
+            
+        return diffraction_frames
+
+    def _project_convex_hull(
+        self, proj_context: Dict[str, Any], box: Tuple[int, int, int, int]
+    ) -> npt.NDArray:
+        """Project convex hull onto detector region.
+
+        Args:
+            proj_context: Dictionary containing convex_hull and scattered_wave_vector
+            box: (min_z, max_z, min_y, max_y) bounds for projection
+
+        Returns:
+            Array of clip lengths between hull and detector rays
+        """
+        # Get pixel coordinates and ensure they're in numpy
+        pixel_coords = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :]
+        if pixel_coords.device.type == 'cuda':
+            pixel_coords = pixel_coords.cpu()
+        ray_points = ensure_numpy(pixel_coords).reshape(
+            (box[1] - box[0]) * (box[3] - box[2]), 3
+        )
+
+        # Keep plane calculations in numpy
+        hull = proj_context['convex_hull']
+        plane_normals = ensure_numpy(hull.equations[:, 0:3])
+        plane_ofsets = ensure_numpy(hull.equations[:, 3]).reshape(
+            hull.equations.shape[0], 1
+        )
+        plane_points = -np.multiply(plane_ofsets, plane_normals)
+
+        # Keep ray direction calculation in numpy
+        scattered_vec = ensure_numpy(proj_context['scattered_wave_vector'])
+        ray_direction = scattered_vec / np.linalg.norm(scattered_vec)
+
+        # Ensure contiguous arrays for calculations
+        ray_points = np.ascontiguousarray(ray_points)
+        ray_direction = np.ascontiguousarray(ray_direction)
+        plane_points = np.ascontiguousarray(plane_points)
+        plane_normals = np.ascontiguousarray(plane_normals)
+
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
+            ray_points, ray_direction, plane_points, plane_normals
+        )
+        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
+
+        return clip_lengths
+
+    # ------------------------------------------------------------------
+    # 6. Convolution / kernel helpers
+    # ------------------------------------------------------------------
+    def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
+        """Apply the point spread function to the detector frames using Gaussian convolution."""
+        frames = ensure_torch(frames)
+
+        input_dims = frames.ndim
+        if input_dims == 2:
+            frames = frames.unsqueeze(0).unsqueeze(0)
+        elif input_dims == 3:
+            frames = frames.unsqueeze(1)
+
+        kernel = self.gaussian_kernel.to(frames.dtype).unsqueeze(0).unsqueeze(0)
+        kernel_padding = kernel.shape[-1] // 2
+
+        with torch.no_grad():
+            output = torch.nn.functional.conv2d(frames, weight=kernel, padding=kernel_padding)
+
+        if input_dims == 2:
+            output = output.squeeze(0).squeeze(0)
+        elif input_dims == 3:
+            output = output.squeeze(1)
+
+        return output
+
+    def _generate_gaussian_kernel(self) -> torch.Tensor:
+        """
+        Generates a normalized 2D Gaussian kernel with dynamic size based on intensity threshold.
+
+        Returns:
+            torch.Tensor: 2D Gaussian kernel of shape (H, W).
+        """
+        # Get device from det_corner_0 to ensure kernel is on same device
+        dev = self.det_corner_0.device
+        
+        sigma = ensure_torch(self.gaussian_sigma).to(dev)
+        threshold = self.kernel_threshold
+
+        radius = 1
+        while True:
+            value = torch.exp(-(radius**2) / (2 * sigma**2))
+            if value < threshold / 2:
+                break
+            radius += 1
+
+        # DEFAULT: Limit Gaussian kernel to maximum 5x5 for consistency with Voigt method
+        # This ensures both Gauss and Voigt use similar kernel sizes, providing
+        # excellent agreement (<1% error) in azimuthally integrated profiles
+        max_radius = 2  # gives 5x5 kernel (2*2+1=5)
+        radius = min(radius, max_radius)
+        
+        kernel_size = 2 * radius + 1
+
+        ax = torch.arange(kernel_size, dtype=torch.float64, device=dev) - radius
+        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
+        kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
+        kernel /= kernel.sum()
+
+        return kernel  # Return as (H,W) instead of (1,1,H,W)
+
+
+    # ------------------------------------------------------------------
+    # 7. Deprecated methods (clearly separated)
+    # ------------------------------------------------------------------
     # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
-    # ==============================================================================
-    # The following methods are no longer called anywhere in the codebase.
-    # They are kept temporarily for backwards compatibility but will be removed.
-    # ==============================================================================
 
     def _ray_detector_intersection(
         self, origin: np.ndarray, direction: np.ndarray
     ) -> Optional[np.ndarray]:
         """Find where a ray intersects the detector plane (for hybrid volumes method).
-        
-        .. deprecated::
-            This method is no longer used in the codebase and will be removed in a future version.
         
         Args:
             origin: Ray origin point (3,)
@@ -1186,9 +1203,6 @@ class Detector:
 
     def _world_to_pixel_coords(self, world_point: np.ndarray) -> Optional[Tuple[float, float]]:
         """Convert 3D world coordinates to 2D pixel coordinates (for hybrid volumes method).
-        
-        .. deprecated::
-            This method is no longer used in the codebase and will be removed in a future version.
         
         Args:
             world_point: 3D point in lab frame (3,)
@@ -1222,9 +1236,6 @@ class Detector:
         self, ray_point: np.ndarray, ray_direction: np.ndarray, hull
     ) -> float:
         """Compute exact path length of ray through convex hull (for hybrid volumes method).
-        
-        .. deprecated::
-            This method is no longer used in the codebase and will be removed in a future version.
         
         Args:
             ray_point: 3D starting point of ray (pixel position)
@@ -1266,3 +1277,5 @@ class Detector:
         )
         
         return float(clip_lengths[0])
+
+

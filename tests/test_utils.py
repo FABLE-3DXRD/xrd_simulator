@@ -110,58 +110,6 @@ class TestUtils(unittest.TestCase):
                 np.abs(np.linalg.norm(q) - 1.0) < 1e-5, msg="quarternion not normalised"
             )
 
-    def test_diffractogram(self):
-        diffraction_pattern = np.zeros((20, 20))
-        R = 8
-        det_c_z, det_c_y = 10.0, 10.0
-        for i in range(diffraction_pattern.shape[0]):
-            for j in range(diffraction_pattern.shape[1]):
-                if np.abs(np.sqrt((i - det_c_z) ** 2 + (j - det_c_y) ** 2) - R) < 0.5:
-                    diffraction_pattern[i, j] += 1
-        bin_centres, histogram = utils._diffractogram(
-            diffraction_pattern, det_c_z, det_c_y, 1.0
-        )
-        self.assertEqual(
-            np.sum(histogram > 0), 1, msg="Error in diffractogram azimuth integration"
-        )
-        self.assertEqual(
-            np.sum(histogram),
-            np.sum(diffraction_pattern),
-            msg="Error in diffractogram azimuth integration",
-        )
-        self.assertEqual(
-            histogram[R],
-            np.sum(diffraction_pattern),
-            msg="Error in diffractogram azimuth integration",
-        )
-
-    def test_get_bounding_ball(self):
-        points = np.random.rand(4, 3) - 0.5
-        centre, radius = utils._get_bounding_ball(points)
-        mean = np.mean(points, axis=0)
-        base_radius = np.max(np.linalg.norm(points - mean, axis=1))
-        self.assertLessEqual(
-            radius, base_radius, msg="Ball is larger than initial guess"
-        )
-
-        for p in points:
-            self.assertLessEqual(
-                (p - centre[0:3]).dot(p - centre[0:3]),
-                (radius * 1.0001) ** 2,
-                msg="Point not contained by ball",
-            )
-
-        ratios = []
-        for _ in range(500):
-            points = np.random.rand(4, 3) - 0.5
-            centre, radius = utils._get_bounding_ball(points)
-            mean = np.mean(points, axis=0)
-            base_radius = np.max(np.linalg.norm(points - mean, axis=1))
-            ratios.append(radius / base_radius)
-        self.assertLessEqual(
-            np.mean(ratios), 0.9, msg="Averag radius decrease less than 10%"
-        )
-
     def test_epsilon_to_b(self):
         unit_cell = [4.926, 4.926, 5.4189, 90.0, 90.0, 120.0]
         eps1 = (

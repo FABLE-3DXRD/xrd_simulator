@@ -84,58 +84,76 @@ motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 print("Diffraction computations:")
 pr = cProfile.Profile()
 pr.enable()
-polycrystal.diffract(beam, detector, motion)
+peaks_dict = polycrystal.diffract(beam, detector, motion)
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
 
-for scattering_unit in detector.frames[-1]:
-    print(scattering_unit.hkl, scattering_unit.time)
-    k = scattering_unit.incident_wave_vector / \
-        np.linalg.norm(scattering_unit.incident_wave_vector)
-    kp = scattering_unit.scattered_wave_vector / \
-        np.linalg.norm(scattering_unit.scattered_wave_vector)
-    print(np.degrees(k.dot(kp) / 2.))
+# Print peak information from peaks_dict
+import torch
+peaks = peaks_dict["peaks"]
+columns = peaks_dict["columns"]
+if torch.is_tensor(peaks):
+    peaks_np = peaks.cpu().numpy()
+else:
+    peaks_np = np.array(peaks)
+
+h_idx = columns.index("h")
+k_idx = columns.index("k")
+l_idx = columns.index("l")
+time_idx = columns.index("diffraction_times")
+tth_idx = columns.index("2theta")
+
+for i in range(min(5, len(peaks_np))):  # Print first 5 peaks
+    hkl = peaks_np[i, h_idx:l_idx+1].astype(int)
+    time = peaks_np[i, time_idx]
+    tth = peaks_np[i, tth_idx]
+    print(hkl, time)
+    print(np.degrees(tth))
     print(" ")
 
-print("Detector centroid rendering:")
+print("Detector gauss rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern1 = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method="centroid")
+    peaks_dict,
+    frames_to_render=1,
+    method="gauss")
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
 
-print("Detector project rendering:")
+print("Detector voigt rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern2 = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method='project')
+    peaks_dict,
+    frames_to_render=1,
+    method='voigt')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 
-# diffraction_pattern[ diffraction_pattern<=0 ] = 1
-# diffraction_pattern = np.log(diffraction_pattern)
+# Convert to numpy for plotting
+if hasattr(diffraction_pattern1, 'cpu'):
+    diffraction_pattern1_np = diffraction_pattern1[0].cpu().numpy()
+    diffraction_pattern2_np = diffraction_pattern2[0].cpu().numpy()
+else:
+    diffraction_pattern1_np = np.array(diffraction_pattern1[0])
+    diffraction_pattern2_np = np.array(diffraction_pattern2[0])
+
+# diffraction_pattern_np[ diffraction_pattern_np<=0 ] = 1
+# diffraction_pattern_np = np.log(diffraction_pattern_np)
 fig, ax = plt.subplots(1, 2)
-ax[0].imshow(diffraction_pattern1, cmap='gray')
-ax[1].imshow(diffraction_pattern2, cmap='gray')
-ax[0].set_title("Fast delta peak rendering")
-ax[1].set_title("Full projection rendering")
-ax[0].set_xlabel("Hits: " + str(len(detector.frames[0])))
-ax[1].set_xlabel("Hits: " + str(len(detector.frames[0])))
+ax[0].imshow(diffraction_pattern1_np, cmap='gray')
+ax[1].imshow(diffraction_pattern2_np, cmap='gray')
+ax[0].set_title("Fast Gaussian rendering")
+ax[1].set_title("Voigt profile rendering")
+ax[0].set_xlabel("Peaks: " + str(len(peaks_dict['peaks'])))
+ax[1].set_xlabel("Peaks: " + str(len(peaks_dict['peaks'])))
 plt.show()

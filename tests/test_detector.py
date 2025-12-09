@@ -1,12 +1,11 @@
 import unittest
-import numpy as np
-from xrd_simulator.detector import Detector
-from xrd_simulator.phase import Phase
-from xrd_simulator.scattering_unit import ScatteringUnit
 from scipy.spatial import ConvexHull
 import os
 import torch
-from xrd_simulator.utils  import ensure_torch
+from xrd_simulator.detector import Detector
+from xrd_simulator.phase import Phase
+from xrd_simulator.utils import ensure_torch, ensure_numpy
+import numpy as np
 
 torch.set_default_dtype(torch.float64)
 
@@ -14,7 +13,7 @@ torch.set_default_dtype(torch.float64)
 class TestDetector(unittest.TestCase):
 
     def setUp(self):
-        np.random.seed(10)
+        torch.manual_seed(10)
         self.pixel_size_z = ensure_torch(50.0)
         self.pixel_size_y = ensure_torch(40.0)
         self.detector_size = ensure_torch(10000.0)
@@ -32,14 +31,14 @@ class TestDetector(unittest.TestCase):
     def test_init(self):
 
         for o, otrue in zip(
-            self.detector.det_corner_0, np.array([1, 0, 0]) * self.detector_size
+            self.detector.det_corner_0, torch.tensor([1, 0, 0]) * self.detector_size
         ):
             self.assertAlmostEqual(o, otrue, msg="detector origin is incorrect")
 
-        for z, ztrue in zip(self.detector.zdhat, np.array([0, 0, 1])):
+        for z, ztrue in zip(self.detector.zdhat, torch.tensor([0, 0, 1])):
             self.assertAlmostEqual(z, ztrue, msg="zdhat is incorrect")
 
-        for y, ytrue in zip(self.detector.ydhat, np.array([0, 1, 0])):
+        for y, ytrue in zip(self.detector.ydhat, torch.tensor([0, 1, 0])):
             self.assertAlmostEqual(y, ytrue, msg="ydhat is incorrect")
 
         self.assertAlmostEqual(
@@ -53,7 +52,7 @@ class TestDetector(unittest.TestCase):
             msg="Bad detector dimensions in ymax",
         )
 
-        for n, ntrue in zip(self.detector.normal, np.array([-1, 0, 0])):
+        for n, ntrue in zip(self.detector.normal, torch.tensor([-1, 0, 0])):
             self.assertAlmostEqual(n, ntrue, msg="Bad detector normal")
 
     def test_centroid_render(self):
@@ -61,17 +60,17 @@ class TestDetector(unittest.TestCase):
         v = v / torch.linalg.norm(v)
         verts1 = (
             ensure_torch([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            + v * np.sqrt(2) * self.detector_size / 2.0
+            + v * torch.sqrt(torch.tensor(2.0)) * self.detector_size / 2.0
         )  # tetra at detector centre
-        ch1 = ConvexHull(verts1)
+        ch1 = ConvexHull(ensure_numpy(verts1))
         verts2 = (
             ensure_torch([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            + 2 * v * np.sqrt(2) * self.detector_size
+            + 2 * v * torch.sqrt(torch.tensor(2.0)) * self.detector_size
         )  # tetra out of detector bounds
-        ch2 = ConvexHull(verts2)
+        ch2 = ConvexHull(ensure_numpy(verts2))
         wavelength = 1.0
 
-        incident_wave_vector = 2 * np.pi * ensure_torch([1, 0, 0]) / (wavelength)
+        incident_wave_vector = 2 * torch.pi * ensure_torch([1, 0, 0]) / wavelength
         scattered_wave_vector = (
             self.det_corner_0
             + self.pixel_size_y * 3 * self.detector.ydhat
@@ -79,18 +78,20 @@ class TestDetector(unittest.TestCase):
         )
         scattered_wave_vector = (
             2
-            * np.pi
+            * torch.pi
             * scattered_wave_vector
-            / (np.linalg.norm(scattered_wave_vector) * wavelength)
+            / (torch.linalg.norm(scattered_wave_vector) * wavelength)
         )
-        zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+
+        scattered_wave_vector = scattered_wave_vector.unsqueeze(0)  # Add batch dim
+        zd1, yd1, _ = tuple(
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0, keepdim=True)
             )[0]
         )
-        zd2, yd2 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts2.mean(axis=0)[np.newaxis, :]
+        zd2, yd2, _ = tuple(
+            self.detector._get_intersection(
+                scattered_wave_vector, verts2.mean(dim=0)[None, :]
             )[0]
         )
 
@@ -101,15 +102,15 @@ class TestDetector(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = "Fm-3m"  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
-        phase.setup_diffracting_planes(wavelength, 0, 20 * np.pi / 180)
+        phase.setup_diffracting_planes(wavelength, 0, 20 * torch.pi / 180)
 
         scattering_unit1 = ScatteringUnit(
             ch1,
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=ensure_torch([0, 1, 0]),
+            rotation_axis=ensure_torch([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -123,8 +124,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=ensure_torch([0, 1, 0]),
+            rotation_axis=ensure_torch([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -154,12 +155,12 @@ class TestDetector(unittest.TestCase):
         ]
 
         self.assertAlmostEqual(
-            np.sum(active_det_part),
+            torch.sum(active_det_part),
             ch1.volume,
             msg="detector rendering did not capture scattering_unit",
         )
         self.assertAlmostEqual(
-            np.sum(diffraction_pattern),
+            torch.sum(diffraction_pattern),
             ch1.volume,
             msg="detector rendering captured out of bounds scattering_unit",
         )
@@ -192,20 +193,20 @@ class TestDetector(unittest.TestCase):
 
     def test_centroid_render_with_scintillator(self):
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
+        v = v / torch.linalg.norm(v)
         verts1 = (
-            np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            + v * np.sqrt(2) * self.detector_size / 2.0
+            torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+            + v * torch.sqrt(torch.tensor(2.0)) * self.detector_size / 2.0
         )  # tetra at detector center
-        ch1 = ConvexHull(verts1)
+        ch1 = ConvexHull(ensure_numpy(verts1))
         verts2 = (
-            np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            + 2 * v * np.sqrt(2) * self.detector_size
+            torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+            + 2 * v * torch.sqrt(torch.tensor(2.0)) * self.detector_size
         )  # tetra out of detector bounds
-        ch2 = ConvexHull(verts2)
+        ch2 = ConvexHull(ensure_numpy(verts2))
         wavelength = 1.0
 
-        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
+        incident_wave_vector = 2 * torch.pi * torch.tensor([1, 0, 0]) / (wavelength)
         scattered_wave_vector = (
             self.det_corner_0
             + self.pixel_size_y * 3 * self.detector.ydhat
@@ -213,19 +214,19 @@ class TestDetector(unittest.TestCase):
         )
         scattered_wave_vector = (
             2
-            * np.pi
+            * torch.pi
             * scattered_wave_vector
-            / (np.linalg.norm(scattered_wave_vector) * wavelength)
+            / (torch.linalg.norm(scattered_wave_vector) * wavelength)
         )
 
         zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0)[None, :]
             )[0]
         )
         zd2, yd2 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts2.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts2.mean(dim=0)[None, :]
             )[0]
         )
 
@@ -236,15 +237,15 @@ class TestDetector(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = "Fm-3m"  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
-        phase.setup_diffracting_planes(wavelength, 0, 20 * np.pi / 180)
+        phase.setup_diffracting_planes(wavelength, 0, 20 * torch.pi / 180)
 
         scattering_unit1 = ScatteringUnit(
             ch1,
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -257,8 +258,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -277,16 +278,16 @@ class TestDetector(unittest.TestCase):
         )
 
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
+        v = v / torch.linalg.norm(v)
         verts1 = (
-            np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            + v * np.sqrt(2) * self.detector_size / 2.0
+            torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+            + v * torch.sqrt(torch.tensor(2.0)) * self.detector_size / 2.0
             + self.pixel_size_z * 0.1
         )  # tetra at detector center perturbed
-        ch1 = ConvexHull(verts1)
+        ch1 = ConvexHull(ensure_numpy(verts1))
         zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0)[None, :]
             )[0]
         )
 
@@ -295,8 +296,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -314,15 +315,15 @@ class TestDetector(unittest.TestCase):
         )
 
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
+        v = v / torch.linalg.norm(v)
         verts1 = (
-            np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
-            - np.array([0, 1.5, 2.0]) * self.pixel_size_z
+            torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]])
+            - torch.tensor([0, 1.5, 2.0]) * self.pixel_size_z
         )
-        ch1 = ConvexHull(verts1)
+        ch1 = ConvexHull(ensure_numpy(verts1))
         zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0)[None, :]
             )[0]
         )
 
@@ -331,8 +332,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -350,14 +351,14 @@ class TestDetector(unittest.TestCase):
         )
 
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
-        verts1 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) + np.array(
-            [0, 246 * self.pixel_size_y, 196 * self.pixel_size_z]
-        )
-        ch1 = ConvexHull(verts1)
+        v = v / torch.linalg.norm(v)
+        verts1 = torch.tensor(
+            [[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]
+        ) + torch.tensor([0, 246 * self.pixel_size_y, 196 * self.pixel_size_z])
+        ch1 = ConvexHull(ensure_numpy(verts1))
         zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0)[None, :]
             )[0]
         )
 
@@ -366,8 +367,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -400,17 +401,17 @@ class TestDetector(unittest.TestCase):
         )
 
         self.assertEqual(
-            np.max(diffraction_pattern),
+            torch.max(diffraction_pattern),
             diffraction_pattern[expected_z_pixel, expected_y_pixel],
         )
 
         self.assertEqual(
-            np.max(diffraction_pattern),
+            torch.max(diffraction_pattern),
             diffraction_pattern[expected_z_pixel, expected_y_pixel],
         )
 
         self.assertEqual(
-            np.max(diffraction_pattern),
+            torch.max(diffraction_pattern),
             diffraction_pattern[expected_z_pixel, expected_y_pixel],
         )
 
@@ -422,12 +423,12 @@ class TestDetector(unittest.TestCase):
         ]
 
         self.assertAlmostEqual(
-            np.sum(active_det_part),
+            torch.sum(active_det_part),
             ch1.volume,
             msg="detector rendering did not capture scattering_unit",
         )
         self.assertAlmostEqual(
-            np.sum(diffraction_pattern),
+            torch.sum(diffraction_pattern),
             ch1.volume,
             msg="detector rendering captured out of bounds scattering_unit",
         )
@@ -474,31 +475,32 @@ class TestDetector(unittest.TestCase):
     def test_projection_render(self):
 
         # Convex hull of a sphere placed at the centre of the detector
-        phi, theta = np.meshgrid(
-            np.linspace(0, 2 * np.pi, 25), np.linspace(0, 2 * np.pi, 25), indexing="ij"
+        phi, theta = torch.meshgrid(
+            torch.linspace(0, 2 * torch.pi, 25),
+            torch.linspace(0, 2 * torch.pi, 25),
+            indexing="ij",
         )
         r = 1.0 * self.detector_size / 4.0
-        x, y, z = (
-            r * np.cos(phi) * np.sin(theta),
-            r * np.sin(phi) * np.sin(theta),
-            r * np.cos(theta),
-        )
-        hull_points = np.array([x.flatten(), y.flatten(), z.flatten()]).T
+        x = r * torch.cos(phi) * torch.sin(theta)
+        y = r * torch.sin(phi) * torch.sin(theta)
+        z = r * torch.cos(theta)
+        hull_points = torch.stack([x.flatten(), y.flatten(), z.flatten()], dim=0).T
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
+        v = v / torch.linalg.norm(v)
         sphere_hull = ConvexHull(
-            hull_points + v * np.sqrt(2) * self.detector_size / 2.0
+            ensure_numpy(hull_points)
+            + ensure_numpy(v) * np.sqrt(2.0) * ensure_numpy(self.detector_size) / 2.0
         )
 
         # The spherical scattering_unit forward scatters.
         wavelength = 1.0
-        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / wavelength
-        scattered_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / wavelength
+        incident_wave_vector = 2 * torch.pi * torch.tensor([1, 0, 0]) / wavelength
+        scattered_wave_vector = 2 * torch.pi * torch.tensor([1, 0, 0]) / wavelength
         scattered_wave_vector = (
             2
-            * np.pi
+            * torch.pi
             * scattered_wave_vector
-            / (np.linalg.norm(scattered_wave_vector) * wavelength)
+            / (torch.linalg.norm(scattered_wave_vector) * wavelength)
         )
 
         # The spherical scattering_unit is composed of Fe_mp-150 (a pure iron
@@ -510,30 +512,14 @@ class TestDetector(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = "Fm-3m"  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
-        phase.setup_diffracting_planes(wavelength, 0, 20 * np.pi / 180)
+        phase._setup_diffracting_planes(wavelength, 0, 20 * torch.pi / 180)
 
         zd1, yd1 = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, hull_points.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, hull_points.mean(dim=0)[None, :]
             )[0]
         )
 
-        scattering_unit = ScatteringUnit(
-            sphere_hull,
-            scattered_wave_vector=scattered_wave_vector,
-            incident_wave_vector=incident_wave_vector,
-            wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
-            time=0,
-            phase=phase,
-            hkl_indx=0,
-            element_index=0,
-            zd=zd1,
-            yd=yd1,
-        )
-
-        self.detector.frames.append([scattering_unit])
         diffraction_pattern = self.detector.render(
             frames_to_render=0,
             lorentz=False,
@@ -553,20 +539,20 @@ class TestDetector(unittest.TestCase):
         )
 
         self.assertTrue(
-            np.allclose(diffraction_pattern, diffraction_pattern_parallel),
+            torch.allclose(diffraction_pattern, diffraction_pattern_parallel),
             msg="parallel rendering is broken",
         )
 
-        projected_summed_intensity = np.sum(diffraction_pattern)
+        projected_summed_intensity = torch.sum(diffraction_pattern)
         relative_error = (
-            np.abs(scattering_unit.volume - projected_summed_intensity)
+            torch.abs(scattering_unit.volume - projected_summed_intensity)
             / scattering_unit.volume
         )
         self.assertLessEqual(
             relative_error, 1e-4, msg="Projected mass does not match the hull volume"
         )
 
-        index = np.where(diffraction_pattern == np.max(diffraction_pattern))
+        index = torch.where(diffraction_pattern == torch.max(diffraction_pattern))
         self.assertEqual(
             index[0][0],
             self.detector_size // (2 * self.pixel_size_z),
@@ -582,7 +568,9 @@ class TestDetector(unittest.TestCase):
         no_pixels_y = int(self.detector_size // self.pixel_size_y)
 
         sz, sy = self.detector.point_spread_kernel_shape
-        point_spread_padding = np.max([self.pixel_size_z * sz, self.pixel_size_y * sy])
+        point_spread_padding = torch.max(
+            torch.tensor([self.pixel_size_z * sz, self.pixel_size_y * sy])
+        )
         for i in range(no_pixels_z):
             for j in range(no_pixels_y):
                 zd = i * self.pixel_size_z
@@ -599,13 +587,11 @@ class TestDetector(unittest.TestCase):
     def test_get_intersection(self):
 
         # central normal algined ray
-        ray_direction = np.array([2.23, 0.0, 0.0])
-        source_point = np.array([0.0, 0.0, 0.0])
+        ray_direction = torch.tensor([[2.23, 0.0, 0.0]])  # Add batch dim
+        source_point = torch.tensor([[0.0, 0.0, 0.0]])  # Add batch dim
 
         z, y = tuple(
-            self.detector.get_intersection(ray_direction, source_point[np.newaxis, :])[
-                0
-            ]
+            self.detector._get_intersection(ray_direction, source_point[None, :])[0]
         )
         self.assertAlmostEqual(
             z, 0, msg="central detector-normal algined ray does not intersect at 0"
@@ -618,9 +604,7 @@ class TestDetector(unittest.TestCase):
         source_point += self.detector.ydhat * self.pixel_size_y
         source_point -= self.detector.zdhat * 2 * self.pixel_size_z
         z, y = tuple(
-            self.detector.get_intersection(ray_direction, source_point[np.newaxis, :])[
-                0
-            ]
+            self.detector._get_intersection(ray_direction, source_point[None, :])[0]
         )
         self.assertAlmostEqual(
             z,
@@ -634,13 +618,11 @@ class TestDetector(unittest.TestCase):
         )
 
         # tilt the ray
-        ang = np.arctan(self.pixel_size_y / self.detector_size)
-        frac = np.tan(ang) * np.linalg.norm(ray_direction)
+        ang = torch.atan(self.pixel_size_y / self.detector_size)
+        frac = torch.tan(ang) * torch.linalg.norm(ray_direction)
         ray_direction += self.detector.ydhat * frac * 3
         z, y = tuple(
-            self.detector.get_intersection(ray_direction, source_point[np.newaxis, :])[
-                0
-            ]
+            self.detector._get_intersection(ray_direction, source_point[None, :])[0]
         )
         self.assertAlmostEqual(
             z,
@@ -665,17 +647,19 @@ class TestDetector(unittest.TestCase):
 
     def test_get_wrapping_cone(self):
         wavelength = 1.0
-        k = 2 * np.pi * np.array([1, 0, 0]) / wavelength
+        k = 2 * torch.pi * torch.tensor([1, 0, 0]) / wavelength
         source_point = (
             (self.detector.zdhat + self.detector.ydhat) * self.detector_size / 2.0
         )
-        opening_angle = self.detector.get_wrapping_cone(k, source_point)
+        opening_angle = self.detector._get_wrapping_cone(k, source_point)
 
-        normed_det_center = (source_point + self.det_corner_0) / np.linalg.norm(
+        normed_det_center = (source_point + self.det_corner_0) / torch.linalg.norm(
             source_point + self.det_corner_0
         )
-        normed_det_origin = self.det_corner_0 / np.linalg.norm(self.det_corner_0)
-        expected_angle = np.arccos(np.dot(normed_det_center, normed_det_origin)) / 2.0
+        normed_det_origin = self.det_corner_0 / torch.linalg.norm(self.det_corner_0)
+        expected_angle = (
+            torch.acos(torch.dot(normed_det_center, normed_det_origin)) / 2.0
+        )
 
         self.assertAlmostEqual(
             opening_angle,
@@ -688,7 +672,7 @@ class TestDetector(unittest.TestCase):
         )
         source_point -= self.detector.zdhat * 10 * self.pixel_size_z
         source_point -= self.detector.ydhat * 10 * self.pixel_size_y
-        opening_angle = self.detector.get_wrapping_cone(k, source_point)
+        opening_angle = self.detector._get_wrapping_cone(k, source_point)
         self.assertGreaterEqual(
             opening_angle,
             expected_angle,
@@ -718,36 +702,41 @@ class TestDetector(unittest.TestCase):
 
     def test_point_spread_function(self):
         default_kernel = self.detector._get_point_spread_function_kernel()
+        default_kernel = torch.as_tensor(default_kernel)  # Convert to tensor
         self.assertAlmostEqual(
-            default_kernel[2, 2],
-            np.max(default_kernel),
+            default_kernel[2, 2].item(),
+            torch.max(default_kernel).item(),
             msg="Default kernel appears to not be Gaussian",
         )
         self.assertAlmostEqual(
-            default_kernel[0, 0],
-            np.min(default_kernel),
+            default_kernel[0, 0].item(),
+            torch.min(default_kernel).item(),
             msg="Default kernel appears to not be Gaussian",
         )
         self.assertAlmostEqual(
-            default_kernel[2, 3],
-            default_kernel[2, 1],
+            default_kernel[2, 3].item(),
+            default_kernel[2, 1].item(),
             msg="Default kernel appears to not be Gaussian",
         )
         self.assertAlmostEqual(
-            default_kernel[3, 2],
-            default_kernel[1, 2],
+            default_kernel[3, 2].item(),
+            default_kernel[1, 2].item(),
             msg="Default kernel appears to not be Gaussian",
         )
         self.assertAlmostEqual(
-            np.sum(default_kernel), 1, msg="Default kernel appears to not be Gaussian"
+            torch.sum(default_kernel).item(),
+            1,
+            msg="Default kernel appears to not be Gaussian",
         )
 
-        self.detector.point_spread_function = lambda z, y: np.abs(y)
+        self.detector.point_spread_function = lambda z, y: torch.abs(y)
         self.detector.point_spread_kernel_shape = (5, 7)
         kernel = self.detector._get_point_spread_function_kernel()
 
         self.assertAlmostEqual(
-            np.sum(kernel), 1, msg="Point spread function must be intensity preserving."
+            torch.sum(kernel),
+            1,
+            msg="Point spread function must be intensity preserving.",
         )
         for i in range(5):
             self.assertAlmostEqual(
@@ -787,21 +776,23 @@ class TestDetector(unittest.TestCase):
 
     def test_eta0_render(self):
         v = self.detector.ydhat + self.detector.zdhat
-        v = v / np.linalg.norm(v)
+        v = v / torch.linalg.norm(v)
         verts1 = (
-            np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) * 0.0000001
-            + v * np.sqrt(2) * self.detector_size / 2.0
+            torch.tensor([[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]) * 0.0000001
+            + v * torch.sqrt(torch.tensor(2.0)) * self.detector_size / 2.0
             + 0.001 * self.detector.ydhat
             + 0.001 * self.detector.zdhat
         )  # tetra at detector centre
-        #
-        ch = ConvexHull(verts1)
+        ch = ConvexHull(ensure_numpy(verts1))
 
         wavelength = 1.0
 
-        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / (wavelength)
+        incident_wave_vector = 2 * torch.pi * torch.tensor([1, 0, 0]) / (wavelength)
         scattered_wave_vector = (
-            2 * np.pi * np.array([1, 0, 0.1]) / (np.sqrt(0.1 * 0.1 + 1.0) * wavelength)
+            2
+            * torch.pi
+            * torch.tensor([1, 0, 0.1])
+            / (torch.sqrt(torch.tensor(0.1 * 0.1 + 1.0)) * wavelength)
         )
 
         data = os.path.join(
@@ -811,10 +802,10 @@ class TestDetector(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = "Fm-3m"  # Iron
         phase = Phase(unit_cell, sgname, path_to_cif_file=data)
-        phase.setup_diffracting_planes(wavelength, 0, 20 * np.pi / 180)
+        phase.setup_diffracting_planes(wavelength, 0, 20 * torch.pi / 180)
         zd, yd = tuple(
-            self.detector.get_intersection(
-                scattered_wave_vector, verts1.mean(axis=0)[np.newaxis, :]
+            self.detector._get_intersection(
+                scattered_wave_vector, verts1.mean(dim=0)[None, :]
             )[0]
         )
         scattering_unit = ScatteringUnit(
@@ -822,8 +813,8 @@ class TestDetector(unittest.TestCase):
             scattered_wave_vector=scattered_wave_vector,
             incident_wave_vector=incident_wave_vector,
             wavelength=wavelength,
-            incident_polarization_vector=np.array([0, 1, 0]),
-            rotation_axis=np.array([0, 0, 1]),
+            incident_polarization_vector=torch.tensor([0, 1, 0]),
+            rotation_axis=torch.tensor([0, 0, 1]),
             time=0,
             phase=phase,
             hkl_indx=0,
@@ -843,9 +834,9 @@ class TestDetector(unittest.TestCase):
                 method=method,
             )
 
-            self.assertTrue(np.sum(np.isinf(diffraction_pattern)) == 1)
+            self.assertTrue(torch.sum(torch.isinf(diffraction_pattern)) == 1)
             self.assertTrue(
-                np.sum(diffraction_pattern[~np.isinf(diffraction_pattern)]) == 0
+                torch.sum(diffraction_pattern[~torch.isinf(diffraction_pattern)]) == 0
             )
 
 

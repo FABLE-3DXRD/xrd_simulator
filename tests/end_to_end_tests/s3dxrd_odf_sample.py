@@ -65,7 +65,7 @@ polycrystal.save(path, save_mesh_as_xdmf=True)
 polycrystal = Polycrystal.load(path)
 
 # Full field diffraction.
-polycrystal.diffract(
+peaks_dict = polycrystal.diffract(
     beam,
     detector,
     motion,
@@ -73,12 +73,9 @@ polycrystal.diffract(
     max_bragg_angle=None,
     verbose=True)
 diffraction_pattern = detector.render(
-    frames_to_render=0,
-    lorentz=False,
-    polarization=False,
-    structure_factor=False,
-    method="centroid",
-    verbose=True)
+    peaks_dict,
+    frames_to_render=1,
+    method="gauss")
 
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
@@ -86,6 +83,12 @@ ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
 
-diffraction_pattern[diffraction_pattern > 0] = 1
-plt.imshow(diffraction_pattern, cmap='gray')
+# Convert to numpy for plotting
+if hasattr(diffraction_pattern, 'cpu'):
+    diffraction_pattern_np = diffraction_pattern[0].cpu().numpy()
+else:
+    diffraction_pattern_np = np.array(diffraction_pattern[0])
+
+diffraction_pattern_np[diffraction_pattern_np > 0] = 1
+plt.imshow(diffraction_pattern_np, cmap='gray')
 plt.show()
