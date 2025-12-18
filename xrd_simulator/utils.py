@@ -339,8 +339,11 @@ def _compute_sides(points):
         :obj: `numpy.array`: An array of shape (n, 6) containing the lengths of the sides of the tetrahedrons.
                        Each row corresponds to a tetrahedron and contains the lengths of its 6 sides.
     """
+    # Ensure input is torch tensor
+    points = ensure_torch(points, dtype=torch.float64)
+    
     # Reshape the points array to have shape (n, 1, 4, 3)
-    reshaped_points = points[:, np.newaxis, :, :]
+    reshaped_points = points[:, None, :, :]
 
     # Compute the differences between each pair of points
     differences = reshaped_points - reshaped_points.permute(0, 2, 1, 3)

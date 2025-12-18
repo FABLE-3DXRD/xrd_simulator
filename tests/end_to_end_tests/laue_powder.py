@@ -37,7 +37,7 @@ for ii in range(50):  # sample of 10 crystals
                 G_hkl = np.array([hmiller, kmiller, lmiller])
                 for i in range(len(ks) - 1):
 
-                    G = laue.get_G(U, B, G_hkl)
+                    G = laue._get_G(U, B, G_hkl)
                     theta = laue.get_bragg_angle(G, wavelength)
 
                     rotation_axis = np.array([0, 0, 1])

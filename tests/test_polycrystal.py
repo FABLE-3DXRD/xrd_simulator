@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
+import torch
 from xrd_simulator.polycrystal import Polycrystal
+from xrd_simulator import utils
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
 from xrd_simulator.detector import Detector
@@ -78,8 +80,8 @@ class TestPolycrystal(unittest.TestCase):
         translation = np.array([0, 0, 0])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-        peaks_dict = self.polycrystal.diffract(self.beam, self.detector, motion, verbose=True)
-        peaks_dict1 = self.polycrystal.diffract(self.beam, self.detector, motion, number_of_processes=2, verbose=False)
+        peaks_dict = self.polycrystal.diffract(self.beam, motion, detector=self.detector, verbose=True)
+        peaks_dict1 = self.polycrystal.diffract(self.beam, motion, detector=self.detector, verbose=False)
 
         diffraction_pattern = self.detector.render(
             peaks_dict, frames_to_render=1, method='gauss')
@@ -138,7 +140,7 @@ class TestPolycrystal(unittest.TestCase):
                 msg="Few or no rings appeared from diffraction.")
 
     def test_save_and_load(self):
-        orientation_lab = self.polycrystal.orientation_lab.copy()
+        orientation_lab = utils.ensure_numpy(self.polycrystal.orientation_lab)
         path = os.path.join(
             os.path.join(
                 os.path.dirname(__file__),
@@ -149,7 +151,7 @@ class TestPolycrystal(unittest.TestCase):
         self.assertTrue(
             np.allclose(
                 orientation_lab,
-                self.polycrystal.orientation_lab),
+                utils.ensure_numpy(self.polycrystal.orientation_lab)),
             msg='Data corrupted on save and load')
         os.remove(path + '.pc')
         os.remove(path + ".xdmf")
@@ -160,7 +162,7 @@ class TestPolycrystal(unittest.TestCase):
         self.assertTrue(
             np.allclose(
                 orientation_lab,
-                self.polycrystal.orientation_lab),
+                utils.ensure_numpy(self.polycrystal.orientation_lab)),
             msg='Data corrupted on save and load')
         os.remove(path + '.pc')
         os.remove(path + ".xdmf")
@@ -205,16 +207,18 @@ class TestPolycrystal(unittest.TestCase):
 
         time = 0.8436
         polycrystal.transform(motion, time=time)
-        Rot_mat = motion.rotator.get_rotation_matrix(time * rotation_angle)
+        Rot_mat = motion.rotator.get_rotation_matrix(torch.tensor(time * rotation_angle))
+        Rot_mat = utils.ensure_numpy(Rot_mat)
         unit_vector = np.random.rand(3,)
         unit_vector = unit_vector / np.linalg.norm(unit_vector)
         new_unit_vector = np.dot(Rot_mat, unit_vector)
         for i, strain in enumerate(strains):
             s1 = np.dot(unit_vector, np.dot(strain, unit_vector))
+            strain_lab_i = utils.ensure_numpy(polycrystal.strain_lab[i])
             s2 = np.dot(
                 new_unit_vector,
                 np.dot(
-                    polycrystal.strain_lab[i],
+                    strain_lab_i,
                     new_unit_vector))
 
             

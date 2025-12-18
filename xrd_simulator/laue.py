@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 torch.set_default_dtype(torch.float64)
+from xrd_simulator.utils import ensure_torch
 
 def _get_G(U, B, G_hkl):
     """Compute the diffraction vector
@@ -24,9 +25,9 @@ def _get_G(U, B, G_hkl):
 
     """
 
-    U = torch.asarray(U)
-    B = torch.asarray(B)
-    G_hkl = torch.asarray(G_hkl)
+    U = ensure_torch(U)
+    B = ensure_torch(B)
+    G_hkl = ensure_torch(G_hkl)
         
     return torch.matmul(torch.matmul(U, B), G_hkl.T)
 
@@ -58,6 +59,12 @@ def _find_solutions_to_tangens_half_angle_equation(
             - indices: 2D numpy array representing indices for diffraction computation.
             - values: 1D numpy array representing values for diffraction computation.
     """
+
+    # Convert inputs to tensors
+    G_0 = torch.asarray(G_0, dtype=torch.float64)
+    rho_0_factor = torch.asarray(rho_0_factor, dtype=torch.float64)
+    rho_1_factor = torch.asarray(rho_1_factor, dtype=torch.float64)
+    rho_2_factor = torch.asarray(rho_2_factor, dtype=torch.float64)
 
     # Ensure G_0 has at least 3 dimensions
     if len(G_0.shape) == 2:
@@ -145,7 +152,8 @@ def _get_bragg_angle(G, wavelength):
         Bragg angles (:obj:`float`): in units of radians. (``shape=(n,)``)
 
     """
-    return np.arcsin(np.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
+    G = ensure_torch(G)
+    return torch.arcsin(torch.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
 
 
 def _get_sin_theta_and_norm_G(G, wavelength):
@@ -163,5 +171,6 @@ def _get_sin_theta_and_norm_G(G, wavelength):
         norm_G (:obj:`float`): Norm of the diffraction vector.
 
     """
-    normG = np.linalg.norm(G, axis=0)
+    G = ensure_torch(G)
+    normG = torch.linalg.norm(G, axis=0)
     return normG * wavelength / (4 * np.pi), normG

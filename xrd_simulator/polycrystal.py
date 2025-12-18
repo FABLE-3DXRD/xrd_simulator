@@ -100,6 +100,7 @@ class Polycrystal:
         min_bragg_angle: float = 0,
         max_bragg_angle: float = 90 * np.pi / 180,
         detector: Detector | None = None,
+        verbose: bool = True,
     ) -> Dict[str, Tensor | list]:
         """Compute diffraction from the rotating and translating polycrystal.
 
@@ -113,6 +114,7 @@ class Polycrystal:
             max_bragg_angle: Maximum Bragg angle in radians
             powder: If True, use powder approximation
             detector: Optional detector for automatic Bragg angle bounds
+            verbose: If True, print progress messages during diffraction (default: True)
 
         Returns:
             Dictionary containing:
@@ -133,7 +135,7 @@ class Polycrystal:
                 beam.wavelength, min_bragg_angle, max_bragg_angle
             )
 
-        peaks = self._compute_peaks(beam, rigid_body_motion)
+        peaks = self._compute_peaks(beam, rigid_body_motion, verbose=verbose)
 
         # Filter peaks by beam illumination using source positions
         source_points = peaks[:, 16:19].T  # Get source points (x,y,z) and transpose for contains method
@@ -201,12 +203,13 @@ class Polycrystal:
 
         return peaks_dict
 
-    def _compute_peaks(self, beam, rigid_body_motion):
+    def _compute_peaks(self, beam, rigid_body_motion, verbose=True):
         """
         Compute diffraction for a subset of the polycrystal.
 
                 - 'beam' (Beam): Object representing the incident X-ray beam.
                 - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
+                - 'verbose' (bool): If True, print progress messages.
 
         Returns:
             Tensor: A tensor containing diffraction peak data with columns:
@@ -247,12 +250,15 @@ class Polycrystal:
             grain_indices = torch.where(element_phase_map == i)[0]
             miller_indices = ensure_torch(phase.miller_indices)
             # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
-            structure_factors = torch.sum(
-                ensure_torch(phase.structure_factors) ** 2, axis=1
-            )
-
-            miller_indices = miller_indices[structure_factors > 1e-6]
-            structure_factors = structure_factors[structure_factors > 1e-6]
+            if phase.structure_factors is not None:
+                structure_factors = torch.sum(
+                    ensure_torch(phase.structure_factors) ** 2, axis=1
+                )
+                miller_indices = miller_indices[structure_factors > 1e-6]
+                structure_factors = structure_factors[structure_factors > 1e-6]
+            else:
+                # If no structure factors provided, use uniform intensity (all ones)
+                structure_factors = torch.ones(miller_indices.shape[0])
 
             # Get all scattering vectors for all scatterers in a given phase
             G_0 = laue._get_G(
@@ -374,6 +380,11 @@ class Polycrystal:
         Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
             rigid_body_motion.rotation_angle * time
         )
+        
+        # Ensure Rot_mat has batch dimension for proper broadcasting
+        if Rot_mat.ndim == 2:
+            Rot_mat = Rot_mat.unsqueeze(0)  # (3, 3) -> (1, 3, 3)
+        
         self.orientation_lab = torch.matmul(Rot_mat, self.orientation_lab)
         self.strain_lab = torch.matmul(
             torch.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2, 1)
@@ -460,8 +471,8 @@ class Polycrystal:
                 loaded.element_phase_map, dtype=torch.float64
             )
             loaded._eB = ensure_torch(loaded._eB)
-            loaded.mesh_lab = cls._move_mesh_to_gpu(loaded.mesh_lab)
-            loaded.mesh_sample = cls._move_mesh_to_gpu(loaded.mesh_sample)
+            loaded.mesh_lab = cls._move_mesh_to_torch(loaded.mesh_lab)
+            loaded.mesh_sample = cls._move_mesh_to_torch(loaded.mesh_sample)
             loaded.strain_sample = ensure_torch(
                 loaded.strain_sample, dtype=torch.float64
             )
@@ -536,7 +547,8 @@ class Polycrystal:
         B0s = torch.zeros((len(phases), 3, 3))
         for i, phase in enumerate(phases):
             B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell))
-            grain_indices = torch.where(element_phase_map == i)[0]
+            element_phase_map_tensor = ensure_torch(element_phase_map)
+            grain_indices = torch.where(element_phase_map_tensor == i)[0]
             _eB[grain_indices] = utils._lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )
@@ -580,7 +592,8 @@ class Polycrystal:
         )
         return min_bragg_angle, max_bragg_angle
 
-    def _move_mesh_to_torch(self, mesh: TetraMesh) -> TetraMesh:
+    @staticmethod
+    def _move_mesh_to_torch(mesh: TetraMesh) -> TetraMesh:
         """Convert mesh arrays from numpy to torch using the default device."""
         mesh.coord = ensure_torch(mesh.coord)
         mesh.enod = ensure_torch(mesh.enod).to(dtype=torch.int32)

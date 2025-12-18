@@ -157,6 +157,7 @@ class Detector:
         volume_grain_limit = None, #depends on the detector pixel size
         gauss_grain_limit = 0.1**3, #in cubic microns
         render_dtype: torch.dtype | None = None,
+        verbose: bool = True,
     ) -> torch.Tensor:
         """
         Render diffraction frames using different peak profile methods.
@@ -172,6 +173,7 @@ class Detector:
             peaks_dict: Peak data containing 'peaks' tensor and metadata
             frames_to_render: Number of frames to generate (0 = auto)
             method: Rendering method ('gauss', 'voigt', or 'volumes')
+            verbose: If True, print progress messages during rendering (default: True)
 
         Returns:
             torch.Tensor: Rendered diffraction frames (frames, height, width)
@@ -186,9 +188,12 @@ class Detector:
         lab_mesh = peaks_dict.get("mesh_lab", None)
         rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
         target_dtype = render_dtype if render_dtype is not None else peaks.dtype
+        self._verbose = verbose  # Store for use in rendering methods
+        
         if frames_to_render < 1:
             frames_to_render = 1
-            print(f"[Detector.render] frames_to_render < 1, setting to 1")
+            if verbose:
+                print(f"[Detector.render] frames_to_render < 1, setting to 1")
 
         peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
 
@@ -273,12 +278,18 @@ class Detector:
         """Get detector intersection coordinates for rays.
 
         Args:
-            ray_direction: Direction vectors for each ray, shape (N,3)
-            source_point: Origin points for each ray, shape (N,3)
+            ray_direction: Direction vectors for each ray, shape (N,3) or (3,)
+            source_point: Origin points for each ray, shape (N,3) or (3,)
 
         Returns:
             Intersection coordinates (zd,yd) and incident angles, shape (N,3)
         """
+        # Handle single vector inputs by adding batch dimension
+        if ray_direction.dim() == 1:
+            ray_direction = ray_direction.unsqueeze(0)
+        if source_point.dim() == 1:
+            source_point = source_point.unsqueeze(0)
+        
         s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
             ray_direction, self.normal
         )
@@ -564,23 +575,28 @@ class Detector:
         n_batches = (n_peaks + batch_size - 1) // batch_size if batch_size > 0 else 1
         for batch_idx, start in enumerate(range(0, n_peaks, batch_size)):
             end = min(start + batch_size, n_peaks)
-            print(f"[Gauss] Batch {batch_idx+1}/{n_batches}: peaks {start}..{end-1}", flush=True)
+            if self._verbose:
+                progress_fraction = end / n_peaks
+                utils._print_progress(
+                    progress_fraction,
+                    f"[Gauss] Batch {batch_idx+1}/{n_batches}"
+                )
 
-            z_centers_exp = z_center[start:end].to(torch.int32).unsqueeze(1)  # (chunk, 1)
-            pos_z_exp = pos_z[start:end].float().unsqueeze(1)                 # (chunk, 1)
-            z_pixels = z_centers_exp + dz_flat.unsqueeze(0)  # (chunk, 25)
-            z_dist = z_pixels.float() - pos_z_exp          # (chunk, 25)
+            z_centers_exp = z_center[start:end].to(torch.int32).unsqueeze(1)  
+            pos_z_exp = pos_z[start:end].float().unsqueeze(1)                 
+            z_pixels = z_centers_exp + dz_flat.unsqueeze(0)  
+            z_dist = z_pixels.float() - pos_z_exp          
             del z_centers_exp, pos_z_exp
 
-            y_centers_exp = y_center[start:end].to(torch.int32).unsqueeze(1)  # (chunk, 1)
-            pos_y_exp = pos_y[start:end].float().unsqueeze(1)                 # (chunk, 1)
-            y_pixels = y_centers_exp + dy_flat.unsqueeze(0)  # (chunk, 25)
-            y_dist = y_pixels.float() - pos_y_exp          # (chunk, 25)
+            y_centers_exp = y_center[start:end].to(torch.int32).unsqueeze(1)  
+            pos_y_exp = pos_y[start:end].float().unsqueeze(1)                 
+            y_pixels = y_centers_exp + dy_flat.unsqueeze(0)  
+            y_dist = y_pixels.float() - pos_y_exp          
             del y_centers_exp, pos_y_exp
 
             dist_sq = z_dist**2 + y_dist**2
             
-            weights = torch.exp(-dist_sq / (2 * sigma**2))  # (chunk, 25)
+            weights = torch.exp(-dist_sq / (2 * sigma**2))  
             weight_sums = weights.sum(dim=1, keepdim=True)
             weights = weights / (weight_sums + 1e-12)
             weights = weights * intensities[start:end].unsqueeze(1)
@@ -606,40 +622,30 @@ class Detector:
     # 5.b Voigt peaks
     def _render_voigt_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
         """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
-        
-        DEVICE OPTIMIZATION STRATEGY:
-        - CPU/GPU: Uses two-stage approach (generate kernels → deposit)
-        - This is optimal for current hardware (tested 2024)
-        - Future optimization: Fused on-the-fly computation would be faster on GPU
-          (10-100× speedup, 1700× less memory) but requires CUDA kernel implementation
-        
+    
         The two-stage approach:
         1. Generate peak-specific Voigt kernels (varying size based on FWHM)
         2. Deposit using Gaussian interpolation (σ=0.7 for sub-pixel positioning)
         3. No additional convolution (kernels already encode peak shapes)
 
-        Parameters
-        ----------
-        peaks : torch.Tensor
-            Processed peaks tensor with precalculated intensities and fraalculation
+        Args:
+            peaks: Processed peaks tensor with detector intersections and intensity factors
+            frames_to_render: Number of frames to generate
+            render_dtype: Data type for rendered frames
 
-        Returns
-        -------
-        torch.Tensor
-            Rendered diffraction frames
+        Returns:
+            Rendered diffraction frames with Voigt peaks (frames, height, width)
         
         Peak tensor column mapping (after _peaks_detector_intersection):
             0-24: Original columns from polycrystal (grain_index through peak_index)
             25: zd (detector x-coordinate in pixels)
             26: yd (detector y-coordinate in pixels)
-        27: incident_angle (in degrees)
-        28: frame (frame index for time-resolved rendering)
-        29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
+            27: incident_angle (in degrees)
+            28: frame (frame index for time-resolved rendering)
+            29: intensity_factors (scattering strength per unit volume: structure × polarization × lorentz)
         """
-        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
-        cuda_selected = get_selected_device() == "cuda"
 
-                # Early exit for empty peak list
+        # Early exit for empty peak list
         if peaks.shape[0] == 0:
             return torch.zeros(
                 (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
@@ -724,23 +730,20 @@ class Detector:
                     total_deposit_batches = (
                         batch_count + deposit_batch_size - 1
                     ) // deposit_batch_size
-                    progress_fraction = min(
-                        1.0, (start_idx + mini_end) / max(total_frame_peaks, 1)
-                    )
-                    utils._print_progress(
-                        progress_fraction,
-                        (
-                            f"Batch {batch_idx+1}/{total_batches} "
-                            f"chunk {deposit_idx+1}/{total_deposit_batches} "
-                            f"(frame {frame_idx+1})"
-                        ),
-                    )
+                    if self._verbose:
+                        progress_fraction = min(
+                            1.0, (start_idx + mini_end) / max(total_frame_peaks, 1)
+                        )
+                        utils._print_progress(
+                            progress_fraction,
+                            (
+                                f"[Voigt] Batch {batch_idx+1}/{total_batches}"
+                            ),
+                        )
 
                     del kernels
 
                 start_idx = end_idx
-
-            print(f"Completed frame {frame_idx+1}/{frames_to_render}")
 
         return frames
 
@@ -980,10 +983,15 @@ class Detector:
         This provides accurate peak shapes by projecting 3D crystal volumes.
 
         Args:
-            peaks_dict: Dictionary containing peak information and metadata
+            peaks: Processed peaks tensor with detector intersections and intensity factors
+            beam: Beam object for computing convex hull intersections
+            mesh_lab: Mesh object containing tetrahedral element geometry
+            rigid_body_motion: RigidBodyMotion object for transforming vertices
+            frames_to_render: Number of frames to generate
+            render_dtype: Data type for rendered frames
 
         Returns:
-            Rendered diffraction frames with projected volumes
+            Rendered diffraction frames with projected volumes (frames, height, width)
         """
         frames_bundle = peaks[:, 28].unique()  # frame column is index 28
 
@@ -1003,11 +1011,14 @@ class Detector:
         times = peaks[:, 6]
         # Initialize all frames to zeros so we can write directly by frame index
         diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device, dtype=render_dtype)
-        # Get rotation matrices for each peak
-        rotation_matrices = rigid_body_motion.rotator.get_rotation_matrix(rigid_body_motion.rotation_angle*times)
+        
+        # Get vertices for each peak and apply rigid body motion
         node_indices = mesh_lab.enod[element_indices]
-        vertices = ensure_torch(mesh_lab.coord[node_indices])
-        rotated_vertices = torch.matmul(vertices, rotation_matrices)
+        vertices = ensure_torch(mesh_lab.coord[node_indices])  # Shape: (N_peaks, 4, 3)
+        
+        # Apply rigid body motion to all vertices at their corresponding times
+        # RigidBodyMotion handles (N, 4, 3) shape with per-vector times (N,)
+        rotated_vertices = rigid_body_motion(vertices, times)  # Shape: (N_peaks, 4, 3)
         
         for frame_index in frames_bundle:
             # Initialize frame on same device as peaks
@@ -1020,8 +1031,16 @@ class Detector:
             # Process each peak in this frame
             frame_mask = peaks[:, 28] == frame_index
             frame_peak_indices = torch.where(frame_mask)[0]
+            total_peaks = len(frame_peak_indices)
             
-            for peak_idx in frame_peak_indices:
+            for i, peak_idx in enumerate(frame_peak_indices):
+                # Show progress for verbose mode using consistent progress bar
+                if self._verbose and total_peaks > 0:
+                    progress_fraction = (i + 1) / total_peaks
+                    utils._print_progress(
+                        progress_fraction,
+                        f"[Volumes] Frame {int(frame_index)+1}/{len(frames_bundle)}"
+                    )
                 
                 # Compute convex hull intersection with beam
                 hull = beam._intersect(rotated_vertices[peak_idx])

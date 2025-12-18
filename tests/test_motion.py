@@ -2,7 +2,9 @@
 import unittest
 import os
 import numpy as np
+import torch
 from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator import utils
 
 
 class TestMotion(unittest.TestCase):
@@ -28,6 +30,11 @@ class TestMotion(unittest.TestCase):
         z = motion.rotate(np.array([0, 1, 0]), time=1)
         y = motion.rotate(np.array([0, 0, -1]), time=1)
 
+        # Convert torch tensors to numpy for comparison
+        x = utils.ensure_numpy(x)
+        y = utils.ensure_numpy(y)
+        z = utils.ensure_numpy(z)
+
         self.assertAlmostEqual(np.linalg.norm(
             x - np.array([1., 0, 0])), 0, msg='Error in rotator')
         self.assertAlmostEqual(np.linalg.norm(
@@ -44,6 +51,9 @@ class TestMotion(unittest.TestCase):
 
         v0 = np.random.rand(3,) - 0.5
         v = motion.translate(v0, time=0.4323)
+
+        # Convert torch tensor to numpy for comparison
+        v = utils.ensure_numpy(v)
 
         self.assertAlmostEqual(
             np.linalg.norm(
@@ -62,6 +72,9 @@ class TestMotion(unittest.TestCase):
 
         y = np.array([0, 1, 0])
         v = motion(y, time=1)
+
+        # Convert torch tensor to numpy for comparison
+        v = utils.ensure_numpy(v)
 
         self.assertAlmostEqual(np.linalg.norm(
             v - np.array([1, 0, 1])), 0, msg='Error in rigid body transformation')
@@ -106,6 +119,9 @@ class TestMotion(unittest.TestCase):
         points = motion.rotate(points_0, time=0.243687)
         points = inverse_motion.rotate(points, time=0.243687)
 
+        # Convert torch tensor to numpy for comparison
+        points = utils.ensure_numpy(points)
+
         for i in range(points.shape[0]):
             for j in range(points.shape[1]):
                 self.assertAlmostEqual( points_0[i,j], points[i,j] )
@@ -121,6 +137,9 @@ class TestMotion(unittest.TestCase):
         y = np.array([0, 1, 0])
         v = motion(y, time=1)
 
+        # Convert torch tensor to numpy for comparison
+        v = utils.ensure_numpy(v)
+
         self.assertAlmostEqual(np.linalg.norm(
             v - np.array([1, 1, 0])), 0, msg='Error in rigid body transformation')
 
@@ -130,6 +149,10 @@ class TestMotion(unittest.TestCase):
         origin = np.array([0, 0, 1])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation, origin)
         z = motion.rotate(np.array([0, 1, 0]), time=1) # rotation should NOT respect the origin!
+        
+        # Convert torch tensor to numpy for comparison
+        z = utils.ensure_numpy(z)
+        
         self.assertAlmostEqual(np.linalg.norm(
             z - np.array([0, 0, 1])), 0, msg='Error in rotator')
 
@@ -141,6 +164,9 @@ class TestMotion(unittest.TestCase):
 
         v0 = np.random.rand(3,) - 0.5
         v = motion.translate(v0, time=0.4323)
+
+        # Convert torch tensor to numpy for comparison
+        v = utils.ensure_numpy(v)
 
         self.assertAlmostEqual(
             np.linalg.norm(

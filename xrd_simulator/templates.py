@@ -154,18 +154,15 @@ def polycrystal_from_odf(
     )
     max_cell_circumradius = (3 * volume_per_crystal / (np.pi * 4.0)) ** (1 / 3.0)
 
-    # Fudge factor 2.6 gives approximately number_of_crystals elements in the
-    # mesh
-    max_cell_circumradius = 2.65 * max_cell_circumradius
+    # Fudge factor gives approximately number_of_crystals elements in the mesh
+    # (calibrated for meshpy.tet)
+    max_cell_circumradius = 4.2 * max_cell_circumradius
 
     dz = sample_bounding_cylinder_height / 2.0
     R = float(sample_bounding_cylinder_radius)
-
-    def round_trip_connect(start, end):
-        return [(i, i+1) for i in range(start, end)] + [(end, start)]
     
     # Generate points for the cylinder
-    n = int(2 * np.pi * R / max_cell_circumradius)
+    n = max(8, int(2 * np.pi * R / max_cell_circumradius))  # At least 8 points
     angles = np.linspace(0, 2*np.pi, n, endpoint=False)
     
     # Bottom and top circles
@@ -175,20 +172,38 @@ def polycrystal_from_odf(
                   for angle in angles]
     
     # Add center points for top and bottom
+    # Point indices: 0 to n-1 = bottom circle, n to 2n-1 = top circle, 
+    # 2n = bottom center, 2n+1 = top center
     points = bottom_points + top_points + [(0, 0, -dz), (0, 0, dz)]
     
     # Create mesh info
     mesh_info = tet.MeshInfo()
     mesh_info.set_points(points)
     
-    # Set facets
-    facets = (
-        round_trip_connect(0, n-1) +                   # bottom circle
-        round_trip_connect(n, 2*n-1) +                 # top circle
-        [(i, i+n) for i in range(n)] +                # sides
-        [(i, 2*n) for i in range(n)] +                # bottom center connections
-        [(i+n, 2*n+1) for i in range(n)]              # top center connections
-    )
+    # Define triangular facets (not edges!)
+    facets = []
+    
+    # Bottom circle triangles (from center to edge)
+    bottom_center_idx = 2 * n
+    for i in range(n):
+        next_i = (i + 1) % n
+        facets.append([bottom_center_idx, i, next_i])
+    
+    # Top circle triangles (from center to edge)
+    top_center_idx = 2 * n + 1
+    for i in range(n):
+        next_i = (i + 1) % n
+        # Reverse order for outward-facing normal
+        facets.append([top_center_idx, n + next_i, n + i])
+    
+    # Side rectangles split into two triangles each
+    for i in range(n):
+        next_i = (i + 1) % n
+        # Bottom triangle of rectangle
+        facets.append([i, next_i, n + i])
+        # Top triangle of rectangle
+        facets.append([next_i, n + next_i, n + i])
+    
     mesh_info.set_facets(facets)
     
     # Generate mesh

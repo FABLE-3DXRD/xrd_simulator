@@ -26,10 +26,11 @@ from xrd_simulator import utils, motion
 class TetraMesh(object):
     """Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.
 
-    For level-set mesh generation the TetraMesh uses `the meshio package`_: For more meshing tools
-    please see this package directly (which itself is a wrapper of CGAL)
+    For level-set mesh generation the TetraMesh uses marching cubes from `scikit-image`_ to extract
+    the surface, then `meshpy`_ (TetGen wrapper) to generate the volume tetrahedral mesh.
 
-     .. _the meshio package: https://github.com/nschloe/meshio
+     .. _scikit-image: https://scikit-image.org/
+     .. _meshpy: https://github.com/inducer/meshpy
 
     Attributes:
         coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
@@ -85,7 +86,11 @@ class TetraMesh(object):
     def generate_mesh_from_levelset(
         cls, level_set, bounding_radius, max_cell_circumradius
     ):
-        """Generate a mesh from a level set using meshpy.
+        """Generate a mesh from a level set using marching cubes (scikit-image) + meshpy.
+
+        This method uses a two-step process:
+        1. Extract the surface from the level set using marching cubes (skimage)
+        2. Generate a volume tetrahedral mesh from the surface using meshpy
 
         Args:
             level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
@@ -96,30 +101,79 @@ class TetraMesh(object):
         Returns:
             TetraMesh: The generated tetrahedral mesh
         """
-        # Create grid of points within bounding sphere
-        n = int(2 * bounding_radius / max_cell_circumradius)
-        x = np.linspace(-bounding_radius, bounding_radius, n)
-        y = np.linspace(-bounding_radius, bounding_radius, n)
-        z = np.linspace(-bounding_radius, bounding_radius, n)
-        X, Y, Z = np.meshgrid(x, y, z)
+        from skimage import measure
         
-        # Evaluate levelset function
-        points = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
-        values = np.array([level_set(p) for p in points])
+        # Create a grid to sample the level set
+        # Use a reasonably fine grid to capture the surface accurately
+        n = max(int(2 * bounding_radius / (max_cell_circumradius * 0.5)), 20)
+        x = np.linspace(-bounding_radius, bounding_radius, n, dtype=np.float64)
+        y = np.linspace(-bounding_radius, bounding_radius, n, dtype=np.float64)
+        z = np.linspace(-bounding_radius, bounding_radius, n, dtype=np.float64)
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
         
-        # Keep points where levelset is positive
-        points = points[values > 0]
+        # Evaluate level set function on the grid
+        points_grid = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
+        values = np.array([level_set(p) for p in points_grid], dtype=np.float64)
+        volume = values.reshape(X.shape)
         
-        # Create mesh info object
+        # Extract the surface mesh using marching cubes at level=0
+        # Note: marching_cubes extracts the surface where volume == level
+        try:
+            verts, faces, normals, values = measure.marching_cubes(
+                volume, level=0.0, spacing=(x[1] - x[0], y[1] - y[0], z[1] - z[0])
+            )
+        except (ValueError, RuntimeError) as e:
+            raise ValueError(
+                f"Marching cubes failed to extract surface: {str(e)}. "
+                "This likely means the level set doesn't intersect the zero level "
+                "within the bounding box, or doesn't define a valid closed surface."
+            )
+        
+        # Transform vertices from grid coordinates to world coordinates and ensure float64
+        verts = verts.astype(np.float64) + np.array([x[0], y[0], z[0]], dtype=np.float64)
+        faces = faces.astype(np.int32)  # Ensure integer type for faces
+        
+        # Verify we have a valid surface
+        if len(verts) == 0 or len(faces) == 0:
+            raise ValueError(
+                "Marching cubes produced no surface. "
+                "Check that the level set crosses zero within the bounding_radius."
+            )
+        
+        # Create mesh info for meshpy
         mesh_info = tet.MeshInfo()
-        mesh_info.set_points(points.tolist())
+        mesh_info.set_points(verts.tolist())
         
-        # Generate mesh
-        mesh = tet.build(mesh_info, max_volume=(max_cell_circumradius**3)/6.0)
+        # Set the surface facets - these define the boundary
+        mesh_info.set_facets(faces.tolist())
         
-        # Convert to meshio format
-        vertices = np.array(mesh.points)
-        elements = np.array(mesh.elements)
+        # Build the volume mesh with quality constraints
+        max_volume = (max_cell_circumradius ** 3) / 6.0
+        
+        try:
+            mesh = tet.build(
+                mesh_info,
+                max_volume=max_volume,
+                attributes=True
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Tetrahedral mesh generation failed: {str(e)}. "
+                "The surface may be self-intersecting or have other topological issues. "
+                "Try adjusting bounding_radius or max_cell_circumradius."
+            )
+        
+        # Convert to meshio format with explicit double precision
+        vertices = np.array(mesh.points, dtype=np.float64)
+        elements = np.array(mesh.elements, dtype=np.int64)
+        
+        # Verify mesh generation succeeded
+        if len(vertices) == 0 or len(elements) == 0:
+            raise ValueError(
+                "Mesh generation produced no tetrahedra. "
+                "This may indicate an issue with the surface topology."
+            )
+        
         mesh_obj = meshio.Mesh(vertices, [("tetra", elements)])
         
         return cls._build_tetramesh(mesh_obj)
@@ -128,14 +182,18 @@ class TetraMesh(object):
         """Translate the mesh.
 
         Args:
-            translation_vector (:obj:`numpy.array`): [x,y,z] translation vector, shape=(3,)
+            translation_vector (:obj:`numpy.array` or :obj:`torch.Tensor`): [x,y,z] translation vector, shape=(3,)
 
         """
+        # Convert to numpy if torch tensor
+        if torch.is_tensor(translation_vector):
+            translation_vector = utils.ensure_numpy(translation_vector)
+        
         self._mesh.points += translation_vector
-        self.coord = np.array(self._mesh.points)
-        self.ecentroids += translation_vector
-        self.espherecentroids += translation_vector
-        self.centroid += translation_vector
+        self.coord = utils.ensure_torch(self._mesh.points, dtype=torch.float64)
+        self.ecentroids += utils.ensure_torch(translation_vector, dtype=torch.float64)
+        self.espherecentroids += utils.ensure_torch(translation_vector, dtype=torch.float64)
+        self.centroid += utils.ensure_torch(translation_vector, dtype=torch.float64)
 
     def rotate(self, rotation_axis, angle):
         """Rotate the mesh.
@@ -225,7 +283,14 @@ class TetraMesh(object):
         
         # Convert core mesh data to tensors immediately
         tetmesh.coord = utils.ensure_torch(mesh.points, dtype=torch.float64)
-        tetmesh.enod = utils.ensure_torch(mesh.cells_dict["tetra"], dtype=torch.int64)
+        
+        # Handle enod - ensure it's 2D
+        enod_data = mesh.cells_dict["tetra"]
+        enod_tensor = utils.ensure_torch(enod_data, dtype=torch.int64)
+        # If enod is 1D (single tetrahedron), reshape to 2D
+        if enod_tensor.ndim == 1:
+            enod_tensor = enod_tensor.reshape(1, -1)
+        tetmesh.enod = enod_tensor
         
         # Store tensor versions in _mesh for persistence
         tetmesh._mesh = meshio.Mesh(
@@ -306,6 +371,10 @@ class TetraMesh(object):
         espherecentroids : torch.Tensor
             Tensor of centroids for the minimal bounding spheres of each tetrahedron.
         """
+        # Ensure inputs are torch tensors
+        coord = utils.ensure_torch(coord, dtype=torch.float64)
+        enod = utils.ensure_torch(enod, dtype=torch.int64)
+        
         vertices = coord[enod]
         n_tetra = enod.shape[0]
         pairs = torch.tensor(

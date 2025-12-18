@@ -132,6 +132,7 @@ class RigidBodyMotion:
 
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
+        time = ensure_torch(time)
         rotated_vectors = self.rotator(vectors, self.rotation_angle * time)
         return rotated_vectors
 
@@ -151,6 +152,9 @@ class RigidBodyMotion:
         assert (
             time <= 1 and time >= 0
         ), "The rigid body motion is only valid on the interval time=[0,1]"
+        
+        vectors = ensure_torch(vectors)
+        
         if len(vectors.shape) > 1:
             translation = self.translation.reshape(3, 1)
         else:

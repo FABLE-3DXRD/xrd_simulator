@@ -63,7 +63,7 @@ class TestUtils(unittest.TestCase):
         unit_cell = [5.028, 5.028, 5.519, 90.0, 90.0, 120.0]
 
         B0 = tools.form_b_mat(unit_cell)
-        B = utils.lab_strain_to_B_matrix(strain_tensor, U, B0)
+        B = utils._lab_strain_to_B_matrix(strain_tensor, U, B0)
 
         n_c = np.random.rand(
             3,
@@ -90,7 +90,7 @@ class TestUtils(unittest.TestCase):
         _, alpha_2, alpha_3 = np.random.rand(
             3,
         )
-        q = utils.alpha_to_quarternion(0, alpha_2, alpha_3)
+        q = utils._alpha_to_quarternion(0, alpha_2, alpha_3)
         self.assertAlmostEqual(q[0], 1.0, msg="quarternion wrongly computed")
         self.assertAlmostEqual(q[1], 0.0, msg="quarternion wrongly computed")
         self.assertAlmostEqual(q[2], 0.0, msg="quarternion wrongly computed")
@@ -104,7 +104,7 @@ class TestUtils(unittest.TestCase):
         alpha_3 = np.random.rand(
             7,
         )
-        qq = utils.alpha_to_quarternion(alpha_1, alpha_2, alpha_3)
+        qq = utils._alpha_to_quarternion(alpha_1, alpha_2, alpha_3)
         for q in qq:
             self.assertTrue(
                 np.abs(np.linalg.norm(q) - 1.0) < 1e-5, msg="quarternion not normalised"

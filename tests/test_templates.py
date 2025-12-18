@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import torch
 from scipy.spatial.transform import Rotation
 from xrd_simulator import templates, utils
 import matplotlib.pyplot as plt
@@ -28,12 +29,13 @@ class TestUtils(unittest.TestCase):
 
         beam, detector, motion = templates.s3dxrd(parameters)
 
-        for ci in beam.centroid:
+        beam_centroid = utils.ensure_numpy(beam.centroid)
+        for ci in beam_centroid:
             self.assertAlmostEqual(ci, 0, msg="beam not at origin.")
 
-        det_approx_centroid = detector.det_corner_0.copy()
-        det_approx_centroid[1] += detector.det_corner_1[1]
-        det_approx_centroid[2] += detector.det_corner_2[2]
+        det_approx_centroid = utils.ensure_numpy(detector.det_corner_0).copy()
+        det_approx_centroid[1] += utils.ensure_numpy(detector.det_corner_1)[1]
+        det_approx_centroid[2] += utils.ensure_numpy(detector.det_corner_2)[2]
 
         self.assertAlmostEqual(
             det_approx_centroid[0],
@@ -52,7 +54,7 @@ class TestUtils(unittest.TestCase):
 
         original_vector = np.random.rand(3,) - 0.5
         time = 0.234986
-        transformed_vector = motion(original_vector, time)
+        transformed_vector = utils.ensure_numpy(motion(original_vector, time))
 
         angle = parameters["rotation_step"] * time
         s, c = np.sin(angle), np.cos(angle)
@@ -95,8 +97,9 @@ class TestUtils(unittest.TestCase):
 
         # Compare Euler angle distributions to scipy random uniform orientation
         # sampler
+        orientation_lab_np = utils.ensure_numpy(polycrystal.orientation_lab)
         euler1 = np.array([Rotation.from_matrix(U).as_euler(
-            'xyz', degrees=True) for U in polycrystal.orientation_lab])
+            'xyz', degrees=True) for U in orientation_lab_np])
         euler2 = Rotation.random(10 * euler1.shape[0]).as_euler('xyz')
 
         for i in range(3):
@@ -148,10 +151,10 @@ class TestUtils(unittest.TestCase):
         polycrystal.transform(motion, time=0.134)
         peaks_dict = polycrystal.diffract(
             beam,
-            detector,
             motion,
             min_bragg_angle=0,
             max_bragg_angle=None,
+            detector=detector,
             verbose=True)
 
         diffraction_pattern = detector.render(
@@ -207,7 +210,8 @@ class TestUtils(unittest.TestCase):
             sgname='P3221',
             strain_tensor=np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0.01]])
         )
-        for c in polycrystal.mesh_lab.coord:
+        mesh_coord = utils.ensure_numpy(polycrystal.mesh_lab.coord)
+        for c in mesh_coord:
             self.assertLessEqual(
                 np.linalg.norm(c),
                 sample_bounding_radius + 1e-8,
@@ -233,10 +237,10 @@ class TestUtils(unittest.TestCase):
 
         peaks_dict = polycrystal.diffract(
             beam,
-            detector,
             motion,
             min_bragg_angle=0,
             max_bragg_angle=None,
+            detector=detector,
             verbose=True)
 
         diffraction_pattern = detector.render(

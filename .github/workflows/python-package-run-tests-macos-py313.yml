@@ -29,7 +29,7 @@ jobs:
         run: |
           python --version
           conda install -y \
-            matplotlib numpy meshio pygalmesh scipy numba pycifrw dill xfab meshpy pillow scikit-image pandas tifffile typing-extensions
+            matplotlib numpy meshio scipy numba pycifrw dill xfab meshpy pillow scikit-image pandas tifffile typing-extensions
           python -m pip install --upgrade pip
           python -m pip install .
 
