@@ -1,6 +1,7 @@
 import unittest
 import torch
 import numpy as np  # Still needed for ConvexHull
+import warnings
 from xrd_simulator.beam import Beam
 from scipy.spatial import ConvexHull
 from xrd_simulator.motion import RigidBodyMotion
@@ -122,6 +123,12 @@ class TestBeam(unittest.TestCase):
         self.assertTrue(point is not None)
 
     def test__get_proximity_intervals(self):
+        """Test proximity intervals calculation.
+        
+        .. deprecated::
+            This test covers a deprecated method that will be removed in a future version.
+            The method _get_proximity_intervals is no longer used in the core workflow.
+        """
         self.beam_vertices = ensure_torch(
             [
                 [-500.0, -1.0, -1.0],
@@ -157,9 +164,17 @@ class TestBeam(unittest.TestCase):
         sphere_centres = ensure_torch([[400.0, 0.0, 0.0], [200.0, 0.0, 0.0]])
         sphere_radius = ensure_torch([[2.0], [0.5]])
 
-        intervals = self.beam._get_proximity_intervals(
-            sphere_centres, sphere_radius, motion
-        )
+        # Expect deprecation warning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            intervals = self.beam._get_proximity_intervals(
+                sphere_centres, sphere_radius, motion
+            )
+            # Verify deprecation warning was raised
+            self.assertTrue(
+                any(issubclass(warning.category, DeprecationWarning) for warning in w),
+                msg="_get_proximity_intervals should raise DeprecationWarning"
+            )
 
         self.assertEqual(
             len(intervals[0]), 2, msg="Wrong number of proximity intervals"
@@ -216,6 +231,55 @@ class TestBeam(unittest.TestCase):
 
         self.assertTrue(torch.all(mask[0:9]))
         self.assertFalse(mask[9].item())
+
+    def test_save_and_load(self):
+        """Test beam save/load round-trip preserves all attributes."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "test_beam")
+            
+            # Save the beam
+            self.beam.save(path)
+            
+            # Verify file was created with .beam extension
+            self.assertTrue(os.path.exists(path + ".beam"))
+            
+            # Load the beam
+            loaded_beam = Beam.load(path + ".beam")
+            
+            # Verify all attributes match
+            self.assertTrue(
+                torch.allclose(self.beam.vertices, loaded_beam.vertices),
+                msg="vertices mismatch after load"
+            )
+            self.assertTrue(
+                torch.allclose(self.beam.wave_vector, loaded_beam.wave_vector),
+                msg="wave_vector mismatch after load"
+            )
+            self.assertAlmostEqual(
+                self.beam.wavelength, loaded_beam.wavelength,
+                msg="wavelength mismatch after load"
+            )
+            self.assertTrue(
+                torch.allclose(self.beam.polarization_vector, loaded_beam.polarization_vector),
+                msg="polarization_vector mismatch after load"
+            )
+            self.assertTrue(
+                torch.allclose(self.beam.halfspaces, loaded_beam.halfspaces),
+                msg="halfspaces mismatch after load"
+            )
+            self.assertTrue(
+                torch.allclose(self.beam.centroid, loaded_beam.centroid),
+                msg="centroid mismatch after load"
+            )
+
+    def test_load_invalid_extension(self):
+        """Test that load raises ValueError for non-.beam files."""
+        with self.assertRaises(ValueError) as context:
+            Beam.load("/tmp/test.txt")
+        self.assertIn(".beam", str(context.exception))
 
 
 if __name__ == "__main__":

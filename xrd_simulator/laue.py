@@ -28,8 +28,13 @@ def _get_G(U, B, G_hkl):
     U = ensure_torch(U)
     B = ensure_torch(B)
     G_hkl = ensure_torch(G_hkl)
-        
-    return torch.matmul(torch.matmul(U, B), G_hkl.T)
+    
+    # Handle 1D input (single plane) by converting to column vector
+    if G_hkl.dim() == 1:
+        G_hkl = G_hkl.unsqueeze(0)  # (3,) -> (1, 3)
+    
+    # G_hkl is (n, 3), transpose to (3, n) for matmul
+    return torch.matmul(torch.matmul(U, B), G_hkl.mT)
 
 
 

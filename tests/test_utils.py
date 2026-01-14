@@ -1,4 +1,5 @@
 import unittest
+import warnings
 import numpy as np
 from xfab import tools
 from xrd_simulator import utils
@@ -145,6 +146,65 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(misorientations.shape[0], 2)
         self.assertAlmostEqual(misorientations[0], 0)
         self.assertAlmostEqual(misorientations[1], 0)
+
+    def test_diffractogram_deprecated(self):
+        """Test that _diffractogram raises a deprecation warning.
+        
+        .. deprecated::
+            This test verifies that _diffractogram is properly marked as deprecated.
+            The function will be removed in a future version.
+        """
+        diffraction_pattern = np.zeros((20, 20))
+        R = 8
+        det_c_z, det_c_y = 10.0, 10.0
+        for i in range(diffraction_pattern.shape[0]):
+            for j in range(diffraction_pattern.shape[1]):
+                if np.abs(np.sqrt((i - det_c_z) ** 2 + (j - det_c_y) ** 2) - R) < 0.5:
+                    diffraction_pattern[i, j] += 1
+
+        # Verify deprecation warning is raised
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            bin_centres, histogram = utils._diffractogram(
+                diffraction_pattern, det_c_z, det_c_y, 1.0
+            )
+            # Check that deprecation warning was raised
+            self.assertTrue(
+                any(issubclass(warning.category, DeprecationWarning) for warning in w),
+                msg="_diffractogram should raise DeprecationWarning"
+            )
+
+        # Verify function still works correctly (for backward compatibility)
+        self.assertEqual(
+            np.sum(histogram > 0), 1, msg="Error in diffractogram azimuth integration"
+        )
+        self.assertEqual(
+            np.sum(histogram),
+            np.sum(diffraction_pattern),
+            msg="Error in diffractogram azimuth integration",
+        )
+
+    def test_contained_by_intervals_deprecated(self):
+        """Test that _contained_by_intervals raises a deprecation warning.
+        
+        .. deprecated::
+            This test verifies that _contained_by_intervals is properly marked as deprecated.
+            The function will be removed in a future version.
+        """
+        intervals = [[0.0, 0.5], [0.7, 1.0]]
+        
+        # Verify deprecation warning is raised
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = utils._contained_by_intervals(0.3, intervals)
+            # Check that deprecation warning was raised
+            self.assertTrue(
+                any(issubclass(warning.category, DeprecationWarning) for warning in w),
+                msg="_contained_by_intervals should raise DeprecationWarning"
+            )
+        
+        # Verify function still works correctly (for backward compatibility)
+        self.assertTrue(result, msg="0.3 should be contained in [0.0, 0.5]")
 
 
 if __name__ == "__main__":

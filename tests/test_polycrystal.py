@@ -15,63 +15,72 @@ import os
 
 class TestPolycrystal(unittest.TestCase):
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
+        """Run once for all tests - creates expensive shared resources."""
         np.random.seed(10)
 
-        self.pixel_size = 75.
-        self.detector_size = self.pixel_size * 1024
-        self.detector_distance = 142938.28756189224
+        cls.pixel_size = 75.
+        cls.detector_size = cls.pixel_size * 1024
+        cls.detector_distance = 142938.28756189224
         det_corner_0 = np.array(
-            [self.detector_distance, -self.detector_size / 2., -self.detector_size / 2.])
+            [cls.detector_distance, -cls.detector_size / 2., -cls.detector_size / 2.])
         det_corner_1 = np.array(
-            [self.detector_distance, self.detector_size / 2., -self.detector_size / 2.])
+            [cls.detector_distance, cls.detector_size / 2., -cls.detector_size / 2.])
         det_corner_2 = np.array(
-            [self.detector_distance, -self.detector_size / 2., self.detector_size / 2.])
+            [cls.detector_distance, -cls.detector_size / 2., cls.detector_size / 2.])
 
-        self.detector = Detector(
-            self.pixel_size,
-            self.pixel_size,
+        cls.detector = Detector(
+            cls.pixel_size,
+            cls.pixel_size,
             det_corner_0,
             det_corner_1,
             det_corner_2)
 
-        self.mesh = TetraMesh.generate_mesh_from_levelset(
-            level_set=lambda x: np.dot(x, x) - self.detector_size / 10.,
-            bounding_radius=1.1 * self.detector_size / 10.,
-            max_cell_circumradius=0.01 * self.detector_size / 10.)
+        # Expensive mesh generation - only done once!
+        cls.mesh = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.dot(x, x) - cls.detector_size / 10.,
+            bounding_radius=1.1 * cls.detector_size / 10.,
+            max_cell_circumradius=0.01 * cls.detector_size / 10.)
 
         unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
         sgname = 'P3221'  # Quartz
-        self.phases = [Phase(unit_cell, sgname)]
+        cls.phases = [Phase(unit_cell, sgname)]
         euler_angles = np.random.rand(
-            self.mesh.number_of_elements, 3) * 2 * np.pi
-        self.orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2])
+            cls.mesh.number_of_elements, 3) * 2 * np.pi
+        cls.orientation = np.array([tools.euler_to_u(ea[0], ea[1], ea[2])
                                      for ea in euler_angles])
-        self.element_phase_map = np.zeros(
-            (self.mesh.number_of_elements,)).astype(int)
-        self.polycrystal = Polycrystal(
-            mesh=self.mesh, orientation=self.orientation, strain=np.zeros(
-                (3, 3)), phases=self.phases, element_phase_map=self.element_phase_map)
+        cls.element_phase_map = np.zeros(
+            (cls.mesh.number_of_elements,)).astype(int)
 
-        w = self.detector_size / 2.  # full field illumination
+        w = cls.detector_size / 2.  # full field illumination
         beam_vertices = np.array([
-            [-self.detector_distance, -w, -w],
-            [-self.detector_distance, w, -w],
-            [-self.detector_distance, w, w],
-            [-self.detector_distance, -w, w],
-            [self.detector_distance, -w, -w],
-            [self.detector_distance, w, -w],
-            [self.detector_distance, w, w],
-            [self.detector_distance, -w, w]])
+            [-cls.detector_distance, -w, -w],
+            [-cls.detector_distance, w, -w],
+            [-cls.detector_distance, w, w],
+            [-cls.detector_distance, -w, w],
+            [cls.detector_distance, -w, -w],
+            [cls.detector_distance, w, -w],
+            [cls.detector_distance, w, w],
+            [cls.detector_distance, -w, w]])
         wavelength = 0.285227
         xray_propagation_direction = np.array(
             [1, 0, 0]) * 2 * np.pi / wavelength
         polarization_vector = np.array([0, 1, 0])
-        self.beam = Beam(
+        cls.beam = Beam(
             beam_vertices,
             xray_propagation_direction,
             wavelength,
             polarization_vector)
+
+    def setUp(self):
+        """Run before each test - creates fresh polycrystal for test isolation."""
+        self.polycrystal = Polycrystal(
+            mesh=self.__class__.mesh, 
+            orientation=self.__class__.orientation, 
+            strain=np.zeros((3, 3)), 
+            phases=self.__class__.phases, 
+            element_phase_map=self.__class__.element_phase_map)
 
     def test_diffract(self):
 
@@ -80,13 +89,13 @@ class TestPolycrystal(unittest.TestCase):
         translation = np.array([0, 0, 0])
         motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
-        peaks_dict = self.polycrystal.diffract(self.beam, motion, detector=self.detector, verbose=True)
-        peaks_dict1 = self.polycrystal.diffract(self.beam, motion, detector=self.detector, verbose=False)
+        peaks_dict = self.polycrystal.diffract(self.__class__.beam, motion, detector=self.__class__.detector, verbose=True)
+        peaks_dict1 = self.polycrystal.diffract(self.__class__.beam, motion, detector=self.__class__.detector, verbose=False)
 
-        diffraction_pattern = self.detector.render(
+        diffraction_pattern = self.__class__.detector.render(
             peaks_dict, frames_to_render=1, method='gauss')
 
-        diffraction_pattern1 = self.detector.render(
+        diffraction_pattern1 = self.__class__.detector.render(
             peaks_dict1, frames_to_render=1, method='gauss')
 
         # The rendered diffraction pattern should have intensity
@@ -102,7 +111,7 @@ class TestPolycrystal(unittest.TestCase):
         self.assertTrue(np.allclose(diffraction_pattern_np, diffraction_pattern1_np), msg='Multiproccessing is broken')
 
         # .. and the intensity should be scattered over the image
-        w = int(self.detector_size / 5.)
+        w = int(self.__class__.detector_size / 5.)
         for i in range(w, diffraction_pattern_np.shape[1] - w, w):
             for j in range(w, diffraction_pattern_np.shape[1] - w, w):
                 subsum = np.sum(diffraction_pattern_np[0, i - w:i + w, j - w:j + w])
@@ -170,36 +179,36 @@ class TestPolycrystal(unittest.TestCase):
 
     def test_dimension_handling(self):
 
-        Polycrystal(mesh=self.mesh,
-                    orientation=self.orientation,
+        Polycrystal(mesh=self.__class__.mesh,
+                    orientation=self.__class__.orientation,
                     strain=np.zeros((3, 3)),
-                    phases=self.phases[0],
+                    phases=self.__class__.phases[0],
                     element_phase_map=None)
-        Polycrystal(mesh=self.mesh,
-                    orientation=self.orientation,
+        Polycrystal(mesh=self.__class__.mesh,
+                    orientation=self.__class__.orientation,
                     strain=np.zeros((3, 3)),
-                    phases=self.phases[0],
-                    element_phase_map=self.element_phase_map)
+                    phases=self.__class__.phases[0],
+                    element_phase_map=self.__class__.element_phase_map)
         Polycrystal(
-            mesh=self.mesh,
-            orientation=self.orientation,
+            mesh=self.__class__.mesh,
+            orientation=self.__class__.orientation,
             strain=np.zeros(
-                (self.mesh.number_of_elements,
+                (self.__class__.mesh.number_of_elements,
                     3,
                     3)),
-            phases=self.phases,
-            element_phase_map=self.element_phase_map)
+            phases=self.__class__.phases,
+            element_phase_map=self.__class__.element_phase_map)
 
     def test_transformation(self):
-        strains = np.zeros((self.mesh.number_of_elements, 3, 3))
-        for i in range(self.mesh.number_of_elements):
+        strains = np.zeros((self.__class__.mesh.number_of_elements, 3, 3))
+        for i in range(self.__class__.mesh.number_of_elements):
             strains[i] = 0.001 * (np.random.rand(3, 3) - 0.5)
             strains[i] = 0.5 * (strains[i] + strains[i].T)
-        polycrystal = Polycrystal(mesh=self.mesh,
-                                  orientation=self.orientation,
+        polycrystal = Polycrystal(mesh=self.__class__.mesh,
+                                  orientation=self.__class__.orientation,
                                   strain=strains,
-                                  phases=self.phases,
-                                  element_phase_map=self.element_phase_map)
+                                  phases=self.__class__.phases,
+                                  element_phase_map=self.__class__.element_phase_map)
         rotation_angle = 10 * np.pi / 180.
         rotation_axis = np.array([0, 0, 1])
         translation = np.array([-34.0, 0.243, 345.324])

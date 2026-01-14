@@ -337,6 +337,12 @@ class Beam:
             intersection interval of sphere number i with the beam.
 
         """
+        import warnings
+        warnings.warn(
+            "_get_proximity_intervals is deprecated and will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         candidate_mask, sample_times = self._get_candidate_spheres(
             sphere_centres, sphere_radius, rigid_body_motion
         )

@@ -467,6 +467,34 @@ class Detector:
         # Filter out peaks with infinite or invalid intensity factors (geometrically impossible reflections)
         # These occur when Lorentz factor is infinite (eta near 0° or 180°, or theta near 0°)
         valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
+        n_invalid = (~valid_intensity_mask).sum().item()
+        
+        if n_invalid > 0:
+            import warnings
+            # Count specific reasons for invalid peaks
+            infinite_mask = torch.isinf(peaks[:, 29])
+            n_infinite = infinite_mask.sum().item()
+            n_negative_or_zero = ((peaks[:, 29] <= 0) & ~infinite_mask).sum().item()
+            n_nan = torch.isnan(peaks[:, 29]).sum().item()
+            
+            reason_parts = []
+            if n_infinite > 0:
+                reason_parts.append(
+                    f"{n_infinite} with infinite Lorentz factor (eta ≈ 0°/180° or θ ≈ 0°)"
+                )
+            if n_negative_or_zero > 0:
+                reason_parts.append(f"{n_negative_or_zero} with non-positive intensity")
+            if n_nan > 0:
+                reason_parts.append(f"{n_nan} with NaN intensity")
+            
+            reason_str = "; ".join(reason_parts)
+            warnings.warn(
+                f"Skipping {n_invalid} peaks with invalid intensity factors: {reason_str}. "
+                f"These represent geometrically impossible reflections.",
+                UserWarning,
+                stacklevel=3  # Points to render() caller
+            )
+        
         peaks = peaks[valid_intensity_mask]
 
         return peaks, columns
@@ -1060,10 +1088,9 @@ class Detector:
                         # Use pre-calculated intensity from peaks tensor
                         intensity = peaks[peak_idx, 29]  # intensity column is index 29                        
                         
-                        # Handle infinite values
-                        if torch.isinf(intensity):
-                            frames[box[0]:box[1], box[2]:box[3]] = float('inf')
-                        else:
+                        # Note: Infinite intensity peaks should already be filtered out
+                        # by _peaks_detector_intersection. This check is defensive.
+                        if torch.isfinite(intensity):
                             projection_torch = ensure_torch(projection)
                             # projection is path length, multiply by pixel area to get volume
                             projected_volume = projection_torch * self.pixel_size_z * self.pixel_size_y

@@ -6,15 +6,12 @@ The functions include mathematical computations, geometric transformations, file
 and progress tracking.
 
 Functions:
-    _diffractogram: Compute diffractogram from pixelated diffraction pattern.
-    _contained_by_intervals: Check if a value is contained within specified intervals.
     _cif_open: Open a CIF file using the ReadCif function from the CifFile module.
     _print_progress: Print a progress bar in the executing shell terminal.
     _clip_line_with_convex_polyhedron: Compute lengths of parallel lines clipped by a convex polyhedron.
-    alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
-    lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
+    _alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
+    _lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
     _get_circumscribed_sphere_centroid: Compute the centroid of a circumscribed sphere for a given set of points.
-    _get_bounding_ball: Compute a minimal bounding ball for a set of Euclidean points.
     _set_xfab_logging: Enable or disable logging for the xfab module.
     _verbose_manager: Manage global verbose options for logging within with statements.
     _strain_as_tensor: Convert a strain vector to a strain tensor.
@@ -46,47 +43,7 @@ import torch
 from xrd_simulator.cuda import get_selected_device
 
 import numpy as np
-import pandas as pd
 import torch
-
-
-def peaks_dict_to_dataframe(peaks_dict) -> pd.DataFrame:
-    """
-    Convert a peaks dictionary (from Polycrystal.diffract) into a DataFrame.
-    Handles torch tensors, numpy arrays, and fixes mismatched column lists.
-    """
-
-    # --- Validate structure ---
-    if not isinstance(peaks_dict, dict):
-        raise ValueError("peaks_dict must be a dictionary")
-
-    try:
-        peaks = peaks_dict["peaks"]
-        columns = list(peaks_dict.get("columns", []))
-    except KeyError:
-        raise ValueError("peaks_dict must contain 'peaks' and 'columns' keys")
-
-    # --- Convert peaks to NumPy ---
-    if isinstance(peaks, torch.Tensor):
-        peaks_np = peaks.detach().cpu().numpy()
-    else:
-        peaks_np = np.asarray(peaks)
-
-    # Ensure 2D
-    if peaks_np.ndim == 1:
-        peaks_np = peaks_np.reshape(1, -1)
-
-    ncols = peaks_np.shape[1]
-
-    # --- Fix column count automatically ---
-    if len(columns) != ncols:
-        columns = (columns[:ncols] +           # truncate too-long list
-                   [f"col_{i}" for i in range(len(columns), ncols)])  # pad if too short
-
-    return pd.DataFrame(peaks_np, columns=columns)
-
-
-
 
 
 def _cif_open(cif_file):
@@ -729,6 +686,13 @@ def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0)
         (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
 
     """
+    import warnings
+    warnings.warn(
+        "_diffractogram is deprecated and will be removed in a future version. "
+        "Use manual radial integration instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     m, n = diffraction_pattern.shape
     max_radius = np.max([m, n])
     bin_centres = np.arange(0, int(max_radius + 1), binsize)
@@ -754,6 +718,12 @@ def _contained_by_intervals(value, intervals):
     .. deprecated::
         This method is no longer used in the codebase and will be removed in a future version.
     """
+    import warnings
+    warnings.warn(
+        "_contained_by_intervals is deprecated and will be removed in a future version.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     for bracket in intervals:
         if value >= bracket[0] and value <= bracket[1]:
             return True

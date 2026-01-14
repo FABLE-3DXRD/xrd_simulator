@@ -102,15 +102,18 @@ class RigidBodyMotion:
             return rotated_vectors + translation * time.unsqueeze(-1)
 
         elif len(vectors.shape) == 3:
+            # Handle (N, M, 3) input shapes - typically (N_peaks, 4_vertices, 3_coords)
+            N, M, _ = vectors.shape
             translation = self.translation.reshape(1, 3)
             origin = self.origin.reshape(1, 3)
             centered_vectors = vectors - origin
             centered_rotated_vectors = self.rotator(
                 centered_vectors.reshape(-1, 3),
-                self.rotation_angle * torch.tile(time, (4, 1)).T.reshape(-1),
-            ).reshape(-1, 4, 3)
+                self.rotation_angle * torch.tile(time, (M, 1)).T.reshape(-1),
+            ).reshape(N, M, 3)
             rotated_vectors = centered_rotated_vectors + origin
-            return torch.squeeze(
+            # Don't squeeze - preserve shape for proper indexing downstream
+            return (
                 rotated_vectors
                 + translation * ensure_torch(time)[:, torch.newaxis, torch.newaxis]
             )
