@@ -161,7 +161,7 @@ def _lab_strain_to_B_matrix(
         coordinates. ``shape=(n,3,3)``
 
     """
-    device = strain_tensor.device
+    # Convert to torch tensors first, using the configured device
     strain_tensor = ensure_torch(strain_tensor)
     crystal_orientation = ensure_torch(crystal_orientation)
     B0 = ensure_torch(B0)
@@ -223,11 +223,12 @@ def _strain_as_vector(strain_tensor):
 
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
-    device = crystal_strain.device
+    # Convert to torch tensors first, using the configured device
     crystal_strain = ensure_torch(crystal_strain)
     B0 = ensure_torch(B0)
+    device = get_selected_device()
 
-    C = 2 * crystal_strain + torch.eye(3)
+    C = 2 * crystal_strain + torch.eye(3, device=device)
 
     eigen_vals = torch.linalg.eigvalsh(C)
     if torch.any(eigen_vals < 0):

@@ -60,6 +60,9 @@ setuptools.setup(
 
         # Type hints
         "typing-extensions>=4.9.0",
+
+        # Azimuthal integration
+        "pyFAI",
     ],
     dependency_links=[
         "https://download.pytorch.org/whl/nightly/cu121",

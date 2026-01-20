@@ -15,12 +15,10 @@ Below follows a detailed description of the detector class attributes and functi
 from typing import Dict, List, Optional, Tuple, Union, Any
 import numpy.typing as npt
 import dill
-from scipy.special import wofz
+from scipy.special import wofz, j1
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-from scipy.special import wofz
 
 from xrd_simulator import utils
 from xrd_simulator.cuda import get_selected_device
@@ -164,15 +162,17 @@ class Detector:
 
         Available methods:
         - 'gauss': Fast Gaussian profiles, ideal for quick analysis and perfect crystals
-        - 'voigt': Physically accurate profiles combining instrumental (Gaussian) and
-                  crystal size (Lorentzian) effects. More computationally intensive.
+        - 'voigt': Profiles combining instrumental (Gaussian) and crystal size (Lorentzian) effects.
+        - 'airy': Physically accurate Airy disk patterns from crystallite diffraction.
+                  Broader for smaller crystallites, delta-like for large crystals.
+                  This is the most realistic shape for size-broadened peaks.
         - 'volumes': Projects 3D crystal volumes, showing morphology and strain effects.
                     Requires volume data in peaks_dict.
 
         Args:
             peaks_dict: Peak data containing 'peaks' tensor and metadata
             frames_to_render: Number of frames to generate (0 = auto)
-            method: Rendering method ('gauss', 'voigt', or 'volumes')
+            method: Rendering method ('gauss', 'voigt', 'airy', or 'volumes')
             verbose: If True, print progress messages during rendering (default: True)
 
         Returns:
@@ -204,7 +204,9 @@ class Detector:
         elif method == "gauss":
             diffraction_frames = self._render_gauss_peaks(peaks, frames_to_render, target_dtype)
         elif method == "voigt":
-            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render, target_dtype)
+            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render, target_dtype, kernel_type="voigt")
+        elif method == "airy":
+            diffraction_frames = self._render_voigt_peaks(peaks, frames_to_render, target_dtype, kernel_type="airy")
         elif method == "auto":
             if volume_grain_limit is None:
                 volume_grain_limit = (min(self.pixel_size_y, self.pixel_size_z))**3
@@ -224,18 +226,18 @@ class Detector:
             contrib_gauss = self._render_gauss_peaks(
                 peaks[medium_grains_mask], frames_to_render, target_dtype
             )
-            contrib_voigt = self._render_voigt_peaks(
-                peaks[small_grains_mask], frames_to_render, target_dtype
+            contrib_airy = self._render_voigt_peaks(
+                peaks[small_grains_mask], frames_to_render, target_dtype, kernel_type="airy"
             )
 
             # Ensure dtype/device matching and add up
-            diffraction_frames = diffraction_frames.to(contrib_voigt.device)
-            diffraction_frames += contrib_voigt
+            diffraction_frames = diffraction_frames.to(contrib_airy.device)
+            diffraction_frames += contrib_airy
             diffraction_frames += contrib_volumes
             diffraction_frames += contrib_gauss
         else:
             raise ValueError(
-                f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', 'volumes', or 'auto'"
+                f"Invalid method: {method}. Must be one of: 'gauss', 'voigt', 'airy', 'volumes', or 'auto'"
             )
 
         return diffraction_frames
@@ -647,12 +649,12 @@ class Detector:
                 )
 
         return diffraction_frames
-    # 5.b Voigt peaks
-    def _render_voigt_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
-        """Deposit Voigt kernels with intelligent batching to maximize VRAM utilization.
+    # 5.b Voigt/Airy peaks
+    def _render_voigt_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype, kernel_type: str = "voigt") -> torch.Tensor:
+        """Deposit Voigt or Airy disk kernels with intelligent batching to maximize VRAM utilization.
     
         The two-stage approach:
-        1. Generate peak-specific Voigt kernels (varying size based on FWHM)
+        1. Generate peak-specific kernels (varying size based on FWHM/crystallite size)
         2. Deposit using Gaussian interpolation (σ=0.7 for sub-pixel positioning)
         3. No additional convolution (kernels already encode peak shapes)
 
@@ -660,9 +662,12 @@ class Detector:
             peaks: Processed peaks tensor with detector intersections and intensity factors
             frames_to_render: Number of frames to generate
             render_dtype: Data type for rendered frames
+            kernel_type: Type of kernel to use - "voigt" or "airy" (default: "voigt")
+                - "voigt": Convolution of Gaussian and Lorentzian (traditional approach)
+                - "airy": Physically realistic Airy disk patterns from crystallite diffraction
 
         Returns:
-            Rendered diffraction frames with Voigt peaks (frames, height, width)
+            Rendered diffraction frames with broadened peaks (frames, height, width)
         
         Peak tensor column mapping (after _peaks_detector_intersection):
             0-24: Original columns from polycrystal (grain_index through peak_index)
@@ -681,22 +686,54 @@ class Detector:
                 dtype=render_dtype,
             )
 
-
-        # Estimate batch size conservatively from available memory and expected kernel footprint
+        # Determine device and available memory for adaptive batching
         report = return_device_memory()
-        free_memory = report["free_gb"] * 0.7  # Use only 70% of reported free memory
-
+        device_type = report.get("device", "cpu")
+        is_cuda = device_type.startswith("cuda")
+        
+        # Get available memory in GB
+        available_gb = report.get("available_gb", 0.0)
+        free_gb = report.get("free_gb", 0.0)
+        
         # Approximate kernel width in pixels from FWHM and detector geometry
         det_distance = float(torch.linalg.norm(self.det_corner_0).item())
         pixel_pitch = float(torch.min(self.pixel_size_z, self.pixel_size_y).item())
         fwhm_px = (peaks[:, 23].clamp(min=1e-6) * det_distance / pixel_pitch).clamp(3.0, 128.0)
         avg_kernel_area = float((fwhm_px ** 2).mean().item())
-
-        # Rough bytes per peak (float64 kernels + some overhead)
-        bytes_per_peak = max(avg_kernel_area * 8.0 * 2.0, 1024.0)  # *2 for buffers
-        est_batch = int((free_memory * (1024**3)) / bytes_per_peak) if bytes_per_peak > 0 else peaks.shape[0]
-
-        batch_size = max(1, min(est_batch, int(peaks.shape[0]), 5000))
+        
+        # Calculate target memory usage based on device
+        if is_cuda:
+            # For GPU: target 65% of available VRAM for aggressive utilization
+            # This accounts for: frame buffer, kernel tensors, interpolation buffers
+            target_memory_gb = available_gb * 0.65
+            # Reserve some for frame buffer (detector size × 8 bytes × frames)
+            frame_buffer_gb = (self.pixel_coordinates.shape[0] * self.pixel_coordinates.shape[1] * 
+                              8 * frames_to_render) / (1024**3)
+            usable_memory_gb = max(target_memory_gb - frame_buffer_gb, 1.0)
+        else:
+            # For CPU: use 65% of available RAM (same as GPU for high-memory nodes)
+            # Some cluster nodes have 512GB+ RAM, so don't be overly conservative
+            target_memory_gb = available_gb * 0.65
+            frame_buffer_gb = (self.pixel_coordinates.shape[0] * self.pixel_coordinates.shape[1] * 
+                              8 * frames_to_render) / (1024**3)
+            usable_memory_gb = max(target_memory_gb - frame_buffer_gb, 1.0)
+        
+        # Estimate bytes per peak more accurately:
+        # - Kernel tensor: avg_kernel_area × 8 bytes (float64)
+        # - Interpolation buffers: ~25 × 8 bytes per kernel pixel × avg_kernel_area
+        # - Overhead for padding and intermediate tensors: 2×
+        bytes_per_peak = max(avg_kernel_area * 8.0 * 4.0, 2048.0)  # 4x for buffers+overhead
+        
+        # Calculate batch sizes based on available memory
+        est_batch = int((usable_memory_gb * (1024**3)) / bytes_per_peak) if bytes_per_peak > 0 else peaks.shape[0]
+        
+        # Set batch size limits based on device - same limits for both GPU and CPU
+        # High-memory nodes (512GB+ RAM) can handle large batches
+        batch_size = max(1, min(est_batch, int(peaks.shape[0]), 200000))
+        # Deposit batch size: balance parallelism vs memory for kernel deposition
+        # Each kernel deposit uses ~25 interpolation points × kernel_area × 8 bytes
+        # Scale with memory but cap to avoid OOM in _deposit_kernels_batch
+        deposit_batch_size = max(64, min(int(usable_memory_gb * 20), 512))
         
         frames_to_render = frames_to_render
         frames = torch.zeros(
@@ -704,9 +741,6 @@ class Detector:
             device=peaks.device,
             dtype=render_dtype,
         )
-        # Keep Voigt batches small so kernels can be deposited immediately without
-        # building a giant padded tensor in memory.
-        deposit_batch_size = 32
 
         for frame_idx in range(frames_to_render):
             frame_mask = peaks[:, 28] == frame_idx
@@ -741,9 +775,15 @@ class Detector:
                     mini_end = min(mini_start + deposit_batch_size, batch_count)
                     mini_slice = slice(mini_start, mini_end)
 
-                    kernels = self._voigt_kernel_batch(
-                        fwhm_rad[mini_slice], incident_angles[mini_slice]
-                    )
+                    # Select kernel generation method
+                    if kernel_type == "airy":
+                        kernels = self._airy_kernel_batch(
+                            fwhm_rad[mini_slice], incident_angles[mini_slice]
+                        )
+                    else:  # Default to voigt
+                        kernels = self._voigt_kernel_batch(
+                            fwhm_rad[mini_slice], incident_angles[mini_slice]
+                        )
                     kernels = kernels * intensities[mini_slice].view(-1, 1, 1, 1)
                     kernels = kernels.to(render_dtype)
                     frames[frame_idx] = self._deposit_kernels_batch(
@@ -762,10 +802,11 @@ class Detector:
                         progress_fraction = min(
                             1.0, (start_idx + mini_end) / max(total_frame_peaks, 1)
                         )
+                        kernel_label = "Airy" if kernel_type == "airy" else "Voigt"
                         utils._print_progress(
                             progress_fraction,
                             (
-                                f"[Voigt] Batch {batch_idx+1}/{total_batches}"
+                                f"[{kernel_label}] Batch {batch_idx+1}/{total_batches}"
                             ),
                         )
 
@@ -874,6 +915,165 @@ class Detector:
                 padded_kernels.append(k.to(device=gammas.device))
 
         # Ensure all kernels are on the same device before concatenating
+        result = torch.cat(padded_kernels, dim=0)
+        return result
+
+    def _airy_kernel_batch(
+        self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Generate multiple 2D Airy disk kernels for realistic crystallite diffraction patterns.
+
+        The Airy disk is the physically correct diffraction pattern from a circular aperture
+        (crystallite). The pattern width scales inversely with crystallite size:
+        - Small crystallites → broad Airy patterns
+        - Large crystallites → narrow Airy patterns (approaching delta function)
+
+        The Airy intensity pattern is: I(x) = I_0 * [2*J_1(x)/x]^2
+        where x = 3.8317 * r / first_zero_radius (first zero of J_1 is at 3.8317).
+
+        The FWHM of the Airy pattern is approximately 0.847 * first_zero_radius.
+        Therefore: first_zero_radius = FWHM / 0.847 ≈ FWHM * 1.181
+
+        This ensures that when the Scherrer FWHM is given, the resulting Airy disk
+        has matching FWHM, allowing accurate crystallite size recovery.
+
+        Parameters
+        ----------
+        fwhm_rad : torch.Tensor
+            FWHM values in radians from Scherrer broadening, shape (N,)
+        incident_angles : torch.Tensor
+            Incident angles in degrees for each peak, shape (N,)
+
+        Returns
+        -------
+        torch.Tensor
+            Batch of normalized Airy disk kernels with shape (N, 1, H, W)
+        """
+        detector_distance = torch.linalg.norm(self.det_corner_0)
+        incident_angles_rad = incident_angles * torch.pi / 180
+        R = detector_distance / torch.cos(incident_angles_rad)
+
+        # Convert FWHM in radians to pixel scale
+        fwhm_pixels = (fwhm_rad * R / self.pixel_size_z)
+        
+        # The Airy pattern has FWHM ≈ 0.843 * first_zero_radius
+        # Therefore: first_zero_radius = FWHM / 0.843 ≈ FWHM * 1.1861
+        # This ensures the rendered Airy disk has the correct FWHM for Scherrer recovery
+        AIRY_FWHM_TO_FIRST_ZERO = 1.1861  # = 1 / 0.843
+        first_zero_pixels = fwhm_pixels * AIRY_FWHM_TO_FIRST_ZERO
+
+        sigma = self.gaussian_sigma
+        max_first_zero = first_zero_pixels.max()
+        threshold = self.kernel_threshold / 2
+
+        # Calculate kernel radius - need to capture several Airy rings
+        # Airy pattern decays as 1/x^3 in the tails, so we need larger extent
+        # for small crystallites (broad patterns)
+        # Use ~4 times the first zero to capture sufficient rings
+        radius = torch.tensor(max(4.0 * float(max_first_zero), 8.0))
+        
+        # Ensure we also capture Gaussian tails
+        while True:
+            g_val = torch.exp(-(radius**2) / (2 * sigma**2))
+            if g_val < threshold:
+                break
+            radius = radius * 2
+
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+        yy, zz = torch.meshgrid(ax, ax, indexing="ij")
+        r = torch.sqrt(yy**2 + zz**2)
+
+        kernels = []
+        max_size = 0
+
+        # First zero of J_1(x) occurs at x ≈ 3.8317
+        FIRST_ZERO_J1 = 3.8317
+
+        def airy_profile(r: npt.NDArray, first_zero: float, sigma: float) -> npt.NDArray:
+            """Compute Airy disk profile convolved with Gaussian PSF.
+
+            The Airy intensity pattern is: I(x) = [2*J_1(x)/x]^2
+            where x = 3.8317 * r / first_zero_radius.
+            
+            The first zero of J_1(x) is at x = 3.8317, so the pattern's
+            first zero occurs at r = first_zero_radius.
+
+            For r=0, the pattern has value 1 (use L'Hôpital's rule).
+
+            Args:
+                r: Radial distances in pixels
+                first_zero: First zero radius of Airy pattern in pixels
+                sigma: Gaussian PSF width for instrument broadening
+
+            Returns:
+                Computed Airy disk values (normalized later)
+            """
+            # Scale r so that first zero occurs at r = first_zero
+            # x = 3.8317 * r / first_zero, so at r = first_zero, x = 3.8317
+            x = np.where(r == 0, 1e-10, FIRST_ZERO_J1 * r / first_zero)
+            
+            # Airy pattern: [2*J_1(x)/x]^2
+            # Handle small x separately to avoid numerical issues
+            airy = np.where(
+                np.abs(x) < 1e-8,
+                1.0,  # At center, the jinc function approaches 1
+                (2 * j1(x) / x) ** 2
+            )
+            
+            # For very small crystallites (broad patterns), the Airy disk dominates
+            # For large crystallites (narrow patterns), convolve with Gaussian PSF
+            if first_zero < sigma:
+                # Pattern is sharper than PSF - convolve with Gaussian
+                # Simple approximation: multiply by Gaussian to smooth
+                gaussian = np.exp(-(r**2) / (2 * sigma**2))
+                return airy * gaussian
+            else:
+                return airy
+
+        r_np = r.cpu().numpy()
+        sigma_np = float(sigma)
+
+        for first_zero in first_zero_pixels:
+            first_zero_np = float(first_zero)
+            
+            # For very large crystallites (very small first_zero), use Gaussian kernel
+            if first_zero_np < 0.5:
+                kernel = self.gaussian_kernel
+            else:
+                kernel = ensure_torch(airy_profile(r_np, first_zero_np, sigma_np))
+            
+            kernel = kernel / kernel.sum()
+
+            # Crop to significant region using binary search
+            center = kernel.shape[0] // 2
+            left, right = 1, center
+            while left < right:
+                mid = (left + right) // 2
+                window = kernel[
+                    center - mid : center + mid + 1, center - mid : center + mid + 1
+                ]
+                if window.sum() >= 1 - self.kernel_threshold:
+                    right = mid
+                else:
+                    left = mid + 1
+
+            crop_r = left
+            cropped = kernel[center - crop_r : center + crop_r + 1, center - crop_r : center + crop_r + 1]
+
+            kernels.append(cropped.unsqueeze(0).unsqueeze(0))
+            max_size = max(max_size, 2 * crop_r + 1)
+
+        # Pad all kernels to same size
+        padded_kernels = []
+        for k in kernels:
+            if k.shape[-1] < max_size:
+                pad = (max_size - k.shape[-1]) // 2
+                k_padded = F.pad(k, (pad, pad, pad, pad), mode="constant", value=0)
+                padded_kernels.append(k_padded.to(device=first_zero_pixels.device))
+            else:
+                padded_kernels.append(k.to(device=first_zero_pixels.device))
+
         result = torch.cat(padded_kernels, dim=0)
         return result
 
