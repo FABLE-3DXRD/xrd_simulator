@@ -1,11 +1,18 @@
-"""The beam module is used to represent a beam of xrays. The idea is to create a :class:`xrd_simulator.beam.Beam` object and
-pass it along to the :func:`xrd_simulator.polycrystal.Polycrystal.diffract` function to compute diffraction from the sample
-for the specified xray beam geometry. Here is a minimal example of how to instantiate a beam object and save it to disc:
+"""The beam module is used to represent a beam of X-rays.
 
-    Examples:
-        .. literalinclude:: examples/example_init_beam.py
+The idea is to create a :class:`xrd_simulator.beam.Beam` object and pass it
+along to the :func:`xrd_simulator.polycrystal.Polycrystal.diffract` function
+to compute diffraction from the sample for the specified X-ray beam geometry.
 
-Below follows a detailed description of the beam class attributes and functions.
+Examples
+--------
+Here is a minimal example of how to instantiate a beam object and save it to
+disc:
+
+.. literalinclude:: examples/example_init_beam.py
+
+Below follows a detailed description of the beam class attributes and
+functions.
 """
 from __future__ import annotations
 
@@ -20,27 +27,40 @@ from xrd_simulator.utils import ensure_torch, ensure_numpy
 
 
 class Beam:
-    """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.
+    """Represents a monochromatic X-ray beam as a convex polyhedra.
 
-    The beam is described in the laboratory coordinate system.
+    The beam has uniform intensity and is described in the laboratory
+    coordinate system.
 
-    Args:
-        beam_vertices (:obj:`torch.Tensor`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-        xray_propagation_direction (:obj:`torch.Tensor`): Propagation direction of xrays, ``shape=(3,)``.
-        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
-        polarization_vector (:obj:`torch.Tensor`): Beam linear polarization unit vector ``shape=(3,)``.
-            Must be orthogonal to the xray propagation direction.
+    Parameters
+    ----------
+    beam_vertices : torch.Tensor or numpy.ndarray
+        Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
+    xray_propagation_direction : torch.Tensor or numpy.ndarray
+        Propagation direction of X-rays, shape ``(3,)``.
+    wavelength : float
+        X-ray wavelength in units of angstrom.
+    polarization_vector : torch.Tensor or numpy.ndarray
+        Beam linear polarization unit vector, shape ``(3,)``. Must be
+        orthogonal to the X-ray propagation direction.
 
-    Attributes:
-        vertices (:obj:`torch.Tensor`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
-        wave_vector (:obj:`torch.Tensor`): Beam wavevector with norm 2*pi/wavelength, ``shape=(3,)``
-        polarization_vector (:obj:`torch.Tensor`): Beam linear polarization unit vector ``shape=(3,)``.
-            Must be orthogonal to the xray propagation direction.
-        centroid (:obj:`torch.Tensor`): Beam convex hull centroid ``shape=(3,)``
-        halfspaces (:obj:`torch.Tensor`): Beam halfspace equation coefficients ``shape=(N,4)``.
-            A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
-
+    Attributes
+    ----------
+    vertices : torch.Tensor
+        Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
+    wavelength : float
+        X-ray wavelength in units of angstrom.
+    wave_vector : torch.Tensor
+        Beam wavevector with norm ``2*pi/wavelength``, shape ``(3,)``.
+    polarization_vector : torch.Tensor
+        Beam linear polarization unit vector, shape ``(3,)``. Must be
+        orthogonal to the X-ray propagation direction.
+    centroid : torch.Tensor
+        Beam convex hull centroid, shape ``(3,)``.
+    halfspaces : torch.Tensor
+        Beam halfspace equation coefficients, shape ``(N, 4)``. A point ``x``
+        is on the interior of the halfspace if:
+        ``halfspaces[i, :-1].dot(x) + halfspaces[i, -1] <= 0``.
     """
 
     def __init__(
@@ -65,11 +85,12 @@ class Beam:
         ), "The xray polarization vector is not orthogonal to the wavevector."
 
     def set_beam_vertices(self, beam_vertices: torch.Tensor):
-        """Set the beam vertices defining the beam convex hull and update all dependent quantities.
+        """Set beam vertices and update all dependent quantities.
 
-        Args:
-            beam_vertices (:obj:`torch.Tensor`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-
+        Parameters
+        ----------
+        beam_vertices : torch.Tensor
+            Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
         """
         ch = ConvexHull(beam_vertices.cpu().numpy())
         assert (
@@ -88,13 +109,17 @@ class Beam:
     def _contains(self, points):
         """Check if the beam contains a number of point(s).
 
-        Args:
-            points (:obj:`torch.Tensor` or :obj:`numpy array`): Point(s) to evaluate ``shape=(3,n)`` or ``shape=(3,)``.
+        Parameters
+        ----------
+        points : torch.Tensor or numpy.ndarray
+            Point(s) to evaluate, shape ``(3, n)`` or ``(3,)``.
 
-        Returns:
-            Boolean array or tensor with True if the point is contained by the beam and False otherwise.
-            If single point is passed this returns a single boolean value.
-
+        Returns
+        -------
+        torch.Tensor or bool
+            Boolean array with ``True`` if the point is contained by the beam
+            and ``False`` otherwise. If a single point is passed, returns a
+            single boolean value.
         """
         points = ensure_torch(points)
         normals = self.halfspaces[:, 0:3]
@@ -112,13 +137,17 @@ class Beam:
     def _intersect(self, vertices: torch.Tensor) -> ConvexHull | None:
         """Compute the beam intersection with a convex polyhedra.
 
-        Args:
-            vertices (:obj:`torch.Tensor`): Vertices of a convex polyhedra with ``shape=(N,3)``.
+        Parameters
+        ----------
+        vertices : torch.Tensor
+            Vertices of a convex polyhedra, shape ``(N, 3)``.
 
-        Returns:
-            A :class:`scipy.spatial.ConvexHull` object formed from the vertices of the intersection between beam vertices and
-            input vertices, or None if no intersection exists.
-
+        Returns
+        -------
+        scipy.spatial.ConvexHull or None
+            A ConvexHull object formed from the vertices of the intersection
+            between beam vertices and input vertices, or ``None`` if no
+            intersection exists.
         """
 
         # Batch check all vertices at once for efficiency
@@ -157,11 +186,13 @@ class Beam:
             return None
 
     def save(self, path: str):
-        """Save the xray beam to disc (via pickling).
+        """Save the X-ray beam to disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
-
+        Parameters
+        ----------
+        path : str
+            File path at which to save, ending with the desired filename.
+            The ``.beam`` extension is added if not present.
         """
         if not path.endswith(".beam"):
             path = path + ".beam"
@@ -180,19 +211,29 @@ class Beam:
 
     @classmethod
     def load(cls, path: str) -> "Beam":
-        """Load the xray beam from disc (via pickling).
+        """Load the X-ray beam from disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+        Parameters
+        ----------
+        path : str
+            File path at which to load, ending with the desired filename.
 
-        Returns:
-            Beam: Loaded Beam object.
+        Returns
+        -------
+        Beam
+            Loaded Beam object.
 
-        .. warning::
-            This function will unpickle data from the provided path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Raises
+        ------
+        ValueError
+            If the file does not end with ``.beam``.
 
+        Warnings
+        --------
+        This function will unpickle data from the provided path. The pickle
+        module is not intended to be secure against erroneous or maliciously
+        constructed data. Never unpickle data received from an untrusted or
+        unauthenticated source.
         """
         if not path.endswith(".beam"):
             raise ValueError("The loaded file must end with .beam")
@@ -208,14 +249,20 @@ class Beam:
             return loaded
 
     def _find_feasible_point(self, halfspaces: np.ndarray) -> np.ndarray | None:
-        """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
+        """Find a point clearly inside a set of halfspaces.
 
-        Args:
-            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficients of a halfspace (``shape=(N,4)``).
+        The halfspace inequality is ``A * point + b < 0``.
 
-        Returns:
-            (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
+        Parameters
+        ----------
+        halfspaces : numpy.ndarray
+            Halfspace equations, each row holds coefficients of a halfspace,
+            shape ``(N, 4)``.
 
+        Returns
+        -------
+        numpy.ndarray or None
+            Interior point if found, otherwise ``None``.
         """
         halfspaces = ensure_numpy(halfspaces)
         res = linprog(
@@ -251,22 +298,31 @@ class Beam:
         sphere_radius: torch.Tensor,
         rigid_body_motion,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Mask spheres which are close to intersecting a given convex beam hull undergoing a prescribed motion.
+        """Mask spheres which may intersect the beam during a prescribed motion.
 
-        NOTE: This function is approximate in the sense that the motion path is sampled at discrete moments in time
-        at which the spheres are checked against the union of the sampled convex hulls. The sampling rate is chosen
-        such that the motion translation maximally moves any sphere by half its radius. Furthermore, the sampling is
-        selected to always be less than or equal to a rotation stepsize of 1 degree.
+        This function is approximate: the motion path is sampled at discrete
+        moments in time at which the spheres are checked against the union of
+        the sampled convex hulls. The sampling rate is chosen such that the
+        motion translation maximally moves any sphere by half its radius.
+        Furthermore, the sampling is selected to always be less than or equal
+        to a rotation stepsize of 1 degree.
 
-        Args:
-            sphere_centres (:obj:`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
-            sphere_radius (:obj:`torch.Tensor`): Radius of spheres ``shape=(n,)``.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
+        Parameters
+        ----------
+        sphere_centres : torch.Tensor
+            Centroids of spheres, shape ``(3, n)``.
+        sphere_radius : torch.Tensor
+            Radius of spheres, shape ``(n,)``.
+        rigid_body_motion : xrd_simulator.motion.RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
 
-        Returns:
-            tuple: Mask with True if the sphere has a high intersection probability and the sample times.
-
+        Returns
+        -------
+        tuple of torch.Tensor
+            ``(mask, sample_times)`` where ``mask`` has ``True`` if the sphere
+            has a high intersection probability and ``sample_times`` contains
+            the time samples used for checking.
         """
         inverse_rigid_body_motion = rigid_body_motion.inverse()
 
@@ -317,25 +373,33 @@ class Beam:
         sphere_radius: torch.Tensor,
         rigid_body_motion,
     ) -> list[list[list[float]]]:
-        """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are intersecting beam.
-        
+        """Compute parametric intervals where spheres intersect the beam.
+
         .. deprecated::
-            This method is no longer used in the codebase and will be removed in a future version.
+            This method is no longer used in the codebase and will be removed
+            in a future version.
 
-        This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
-        set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
+        This method can be used as a pre-checker before running the
+        ``intersect()`` method on a polyhedral set. This avoids wasting
+        compute resources on polyhedra which clearly do not intersect the beam.
 
-        Args:
-            sphere_centres (:obj:`torch.Tensor`): Centroids of spheres ``shape=(3,n)``.
-            sphere_radius (:obj:`torch.Tensor`): Radius of spheres ``shape=(n,)``.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
+        Parameters
+        ----------
+        sphere_centres : torch.Tensor
+            Centroids of spheres, shape ``(3, n)``.
+        sphere_radius : torch.Tensor
+            Radius of spheres, shape ``(n,)``.
+        rigid_body_motion : xrd_simulator.motion.RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
 
-        Returns:
-            list: Parametric ranges in which the spheres have an intersection with the beam. [(:obj:`None`)] if no intersection exists in ```time=[0,1]```.
-            The entry at ```[i][j]``` is a list with two floats ```[t_1,t_2]``` and gives the j:th
-            intersection interval of sphere number i with the beam.
-
+        Returns
+        -------
+        list
+            Parametric ranges in which the spheres intersect the beam.
+            ``[None]`` if no intersection exists in ``time=[0, 1]``. The entry
+            at ``[i][j]`` is a list with two floats ``[t_1, t_2]`` giving the
+            j-th intersection interval of sphere number i with the beam.
         """
         import warnings
         warnings.warn(

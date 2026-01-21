@@ -75,7 +75,7 @@ peaks_dict = polycrystal.diffract(
 diffraction_pattern = detector.render(
     peaks_dict,
     frames_to_render=1,
-    method="gauss")
+    method="micro")
 
 pr.disable()
 pr.dump_stats('tmp_profile_dump')

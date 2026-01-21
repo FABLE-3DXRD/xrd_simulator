@@ -1,28 +1,45 @@
-"""
-General internal package utility functions.
+"""General internal package utility functions.
 
-This module provides various utility functions used for internal package operations.
-The functions include mathematical computations, geometric transformations, file handling,
-and progress tracking.
+This module provides various utility functions used for internal package
+operations. The functions include mathematical computations, geometric
+transformations, file handling, and progress tracking.
 
-Functions:
-    _cif_open: Open a CIF file using the ReadCif function from the CifFile module.
-    _print_progress: Print a progress bar in the executing shell terminal.
-    _clip_line_with_convex_polyhedron: Compute lengths of parallel lines clipped by a convex polyhedron.
-    _alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
-    _lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
-    _get_circumscribed_sphere_centroid: Compute the centroid of a circumscribed sphere for a given set of points.
-    _set_xfab_logging: Enable or disable logging for the xfab module.
-    _verbose_manager: Manage global verbose options for logging within with statements.
-    _strain_as_tensor: Convert a strain vector to a strain tensor.
-    _strain_as_vector: Convert a strain tensor to a strain vector.
-    _b_to_epsilon: Compute strain tensor from B matrix for large deformations.
-    _epsilon_to_b: Compute B matrix from strain tensor for large deformations.
-    _get_misorientations: Compute minimal angles required to rotate SO3 elements to their mean orientation.
-    _compute_sides: Compute the lengths of the sides of tetrahedrons.
-    _circumsphere_of_segments: Compute the minimum circumsphere of line segments.
-    _circumsphere_of_triangles: Compute the minimum circumsphere of triangles.
-    _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
+Functions
+---------
+_cif_open
+    Open a CIF file using the ReadCif function from the CifFile module.
+_print_progress
+    Print a progress bar in the executing shell terminal.
+_clip_line_with_convex_polyhedron
+    Compute lengths of parallel lines clipped by a convex polyhedron.
+_alpha_to_quarternion
+    Generate a unit quaternion from spherical angle coordinates on the S3 ball.
+_lab_strain_to_B_matrix
+    Convert strain tensors in lab coordinates to lattice matrices (B matrices).
+_get_circumscribed_sphere_centroid
+    Compute the centroid of a circumscribed sphere for a given set of points.
+_set_xfab_logging
+    Enable or disable logging for the xfab module.
+_verbose_manager
+    Manage global verbose options for logging within with statements.
+_strain_as_tensor
+    Convert a strain vector to a strain tensor.
+_strain_as_vector
+    Convert a strain tensor to a strain vector.
+_b_to_epsilon
+    Compute strain tensor from B matrix for large deformations.
+_epsilon_to_b
+    Compute B matrix from strain tensor for large deformations.
+_get_misorientations
+    Compute minimal angles required to rotate SO3 elements to their mean orientation.
+_compute_sides
+    Compute the lengths of the sides of tetrahedrons.
+_circumsphere_of_segments
+    Compute the minimum circumsphere of line segments.
+_circumsphere_of_triangles
+    Compute the minimum circumsphere of triangles.
+_circumsphere_of_tetrahedrons
+    Compute the circumcenter of tetrahedrons.
 """
 
 from __future__ import annotations
@@ -55,10 +72,12 @@ def _cif_open(cif_file):
 def _print_progress(progress_fraction, message):
     """Print a progress bar in the executing shell terminal.
 
-    Args:
-        progress_fraction (:obj:`float`): progress between 0 and 1.
-        message (:obj:`str`): Optional message prepend the loading bar with. (max 55 characters)
-
+    Parameters
+    ----------
+    progress_fraction : float
+        Progress between 0 and 1.
+    message : str
+        Optional message to prepend the loading bar with (max 55 characters).
     """
     assert (
         len(message) <= 55.0
@@ -85,14 +104,21 @@ def _clip_line_with_convex_polyhedron(
 ):
     """Torch-native vectorized clipping for many parallel lines.
 
-    Args:
-        line_points: Base points of rays (exterior to polyhedron), shape=(n,3)
-        line_direction: Normalized ray direction (all rays have same direction), shape=(3,)
-        plane_points: Point in each polyhedron face plane, shape=(m,3)
-        plane_normals: Outwards element face normals, shape=(m,3)
+    Parameters
+    ----------
+    line_points : torch.Tensor
+        Base points of rays (exterior to polyhedron), shape ``(n, 3)``.
+    line_direction : torch.Tensor
+        Normalized ray direction (all rays have same direction), shape ``(3,)``.
+    plane_points : torch.Tensor
+        Point in each polyhedron face plane, shape ``(m, 3)``.
+    plane_normals : torch.Tensor
+        Outwards element face normals, shape ``(m, 3)``.
 
-    Returns:
-        torch.Tensor: Intersection lengths, shape=(n,) on same device as line_points
+    Returns
+    -------
+    torch.Tensor
+        Intersection lengths, shape ``(n,)`` on same device as line_points.
     """
     # Convert inputs to torch (ensure_torch handles already-tensor inputs efficiently)
     line_points = ensure_torch(line_points)
@@ -124,14 +150,17 @@ def _clip_line_with_convex_polyhedron(
 
 
 def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
-    """Generate a unit quarternion by providing spherical angle coordinates on the S3 ball.
+    """Generate a unit quaternion from spherical angle coordinates on the S3 ball.
 
-    Args:
-        alpha_1,alpha_2,alpha_3 (:obj:`numpy array` or :obj:`float`): Radians. ``shape=(N,4)``
+    Parameters
+    ----------
+    alpha_1, alpha_2, alpha_3 : numpy.ndarray or float
+        Angles in radians.
 
-    Returns:
-        (:obj:`numpy array`) Rotation as unit quarternion ``shape=(N,4)``
-
+    Returns
+    -------
+    numpy.ndarray
+        Rotation as unit quaternion, shape ``(N, 4)``.
     """
     sin_alpha_1, sin_alpha_2 = np.sin(alpha_1), np.sin(alpha_2)
     return np.array(
@@ -147,19 +176,24 @@ def _alpha_to_quarternion(alpha_1, alpha_2, alpha_3):
 def _lab_strain_to_B_matrix(
     strain_tensor: torch.Tensor, crystal_orientation: torch.Tensor, B0: torch.Tensor
 ) -> torch.Tensor:
-    """Take n strain tensors in lab coordinates and produce the lattice matrix (B matrix).
+    """Take n strain tensors in lab coordinates and produce the lattice matrix.
 
-    Args:
-        strain_tensor (:obj:`torch.Tensor`): Symmetric strain tensor in lab
-            coordinates. ``shape=(n,3,3)``
-        crystal_orientation (:obj:`torch.Tensor`): Unitary crystal orientation matrix.
-            ``crystal_orientation`` maps from crystal to lab coordinates. ``shape=(n,3,3)``
-        B0 matrix (:obj:`torch.Tensor`): Matrix containing the reciprocal underformed lattice parameters.``shape=(3,3)``
+    Parameters
+    ----------
+    strain_tensor : torch.Tensor
+        Symmetric strain tensor in lab coordinates, shape ``(n, 3, 3)``.
+    crystal_orientation : torch.Tensor
+        Unitary crystal orientation matrix mapping from crystal to lab
+        coordinates, shape ``(n, 3, 3)``.
+    B0 : torch.Tensor
+        Matrix containing the reciprocal undeformed lattice parameters,
+        shape ``(3, 3)``.
 
-    Returns:
-        (:obj:`torch.Tensor`) B matrix mapping from hkl Miller indices to realspace crystal
-        coordinates. ``shape=(n,3,3)``
-
+    Returns
+    -------
+    torch.Tensor
+        B matrix mapping from hkl Miller indices to realspace crystal
+        coordinates, shape ``(n, 3, 3)``.
     """
     # Convert to torch tensors first, using the configured device
     strain_tensor = ensure_torch(strain_tensor)
@@ -260,14 +294,17 @@ def _b_to_epsilon(B_matrix, B0):
 
 
 def _get_misorientations(orientations):
-    """
-    Compute the minimal angles necessary to rotate a series of SO3 elements back into their mean orientation.
+    """Compute minimal angles to rotate SO3 elements to their mean orientation.
 
-    Args:
-        orientations (:obj: `numpy.array` or :obj: `torch.Tensor`): Orientation matrices, shape=(N,3,3)
+    Parameters
+    ----------
+    orientations : numpy.ndarray or torch.Tensor
+        Orientation matrices, shape ``(N, 3, 3)``.
 
-    Returns:
-        :obj: `numpy.array`: misorientations in units of radians, shape=(N,)
+    Returns
+    -------
+    numpy.ndarray
+        Misorientations in units of radians, shape ``(N,)``.
     """
     # Convert to numpy for scipy.spatial.transform.Rotation operations
     if torch.is_tensor(orientations):
@@ -286,16 +323,20 @@ def _get_misorientations(orientations):
 
 
 def _compute_sides(points):
-    """
-    Computes the lengths of the sides of multiple tetrahedrons.
+    """Compute the lengths of the sides of multiple tetrahedrons.
 
-    Args:
-        points (:obj: `numpy.array`): An array of shape (n, 4, 3), where `n` is the number of tetrahedrons.
-                                Each tetrahedron is defined by 4 vertices in 3D space.
+    Parameters
+    ----------
+    points : numpy.ndarray
+        An array of shape ``(n, 4, 3)``, where ``n`` is the number of
+        tetrahedrons. Each tetrahedron is defined by 4 vertices in 3D space.
 
-    Returns:
-        :obj: `numpy.array`: An array of shape (n, 6) containing the lengths of the sides of the tetrahedrons.
-                       Each row corresponds to a tetrahedron and contains the lengths of its 6 sides.
+    Returns
+    -------
+    numpy.ndarray
+        An array of shape ``(n, 6)`` containing the lengths of the sides
+        of the tetrahedrons. Each row corresponds to a tetrahedron and
+        contains the lengths of its 6 sides.
     """
     # Ensure input is torch tensor
     points = ensure_torch(points, dtype=torch.float64)
@@ -322,17 +363,21 @@ def _compute_sides(points):
 
 
 def _circumsphere_of_segments(segments):
-    """
-    Computes the circumcenters and circumradii of multiple line segments.
+    """Compute the circumcenters and circumradii of multiple line segments.
 
-    Args:
-        segments (:obj: `torch.Tensor`): A tensor of shape (n, 2, 3), where `n` is the number of line segments.
-                                   Each line segment is defined by 2 vertices in 3D space.
+    Parameters
+    ----------
+    segments : torch.Tensor
+        A tensor of shape ``(n, 2, 3)``, where ``n`` is the number of line
+        segments. Each line segment is defined by 2 vertices in 3D space.
 
-    Returns:
-        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
-             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the line segments.
-             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the line segments.
+    Returns
+    -------
+    tuple
+        A tuple ``(centers, radii)`` containing:
+
+        - ``centers``: Tensor of shape ``(n, 3)`` with the circumcenters.
+        - ``radii``: Tensor of shape ``(n,)`` with the circumradii.
     """
     centers = torch.mean(segments, dim=1)
     radii = torch.linalg.norm(centers - segments[:, 0, :], dim=1)
@@ -340,17 +385,21 @@ def _circumsphere_of_segments(segments):
 
 
 def _circumsphere_of_triangles(triangles):
-    """
-    Computes the circumcenters and circumradii of multiple triangles.
+    """Compute the circumcenters and circumradii of multiple triangles.
 
-    Args:
-        triangles (:obj: `torch.Tensor`): A tensor of shape (n, 3, 3), where `n` is the number of triangles.
-                                   Each triangle is defined by 3 vertices in 3D space.
+    Parameters
+    ----------
+    triangles : torch.Tensor
+        A tensor of shape ``(n, 3, 3)``, where ``n`` is the number of triangles.
+        Each triangle is defined by 3 vertices in 3D space.
 
-    Returns:
-        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
-             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the triangles.
-             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the triangles.
+    Returns
+    -------
+    tuple
+        A tuple ``(centers, radii)`` containing:
+
+        - ``centers``: Tensor of shape ``(n, 3)`` with the circumcenters.
+        - ``radii``: Tensor of shape ``(n,)`` with the circumradii.
     """
     ab = triangles[:, 1, :] - triangles[:, 0, :]
     ac = triangles[:, 2, :] - triangles[:, 0, :]
@@ -370,17 +419,21 @@ def _circumsphere_of_triangles(triangles):
 
 
 def _circumsphere_of_tetrahedrons(tetrahedra):
-    """
-    Computes the circumcenters and circumradii of multiple tetrahedrons.
+    """Compute the circumcenters and circumradii of multiple tetrahedrons.
 
-    Args:
-        tetrahedra (:obj: `torch.Tensor`): A tensor of shape (n, 4, 3), where `n` is the number of tetrahedrons.
-                                    Each tetrahedron is defined by 4 vertices in 3D space.
+    Parameters
+    ----------
+    tetrahedra : torch.Tensor
+        A tensor of shape ``(n, 4, 3)``, where ``n`` is the number of
+        tetrahedrons. Each tetrahedron is defined by 4 vertices in 3D space.
 
-    Returns:
-        tuple(:obj: `torch.Tensor`, :obj: `torch.Tensor`): A tuple containing:
-             - centers (:obj: `torch.Tensor`): A tensor of shape (n, 3) containing the circumcenters of the tetrahedrons.
-             - radii (:obj: `torch.Tensor`): A tensor of shape (n,) containing the circumradii of the tetrahedrons.
+    Returns
+    -------
+    tuple
+        A tuple ``(centers, radii)`` containing:
+
+        - ``centers``: Tensor of shape ``(n, 3)`` with the circumcenters.
+        - ``radii``: Tensor of shape ``(n,)`` with the circumradii.
     """
 
     v0 = tetrahedra[:, 0, :]
@@ -421,27 +474,31 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
 
 def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> torch.Tensor:
     """Convert input to torch tensor if it isn't already.
-    
-    The device is automatically determined from torch's default device (set by torch.set_default_device).
 
-    Args:
-        data: Input data to convert. Can be:
-            - numpy array
-            - torch tensor
-            - list
-            - tuple
-        dtype: Optional dtype for the tensor. If None, uses torch.float64.
+    The device is automatically determined from torch's default device
+    (set by ``torch.set_default_device``).
 
-    Returns:
-        torch.Tensor: The input data converted to a torch tensor with specified dtype (default: float64)
+    Parameters
+    ----------
+    data : numpy.ndarray, torch.Tensor, list, or tuple
+        Input data to convert.
+    dtype : torch.dtype, optional
+        Optional dtype for the tensor. If ``None``, uses ``torch.float64``.
 
-    Examples:
-        >>> ensure_torch([1, 2, 3])
-        tensor([1., 2., 3.], dtype=torch.float64)
-        >>> ensure_torch(np.array([1, 2, 3]), dtype=torch.int64)
-        tensor([1, 2, 3], dtype=torch.int64)
-        >>> ensure_torch(ensure_torch([1, 2, 3]))
-        tensor([1., 2., 3.], dtype=torch.float64)
+    Returns
+    -------
+    torch.Tensor
+        The input data converted to a torch tensor with specified dtype
+        (default: float64).
+
+    Examples
+    --------
+    >>> ensure_torch([1, 2, 3])
+    tensor([1., 2., 3.], dtype=torch.float64)
+    >>> ensure_torch(np.array([1, 2, 3]), dtype=torch.int64)
+    tensor([1, 2, 3], dtype=torch.int64)
+    >>> ensure_torch(ensure_torch([1, 2, 3]))
+    tensor([1., 2., 3.], dtype=torch.float64)
     """
     if torch is None:
         raise ImportError(
@@ -468,23 +525,24 @@ def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> 
 def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     """Convert input to numpy array if it isn't already.
 
-    Args:
-        data: Input data to convert. Can be:
-            - numpy array
-            - torch tensor
-            - list
-            - tuple
+    Parameters
+    ----------
+    data : numpy.ndarray, torch.Tensor, list, or tuple
+        Input data to convert.
 
-    Returns:
-        np.ndarray: The input data converted to a numpy array with float64 dtype
+    Returns
+    -------
+    numpy.ndarray
+        The input data converted to a numpy array with float64 dtype.
 
-    Examples:
-        >>> ensure_numpy([1, 2, 3])
-        array([1., 2., 3.])
-        >>> ensure_numpy(np.array([1, 2, 3]))
-        array([1., 2., 3.])
-        >>> ensure_numpy(ensure_torch([1, 2, 3]))
-        array([1., 2., 3.])
+    Examples
+    --------
+    >>> ensure_numpy([1, 2, 3])
+    array([1., 2., 3.])
+    >>> ensure_numpy(np.array([1, 2, 3]))
+    array([1., 2., 3.])
+    >>> ensure_numpy(ensure_torch([1, 2, 3]))
+    array([1., 2., 3.])
     """
     if torch.is_tensor(data):
         if data.is_cuda:
@@ -631,20 +689,26 @@ def return_device_memory() -> Dict[str, float]:
 def _compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
     """Compute volumes for multiple tetrahedra.
 
-    Args:
-        vertices: Tensor of shape (N, 4, 3) where:
-            N is number of tetrahedra
-            4 is number of vertices per tetrahedron
-            3 is xyz coordinates
+    Parameters
+    ----------
+    vertices : torch.Tensor
+        Tensor of shape ``(N, 4, 3)`` where:
 
-    Returns:
-        torch.Tensor: Volumes of each tetrahedron, shape (N,)
+        - ``N`` is number of tetrahedra
+        - ``4`` is number of vertices per tetrahedron
+        - ``3`` is xyz coordinates
 
-    Example:
-        >>> verts = torch.rand(10, 4, 3)  # 10 random tetrahedra
-        >>> volumes = compute_tetrahedra_volumes(verts)
-        >>> print(volumes.shape)
-        torch.Size([10])
+    Returns
+    -------
+    torch.Tensor
+        Volumes of each tetrahedron, shape ``(N,)``.
+
+    Examples
+    --------
+    >>> verts = torch.rand(10, 4, 3)  # 10 random tetrahedra
+    >>> volumes = _compute_tetrahedra_volumes(verts)
+    >>> print(volumes.shape)
+    torch.Size([10])
     """
     # Create vectors from first vertex to others (N, 3, 3)
     v1 = vertices[:, 0]  # Reference vertex (N, 3)
@@ -670,22 +734,29 @@ def _compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
 
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.
-    
+
     .. deprecated::
-        This method is no longer used in the codebase and will be removed in a future version.
+        This method is no longer used in the codebase and will be removed
+        in a future version.
 
-    Args:
-        diffraction_pattern (:obj:`numpy array`): Pixelated diffraction pattern``shape=(m,n)``
-        det_centre_z (:obj:`numpy array`): Intersection pixel coordinate between
-                 beam centroid line and detector along z-axis.
-        det_centre_y (:obj:`list` of :obj:`float`): Intersection pixel coordinate between
-                 beam centroid line and detector along y-axis.
-        binsize  (:obj:`list` of :obj:`float`): Histogram binsize. (Detector pixels are integrated
-            radially around the azimuth)
+    Parameters
+    ----------
+    diffraction_pattern : numpy.ndarray
+        Pixelated diffraction pattern, shape ``(m, n)``.
+    det_centre_z : float
+        Intersection pixel coordinate between beam centroid line and
+        detector along z-axis.
+    det_centre_y : float
+        Intersection pixel coordinate between beam centroid line and
+        detector along y-axis.
+    binsize : float, optional
+        Histogram binsize. Detector pixels are integrated radially
+        around the azimuth. Default is 1.0.
 
-    Returns:
-        (:obj:`tuple`) with ``bin_centres`` and ``histogram``.
-
+    Returns
+    -------
+    tuple
+        ``(bin_centres, histogram)``.
     """
     import warnings
     warnings.warn(
@@ -732,22 +803,26 @@ def _contained_by_intervals(value, intervals):
 
 
 def _get_circumscribed_sphere_centroid(subset_of_points):
-    """Compute circumscribed_sphere_centroid by solving linear systems of equations
-    enforcing the centorid to be a linear combination of the subset_of_points space.
-    
+    """Compute circumscribed sphere centroid via linear systems of equations.
+
     .. deprecated::
-        This method is no longer used in the codebase and will be removed in a future version.
+        This method is no longer used in the codebase and will be removed
+        in a future version.
 
-    The central idea is to substitute the squared radius in the nonlinear quadratic
-    sphere equations and proceed to find a linear system with only the sphere centroid
-    as the unknown.
+    The centroid is enforced to be a linear combination of the subset_of_points
+    space. The central idea is to substitute the squared radius in the nonlinear
+    quadratic sphere equations and proceed to find a linear system with only
+    the sphere centroid as the unknown.
 
-    Args:
-        subset_of_points (:obj:`numpy array`): Points to circumscribe with a sphere ``shape=(n,3)``
+    Parameters
+    ----------
+    subset_of_points : numpy.ndarray
+        Points to circumscribe with a sphere, shape ``(n, 3)``.
 
-    Returns:
-        (:obj:`numpy array`) with ``centroid`` of``shape=(3,)``
-
+    Returns
+    -------
+    numpy.ndarray
+        Centroid of shape ``(3,)``.
     """
     A = 2 * (subset_of_points[0] - subset_of_points[1:])
     pp = np.sum(subset_of_points * subset_of_points, axis=1)

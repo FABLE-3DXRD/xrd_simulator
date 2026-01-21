@@ -13,7 +13,11 @@ det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size 
 det_corner_1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
 det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
 
-detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
+detector = Detector(
+    det_corner_0=det_corner_0,
+    det_corner_1=det_corner_1,
+    det_corner_2=det_corner_2,
+    pixel_size=pixel_size)
 sample_bounding_radius = 0.0001 * detector_size
 polycrystal = get_uniform_powder_sample(
     sample_bounding_radius=sample_bounding_radius,
@@ -48,7 +52,7 @@ translation = np.array([0, 0, 0])
 motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 peaks_dict = polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(peaks_dict, frames_to_render=1, method='gauss')
+diffraction_pattern = detector.render(peaks_dict, frames_to_render=1, method='micro')
 
 # Convert to numpy for plotting
 if hasattr(diffraction_pattern, 'cpu'):

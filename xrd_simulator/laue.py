@@ -1,5 +1,7 @@
-"""Collection of functions for solving time dependent Laue equations for arbitrary rigid body motions.
-This module is mainly used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
+"""Collection of functions for solving time-dependent Laue equations.
+
+This module provides functions for arbitrary rigid body motions. It is mainly
+used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
 for the advanced user, access to these functions may be of interest.
 """
 import numpy as np
@@ -9,20 +11,24 @@ torch.set_default_dtype(torch.float64)
 from xrd_simulator.utils import ensure_torch
 
 def _get_G(U, B, G_hkl):
-    """Compute the diffraction vector
+    """Compute the diffraction vector.
 
     .. math::
-        \\boldsymbol{G} = \\boldsymbol{U}\\boldsymbol{B}\\boldsymbol{G}_{hkl}
+        \boldsymbol{G} = \boldsymbol{U}\boldsymbol{B}\boldsymbol{G}_{hkl}
 
-    Args:
-        U (:obj:`numpy array`) Orientation matrix of ``shape=(3,3)`` (unitary).
-        B (:obj:`numpy array`): Reciprocal to grain coordinate mapping matrix of ``shape=(3,3)``.
-        G_hkl (:obj:`numpy array`): Miller indices, i.e the h,k,l integers (``shape=(3,n)``).
+    Parameters
+    ----------
+    U : numpy.ndarray
+        Orientation matrix of shape ``(3, 3)`` (unitary).
+    B : numpy.ndarray
+        Reciprocal to grain coordinate mapping matrix of shape ``(3, 3)``.
+    G_hkl : numpy.ndarray
+        Miller indices, i.e. the h, k, l integers, shape ``(3, n)``.
 
-
-    Returns:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
-
+    Returns
+    -------
+    numpy.ndarray
+        Sample coordinate system diffraction vector, shape ``(3, n)``.
     """
 
     U = ensure_torch(U)
@@ -40,29 +46,41 @@ def _get_G(U, B, G_hkl):
 
 def _find_solutions_to_tangens_half_angle_equation(
     G_0, rho_0_factor, rho_1_factor, rho_2_factor, delta_omega):
-    """
-    Find all solutions, t, to the equation (maximum 2 solutions exist):
+    """Find all solutions, t, to the tangent half-angle equation.
 
-        rho_0 * cos(t * delta_omega) + rho_1 * sin(t * delta_omega) + rho_2 = 0.     (1)
+    Solves the equation (maximum 2 solutions exist)::
 
-    by rewriting it as a quadratic equation in terms of s:
+        rho_0 * cos(t * delta_omega) + rho_1 * sin(t * delta_omega) + rho_2 = 0     (1)
 
-        (rho_2 - rho_0) * s^2 + 2 * rho_1 * s + (rho_0 + rho_2) = 0.                  (2)
+    by rewriting it as a quadratic equation in terms of s::
 
-    where s = tan(t * delta_omega / 2).                                             (3)
+        (rho_2 - rho_0) * s^2 + 2 * rho_1 * s + (rho_0 + rho_2) = 0                 (2)
 
-    Args:
-        G_0 (:obj:`numpy.ndarray`): The non-rotated scattering vectors for all tetrahedra of a given phase.
-            Dimensions should be (tetrahedra, coordinates, hkl_planes).
-        rho_0_factor (:obj:`numpy.ndarray` of :obj:`float`): Factors to compute rho_0 of equation (1).
-        rho_1_factor (:obj:`numpy.ndarray` of :obj:`float`): Factors to compute rho_1 of equation (1).
-        rho_2_factor (:obj:`numpy.ndarray` of :obj:`float`): Factors to compute rho_2 of equation (1).
-        delta_omega (:obj:`float`): Radians of rotation.
+    where ``s = tan(t * delta_omega / 2)``.
 
-    Returns:
-        (:obj:`tuple` of :obj:`numpy.ndarray`): A tuple containing two numpy arrays:
-            - indices: 2D numpy array representing indices for diffraction computation.
-            - values: 1D numpy array representing values for diffraction computation.
+    Parameters
+    ----------
+    G_0 : numpy.ndarray
+        The non-rotated scattering vectors for all tetrahedra of a given phase.
+        Dimensions should be ``(tetrahedra, coordinates, hkl_planes)``.
+    rho_0_factor : numpy.ndarray
+        Factors to compute rho_0 of equation (1).
+    rho_1_factor : numpy.ndarray
+        Factors to compute rho_1 of equation (1).
+    rho_2_factor : numpy.ndarray
+        Factors to compute rho_2 of equation (1).
+    delta_omega : float
+        Radians of rotation.
+
+    Returns
+    -------
+    tuple
+        A tuple ``(grains, planes, times, G)`` containing:
+
+        - ``grains``: Grain indices for each solution.
+        - ``planes``: Plane indices for each solution.
+        - ``times``: Diffraction times for each solution.
+        - ``G``: Diffraction vectors for each solution.
     """
 
     # Convert inputs to tensors
@@ -145,36 +163,48 @@ def _find_solutions_to_tangens_half_angle_equation(
 
 def _get_bragg_angle(G, wavelength):
     """Compute a Bragg angle given a diffraction (scattering) vector.
-    
+
     .. deprecated::
-        This method is no longer used in the codebase and will be removed in a future version.
+        This method is no longer used in the codebase and will be removed
+        in a future version.
 
-    Args:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector. (``shape=(3,n)``)
-        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
+    Parameters
+    ----------
+    G : numpy.ndarray
+        Sample coordinate system diffraction vector, shape ``(3, n)``.
+    wavelength : float
+        Photon wavelength in units of angstrom.
 
-    Returns:
-        Bragg angles (:obj:`float`): in units of radians. (``shape=(n,)``)
-
+    Returns
+    -------
+    numpy.ndarray
+        Bragg angles in units of radians, shape ``(n,)``.
     """
     G = ensure_torch(G)
     return torch.arcsin(torch.linalg.norm(G, axis=0) * wavelength / (4 * np.pi))
 
 
 def _get_sin_theta_and_norm_G(G, wavelength):
-    """Compute a Bragg angle given a diffraction (scattering) vector.
-    
+    """Compute sin(Bragg angle) and norm of the diffraction vector.
+
     .. deprecated::
-        This method is no longer used in the codebase and will be removed in a future version.
+        This method is no longer used in the codebase and will be removed
+        in a future version.
 
-    Args:
-        G (:obj:`numpy array`): Sample coordinate system diffraction vector.
-        wavelength (:obj:`float`): Photon wavelength in units of angstrom.
+    Parameters
+    ----------
+    G : numpy.ndarray
+        Sample coordinate system diffraction vector.
+    wavelength : float
+        Photon wavelength in units of angstrom.
 
-    Returns:
-        sin(Bragg angle) (:obj:`float`): in units of radians and ||G||.
-        norm_G (:obj:`float`): Norm of the diffraction vector.
+    Returns
+    -------
+    tuple
+        ``(sin_theta, norm_G)`` where:
 
+        - ``sin_theta``: Sine of the Bragg angle.
+        - ``norm_G``: Norm of the diffraction vector.
     """
     G = ensure_torch(G)
     normG = torch.linalg.norm(G, axis=0)

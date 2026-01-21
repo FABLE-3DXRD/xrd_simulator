@@ -103,11 +103,10 @@ class TestDetector(unittest.TestCase):
         self.det_corner_1 = ensure_torch([1, 1, 0]) * self.detector_size
         self.det_corner_2 = ensure_torch([1, 0, 1]) * self.detector_size
         self.detector = Detector(
-            self.pixel_size_z,
-            self.pixel_size_y,
-            self.det_corner_0,
-            self.det_corner_1,
-            self.det_corner_2,
+            det_corner_0=self.det_corner_0,
+            det_corner_1=self.det_corner_1,
+            det_corner_2=self.det_corner_2,
+            pixel_size=(self.pixel_size_z, self.pixel_size_y),
         )
 
     def test_init(self):
@@ -136,7 +135,55 @@ class TestDetector(unittest.TestCase):
         for n, ntrue in zip(self.detector.normal, torch.tensor([-1, 0, 0])):
             self.assertAlmostEqual(n, ntrue, msg="Bad detector normal")
 
-    def test_render_peaks(self):
+    def test_save_and_load(self):
+        """Test detector serialization and deserialization."""
+        path = os.path.join(
+            os.path.join(os.path.dirname(__file__), "data"),
+            "my_detector_test"
+        )
+        
+        # Save detector
+        self.detector.save(path)
+        
+        # Load detector
+        loaded_detector = Detector.load(path + ".det")
+        
+        # Verify loaded detector matches original
+        self.assertAlmostEqual(
+            loaded_detector.pixel_size_z.item(), 
+            self.detector.pixel_size_z.item(),
+            msg="Pixel size z corrupted on save/load"
+        )
+        self.assertAlmostEqual(
+            loaded_detector.pixel_size_y.item(), 
+            self.detector.pixel_size_y.item(),
+            msg="Pixel size y corrupted on save/load"
+        )
+        self.assertTrue(
+            torch.allclose(loaded_detector.det_corner_0, self.detector.det_corner_0),
+            msg="det_corner_0 corrupted on save/load"
+        )
+        self.assertTrue(
+            torch.allclose(loaded_detector.normal, self.detector.normal),
+            msg="normal corrupted on save/load"
+        )
+        
+        # Clean up
+        os.remove(path + ".det")
+
+    def test_render(self):
+        """Test all rendering methods: micro, nano, macro, and auto.
+        
+        Tests:
+        - micro: Gaussian profiles for medium grains
+        - nano: Airy disk patterns for small crystallites  
+        - macro: Volume projection for large grains
+        - auto: Automatic method selection based on grain size
+        - Infinite Lorentz factor handling (should warn and skip)
+        """
+        import warnings
+        
+        # --- Setup common test data ---
         v = self.detector.ydhat + self.detector.zdhat
         v = v / torch.linalg.norm(v)
         verts1 = (
@@ -158,9 +205,7 @@ class TestDetector(unittest.TestCase):
             + self.pixel_size_z * 2 * self.detector.zdhat
         )
         scattered_wave_vector = (
-            2
-            * torch.pi
-            * scattered_wave_vector
+            2 * torch.pi * scattered_wave_vector
             / (torch.linalg.norm(scattered_wave_vector) * wavelength)
         )
 
@@ -179,13 +224,13 @@ class TestDetector(unittest.TestCase):
             ensure_numpy(scattered_wave_vector),
             ensure_numpy(incident_wave_vector),
             wavelength,
-            np.array([0, 1, 0]), # polarization
-            np.array([0, 0, 1]), # rotation axis 
-            0, # time
+            np.array([0, 1, 0]),  # polarization
+            np.array([0, 0, 1]),  # rotation axis 
+            0,  # time
             phase,
-            0, # hkl_indx
-            0, # element_index (grain_index)
-            0, # peak_index
+            0,  # hkl_indx
+            0,  # element_index
+            0,  # peak_index
         )
 
         peaks2 = create_peak_tensor(
@@ -193,19 +238,16 @@ class TestDetector(unittest.TestCase):
             ensure_numpy(scattered_wave_vector),
             ensure_numpy(incident_wave_vector), 
             wavelength,
-            np.array([0, 1, 0]), # polarization
-            np.array([0, 0, 1]), # rotation axis
-            0, # time  
+            np.array([0, 1, 0]),
+            np.array([0, 0, 1]),
+            0,
             phase,
-            0, # hkl_indx 
-            1, # element_index (grain_index)
-            1, # peak_index
+            0,
+            1,
+            1,
         )
 
-        # Combine peaks
         peaks = torch.cat([peaks1, peaks2], dim=0)
-
-        # Create peaks dict like polycrystal.diffract() returns
         peaks_dict = {
             "peaks": peaks,
             "columns": [
@@ -219,73 +261,126 @@ class TestDetector(unittest.TestCase):
             ],
         }
 
-        # Calculate expected intensity for peak 1 (for validation)
-        # intensity = structure_factor × lorentz_factor × polarization_factor × volume
         expected_peak1_intensity = (
             peaks[0, 5] * peaks[0, 19] * peaks[0, 20] * peaks[0, 21]
         )
 
-        # Test render methods
+        # --- Test micro rendering ---
         diffraction_pattern = self.detector.render(
-            peaks_dict,
-            frames_to_render=1,
-            method="gauss"
+            peaks_dict, frames_to_render=1, method="micro"
         )
-
-        # Check that at least one peak was rendered (first peak should be within bounds)
-        # We don't check exact position because rendering uses Gaussian interpolation
-        # and the exact distribution depends on implementation details
         self.assertGreater(
-            torch.sum(diffraction_pattern),
-            0,
-            msg="detector rendering did not capture any peaks",
+            torch.sum(diffraction_pattern), 0,
+            msg="micro render did not capture any peaks",
         )
-        
-        # Check that out-of-bounds peak was not rendered
-        # Total intensity should be roughly equal to peak 1's intensity (within 20% tolerance)
-        # Peak 2 is out of bounds and should not contribute
+        # Out-of-bounds peak should not be rendered
         self.assertLess(
             torch.sum(diffraction_pattern),
-            expected_peak1_intensity * 1.2,  # Allow 20% tolerance for Gaussian spreading
-            msg="detector rendering captured out of bounds peak or intensity is too high",
+            expected_peak1_intensity * 1.2,
+            msg="micro render captured out of bounds peak",
         )
+        self.assertGreater(
+            torch.sum(diffraction_pattern),
+            expected_peak1_intensity * 0.8,
+            msg="micro render lost significant intensity",
+        )
+
+        # --- Test nano rendering ---
+        diffraction_pattern_nano = self.detector.render(
+            peaks_dict, frames_to_render=1, method="nano"
+        )
+        self.assertGreater(
+            torch.sum(diffraction_pattern_nano), 0,
+            msg="nano render produced no intensity",
+        )
+
+        # --- Test macro rendering ---
+        # Macro requires mesh_lab, beam, and rigid_body_motion
+        mesh = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.linalg.norm(x) - 500.0,
+            bounding_radius=600.0,
+            max_cell_circumradius=200.0,
+        )
+        beam_vertices = np.array([
+            [-20000, -10000, -10000], [-20000, 10000, -10000],
+            [-20000, 10000, 10000], [-20000, -10000, 10000],
+            [20000, -10000, -10000], [20000, 10000, -10000],
+            [20000, 10000, 10000], [20000, -10000, 10000],
+        ], dtype=float)
+        beam = Beam(beam_vertices, np.array([1, 0, 0]), wavelength, np.array([0, 1, 0]))
+        motion = RigidBodyMotion(np.array([0, 0, 1]), np.radians(10), np.array([0, 0, 0]))
+
+        peaks_dict_macro = {
+            "peaks": peaks1.clone(),
+            "columns": peaks_dict["columns"],
+            "beam": beam,
+            "mesh_lab": mesh,
+            "rigid_body_motion": motion,
+        }
+        diffraction_pattern_macro = self.detector.render(
+            peaks_dict_macro, frames_to_render=1, method="macro"
+        )
+        self.assertEqual(
+            diffraction_pattern_macro.dim(), 3,
+            msg="macro render should return 3D tensor"
+        )
+
+        # --- Test auto rendering with grains from all size regimes ---
+        # Thresholds (matching detector.render defaults):
+        #   nano:  volume < 0.001 µm³ (< ~100 nm grain diameter)
+        #   micro: 0.001 µm³ <= volume < pixel_size³ (~100 nm to ~40 µm)
+        #   macro: volume >= pixel_size³ (> ~40 µm, uses volume projection)
+        pixel_size = min(self.pixel_size_y.item(), self.pixel_size_z.item())
+        macro_limit = pixel_size**3  # 64000 µm³ for 40 µm pixels
         
-        self.assertGreater(
-            torch.sum(diffraction_pattern),
-            expected_peak1_intensity * 0.8,  # At least 80% of expected intensity
-            msg="detector rendering lost significant intensity",
+        # Create peaks with volumes spanning all three physical size scales:
+        # - Nanometer-scale crystallites (< 100 nm)
+        # - Micrometer-scale grains (~1-40 µm)
+        # - Millimeter-scale grains (~1 mm)
+        peaks_auto = peaks1.clone().repeat(6, 1)
+        peaks_auto[0, 21] = 0.0001      # nano: ~(46 nm)³
+        peaks_auto[1, 21] = 0.0005      # nano: ~(79 nm)³
+        peaks_auto[2, 21] = 100.0       # micro: ~(4.6 µm)³
+        peaks_auto[3, 21] = 10000.0     # micro: ~(21.5 µm)³
+        peaks_auto[4, 21] = macro_limit * 2    # macro: ~(50 µm)³
+        peaks_auto[5, 21] = 1e9         # macro: (1 mm)³ - true millimeter grain
+        for i in range(6):
+            peaks_auto[i, 24] = i  # unique peak_index
+        
+        peaks_dict_auto = {
+            "peaks": peaks_auto,
+            "columns": peaks_dict["columns"],
+            "beam": beam,
+            "mesh_lab": mesh,
+            "rigid_body_motion": motion,
+        }
+        diffraction_pattern_auto = self.detector.render(
+            peaks_dict_auto, frames_to_render=1, method="auto", verbose=False
         )
+        self.assertEqual(diffraction_pattern_auto.dim(), 3)
+        self.assertGreater(torch.sum(diffraction_pattern_auto), 0,
+            msg="auto render produced no intensity")
 
-        # Test with factors - rendering always applies intensity factors
-        diffraction_pattern = self.detector.render(
-            peaks_dict,
-            frames_to_render=1,
-            method="gauss"
+        # --- Test infinite Lorentz factor handling ---
+        peak_inf = peaks1.clone()
+        peak_inf[0, 19] = float('inf')  # Set infinite Lorentz factor
+        peaks_dict_inf = {
+            "peaks": peak_inf,
+            "columns": peaks_dict["columns"],
+        }
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            diffraction_pattern_inf = self.detector.render(
+                peaks_dict_inf, frames_to_render=1, method="micro"
+            )
+            self.assertEqual(len(w), 1, msg="Expected warning for infinite Lorentz")
+            self.assertIn("infinite Lorentz", str(w[0].message))
+        
+        self.assertEqual(
+            torch.sum(diffraction_pattern_inf), 0,
+            msg="Pattern should be empty when all peaks have infinite Lorentz"
         )
-
-        # Just verify render succeeds
-        self.assertGreater(
-            torch.sum(diffraction_pattern),
-            0,
-            msg="detector rendering failed with factors",
-        )
-
-        # Test voigt render
-        diffraction_pattern_voigt = self.detector.render(
-            peaks_dict,
-            frames_to_render=1,
-            method="voigt"
-        )
-
-        # Should produce non-zero output
-        self.assertGreater(
-            torch.sum(diffraction_pattern_voigt),
-            0,
-            msg="voigt render produced no intensity",
-        )
-
-        # Test volume render requires additional data - skip for this simple test
-        # Volume rendering requires mesh_lab, beam, and rigid_body_motion in peaks_dict
 
     def test_contains(self):
         """Test that detector.contains correctly identifies in-bounds and out-of-bounds coordinates."""
@@ -402,43 +497,7 @@ class TestDetector(unittest.TestCase):
             msg="Off-centered source should give larger or equal cone angle"
         )
 
-    def test_save_and_load(self):
-        """Test detector serialization and deserialization."""
-        path = os.path.join(
-            os.path.join(os.path.dirname(__file__), "data"),
-            "my_detector_test"
-        )
-        
-        # Save detector
-        self.detector.save(path)
-        
-        # Load detector
-        loaded_detector = Detector.load(path + ".det")
-        
-        # Verify loaded detector matches original
-        self.assertAlmostEqual(
-            loaded_detector.pixel_size_z.item(), 
-            self.detector.pixel_size_z.item(),
-            msg="Pixel size z corrupted on save/load"
-        )
-        self.assertAlmostEqual(
-            loaded_detector.pixel_size_y.item(), 
-            self.detector.pixel_size_y.item(),
-            msg="Pixel size y corrupted on save/load"
-        )
-        self.assertTrue(
-            torch.allclose(loaded_detector.det_corner_0, self.detector.det_corner_0),
-            msg="det_corner_0 corrupted on save/load"
-        )
-        self.assertTrue(
-            torch.allclose(loaded_detector.normal, self.detector.normal),
-            msg="normal corrupted on save/load"
-        )
-        
-        # Clean up
-        os.remove(path + ".det")
-
-    def test_lorentz_infinity_handling(self):
+    def test_lorentz_infinity_handling_nano(self):
         """Test that rendering properly handles infinite Lorentz factors.
         
         When eta ≈ 0 (grazing geometry), the Lorentz factor becomes infinite.
@@ -509,10 +568,10 @@ class TestDetector(unittest.TestCase):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             
-            diffraction_pattern_gauss = self.detector.render(
+            diffraction_pattern_micro = self.detector.render(
                 peaks_dict,
                 frames_to_render=1,
-                method="gauss"
+                method="micro"
             )
             
             # Check that a warning was issued
@@ -522,156 +581,33 @@ class TestDetector(unittest.TestCase):
         
         # The pattern should be empty since the only peak was filtered out
         self.assertEqual(
-            diffraction_pattern_gauss.dim(), 3,
-            msg="Gauss render should return 3D tensor"
+            diffraction_pattern_micro.dim(), 3,
+            msg="Micro render should return 3D tensor"
         )
         self.assertEqual(
-            torch.sum(diffraction_pattern_gauss), 0,
+            torch.sum(diffraction_pattern_micro), 0,
             msg="Pattern should be empty when all peaks have infinite Lorentz"
         )
         
-        # Test voigt method as well - should also warn and produce empty output
+        # Test nano method as well - should also warn and produce empty output
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             
-            diffraction_pattern_voigt = self.detector.render(
+            diffraction_pattern_nano = self.detector.render(
                 peaks_dict,
                 frames_to_render=1,
-                method="voigt"
+                method="nano"
             )
             
-            self.assertEqual(len(w), 1, msg="Expected warning for voigt render too")
+            self.assertEqual(len(w), 1, msg="Expected warning for nano render too")
         
         self.assertEqual(
-            diffraction_pattern_voigt.dim(), 3,
-            msg="Voigt render should return 3D tensor"
+            diffraction_pattern_nano.dim(), 3,
+            msg="Nano render should return 3D tensor"
         )
         self.assertEqual(
-            torch.sum(diffraction_pattern_voigt), 0,
+            torch.sum(diffraction_pattern_nano), 0,
             msg="Pattern should be empty when all peaks have infinite Lorentz"
-        )
-
-    def test_volume_render(self):
-        """Test volume-based rendering method.
-        
-        Volume rendering requires a mesh with vertices that properly intersect
-        with the beam volume. The mesh is in centimeter scale (~500 microns radius)
-        and the beam must encompass it.
-        """
-        # Create a spherical mesh centered at origin with ~500 micron radius
-        # This places the sample at the origin where beam and detector geometry align
-        mesh = TetraMesh.generate_mesh_from_levelset(
-            level_set=lambda x: np.linalg.norm(x) - 500.0,
-            bounding_radius=600.0,
-            max_cell_circumradius=200.0,
-        )
-
-        # Create a beam that encompasses the mesh and extends along x-axis
-        # Beam is a box from x=-20000 to x=20000, y/z from -10000 to 10000
-        beam_vertices = np.array([
-            [-20000, -10000, -10000],
-            [-20000, 10000, -10000],
-            [-20000, 10000, 10000],
-            [-20000, -10000, 10000],
-            [20000, -10000, -10000],
-            [20000, 10000, -10000],
-            [20000, 10000, 10000],
-            [20000, -10000, 10000],
-        ], dtype=float)
-        wavelength = 1.0
-        beam = Beam(
-            beam_vertices,
-            np.array([1, 0, 0]),  # X-ray propagates along x
-            wavelength,
-            np.array([0, 1, 0])  # Polarization along y
-        )
-
-        # Create motion with small rotation around z-axis
-        motion = RigidBodyMotion(
-            np.array([0, 0, 1]),
-            np.radians(10),
-            np.array([0, 0, 0])
-        )
-
-        # Create a scattered wave vector that points toward the detector
-        # The scattered vector should point from origin toward detector center
-        v = self.detector.ydhat + self.detector.zdhat
-        v = v / torch.linalg.norm(v)
-        
-        # Source point at mesh centroid (near origin)
-        source_point = np.array([0.0, 0.0, 0.0])
-        
-        # Target on detector - center of detector
-        detector_center = ensure_numpy(
-            self.det_corner_0
-            + 0.5 * self.detector_size * self.detector.ydhat
-            + 0.5 * self.detector_size * self.detector.zdhat
-        )
-        
-        # Direction from source to detector center
-        scatter_direction = detector_center - source_point
-        scatter_direction = scatter_direction / np.linalg.norm(scatter_direction)
-        
-        # Convert to wave vector (k = 2π/λ * direction)
-        incident_wave_vector = 2 * np.pi * np.array([1, 0, 0]) / wavelength
-        scattered_wave_vector = 2 * np.pi * scatter_direction / wavelength
-
-        # Load phase for structure factors
-        data = os.path.join(
-            os.path.join(os.path.dirname(__file__), "data"),
-            "Fe_mp-150_conventional_standard.cif"
-        )
-        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
-        sgname = "Fm-3m"
-        phase = Phase(unit_cell, sgname, path_to_cif_file=data)
-        phase._setup_diffracting_planes(wavelength, 0, 20 * np.pi / 180)
-
-        # Create a proper convex hull for volume calculation
-        # Use vertices from one of the mesh elements
-        mesh_verts = ensure_numpy(mesh.coord[mesh.enod[0]])
-        ch = ConvexHull(mesh_verts)
-
-        peak = create_peak_tensor(
-            ch,
-            scattered_wave_vector,
-            incident_wave_vector,
-            wavelength,
-            np.array([0, 1, 0]),  # polarization
-            np.array([0, 0, 1]),  # rotation axis
-            0.5,  # diffraction time
-            phase,
-            0,  # hkl index
-            0,  # element index
-            0,  # peak index
-        )
-
-        peaks_dict = {
-            "peaks": peak,
-            "columns": [
-                "grain_index", "phase_number", "h", "k", "l",
-                "structure_factors", "diffraction_times",
-                "G0_x", "G0_y", "G0_z", "Gx", "Gy", "Gz",
-                "K_out_x", "K_out_y", "K_out_z",
-                "Source_x", "Source_y", "Source_z",
-                "lorentz_factors", "polarization_factors",
-                "volumes", "2theta", "scherrer_fwhm", "peak_index"
-            ],
-            "beam": beam,
-            "mesh_lab": mesh,
-            "rigid_body_motion": motion,
-        }
-
-        # Test volume rendering
-        diffraction_pattern = self.detector.render(
-            peaks_dict,
-            frames_to_render=1,
-            method="volumes"
-        )
-        
-        # Volume rendering should produce output
-        self.assertEqual(
-            diffraction_pattern.dim(), 3,
-            msg="Volume render should return 3D tensor (frames, height, width)"
         )
 
 if __name__ == "__main__":

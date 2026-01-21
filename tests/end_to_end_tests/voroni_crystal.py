@@ -37,11 +37,10 @@ det_corner_2 = np.array(
     [detector_distance, -detector_size / 2., detector_size / 2.])
 
 detector = Detector(
-    pixel_size,
-    pixel_size,
-    det_corner_0,
-    det_corner_1,
-    det_corner_2)
+    det_corner_0=det_corner_0,
+    det_corner_1=det_corner_1,
+    det_corner_2=det_corner_2,
+    pixel_size=pixel_size)
 
 # data = os.path.join( os.path.join(os.path.dirname(__file__), 'data' ), 'Fe_mp-150_conventional_standard.cif' )
 unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
@@ -114,26 +113,26 @@ for i in range(min(5, len(peaks_np))):  # Print first 5 peaks
     print(np.degrees(tth))
     print(" ")
 
-print("Detector gauss rendering:")
+print("Detector micro rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern1 = detector.render(
     peaks_dict,
     frames_to_render=1,
-    method="gauss")
+    method="micro")
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')
 ps.print_stats(15)
 print("")
 
-print("Detector voigt rendering:")
+print("Detector nano rendering:")
 pr = cProfile.Profile()
 pr.enable()
 diffraction_pattern2 = detector.render(
     peaks_dict,
     frames_to_render=1,
-    method='voigt')
+    method='nano')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')

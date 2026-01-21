@@ -21,11 +21,10 @@ det_corner_2 = np.array(
     [detector_distance, -detector_size / 2., detector_size / 2.])
 
 detector = Detector(
-    pixel_size,
-    pixel_size,
-    det_corner_0,
-    det_corner_1,
-    det_corner_2)
+    det_corner_0=det_corner_0,
+    det_corner_1=det_corner_1,
+    det_corner_2=det_corner_2,
+    pixel_size=pixel_size)
 
 np.random.seed(1)
 r = (detector_size / 10.)
@@ -82,7 +81,7 @@ pr.enable()
 diffraction_pattern = detector.render(
     peaks_dict,
     frames_to_render=1,
-    method='gauss')
+    method='micro')
 pr.disable()
 pr.dump_stats('tmp_profile_dump')
 ps = pstats.Stats('tmp_profile_dump').strip_dirs().sort_stats('cumtime')

@@ -112,14 +112,21 @@ def _scherrer(
 ) -> torch.Tensor:
     """Calculate Scherrer peak broadening FWHM.
 
-    Args:
-        volumes: Crystallite volumes in cubic microns
-        two_theta: Scattering angles in radians
-        wavelength: X-ray wavelength in Angstroms
-        K: Scherrer shape factor (default 0.9 for spherical crystallites)
+    Parameters
+    ----------
+    volumes : torch.Tensor
+        Crystallite volumes in cubic microns.
+    two_theta : torch.Tensor
+        Scattering angles in radians.
+    wavelength : float
+        X-ray wavelength in Angstroms.
+    K : float, optional
+        Scherrer shape factor. Default is 0.9 for spherical crystallites.
 
-    Returns:
-        Peak FWHM in radians
+    Returns
+    -------
+    torch.Tensor
+        Peak FWHM in radians.
     """
 
     crystallite_size = (

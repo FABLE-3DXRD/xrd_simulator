@@ -160,7 +160,7 @@ class TestUtils(unittest.TestCase):
         diffraction_pattern = detector.render(
             peaks_dict,
             frames_to_render=1,
-            method="gauss")
+            method="micro")
         
         # Convert to numpy for analysis
         if hasattr(diffraction_pattern, 'cpu'):
@@ -246,7 +246,7 @@ class TestUtils(unittest.TestCase):
         diffraction_pattern = detector.render(
             peaks_dict,
             frames_to_render=1,
-            method="gauss")
+            method="micro")
 
         # Convert to numpy for analysis
         if hasattr(diffraction_pattern, 'cpu'):

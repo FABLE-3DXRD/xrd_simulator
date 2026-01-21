@@ -104,11 +104,10 @@ We will also need to define a detector:
 
       from xrd_simulator.detector import Detector
       # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
-      detector = Detector(pixel_size_z=75.0,
-                          pixel_size_y=55.0,
-                          det_corner_0=np.array([142938.3, -38400., -38400.]),
+      detector = Detector(det_corner_0=np.array([142938.3, -38400., -38400.]),
                           det_corner_1=np.array([142938.3, 38400., -38400.]),
-                          det_corner_2=np.array([142938.3, -38400., 38400.]))
+                          det_corner_2=np.array([142938.3, -38400., 38400.]),
+                          n_pixels=(1024, 1396))  # Or use pixel_size_z/pixel_size_y
 
 Next we go ahead and produce a sample, to do this we need to first define a mesh that
 describes the topology of the sample, in this example we make the sample shaped as a ball:

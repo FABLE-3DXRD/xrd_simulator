@@ -140,7 +140,11 @@ class TestPowderIntegration(unittest.TestCase):
         det_corner_1 = np.array([cls.detector_distance,  cls.detector_size/2, -cls.detector_size/2])
         det_corner_2 = np.array([cls.detector_distance, -cls.detector_size/2,  cls.detector_size/2])
         
-        cls.detector = Detector(cls.pixel_size, cls.pixel_size, det_corner_0, det_corner_1, det_corner_2)
+        cls.detector = Detector(
+            det_corner_0=det_corner_0,
+            det_corner_1=det_corner_1,
+            det_corner_2=det_corner_2,
+            n_pixels=(cls.n_pixels, cls.n_pixels))
         
         # Calculate detector coverage in 2theta
         cls.max_2theta = np.arctan((cls.detector_size/2) / cls.detector_distance)  # radians
@@ -356,11 +360,11 @@ class TestPowderIntegration(unittest.TestCase):
             self.fail("No diffraction peaks generated!")
         
         # Step 4: Render pattern
-        print("\n[4] Rendering diffraction pattern (gauss mode)...")
+        print("\n[4] Rendering diffraction pattern (micro mode)...")
         pattern = self.detector.render(
             peaks_dict,
             frames_to_render=0,  # single integrated frame
-            method='gauss'
+            method='micro'
         )
         
         # Convert to numpy

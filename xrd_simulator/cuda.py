@@ -6,23 +6,29 @@ _device = "cpu"
 
 
 def configure_device(device=None, verbose=True):
-    """
-    Configure PyTorch device for xrd_simulator.
-    
-    Args:
-        device (str, optional): Device to use. Options:
-                               - "cpu": Force CPU
-                               - "gpu" or "cuda": Use GPU if available
-                               - None or "auto": Auto-detect (use GPU if available)
-        verbose (bool): Print device selection message.
-    
-    Returns:
-        str: 'cuda' or 'cpu'
-    
-    Examples:
-        >>> configure_device("gpu")      # Use GPU if available
-        >>> configure_device("cpu")      # Force CPU
-        >>> configure_device()           # Auto-detect
+    """Configure PyTorch device for xrd_simulator.
+
+    Parameters
+    ----------
+    device : str, optional
+        Device to use. Options:
+
+        - ``"cpu"``: Force CPU
+        - ``"gpu"`` or ``"cuda"``: Use GPU if available
+        - ``None`` or ``"auto"``: Auto-detect (use GPU if available)
+    verbose : bool, optional
+        Print device selection message. Default is ``True``.
+
+    Returns
+    -------
+    str
+        ``'cuda'`` or ``'cpu'``.
+
+    Examples
+    --------
+    >>> configure_device("gpu")      # Use GPU if available
+    >>> configure_device("cpu")      # Force CPU
+    >>> configure_device()           # Auto-detect
     """
     global _device
 

@@ -1,19 +1,22 @@
 """The mesh module is used to represent the morphology of a polycrystalline sample.
-Once created and linked to a polycrystal the mesh can be accessed directly through
-the :class:`xrd_simulator.polycrystal.Polycrystal`. Here is a minimal example of how
-to instantiate a mesh and save it to disc:
 
-    Examples:
-        .. literalinclude:: examples/example_init_mesh.py
+Once created and linked to a polycrystal, the mesh can be accessed directly
+through the :class:`xrd_simulator.polycrystal.Polycrystal`.
 
-This should look somethign like this in a 3D viewer like paraview:
+Examples
+--------
+Here is a minimal example of how to instantiate a mesh and save it to disc:
+
+.. literalinclude:: examples/example_init_mesh.py
+
+This should look something like this in a 3D viewer like paraview:
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/mesh_example.png?raw=true
    :width: 300
    :align: center
 
-Below follows a detailed description of the mesh class attributes and functions.
-
+Below follows a detailed description of the mesh class attributes and
+functions.
 """
 
 import numpy as np
@@ -24,32 +27,45 @@ from xrd_simulator import utils, motion
 
 
 class TetraMesh(object):
-    """Defines a 3D tetrahedral mesh with associated geometry data such face normals, centroids, etc.
+    """Defines a 3D tetrahedral mesh with associated geometry data.
 
-    For level-set mesh generation the TetraMesh uses marching cubes from `scikit-image`_ to extract
-    the surface, then `meshpy`_ (TetGen wrapper) to generate the volume tetrahedral mesh.
+    For level-set mesh generation, TetraMesh uses marching cubes from
+    `scikit-image`_ to extract the surface, then `meshpy`_ (TetGen wrapper)
+    to generate the volume tetrahedral mesh.
 
-     .. _scikit-image: https://scikit-image.org/
-     .. _meshpy: https://github.com/inducer/meshpy
+    .. _scikit-image: https://scikit-image.org/
+    .. _meshpy: https://github.com/inducer/meshpy
 
-    Attributes:
-        coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
-            coordinates of a mesh node.
-        enod (:obj:`numpy array`): Tetra element nodes shape=(nelm, nenodes).e.g enod[i,:] gives
-            the nodal indices of element i.
-        dof (:obj:`numpy array`): Per node degrees of freedom, i.e dof[i,:]
-            gives the degrees of freedom of node i.
-        efaces (:obj:`numpy array`): Element faces nodal indices, shape=(nelm, nenodes, 3).
-            e.g efaces[i,j,:] gives the nodal indices of face j of element i.
-        enormals (:obj:`numpy array`): Element faces outwards normals (nelm, nefaces, 3).
-            e.g enormals[i,j,:] gives the normal of face j of element i.
-        ecentroids (:obj:`numpy array`): Per element centroids, shape=(nelm, 3).
-        eradius (:obj:`numpy array`): Per element bounding ball radius, shape=(nelm, 1).
-        espherecentroids (:obj:`numpy array`): Per element bounding ball centroids, shape=(nelm, 3).
-        evolumes (:obj:`numpy array`): Per element volume, shape=(nelm,).
-        centroid (:obj:`numpy array`): Global centroid of the entire mesh, shape=(3,)
-        number_of_elements (:obj:`int`): Number of tetrahedral elements in the mesh.
-
+    Attributes
+    ----------
+    coord : torch.Tensor
+        Nodal coordinates, shape ``(n_nodes, 3)``. Each row defines the
+        coordinates of a mesh node.
+    enod : torch.Tensor
+        Tetra element nodes, shape ``(n_elm, n_nodes)``. ``enod[i, :]`` gives
+        the nodal indices of element ``i``.
+    dof : torch.Tensor
+        Per node degrees of freedom. ``dof[i, :]`` gives the degrees of
+        freedom of node ``i``.
+    efaces : torch.Tensor
+        Element faces nodal indices, shape ``(n_elm, n_faces, 3)``.
+        ``efaces[i, j, :]`` gives the nodal indices of face ``j`` of
+        element ``i``.
+    enormals : torch.Tensor
+        Element faces outward normals, shape ``(n_elm, n_faces, 3)``.
+        ``enormals[i, j, :]`` gives the normal of face ``j`` of element ``i``.
+    ecentroids : torch.Tensor
+        Per element centroids, shape ``(n_elm, 3)``.
+    eradius : torch.Tensor
+        Per element bounding ball radius, shape ``(n_elm,)``.
+    espherecentroids : torch.Tensor
+        Per element bounding ball centroids, shape ``(n_elm, 3)``.
+    evolumes : torch.Tensor
+        Per element volume, shape ``(n_elm,)``.
+    centroid : torch.Tensor
+        Global centroid of the entire mesh, shape ``(3,)``.
+    number_of_elements : int
+        Number of tetrahedral elements in the mesh.
     """
 
     def __init__(self):
@@ -68,16 +84,23 @@ class TetraMesh(object):
 
     @classmethod
     def generate_mesh_from_vertices(cls, coord, enod):
-        """Generate a mesh from vertices using `the meshio package`_:
+        """Generate a mesh from vertices using `the meshio package`_.
 
         .. _the meshio package: https://github.com/nschloe/meshio
 
-        Args:
-            coord (:obj:`numpy array`): Nodal coordinates, shape=(nenodes, 3). Each row in coord defines the
-                coordinates of a mesh node.
-            enod (:obj:`numpy array`): Tetra element nodes shape=(nelm, nenodes).e.g enod[i,:] gives
-                the nodal indices of element i.
+        Parameters
+        ----------
+        coord : numpy.ndarray
+            Nodal coordinates, shape ``(n_nodes, 3)``. Each row defines the
+            coordinates of a mesh node.
+        enod : numpy.ndarray
+            Tetra element nodes, shape ``(n_elm, n_nodes)``. ``enod[i, :]``
+            gives the nodal indices of element ``i``.
 
+        Returns
+        -------
+        TetraMesh
+            The generated tetrahedral mesh.
         """
         mesh = meshio.Mesh(coord, [("tetra", enod)])
         return cls._build_tetramesh(mesh)
@@ -86,20 +109,33 @@ class TetraMesh(object):
     def generate_mesh_from_levelset(
         cls, level_set, bounding_radius, max_cell_circumradius
     ):
-        """Generate a mesh from a level set using marching cubes (scikit-image) + meshpy.
+        """Generate a mesh from a level set using marching cubes + meshpy.
 
         This method uses a two-step process:
+
         1. Extract the surface from the level set using marching cubes (skimage)
         2. Generate a volume tetrahedral mesh from the surface using meshpy
 
-        Args:
-            level_set (:obj:`callable`): Level set, level_set(x) should give a negative output on the exterior
-                of the mesh and positive on the interior.
-            bounding_radius (:obj:`float`): Bounding radius of mesh.
-            max_cell_circumradius (:obj:`float`): Bound for element radii.
+        Parameters
+        ----------
+        level_set : callable
+            Level set function. ``level_set(x)`` should give a negative output
+            on the exterior of the mesh and positive on the interior.
+        bounding_radius : float
+            Bounding radius of mesh.
+        max_cell_circumradius : float
+            Upper bound for element radii.
 
-        Returns:
-            TetraMesh: The generated tetrahedral mesh
+        Returns
+        -------
+        TetraMesh
+            The generated tetrahedral mesh.
+
+        Raises
+        ------
+        ValueError
+            If marching cubes fails to extract a surface or if tetrahedral
+            mesh generation fails.
         """
         from skimage import measure
         
@@ -181,9 +217,10 @@ class TetraMesh(object):
     def translate(self, translation_vector):
         """Translate the mesh.
 
-        Args:
-            translation_vector (:obj:`numpy.array` or :obj:`torch.Tensor`): [x,y,z] translation vector, shape=(3,)
-
+        Parameters
+        ----------
+        translation_vector : numpy.ndarray or torch.Tensor
+            Translation vector ``[x, y, z]``, shape ``(3,)``.
         """
         # Convert to numpy if torch tensor
         if torch.is_tensor(translation_vector):
@@ -198,10 +235,12 @@ class TetraMesh(object):
     def rotate(self, rotation_axis, angle):
         """Rotate the mesh.
 
-        Args:
-            rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
-            rotation_angle (:obj:`float`): Radians for rotation.
-
+        Parameters
+        ----------
+        rotation_axis : numpy.ndarray
+            Rotation axis, shape ``(3,)``.
+        angle : float
+            Rotation angle in radians.
         """
         rbm = motion.RigidBodyMotion(rotation_axis, angle, np.array([0, 0, 0]))
         self.update(rbm, time=1)
@@ -209,11 +248,13 @@ class TetraMesh(object):
     def update(self, rigid_body_motion, time):
         """Apply a rigid body motion transformation to the mesh.
 
-        Args:
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
-            time (:obj:`float`): Time between [0,1] at which to call the rigid body motion.
-
+        Parameters
+        ----------
+        rigid_body_motion : xrd_simulator.motion.RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
+        time : float
+            Time between ``[0, 1]`` at which to call the rigid body motion.
         """
         self.coord = rigid_body_motion(self.coord, time=time)
 
@@ -229,12 +270,15 @@ class TetraMesh(object):
         self.centroid = rigid_body_motion(self.centroid.unsqueeze(0), time=time).squeeze(0)
 
     def save(self, file, element_data=None):
-        """Save the tetra mesh to .xdmf paraview readable format for visualization.
+        """Save the tetra mesh to .xdmf paraview readable format.
 
-        Args:
-            file (:obj:`str`): Absolute path to save the mesh in .xdmf format.
-            element_data (:obj:`dict` of :obj:`list` or :obj:`numpy array`): Data associated to the elements.
-
+        Parameters
+        ----------
+        file : str
+            Absolute path to save the mesh in ``.xdmf`` format.
+        element_data : dict, optional
+            Data associated to the elements. Keys are data names and values
+            are lists or numpy arrays.
         """
         if not file.endswith(".xdmf"):
             save_path = file + ".xdmf"
@@ -258,26 +302,38 @@ class TetraMesh(object):
 
     @classmethod
     def load(cls, path):
-        """Load a mesh from a saved mesh file set using `the meshio package`_:
+        """Load a mesh from a saved mesh file using `the meshio package`_.
 
         .. _the meshio package: https://github.com/nschloe/meshio
 
-        Args:
-            file (:obj:`str`): Absolute path to the mesh file.
+        Parameters
+        ----------
+        path : str
+            Absolute path to the mesh file.
 
+        Returns
+        -------
+        TetraMesh
+            The loaded tetrahedral mesh.
         """
         mesh = meshio.read(path)
         return cls._build_tetramesh(mesh)
 
     @classmethod
     def _build_tetramesh(cls, mesh):
-        """Build a TetraMesh object from a meshio mesh, converting data to tensors immediately.
-        
-        Args:
-            mesh: A meshio.Mesh object with points and tetra cells.
-            
-        Returns:
-            TetraMesh: A new mesh object with all data as torch tensors.
+        """Build a TetraMesh object from a meshio mesh.
+
+        Converts data to torch tensors immediately.
+
+        Parameters
+        ----------
+        mesh : meshio.Mesh
+            A meshio.Mesh object with points and tetra cells.
+
+        Returns
+        -------
+        TetraMesh
+            A new mesh object with all data as torch tensors.
         """
         tetmesh = cls()
         
@@ -304,7 +360,21 @@ class TetraMesh(object):
         return tetmesh
 
     def _compute_mesh_faces(self, enod):
-        """Compute all element faces nodal numbers. We create a matrix of all possible permutations and then we index the enod matrix."""
+        """Compute all element faces nodal numbers.
+
+        Creates a matrix of all possible permutations and indexes the enod
+        matrix.
+
+        Parameters
+        ----------
+        enod : torch.Tensor
+            Element node indices, shape ``(n_elm, 4)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Element faces, shape ``(n_elm, 4, 3)``.
+        """
         # Ensure input enod is long tensor
         if not torch.is_tensor(enod):
             enod = torch.tensor(enod, dtype=torch.int64)
@@ -318,7 +388,22 @@ class TetraMesh(object):
         return efaces
 
     def _compute_mesh_normals(self, coord, enod, efaces):
-        """Compute all element faces outwards unit vector normals."""
+        """Compute all element faces outward unit vector normals.
+
+        Parameters
+        ----------
+        coord : torch.Tensor
+            Nodal coordinates, shape ``(n_nodes, 3)``.
+        enod : torch.Tensor
+            Element node indices, shape ``(n_elm, 4)``.
+        efaces : torch.Tensor
+            Element faces, shape ``(n_elm, 4, 3)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Element face normals, shape ``(n_elm, 4, 3)``.
+        """
         vertices = coord[efaces]
         normals = torch.cross(
             vertices[:, :, 1, :] - vertices[:, :, 0, :],
@@ -334,12 +419,38 @@ class TetraMesh(object):
         return enormals
 
     def _compute_mesh_centroids(self, coord, enod):
-        """Compute centroids of elements."""
+        """Compute centroids of elements.
+
+        Parameters
+        ----------
+        coord : torch.Tensor
+            Nodal coordinates, shape ``(n_nodes, 3)``.
+        enod : torch.Tensor
+            Element node indices, shape ``(n_elm, 4)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Element centroids, shape ``(n_elm, 3)``.
+        """
         ecentroids = torch.mean(coord[enod], dim=1)
         return ecentroids
 
     def _compute_mesh_volumes(self, enod, coord):
-        """Compute per element enclosed volume."""
+        """Compute per element enclosed volume.
+
+        Parameters
+        ----------
+        enod : torch.Tensor
+            Element node indices, shape ``(n_elm, 4)``.
+        coord : torch.Tensor
+            Nodal coordinates, shape ``(n_nodes, 3)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Element volumes, shape ``(n_elm,)``.
+        """
         vertices = coord[enod]
         a = vertices[:, 1, :] - vertices[:, 0, :]
         b = vertices[:, 2, :] - vertices[:, 0, :]
@@ -348,28 +459,30 @@ class TetraMesh(object):
         return evolumes
 
     def _compute_mesh_spheres(self, coord, enod):
-        """
-        Compute the minimal bounding spheres for each tetrahedron in a mesh. This approach avoids any iterative process 
-        and solves all the spheres in a vectorized manner at once.
+        """Compute minimal bounding spheres for each tetrahedron.
+
+        This approach avoids any iterative process and solves all the spheres
+        in a vectorized manner at once.
 
         The method follows these steps:
-        1. Calculate the minimal sphere for the two most distant vertices of each tetrahedron.
+
+        1. Calculate the minimal sphere for the two most distant vertices.
         2. Calculate the minimal sphere for the three most distant vertices.
         3. Calculate the sphere containing all four vertices on their surface.
 
-        Parameters:
+        Parameters
         ----------
         coord : torch.Tensor
-            Tensor of coordinates with dimensions (vertices, xyz).
+            Tensor of coordinates, shape ``(n_vertices, 3)``.
         enod : torch.Tensor
-            Tensor of tetrahedron vertex indices with dimensions (tetrahedrons, vertices).
+            Tensor of tetrahedron vertex indices, shape ``(n_tetra, 4)``.
 
-        Returns:
+        Returns
         -------
         eradius : torch.Tensor
-            Tensor of radii for the minimal bounding spheres of each tetrahedron.
+            Radii for the minimal bounding spheres, shape ``(n_tetra,)``.
         espherecentroids : torch.Tensor
-            Tensor of centroids for the minimal bounding spheres of each tetrahedron.
+            Centroids for the minimal bounding spheres, shape ``(n_tetra, 3)``.
         """
         # Ensure inputs are torch tensors
         coord = utils.ensure_torch(coord, dtype=torch.float64)
@@ -449,7 +562,10 @@ class TetraMesh(object):
         return eradius, espherecentroids
 
     def _set_fem_matrices(self):
-        """Extract and set mesh FEM matrices from meshio object and convert to torch tensors."""
+        """Extract and set mesh FEM matrices from meshio object.
+
+        Converts data to torch tensors.
+        """
         # Convert coordinates to float64 tensor
         self.coord = utils.ensure_torch(self._mesh.points, dtype=torch.float64)
         

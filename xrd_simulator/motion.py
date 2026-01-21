@@ -1,16 +1,20 @@
-"""The motion module is used to represent a rigid body motion. During diffraction from a
-:class:`xrd_simulator.polycrystal.Polycrystal` the :class:`xrd_simulator.motion.RigidBodyMotion`
-object describes how the sample is translating and rotating. The motion can be used to update the
-polycrystal position via the :func:`xrd_simulator.polycrystal.Polycrystal.transform` function.
+"""The motion module is used to represent a rigid body motion.
 
-Here is a minimal example of how to instantiate a rigid body motion object, apply the motion to a pointcloud
-and save the motion to disc:
+During diffraction from a :class:`xrd_simulator.polycrystal.Polycrystal`, the
+:class:`xrd_simulator.motion.RigidBodyMotion` object describes how the sample
+is translating and rotating. The motion can be used to update the polycrystal
+position via the :func:`xrd_simulator.polycrystal.Polycrystal.transform`
+function.
 
-    Examples:
-        .. literalinclude:: examples/example_init_motion.py
+Examples
+--------
+Here is a minimal example of how to instantiate a rigid body motion object,
+apply the motion to a pointcloud and save the motion to disc:
 
-Below follows a detailed description of the RigidBodyMotion class attributes and functions.
+.. literalinclude:: examples/example_init_motion.py
 
+Below follows a detailed description of the RigidBodyMotion class attributes
+and functions.
 """
 
 import dill
@@ -21,31 +25,42 @@ torch.set_default_dtype(torch.float64)
 
 
 class RigidBodyMotion:
-    """Rigid body transformation of euclidean points by an euler axis rotation and a translation.
+    """Rigid body transformation by Euler axis rotation and translation.
 
     A rigid body motion is defined in the laboratory coordinates system.
 
-    The Motion is parametric in the interval time=[0,1] and will perform a rigid body transformation
-    of a point x by linearly uniformly rotating it from [0, rotation_angle] and translating [0, translation].
-    I.e if called at a time time=t the motion will first rotate the point ``t*rotation_angle`` radians
-    around ``rotation_axis`` and next translate the point by the vector ``t*translation``.
+    The motion is parametric in the interval ``time=[0, 1]`` and will perform a
+    rigid body transformation of a point ``x`` by linearly uniformly rotating
+    it from ``[0, rotation_angle]`` and translating ``[0, translation]``. I.e.,
+    if called at a time ``time=t``, the motion will first rotate the point
+    ``t * rotation_angle`` radians around ``rotation_axis`` and next translate
+    the point by the vector ``t * translation``.
 
-    Args:
-        rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
-        rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
-        translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
-        origin (:obj:`numpy array`): Point in space about which the rigid body motion is
-            defined Defaults to the origin (0,0,0). All translations are executed in relation
-            to the origin and all rotation are rotations about the point of origin. ``shape=(3,)``
+    Parameters
+    ----------
+    rotation_axis : numpy.ndarray or torch.Tensor
+        Rotation axis, shape ``(3,)``.
+    rotation_angle : float
+        Radians for final rotation when ``time=1``.
+    translation : numpy.ndarray or torch.Tensor
+        Translation vector, shape ``(3,)``.
+    origin : numpy.ndarray or torch.Tensor, optional
+        Point in space about which the rigid body motion is defined. Defaults
+        to the origin ``(0, 0, 0)``. All translations are executed in relation
+        to the origin and all rotations are rotations about the point of origin.
+        Shape ``(3,)``.
 
-    Attributes:
-        rotation_axis (:obj:`numpy array`): Rotation axis ``shape=(3,)``
-        rotation_angle (:obj:`float`): Radians for final rotation, when time=1.
-        translation (:obj:`numpy array`):  Translation vector ``shape=(3,)``
-        origin (:obj:`numpy array`): Point in space about which the rigid body motion is
-            defined Defaults to the origin (0,0,0). All translations are executed in relation
-            to the origin and all rotation are rotations about the point of origin. ``shape=(3,)``
-
+    Attributes
+    ----------
+    rotation_axis : torch.Tensor
+        Rotation axis, shape ``(3,)``.
+    rotation_angle : torch.Tensor
+        Radians for final rotation when ``time=1``.
+    translation : torch.Tensor
+        Translation vector, shape ``(3,)``.
+    origin : torch.Tensor
+        Point in space about which the rigid body motion is defined,
+        shape ``(3,)``.
     """
 
     def __init__(
@@ -63,16 +78,23 @@ class RigidBodyMotion:
     def __call__(self, vectors, time):
         """Find the transformation of a set of points at a prescribed time.
 
-        Calling this method will execute the rigid body motion with respect to the
-            currently set origin.
+        Calling this method executes the rigid body motion with respect to the
+        currently set origin.
 
-        Args:
-            vectors (:obj:`numpy array`): A set of points to be transformed (``shape=(3,N)`` or ``shape=(N,3)`` or ``shape=(1,4,3)``)
-            time (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
+        Parameters
+        ----------
+        vectors : numpy.ndarray or torch.Tensor
+            A set of points to be transformed, shape ``(3, N)``, ``(N, 3)``, or
+            ``(N, 4, 3)``.
+        time : float, numpy.ndarray, or torch.Tensor
+            Time to compute for. Can be scalar or shape ``(N,)`` for per-vector
+            times.
 
-        Returns:
-            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)`` or ``shape=(1,4,3)``.
-
+        Returns
+        -------
+        torch.Tensor
+            Transformed vectors with shape ``(3, N)``, ``(N, 3)``, or
+            ``(N, 4, 3)``.
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         vectors = ensure_torch(vectors)
@@ -119,20 +141,26 @@ class RigidBodyMotion:
             )
 
     def rotate(self, vectors, time):
-        """Find the rotational transformation of a set of vectors at a prescribed time.
+        """Find the rotational transformation of a set of vectors.
 
-        NOTE: This function only applies the rigid body rotation and will not respect the
-            origin of the motion! This function is intended for rotation of diffraction
-            and wavevectors. Use the __call__ method to perform a physical rigidbody motion
-            respecting the origin.
+        This function only applies the rigid body rotation and will not respect
+        the origin of the motion. This function is intended for rotation of
+        diffraction and wavevectors. Use the ``__call__`` method to perform a
+        physical rigid body motion respecting the origin.
 
-        Args:
-            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of points in 3d euclidean space to be rotated (``shape=(3,N)`` or ``shape=(N,3)``)
-            time (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Time to compute for. Can be scalar or shape ``(N,)`` for per-vector times.
+        Parameters
+        ----------
+        vectors : numpy.ndarray or torch.Tensor
+            A set of points in 3D Euclidean space to be rotated, shape
+            ``(3, N)`` or ``(N, 3)``.
+        time : float, numpy.ndarray, or torch.Tensor
+            Time to compute for. Can be scalar or shape ``(N,)`` for per-vector
+            times.
 
-        Returns:
-            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)``.
-
+        Returns
+        -------
+        torch.Tensor
+            Transformed vectors of shape ``(3, N)`` or ``(N, 3)``.
         """
         # assert time <= 1 and time >= 0, "The rigid body motion is only valid on the interval time=[0,1]"
         time = ensure_torch(time)
@@ -140,17 +168,22 @@ class RigidBodyMotion:
         return rotated_vectors
 
     def translate(self, vectors, time):
-        """Find the translational transformation of a set of points at a prescribed time.
+        """Find the translational transformation of a set of points.
 
-        NOTE: This function only applies the rigid body translation.
+        This function only applies the rigid body translation.
 
-        Args:
-            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of points in 3d euclidean space to be translated (``shape=(3,N)`` or ``shape=(N,3)``)
-            time (:obj:`float`): Time to compute for.
+        Parameters
+        ----------
+        vectors : numpy.ndarray or torch.Tensor
+            A set of points in 3D Euclidean space to be translated, shape
+            ``(3, N)`` or ``(N, 3)``.
+        time : float
+            Time to compute for.
 
-        Returns:
-            Transformed vectors (:obj:`torch.Tensor`) of ``shape=(3,N)`` or ``shape=(N,3)``.
-
+        Returns
+        -------
+        torch.Tensor
+            Transformed vectors of shape ``(3, N)`` or ``(N, 3)``.
         """
         assert (
             time <= 1 and time >= 0
@@ -166,11 +199,15 @@ class RigidBodyMotion:
         return vectors + translation * time
 
     def inverse(self):
-        """Create an instance of the inverse motion, defined by negative translation- and rotation-axis vectors.
+        """Create an instance of the inverse motion.
 
-        Returns:
-            (:obj:`xrd_simulator.RigidBodyMotion`) The inverse motion with a reversed rotation and translation.
+        The inverse is defined by negative translation and rotation axis
+        vectors.
 
+        Returns
+        -------
+        RigidBodyMotion
+            The inverse motion with a reversed rotation and translation.
         """
         return RigidBodyMotion(
             -self.rotation_axis.clone(),
@@ -180,11 +217,13 @@ class RigidBodyMotion:
         )
 
     def save(self, path):
-        """Save the motion object to disc (via pickling).
+        """Save the motion object to disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
-
+        Parameters
+        ----------
+        path : str
+            File path at which to save, ending with the desired filename.
+            The ``.motion`` extension is added if not present.
         """
         if not path.endswith(".motion"):
             path = path + ".motion"
@@ -193,16 +232,29 @@ class RigidBodyMotion:
 
     @classmethod
     def load(cls, path):
-        """Load the motion object from disc (via pickling).
+        """Load the motion object from disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+        Parameters
+        ----------
+        path : str
+            File path at which to load, ending with the desired filename.
 
-        .. warning::
-            This function will unpickle data from the provied path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Returns
+        -------
+        RigidBodyMotion
+            Loaded motion object.
 
+        Raises
+        ------
+        ValueError
+            If the file does not end with ``.motion``.
+
+        Warnings
+        --------
+        This function will unpickle data from the provided path. The pickle
+        module is not intended to be secure against erroneous or maliciously
+        constructed data. Never unpickle data received from an untrusted or
+        unauthenticated source.
         """
         if not path.endswith(".motion"):
             raise ValueError("The loaded motion file must end with .motion")
@@ -211,17 +263,21 @@ class RigidBodyMotion:
 
 
 class _RodriguezRotator(object):
-    """Object for rotating vectors in the plane described by yhe unit normal rotation_axis.
+    """Object for rotating vectors around a unit normal rotation axis.
 
-    Args:
-        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (``shape=(3,)``)
+    Parameters
+    ----------
+    rotation_axis : numpy.ndarray or torch.Tensor
+        A unit vector in 3D Euclidean space, shape ``(3,)``.
 
-    Attributes:
-        rotation_axis (:obj:`numpy array`): A unit vector in 3d euclidean space (``shape=(3,)``)
-        K (:obj:`numpy array`): (``shape=(3,3)``)
-        K2 (:obj:`numpy array`): (``shape=(3,3)``)
-        I (:obj:`numpy array`): (``shape=(3,3)``)
-
+    Attributes
+    ----------
+    rotation_axis : torch.Tensor
+        A unit vector in 3D Euclidean space, shape ``(3,)``.
+    K : torch.Tensor
+        Skew-symmetric cross-product matrix, shape ``(3, 3)``.
+    K2 : torch.Tensor
+        Square of the skew-symmetric matrix, shape ``(3, 3)``.
     """
 
     def __init__(self, rotation_axis):
@@ -246,15 +302,18 @@ class _RodriguezRotator(object):
     #     return rotation_matrix
     
     def get_rotation_matrix(self, rotation_angle):
-        """
-        Compute 3×3 rotation matrices for one or many rotation angles.
+        """Compute 3x3 rotation matrices for one or many rotation angles.
 
-        Args:
-            rotation_angle: scalar tensor or shape (N,)
+        Parameters
+        ----------
+        rotation_angle : torch.Tensor
+            Scalar tensor or shape ``(N,)``.
 
-        Returns:
-            If scalar → (3, 3)
-            If N angles → (N, 3, 3)
+        Returns
+        -------
+        torch.Tensor
+            If scalar, returns shape ``(3, 3)``. If N angles, returns shape
+            ``(N, 3, 3)``.
         """
         # Ensure rotation_angle is (..., 1, 1) for broadcasting
         # rotation_angle: scalar → shape (1,1,1)
@@ -283,15 +342,21 @@ class _RodriguezRotator(object):
 
 
     def __call__(self, vectors, rotation_angle):
-        """Rotate a vector in the plane described by v1 and v2 towards v2 a fraction s=[0,1].
+        """Rotate vectors around the rotation axis.
 
-        Args:
-            vectors (:obj:`numpy array` or :obj:`torch.Tensor`): A set of vectors in 3d euclidean space to be rotated (``shape=(N,3)`` or ``shape=(3,)`` for single vector)
-            rotation_angle (:obj:`float` or :obj:`numpy array` or :obj:`torch.Tensor`): Radians to rotate vectors around the rotation_axis (positive rotation). Can be scalar or shape ``(N,)`` for per-vector angles.
+        Parameters
+        ----------
+        vectors : numpy.ndarray or torch.Tensor
+            A set of vectors in 3D Euclidean space to be rotated, shape
+            ``(N, 3)`` or ``(3,)`` for single vector.
+        rotation_angle : float, numpy.ndarray, or torch.Tensor
+            Radians to rotate vectors around the rotation axis (positive
+            rotation). Can be scalar or shape ``(N,)`` for per-vector angles.
 
-        Returns:
-            Rotated vectors (:obj:`torch.Tensor`) of ``shape=(N,3)`` or ``shape=(3,)`` for single vector.
-
+        Returns
+        -------
+        torch.Tensor
+            Rotated vectors of shape ``(N, 3)`` or ``(3,)`` for single vector.
         """
 
         R = self.get_rotation_matrix(rotation_angle)

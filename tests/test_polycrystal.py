@@ -31,11 +31,10 @@ class TestPolycrystal(unittest.TestCase):
             [cls.detector_distance, -cls.detector_size / 2., cls.detector_size / 2.])
 
         cls.detector = Detector(
-            cls.pixel_size,
-            cls.pixel_size,
-            det_corner_0,
-            det_corner_1,
-            det_corner_2)
+            det_corner_0=det_corner_0,
+            det_corner_1=det_corner_1,
+            det_corner_2=det_corner_2,
+            pixel_size=cls.pixel_size)
 
         # Expensive mesh generation - only done once!
         cls.mesh = TetraMesh.generate_mesh_from_levelset(
@@ -93,10 +92,10 @@ class TestPolycrystal(unittest.TestCase):
         peaks_dict1 = self.polycrystal.diffract(self.__class__.beam, motion, detector=self.__class__.detector, verbose=False)
 
         diffraction_pattern = self.__class__.detector.render(
-            peaks_dict, frames_to_render=1, method='gauss')
+            peaks_dict, frames_to_render=1, method='micro')
 
         diffraction_pattern1 = self.__class__.detector.render(
-            peaks_dict1, frames_to_render=1, method='gauss')
+            peaks_dict1, frames_to_render=1, method='micro')
 
         # The rendered diffraction pattern should have intensity
         if hasattr(diffraction_pattern, 'cpu'):

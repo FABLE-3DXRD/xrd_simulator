@@ -4,7 +4,7 @@ End-to-end test: Validate crystallite size estimation from simulated powder diff
 This test:
 1. Generates a 10,000 grain ferrite (BCC iron) polycrystal with 50nm grain size
 2. Simulates diffraction over 30° rotation (full powder rings)
-3. Renders using Voigt method (includes Scherrer broadening)
+3. Renders using Airy method (includes Scherrer broadening)
 4. Integrates azimuthally using pyFAI
 5. Fits peaks with pseudo-Voigt profile using scipy
 6. Estimates crystallite size via Scherrer equation
@@ -48,22 +48,22 @@ configure_device("gpu", verbose=True)
 # =============================================================================
 
 # X-ray beam parameters
-ENERGY_KEV = 50  # X-ray energy in keV
+ENERGY_KEV = 45  # X-ray energy in keV
 WAVELENGTH = 12.398 / ENERGY_KEV  # Wavelength in Angstrom (0.2755 Å at 45 keV)
 
 # Detector geometry
-PIXEL_SIZE = 20.0  # Pixel size in microns
-N_PIXELS = 8096  # Detector is N_PIXELS x N_PIXELS
+PIXEL_SIZE = 150.0  # Pixel size in microns
+N_PIXELS = 2048  # Detector is N_PIXELS x N_PIXELS
 DETECTOR_DISTANCE = 500_000.0  # Sample-to-detector distance in microns (500 mm)
 GAUSSIAN_SIGMA = 0.01  # Gaussian PSF sigma (very small to minimize instrumental broadening)
 
 # Sample parameters
-N_GRAINS = 100 # Number of grains (100k for good powder statistics)
-SAMPLE_THICKNESS_UM = 0.3  # Sample thickness in microns (300 nm thin film)
-TARGET_SIZE_NM = 80  # Target crystallite size in nm
+N_GRAINS = 10000 # Number of grains (100k for good powder statistics)
+TARGET_SIZE_NM = 50  # Target crystallite size in nm
+SAMPLE_EXTENT = 10.0  # Sample extent in microns (cube side length)
 
 # Rotation parameters (for powder averaging)
-ROTATION_ANGLE_DEG = 45.0  # Rotation angle in degrees
+ROTATION_ANGLE_DEG = 25.0  # Rotation angle in degrees
 ROTATION_AXIS = np.array([0.0, 0.0, 1.0])  # Rotation axis
 
 # Material: Ferrite (BCC Iron)
@@ -315,8 +315,12 @@ class TestCrystalliteSize(unittest.TestCase):
         det_corner_1 = np.array([cls.detector_distance,  cls.detector_size/2, -cls.detector_size/2])
         det_corner_2 = np.array([cls.detector_distance, -cls.detector_size/2,  cls.detector_size/2])
         
-        cls.detector = Detector(cls.pixel_size, cls.pixel_size, det_corner_0, det_corner_1, det_corner_2,
-                                gaussian_sigma=GAUSSIAN_SIGMA)
+        cls.detector = Detector(
+            det_corner_0=det_corner_0,
+            det_corner_1=det_corner_1,
+            det_corner_2=det_corner_2,
+            n_pixels=(cls.n_pixels, cls.n_pixels),
+            gaussian_sigma=GAUSSIAN_SIGMA)
         
         # Calculate detector coverage in 2theta
         cls.max_2theta = np.arctan((cls.detector_size/2) / cls.detector_distance)
@@ -324,7 +328,6 @@ class TestCrystalliteSize(unittest.TestCase):
         
         # Sample parameters
         cls.n_grains = N_GRAINS
-        cls.sample_thickness_um = SAMPLE_THICKNESS_UM
         
         # Rotation parameters
         cls.rotation_angle = np.radians(ROTATION_ANGLE_DEG)
@@ -417,18 +420,14 @@ class TestCrystalliteSize(unittest.TestCase):
         h = edge_length * np.sqrt(2/3)  # height
         r_base = edge_length / np.sqrt(3)  # circumradius of base triangle
         
-        # Thin slab geometry: 300nm in x (beam direction), larger in y and z
-        # This creates a transmission geometry thin film
-        thickness = self.sample_thickness_um  # microns (beam direction)
-        lateral_extent = 10.0  # 10 microns in y and z (perpendicular to beam)
+        # Cube geometry: equal extent in all directions
+        extent = SAMPLE_EXTENT  # microns
         
         for _ in range(self.n_grains):
-            # Random position within thin slab
-            # x: uniformly distributed within 300nm thickness
-            # y, z: uniformly distributed in larger lateral extent
-            offset_x = np.random.uniform(-thickness/2, thickness/2)
-            offset_y = np.random.uniform(-lateral_extent/2, lateral_extent/2)
-            offset_z = np.random.uniform(-lateral_extent/2, lateral_extent/2)
+            # Random position within cube
+            offset_x = np.random.uniform(-extent/2, extent/2)
+            offset_y = np.random.uniform(-extent/2, extent/2)
+            offset_z = np.random.uniform(-extent/2, extent/2)
             
             # Vertices of regular tetrahedron, offset by random position
             v0 = [offset_x + 0, offset_y + 0, offset_z + h * 0.75]  # apex
@@ -570,13 +569,12 @@ class TestCrystalliteSize(unittest.TestCase):
         target_volume = self._volume_for_crystallite_size(target_size_nm)
         edge_length = self._tetrahedron_edge_for_volume(target_volume)
         print(f"\n[Config] Target crystallite size: {target_size_nm} nm")
-        print(f"[Config] Sample thickness: {self.sample_thickness_um*1000:.0f} nm thin film")
+        print(f"[Config] Sample extent: {SAMPLE_EXTENT} µm (cube)")
         print(f"[Config] Required element volume: {target_volume:.6e} µm³")
         print(f"[Config] Tetrahedron edge length: {edge_length:.6f} µm")
         
-        # Create beam - use sample lateral extent (10 microns) not edge length
-        sample_extent = 10.0  # microns (lateral extent of thin slab)
-        beam = self._create_beam(sample_extent)
+        # Create beam - use sample lateral extent not edge length
+        beam = self._create_beam(SAMPLE_EXTENT)
         motion = self._create_motion()
         
         # Create polycrystal with controlled element size
@@ -622,12 +620,12 @@ class TestCrystalliteSize(unittest.TestCase):
         print(f"    Internal Scherrer FWHM: mean={np.mean(scherrer_fwhm_deg):.4f}°, "
               f"std={np.std(scherrer_fwhm_deg):.4f}°, range=[{np.min(scherrer_fwhm_deg):.4f}°, {np.max(scherrer_fwhm_deg):.4f}°]")
         
-        # Render pattern with AIRY mode (GPU accelerated)
-        print("\n[3] Rendering diffraction pattern (AIRY mode, GPU)...")
+        # Render pattern with NANO mode (GPU accelerated)
+        print("\n[3] Rendering diffraction pattern (NANO mode, GPU)...")
         pattern = self.detector.render(
             peaks_dict,
             frames_to_render=0,
-            method='airy'
+            method='nano'
         )
         
         if hasattr(pattern, 'cpu'):
