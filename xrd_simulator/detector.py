@@ -226,7 +226,7 @@ class Detector:
         self,
         peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
         frames_to_render: int = 1,
-        method: str = "micro",
+        method: str = "auto",
         macro_grain_limit = None, #depends on the detector pixel size
         micro_grain_limit = 0.1**3, #in cubic microns
         render_dtype: torch.dtype | None = None,
@@ -745,23 +745,14 @@ class Detector:
         # Batch peaks to limit intermediate memory usage. Estimate a batch size based
         # on free VRAM when CUDA is the selected device; otherwise fall back to a default.
         approx_bytes_per_peak = 25 * (4 + 4 + 4 + 4 + 4)  # rough int/float32 intermediates per offset
-        if cuda_selected:
-            memory_report = return_device_memory()
-            free_bytes = memory_report.get("free_gb")
+
+        try:
+            free_bytes = return_device_memory().get("free_gb")
             target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
             batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
-            # Clamp to reasonable bounds
             batch_size = max(10_000, min(batch_size, 200_000)) if batch_size > 0 else 50_000
-        else:
-            # CPU path: approximate from available RAM if psutil is present
-            try:
-                import psutil  # type: ignore
-                free_bytes = psutil.virtual_memory().available
-                target_bytes = free_bytes * 0.5
-                batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
-                batch_size = max(10_000, min(batch_size, 200_000)) if batch_size > 0 else 50_000
-            except Exception:
-                batch_size = 50_000
+        except Exception:
+            batch_size = 50_000
 
         n_peaks = pos_z.shape[0]
         n_batches = (n_peaks + batch_size - 1) // batch_size if batch_size > 0 else 1
@@ -919,18 +910,13 @@ class Detector:
             )
 
         # Determine device and available memory
-        report = return_device_memory()
-        device_type = report.get("device", "cpu")
-        is_cuda = device_type.startswith("cuda")
-        
-        available_gb = report.get("available_gb", 0.0)
-        free_gb = report.get("free_gb", 0.0)
-        
-        # Calculate usable memory (65% of available, minus frame buffer)
-        target_memory_gb = available_gb * 0.65
+        free_bytes = return_device_memory().get("free_gb")
+
+        # Calculate usable memory (65% of free, minus frame buffer)
+        target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
         frame_buffer_gb = (self.pixel_coordinates.shape[0] * self.pixel_coordinates.shape[1] * 
                           8 * frames_to_render) / (1024**3)
-        usable_memory_gb = max(target_memory_gb - frame_buffer_gb, 0.5)
+        usable_memory_gb = max(target_bytes - frame_buffer_gb, 0.5)
         usable_memory_bytes = usable_memory_gb * (1024**3)
         
         # Estimate memory requirement per peak
@@ -1099,13 +1085,16 @@ class Detector:
         # for small crystallites (broad patterns)
         # Use ~4 times the first zero to capture sufficient rings
         radius = torch.tensor(max(4.0 * float(max_first_zero), 8.0))
-        
+
         # Ensure we also capture Gaussian tails
         while True:
             g_val = torch.exp(-(radius**2) / (2 * sigma**2))
             if g_val < threshold:
                 break
             radius = radius * 2
+        if radius > 256:
+            print(f"Airy kernel radius should be {radius.item()} but limited to 256")
+            radius = torch.tensor(256)
 
         ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
         yy, zz = torch.meshgrid(ax, ax, indexing="ij")
