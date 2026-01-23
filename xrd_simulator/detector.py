@@ -960,8 +960,8 @@ class Detector:
                 
                 # Calculate batch size based on memory constraint
                 # Memory usage ≈ batch_size × max_kernel_memory (due to padding)
-                # Add safety factor of 2 for intermediate buffers
-                max_batch_by_memory = int(usable_memory_bytes / (max_mem_in_batch * 2.0))
+                # Add safety factor of 4 for intermediate buffers
+                max_batch_by_memory = int(usable_memory_bytes / (max_mem_in_batch * 4.0))
                 max_batch_by_memory = max(1, max_batch_by_memory)
                 
                 # Find how many peaks have similar memory requirements (within 2×)
@@ -990,8 +990,8 @@ class Detector:
 
                 # Calculate deposit batch size based on current kernel sizes
                 avg_batch_memory = float(batch_memory.mean().item())
-                deposit_batch_by_memory = int(usable_memory_bytes / (avg_batch_memory * 4.0))
-                deposit_batch_size = max(32, min(deposit_batch_by_memory, 1024))
+                deposit_batch_by_memory = int(usable_memory_bytes / (avg_batch_memory * 2.0))
+                deposit_batch_size = max(1, min(deposit_batch_by_memory, 1024))
 
                 # Stream kernels in chunks
                 for mini_start in range(0, batch_count, deposit_batch_size):
@@ -1092,9 +1092,9 @@ class Detector:
             if g_val < threshold:
                 break
             radius = radius * 2
-        if radius > 256:
-            print(f"Airy kernel radius should be {radius.item()} but limited to 256")
-            radius = torch.tensor(256)
+        if radius > 128:
+            print(f"Airy kernel radius should be {radius.item()} but limited to 128")
+            radius = torch.tensor(128)
 
         ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
         yy, zz = torch.meshgrid(ax, ax, indexing="ij")
@@ -1287,8 +1287,8 @@ class Detector:
         yi = y_centers_exp + dy_interp.unsqueeze(0)
         
         # Calculate Gaussian interpolation weights
-        z_dist = zi.double() - pos_z_exp
-        y_dist = yi.double() - pos_y_exp  
+        z_dist = zi - pos_z_exp
+        y_dist = yi - pos_y_exp  
         dist_sq = z_dist**2 + y_dist**2
         interp_weights = torch.exp(-dist_sq / (2 * sigma_interp**2))
         

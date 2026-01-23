@@ -59,7 +59,7 @@ GAUSSIAN_SIGMA = 0.01  # Gaussian PSF sigma (very small to minimize instrumental
 
 # Sample parameters
 N_GRAINS = 10000 # Number of grains (100k for good powder statistics)
-TARGET_SIZE_NM = 50  # Target crystallite size in nm
+TARGET_SIZE_NM = 5  # Target crystallite size in nm
 SAMPLE_EXTENT = 10.0  # Sample extent in microns (cube side length)
 
 # Rotation parameters (for powder averaging)
