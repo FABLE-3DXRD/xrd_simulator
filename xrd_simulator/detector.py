@@ -728,11 +728,12 @@ class Detector:
         cuda_selected = get_selected_device() == "cuda"
 
         # Gaussian interpolation parameters (OPTIMIZED for performance)
-        # σ=1.21 combines interpolation + convolution into single step
-        # Original: σ_interp=0.7 + 2D conv(σ=0.99) → σ_total=√(0.7²+0.99²)=1.21
-        # Speedup: 2.7× faster by skipping convolution, identical results
-        sigma = 1.21  # Combined effective sigma
-        radius = 3    # 7×7 neighborhood (≈3σ coverage for >99% energy)
+        # Combines interpolation σ_interp + detector PSF σ_detector into single step
+        # Mathematical basis: G(σ₁) ⊗ G(σ₂) = G(√(σ₁² + σ₂²))
+        # Using σ_interp=0.7 for sub-pixel interpolation
+        sigma_interp = 0.7
+        sigma = float((sigma_interp**2 + self.gaussian_sigma**2) ** 0.5)
+        radius = max(3, int(3 * sigma) + 1)  # ≈3σ coverage for >99% energy
         
         # Pre-compute Gaussian neighborhood offsets
         offsets = torch.arange(-radius, radius + 1, dtype=torch.float64, device=pos_z.device)
@@ -855,23 +856,14 @@ class Detector:
         
         return memory_bytes
     
-    def _render_airy_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
-        """Deposit Airy disk kernels with adaptive memory-aware batching.
-
-        The memory-optimized approach:
-
-        1. Estimate memory requirement per peak based on kernel size (inversely
-           related to grain size).
-        2. Sort peaks by memory requirement (largest first for better batching).
-        3. Adaptively batch peaks with similar kernel sizes together.
-        4. Adjust batch size dynamically based on available memory and current
-           kernel sizes.
-
-        This ensures:
-
-        - Large kernels (small grains) go in small batches to fit in memory.
-        - Small kernels (large grains) go in large batches for efficiency.
-        - Padding waste is minimized by grouping similar-sized kernels.
+    def _render_airy_peaks(
+        self,
+        peaks,
+        frames_to_render,
+        render_dtype: torch.dtype,
+        memory_safety_factor: float = 3.0,
+    ) -> torch.Tensor:
+        """Render Airy disk peaks with memory-aware batching.
 
         Parameters
         ----------
@@ -882,25 +874,16 @@ class Detector:
             Number of frames to generate.
         render_dtype : torch.dtype
             Data type for rendered frames.
+        memory_safety_factor : float, optional
+            Multiplier for memory estimation to ensure safe batching.
+            Default is 3.0.
 
         Returns
         -------
         torch.Tensor
             Rendered diffraction frames with broadened peaks, shape
             ``(frames, height, width)``.
-
-        Notes
-        -----
-        Peak tensor column mapping (after ``_peaks_detector_intersection``):
-
-        - 0-24: Original columns from polycrystal (grain_index through peak_index)
-        - 25: zd (detector x-coordinate in pixels)
-        - 26: yd (detector y-coordinate in pixels)
-        - 27: incident_angle (in degrees)
-        - 28: frame (frame index for time-resolved rendering)
-        - 29: intensity_factors (scattering strength per unit volume)
         """
-
         # Early exit for empty peak list
         if peaks.shape[0] == 0:
             return torch.zeros(
@@ -909,25 +892,19 @@ class Detector:
                 dtype=render_dtype,
             )
 
-        # Determine device and available memory
-        free_bytes = return_device_memory().get("free_gb")
-
-        # Calculate usable memory (65% of free, minus frame buffer)
-        target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
-        frame_buffer_gb = (self.pixel_coordinates.shape[0] * self.pixel_coordinates.shape[1] * 
-                          8 * frames_to_render) / (1024**3)
-        usable_memory_gb = max(target_bytes - frame_buffer_gb, 0.5)
-        usable_memory_bytes = usable_memory_gb * (1024**3)
-        
-        # Estimate memory requirement per peak
+        # 1. Estimate memory per peak based on kernel fwhm_rad
         memory_per_peak = self._estimate_airy_kernel_memory(
-            peaks[:, 23],  # fwhm_rad
-            peaks[:, 27],  # incident_angles
-        )
-        
-        # Add memory estimate as column 30 (for potential debugging/analysis)
-        # Note: We don't modify peaks in place, we track sorting separately
-        
+            peaks[:, 23], peaks[:, 27]
+        ) * memory_safety_factor
+
+        # 2. Estimate available memory (works for both CPU and GPU)
+        available_bytes = return_device_memory().get("free_gb", 1.0) * (1024**3)
+
+        # 3. Sort peaks by memory (largest first)
+        sort_indices = torch.argsort(memory_per_peak, descending=True)
+        peaks = peaks[sort_indices]
+        memory_per_peak = memory_per_peak[sort_indices]
+
         # Initialize output frames
         frames = torch.zeros(
             (frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
@@ -935,97 +912,54 @@ class Detector:
             dtype=render_dtype,
         )
 
-        for frame_idx in range(frames_to_render):
-            frame_mask = peaks[:, 28] == frame_idx
-            frame_peaks = peaks[frame_mask]
-            frame_memory = memory_per_peak[frame_mask]
-            total_frame_peaks = len(frame_peaks)
+        # 4-6. Process in batches that fit in available memory
+        n_peaks = peaks.shape[0]
+        start_idx = 0
+        batch_num = 0
 
-            if total_frame_peaks == 0:
-                continue
+        while start_idx < n_peaks:
+            # Find how many peaks fit in available memory
+            cumulative_memory = torch.cumsum(memory_per_peak[start_idx:], dim=0)
+            fits_mask = cumulative_memory <= available_bytes
+            batch_size = max(1, int(fits_mask.sum().item()))
 
-            # Sort peaks by memory requirement (descending - largest first)
-            # This groups similar-sized kernels together, minimizing padding waste
-            sort_indices = torch.argsort(frame_memory, descending=True)
-            frame_peaks = frame_peaks[sort_indices]
-            frame_memory = frame_memory[sort_indices]
-            
-            # Process peaks with adaptive batching
-            start_idx = 0
-            batch_num = 0
-            
-            while start_idx < total_frame_peaks:
-                # Get memory of largest kernel in remaining peaks
-                max_mem_in_batch = float(frame_memory[start_idx].item())
-                
-                # Calculate batch size based on memory constraint
-                # Memory usage ≈ batch_size × max_kernel_memory (due to padding)
-                # Add safety factor of 4 for intermediate buffers
-                max_batch_by_memory = int(usable_memory_bytes / (max_mem_in_batch * 4.0))
-                max_batch_by_memory = max(1, max_batch_by_memory)
-                
-                # Find how many peaks have similar memory requirements (within 2×)
-                # This ensures we don't pad small kernels to huge sizes
-                similar_mask = frame_memory[start_idx:] <= max_mem_in_batch * 2.0
-                n_similar = int(similar_mask.sum().item())
-                
-                # Batch size is minimum of: memory constraint, similar peaks, hard cap
-                batch_size = min(max_batch_by_memory, n_similar, 100000)
-                batch_size = max(1, batch_size)
-                
-                end_idx = min(start_idx + batch_size, total_frame_peaks)
-                batch_peaks = frame_peaks[start_idx:end_idx]
-                batch_count = end_idx - start_idx
-                batch_memory = frame_memory[start_idx:end_idx]
+            end_idx = start_idx + batch_size
+            batch_peaks = peaks[start_idx:end_idx]
 
-                fwhm_rad = batch_peaks[:, 23]
-                incident_angles = batch_peaks[:, 27]
-                zd = batch_peaks[:, 25] / self.pixel_size_z
-                yd = batch_peaks[:, 26] / self.pixel_size_y
-                
-                # Compute total intensity = intensity_factors × volume
-                intensity_factors = batch_peaks[:, 29]
-                volumes = batch_peaks[:, 21]
-                intensities = intensity_factors * volumes
+            # Extract batch data
+            fwhm_rad = batch_peaks[:, 23]
+            incident_angles = batch_peaks[:, 27]
+            zd = batch_peaks[:, 25] / self.pixel_size_z
+            yd = batch_peaks[:, 26] / self.pixel_size_y
+            intensities = batch_peaks[:, 29] * batch_peaks[:, 21]
 
-                # Calculate deposit batch size based on current kernel sizes
-                avg_batch_memory = float(batch_memory.mean().item())
-                deposit_batch_by_memory = int(usable_memory_bytes / (avg_batch_memory * 2.0))
-                deposit_batch_size = max(1, min(deposit_batch_by_memory, 1024))
+            # Generate Airy disk kernels
+            kernels = self._airy_kernel_batch(fwhm_rad, incident_angles)
+            kernels = (kernels * intensities.view(-1, 1, 1, 1)).to(render_dtype)
 
-                # Stream kernels in chunks
-                for mini_start in range(0, batch_count, deposit_batch_size):
-                    mini_end = min(mini_start + deposit_batch_size, batch_count)
-                    mini_slice = slice(mini_start, mini_end)
-
-                    # Generate Airy disk kernels
-                    kernels = self._airy_kernel_batch(
-                        fwhm_rad[mini_slice], incident_angles[mini_slice]
-                    )
-                    kernels = kernels * intensities[mini_slice].view(-1, 1, 1, 1)
-                    kernels = kernels.to(render_dtype)
+            # Deposit kernels to appropriate frames
+            for frame_idx in range(frames_to_render):
+                frame_mask = batch_peaks[:, 28] == frame_idx
+                if frame_mask.any():
                     frames[frame_idx] = self._deposit_kernels_batch(
                         frames[frame_idx],
-                        kernels,
-                        zd[mini_slice],
-                        yd[mini_slice],
+                        kernels[frame_mask],
+                        zd[frame_mask],
+                        yd[frame_mask],
                         render_dtype,
                     )
 
-                    if self._verbose:
-                        progress_fraction = min(
-                            1.0, (start_idx + mini_end) / max(total_frame_peaks, 1)
-                        )
-                        max_kernel_size = int((max_mem_in_batch / 32) ** 0.5)  # Approx kernel side
-                        utils._print_progress(
-                            progress_fraction,
-                            f"[Nano] Batch {batch_num+1}, kernel~{max_kernel_size}px, n={batch_count}",
-                        )
+            if self._verbose:
+                progress = end_idx / n_peaks
+                utils._print_progress(progress, f"[Nano] Batch {batch_num + 1}, n={batch_size}")
 
-                    del kernels
+            del kernels
+            start_idx = end_idx
+            batch_num += 1
 
-                start_idx = end_idx
-                batch_num += 1
+        # Apply Gaussian convolution for detector point spread function
+        for i in range(frames_to_render):
+            frames[i] = self._conv2d_gaussian_kernel(frames[i])
 
         return frames
 
@@ -1124,7 +1058,7 @@ class Detector:
             first_zero : float
                 First zero radius of Airy pattern in pixels.
             sigma : float
-                Gaussian PSF width for instrument broadening.
+                Gaussian width for instrument broadening within the Airy kernel.
 
             Returns
             -------
@@ -1207,26 +1141,21 @@ class Detector:
         centers_y: torch.Tensor,
         render_dtype: torch.dtype,
     ) -> torch.Tensor:
-        """Deposit multiple kernels onto a tensor using Gaussian interpolation.
+        """Deposit multiple kernels onto a tensor with sub-pixel precision.
 
-        Uses σ=0.7 Gaussian interpolation for sub-pixel positioning. This
-        provides smooth deposition of Airy kernels which already encode peak
-        shapes from crystallite size and incident angle.
-
-        Unlike the Gauss method, this σ=0.7 is the final smoothing (no subsequent
-        convolution). Airy kernels already contain peak shape information, so we
-        only need smooth positioning, not additional broadening.
+        Uses bilinear interpolation (4 neighbors) for sub-pixel positioning,
+        which is memory-efficient while preserving positional accuracy.
 
         Parameters
         ----------
         tensor : torch.Tensor
-            Target tensor to deposit onto.
+            Target tensor to deposit onto, shape ``(H, W)``.
         kernels : torch.Tensor
             Batch of kernels to deposit, shape ``(N, 1, H, W)``.
         centers_z : torch.Tensor
-            Z coordinates for kernel centers.
+            Z coordinates for kernel centers (in pixels, sub-pixel precision).
         centers_y : torch.Tensor
-            Y coordinates for kernel centers.
+            Y coordinates for kernel centers (in pixels, sub-pixel precision).
         render_dtype : torch.dtype
             Data type for output values.
 
@@ -1237,102 +1166,49 @@ class Detector:
         """
         N = kernels.shape[0]
         kh, kw = kernels.shape[-2:]
+        half_h, half_w = kh // 2, kw // 2
+        H, W = tensor.shape
 
-        kz, ky = torch.meshgrid(
-            torch.arange(kh, dtype=torch.float64) - (kh - 1) / 2,
-            torch.arange(kw, dtype=torch.float64) - (kw - 1) / 2,
-            indexing="ij",
-        )
+        # Create kernel pixel offsets (relative to center)
+        offsets_z = torch.arange(kh, device=kernels.device, dtype=torch.float64) - half_h
+        offsets_y = torch.arange(kw, device=kernels.device, dtype=torch.float64) - half_w
 
-        kz = kz.flatten().repeat(N)
-        ky = ky.flatten().repeat(N)
+        # Build all sub-pixel positions: (N, kh, kw)
+        all_z = centers_z.view(N, 1, 1) + offsets_z.view(1, kh, 1)
+        all_y = centers_y.view(N, 1, 1) + offsets_y.view(1, 1, kw)
+        
+        # Expand to full grid and flatten
+        all_z = all_z.expand(N, kh, kw).reshape(-1)
+        all_y = all_y.expand(N, kh, kw).reshape(-1)
+        
+        # Flatten kernel values
+        values = kernels.view(N, -1).reshape(-1)
 
-        centers_z = centers_z.repeat_interleave(kh * kw)
-        centers_y = centers_y.repeat_interleave(kh * kw)
+        # Bilinear interpolation: split into integer and fractional parts
+        z0 = all_z.floor().long()
+        y0 = all_y.floor().long()
+        z1 = z0 + 1
+        y1 = y0 + 1
+        
+        # Fractional parts for weighting
+        fz = all_z - z0.float()
+        fy = all_y - y0.float()
+        
+        # Bilinear weights for 4 corners
+        w00 = (1 - fz) * (1 - fy)  # top-left
+        w01 = (1 - fz) * fy        # top-right
+        w10 = fz * (1 - fy)        # bottom-left
+        w11 = fz * fy              # bottom-right
 
-        pos_z = centers_z + kz
-        pos_y = centers_y + ky
-        del centers_z, centers_y, kz, ky
-
-        # Gaussian interpolation for smooth sub-pixel positioning
-        # σ=0.7: Optimal for Airy kernels (preserves peak shapes while smoothing placement)
-        # This is NOT increased to 1.21 like Gauss method because:
-        # - Airy kernels already encode peak shapes (from FWHM + incident angle)
-        # - No subsequent convolution is applied (kernels are the final shape)
-        # - Larger σ would artificially broaden peaks beyond physical accuracy
-        sigma_interp = 0.7  # Keep at 0.7 for accurate Airy rendering
-        radius_interp = 2   # 5×5 neighborhood for interpolation
-        
-        # Get integer positions for Gaussian interpolation
-        z_center = torch.round(pos_z).long()
-        y_center = torch.round(pos_y).long()
-        
-        # Create interpolation neighborhood offsets
-        offsets = torch.arange(-radius_interp, radius_interp + 1, dtype=torch.float64, device=pos_z.device)
-        dz_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing='ij')
-        dz_interp = dz_grid.flatten()  # Shape: (25,)
-        dy_interp = dy_grid.flatten()  # Shape: (25,)
-        
-        n_kernel_points = pos_z.shape[0]  # Number of kernel pixel positions
-        n_interp_points = len(dz_interp)  # 25 interpolation points
-        
-        # Expand for all kernel points and interpolation points
-        z_centers_exp = z_center.unsqueeze(1).expand(-1, n_interp_points)  # (n_kernel_points, 25)
-        y_centers_exp = y_center.unsqueeze(1).expand(-1, n_interp_points)
-        pos_z_exp = pos_z.unsqueeze(1).expand(-1, n_interp_points)
-        pos_y_exp = pos_y.unsqueeze(1).expand(-1, n_interp_points)
-        
-        # Calculate actual pixel positions
-        zi = z_centers_exp + dz_interp.unsqueeze(0)  # (n_kernel_points, 25)
-        yi = y_centers_exp + dy_interp.unsqueeze(0)
-        
-        # Calculate Gaussian interpolation weights
-        z_dist = zi - pos_z_exp
-        y_dist = yi - pos_y_exp  
-        dist_sq = z_dist**2 + y_dist**2
-        interp_weights = torch.exp(-dist_sq / (2 * sigma_interp**2))
-        
-        # Normalize weights to preserve energy
-        weight_sums = interp_weights.sum(dim=1, keepdim=True)
-        interp_weights = interp_weights / (weight_sums + 1e-12)
-        
-        # Get kernel values and apply interpolation weights
-        kernel_values = kernels.reshape(N, -1).contiguous()  # (N, kh*kw)
-        
-        # Note: n_kernel_points = N * kh * kw (total kernel pixels across all kernels)
-        # We need to properly index kernel values for each interpolation point
-        
-        # Create indices to map each interpolation point back to its kernel value
-        kernel_indices = torch.arange(n_kernel_points, device=kernels.device)
-        kernel_indices_expanded = kernel_indices.unsqueeze(1).expand(-1, n_interp_points).flatten()
-        
-        # Get kernel values for each position
-        kernel_idx_batched = kernel_indices_expanded // (kh * kw)  # Which kernel (0 to N-1)
-        kernel_pixel_idx = kernel_indices_expanded % (kh * kw)     # Which pixel in kernel
-        
-        k_values = kernel_values[kernel_idx_batched, kernel_pixel_idx]
-        interp_expanded = interp_weights.flatten()  # (n_kernel_points*25,)
-        
-        # Final weights combine kernel values and interpolation weights
-        weights = k_values * interp_expanded
-        
-        # Flatten coordinates
-        zi = zi.flatten()
-        yi = yi.flatten()
-        
-        del pos_z, pos_y, z_center, y_center, z_centers_exp, y_centers_exp
-        del pos_z_exp, pos_y_exp, z_dist, y_dist, dist_sq, interp_weights
-        del kernel_values, k_values, interp_expanded
-
-        valid = (zi >= 0) & (zi < tensor.shape[0]) & (yi >= 0) & (yi < tensor.shape[1])
-
-        tensor.index_put_(
-            indices=(zi[valid].long(), yi[valid].long()),
-            values=weights[valid].to(render_dtype),
-            accumulate=True,
-        )
-
-        del zi, yi, weights, valid
+        # Deposit to all 4 corners with their weights
+        for zi, yi, w in [(z0, y0, w00), (z0, y1, w01), (z1, y0, w10), (z1, y1, w11)]:
+            valid = (zi >= 0) & (zi < H) & (yi >= 0) & (yi < W)
+            if valid.any():
+                tensor.index_put_(
+                    (zi[valid], yi[valid]),
+                    (values[valid] * w[valid]).to(render_dtype),
+                    accumulate=True,
+                )
 
         return tensor
 
