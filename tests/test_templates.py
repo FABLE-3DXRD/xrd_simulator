@@ -210,10 +210,9 @@ class TestUtils(unittest.TestCase):
             sgname='P3221',
             strain_tensor=np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0.01]])
         )
-        mesh_coord = utils.ensure_numpy(polycrystal.mesh_lab.coord)
-        for c in mesh_coord:
+        for c in polycrystal.mesh_lab.coord:
             self.assertLessEqual(
-                np.linalg.norm(c),
+                torch.linalg.norm(c).item(),
                 sample_bounding_radius + 1e-8,
                 msg='Powder sample not contained by bounding sphere.')
 

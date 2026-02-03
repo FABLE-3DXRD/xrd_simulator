@@ -95,7 +95,7 @@ class TestMotion(unittest.TestCase):
         motion = RigidBodyMotion.load(path+'.motion')
         self.assertTrue(
             np.allclose(
-                motion.rotation_axis,
+                utils.ensure_numpy(motion.rotation_axis),
                 rotation_axis),
             msg='Data corrupted on save and load')
         os.remove(path+'.motion')
@@ -213,7 +213,7 @@ class TestVectorizedMotion(unittest.TestCase):
             np.sin(np.pi/4) + 1.0,   # ≈ 1.707
             0.0 + 1.5                # = 1.5
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_multiple_vectors_scalar_time(self):
         """Test with multiple vectors (N,3) and scalar time - all rotated/translated the same."""
@@ -238,7 +238,7 @@ class TestVectorizedMotion(unittest.TestCase):
             [0., 2., 3.],
             [0., 3., 3.]
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_multiple_vectors_vector_times(self):
         """Test with multiple vectors (N,3) and per-vector times (N,) - each rotated/translated differently."""
@@ -262,7 +262,7 @@ class TestVectorizedMotion(unittest.TestCase):
             [np.cos(np.pi/4) + 0.5, np.sin(np.pi/4) + 1.0, 0.0 + 1.5],  # time=0.5
             [0. + 1., 1. + 2., 0. + 3.]  # time=1.0, [1,0,0] rotated 90° = [0,1,0]
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_rotate_only_scalar_time(self):
         """Test rotate method with scalar time."""
@@ -284,7 +284,7 @@ class TestVectorizedMotion(unittest.TestCase):
             [0., 1., 0.],
             [-1., 0., 0.]
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_rotate_only_vector_times(self):
         """Test rotate method with per-vector times."""
@@ -306,7 +306,7 @@ class TestVectorizedMotion(unittest.TestCase):
             [np.cos(np.pi/4), np.sin(np.pi/4), 0.],  # 45° rotation
             [0., 1., 0.]  # 90° rotation
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_different_vectors_different_times(self):
         """Test with different vectors and different times - comprehensive test."""
@@ -338,7 +338,7 @@ class TestVectorizedMotion(unittest.TestCase):
             expected.append(trans_vec)
         
         expected = np.array(expected)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_consistency_scalar_vs_vector(self):
         """Test that scalar time gives same result as broadcasting to vector times."""
@@ -354,7 +354,7 @@ class TestVectorizedMotion(unittest.TestCase):
         result_vector = self.motion(vectors, time_vector)
         
         # Should be identical
-        np.testing.assert_allclose(result_scalar.numpy(), result_vector.numpy(), rtol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result_scalar), utils.ensure_numpy(result_vector), rtol=1e-10)
 
     def test_motion_with_origin(self):
         """Test motion with non-zero origin."""
@@ -383,7 +383,7 @@ class TestVectorizedMotion(unittest.TestCase):
             [2., 4., 3.],
             [1., 3., 3.]
         ])
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-10)
+        np.testing.assert_allclose(utils.ensure_numpy(result), expected, rtol=1e-5, atol=1e-10)
 
     def test_edge_case_single_vector_in_batch(self):
         """Test edge case with batch of 1 vector."""
@@ -422,7 +422,7 @@ class TestVectorizedMotion(unittest.TestCase):
             ])
             expected_single = rot_vec + self.translation * t
             
-            np.testing.assert_allclose(result[idx].numpy(), expected_single, rtol=1e-5, atol=1e-10)
+            np.testing.assert_allclose(utils.ensure_numpy(result[idx]), expected_single, rtol=1e-5, atol=1e-10)
 
 
 if __name__ == '__main__':

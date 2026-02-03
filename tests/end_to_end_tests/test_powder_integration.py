@@ -311,7 +311,6 @@ class TestPowderIntegration(unittest.TestCase):
         ax2_top.set_xlabel('2θ')
         
         plt.tight_layout()
-        plt.show()
     
     def test_powder_peak_positions(self):
         """

@@ -74,7 +74,7 @@ class TestUtils(unittest.TestCase):
 
         # strain along n_l described in lab frame
         strain_l = np.dot(np.dot(n_l, strain_tensor), n_l)
-        s = utils._b_to_epsilon(B, B0)
+        s = utils.ensure_numpy(utils._b_to_epsilon(B, B0))
         crystal_strain = np.array(
             [[s[0], s[1], s[2]], [s[1], s[3], s[4]], [s[2], s[4], s[5]]]
         )
@@ -126,7 +126,7 @@ class TestUtils(unittest.TestCase):
         B0 = tools.form_b_mat(unit_cell)
         strain_tensor1 = utils._strain_as_tensor(eps1)
         B = utils._epsilon_to_b(strain_tensor1, B0)
-        eps2 = utils._b_to_epsilon(B, B0)
+        eps2 = utils.ensure_numpy(utils._b_to_epsilon(B, B0))
         self.assertTrue(np.allclose(eps1, eps2))
 
     def test_get_misorientations(self):

@@ -552,6 +552,11 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
         return data.astype(np.float64)
     elif isinstance(data, (list, tuple)):
         return np.array(data, dtype=np.float64)
+    # Handle any other case - check if it might be a tensor-like object with is_cuda
+    if hasattr(data, 'is_cuda') and data.is_cuda:
+        data = data.cpu()
+    if hasattr(data, 'detach'):
+        return data.detach().numpy().astype(np.float64)
     return np.array(data, dtype=np.float64)
 
 def print_memory_report(

@@ -24,7 +24,7 @@ class TestBeam(unittest.TestCase):
         for r in mesh.eradius:
             self.assertLessEqual(r, 1.0)
         for c in mesh.ecentroids:
-            self.assertLessEqual(np.linalg.norm(c), 1.0)
+            self.assertLessEqual(torch.linalg.norm(c).item(), 1.0)
 
     def test_save_and_load(self):
         nodal_coordinates = np.array(
@@ -53,7 +53,7 @@ class TestBeam(unittest.TestCase):
             max_cell_circumradius=max_cell_circumradius,
         )
         for c in mesh.coord:
-            r = np.linalg.norm(c)
+            r = torch.linalg.norm(c).item()
             self.assertLessEqual(r, R * 1.001)
         for r in mesh.eradius:
             self.assertLessEqual(r, max_cell_circumradius * 1.001)

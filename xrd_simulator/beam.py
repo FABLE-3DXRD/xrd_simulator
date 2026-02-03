@@ -70,16 +70,13 @@ class Beam:
         wavelength: float,
         polarization_vector: torch.Tensor | np.ndarray | list | tuple,
     ):
-        self.wave_vector = ensure_torch(
-            (2 * np.pi / wavelength)
-            * xray_propagation_direction
-            / np.linalg.norm(xray_propagation_direction)
-        )
+        # Convert to torch tensors first, then normalize using torch operations
+        xray_dir = ensure_torch(xray_propagation_direction)
+        self.wave_vector = (2 * np.pi / wavelength) * xray_dir / torch.linalg.norm(xray_dir)
         self.wavelength = wavelength
         self.set_beam_vertices(ensure_torch(beam_vertices))
-        self.polarization_vector = ensure_torch(
-            polarization_vector / np.linalg.norm(polarization_vector)
-        )
+        pol_vec = ensure_torch(polarization_vector)
+        self.polarization_vector = pol_vec / torch.linalg.norm(pol_vec)
         assert torch.allclose(
             torch.dot(self.polarization_vector, self.wave_vector), ensure_torch(0.0)
         ), "The xray polarization vector is not orthogonal to the wavevector."

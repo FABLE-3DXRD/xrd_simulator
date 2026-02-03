@@ -508,31 +508,34 @@ class Detector:
             detector frame array. Returns ``None`` if the projection does not
             intersect the detector.
         """
-        # Keep vertices in numpy since they come from convex hull
+        # Get vertices from convex hull (numpy) and convert to torch
         hull = proj_context['convex_hull']
-        vertices = hull.points[hull.vertices]
+        vertices = ensure_torch(hull.points[hull.vertices])
 
-        # Convert to torch for intersection calculation
         # Reshape scattered_wave_vector to (N,3) by repeating for each vertex
-        scattered_vec = ensure_torch(proj_context['scattered_wave_vector'])
+        scattered_vec = proj_context['scattered_wave_vector']
         scattered_vec = scattered_vec.unsqueeze(0).repeat(vertices.shape[0], 1)
-        vertices_torch = ensure_torch(vertices)
         
-        # Get intersections and ensure they're on CPU before numpy conversion
-        projected_vertices = self._get_intersection(scattered_vec, vertices_torch)
-        if projected_vertices.device.type == 'cuda':
-            projected_vertices = projected_vertices.cpu()
-        projected_vertices = ensure_numpy(projected_vertices)
+        # Get intersections - stays in torch
+        projected_vertices = self._get_intersection(scattered_vec, vertices)
 
-        # Convert zmax/ymax to CPU scalars for bounds checking
-        zmax_np = float(ensure_numpy(self.zmax))
-        ymax_np = float(ensure_numpy(self.ymax))
+        # Calculate bounds using torch operations
+        zmax = self.zmax
+        ymax = self.ymax
 
-        # Calculate bounds using numpy operations
-        min_zd = max(float(np.nanmin(projected_vertices[:, 0])), 0)
-        max_zd = min(float(np.nanmax(projected_vertices[:, 0])), zmax_np)
-        min_yd = max(float(np.nanmin(projected_vertices[:, 1])), 0)
-        max_yd = min(float(np.nanmax(projected_vertices[:, 1])), ymax_np)
+        # Get z and y columns, filter out NaN values for min/max
+        z_vals = projected_vertices[:, 0]
+        y_vals = projected_vertices[:, 1]
+        z_valid = z_vals[~torch.isnan(z_vals)]
+        y_valid = y_vals[~torch.isnan(y_vals)]
+        
+        if z_valid.numel() == 0 or y_valid.numel() == 0:
+            return None
+
+        min_zd = max(float(z_valid.min().item()), 0)
+        max_zd = min(float(z_valid.max().item()), float(zmax))
+        min_yd = max(float(y_valid.min().item()), 0)
+        max_yd = min(float(y_valid.max().item()), float(ymax))
 
         if min_zd > max_zd or min_yd > max_yd:
             return None
@@ -544,8 +547,8 @@ class Detector:
             max_zd, max_yd
         )
 
-        max_row_indx = np.min([max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
-        max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
+        max_row_indx = min(max_row_indx + 1, int(zmax / self.pixel_size_z))
+        max_col_indx = min(max_col_indx + 1, int(ymax / self.pixel_size_y))
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
 
@@ -1254,7 +1257,7 @@ class Detector:
         scattered_vectors = peaks[:, 13:16]
         
         # Get element indices from peaks (column 0: grain_index which maps to element)
-        element_indices = peaks[:, 0].long().cpu().numpy()
+        element_indices = peaks[:, 0].long()
         times = peaks[:, 6]
         # Initialize all frames to zeros so we can write directly by frame index
         diffraction_frames = torch.zeros((frames_to_render, self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]), device=device, dtype=render_dtype)
@@ -1341,35 +1344,27 @@ class Detector:
 
         Returns
         -------
-        numpy.ndarray
+        torch.Tensor
             Array of clip lengths (path lengths) through the hull for each
             detector ray.
         """
-        # Get pixel coordinates and ensure they're in numpy
+        # Get pixel coordinates - keep in torch
         pixel_coords = self.pixel_coordinates[box[0]:box[1], box[2]:box[3], :]
-        if pixel_coords.device.type == 'cuda':
-            pixel_coords = pixel_coords.cpu()
-        ray_points = ensure_numpy(pixel_coords).reshape(
+        ray_points = pixel_coords.reshape(
             (box[1] - box[0]) * (box[3] - box[2]), 3
         )
 
-        # Keep plane calculations in numpy
+        # ConvexHull from scipy returns numpy, convert to torch
         hull = proj_context['convex_hull']
-        plane_normals = ensure_numpy(hull.equations[:, 0:3])
-        plane_ofsets = ensure_numpy(hull.equations[:, 3]).reshape(
+        plane_normals = ensure_torch(hull.equations[:, 0:3])
+        plane_offsets = ensure_torch(hull.equations[:, 3]).reshape(
             hull.equations.shape[0], 1
         )
-        plane_points = -np.multiply(plane_ofsets, plane_normals)
+        plane_points = -plane_offsets * plane_normals
 
-        # Keep ray direction calculation in numpy
-        scattered_vec = ensure_numpy(proj_context['scattered_wave_vector'])
-        ray_direction = scattered_vec / np.linalg.norm(scattered_vec)
-
-        # Ensure contiguous arrays for calculations
-        ray_points = np.ascontiguousarray(ray_points)
-        ray_direction = np.ascontiguousarray(ray_direction)
-        plane_points = np.ascontiguousarray(plane_points)
-        plane_normals = np.ascontiguousarray(plane_normals)
+        # Ray direction in torch
+        scattered_vec = proj_context['scattered_wave_vector']
+        ray_direction = scattered_vec / torch.linalg.norm(scattered_vec)
 
         clip_lengths = utils._clip_line_with_convex_polyhedron(
             ray_points, ray_direction, plane_points, plane_normals

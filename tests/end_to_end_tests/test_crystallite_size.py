@@ -38,10 +38,10 @@ from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.phase import Phase
 from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.mesh import TetraMesh
-from xrd_simulator.cuda import configure_device
+from xrd_simulator.cuda import configure_device, get_selected_device
 
-# Enable GPU if available
-configure_device("gpu", verbose=True)
+# Store original device before any test configuration
+_ORIGINAL_DEVICE = get_selected_device()
 
 # =============================================================================
 # SIMULATION PARAMETERS - Modify these to change the test configuration
@@ -59,7 +59,7 @@ GAUSSIAN_SIGMA = 0.01  # Gaussian PSF sigma (very small to minimize instrumental
 
 # Sample parameters
 N_GRAINS = 1000 # Number of grains (100k for good powder statistics)
-TARGET_SIZE_NM = 20  # Target crystallite size in nm
+TARGET_SIZE_NM = 5  # Target crystallite size in nm
 SAMPLE_EXTENT = 10.0  # Sample extent in microns (cube side length)
 
 # Rotation parameters (for powder averaging)
@@ -229,7 +229,7 @@ def fit_voigt_peak(x_data, y_data, center_guess, verbose=False):
     y_norm = y_data / y_max
     
     # Estimate initial parameters
-    amplitude_guess = np.trapz(y_norm, x_data)  # Area under curve
+    amplitude_guess = np.trapezoid(y_norm, x_data)  # Area under curve
     fwhm_guess = 0.3  # degrees, typical for powder diffraction
     
     try:
@@ -302,6 +302,9 @@ class TestCrystalliteSize(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up simulation parameters from module-level constants."""
+        # Configure GPU for this test class
+        configure_device("gpu", verbose=True)
+        
         # Copy module-level constants to class attributes
         cls.energy_keV = ENERGY_KEV
         cls.wavelength = WAVELENGTH
@@ -338,6 +341,11 @@ class TestCrystalliteSize(unittest.TestCase):
         cls.ferrite_a = FERRITE_A
         cls.unit_cell = UNIT_CELL.copy()
         cls.sgname = SGNAME
+    
+    @classmethod
+    def tearDownClass(cls):
+        """Restore original device state after tests."""
+        configure_device(_ORIGINAL_DEVICE, verbose=False)
     
     @classmethod
     def _volume_for_crystallite_size(cls, size_nm):
@@ -539,7 +547,6 @@ class TestCrystalliteSize(unittest.TestCase):
         ax2_top.set_xlabel('2θ')
         
         plt.tight_layout()
-        plt.show()
     
     def test_powder_pattern_with_scherrer(self):
         """
@@ -829,7 +836,6 @@ Scherrer Analysis:
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         print(f"    Plot saved to: {output_path}")
         
-        plt.show()
         
         # Assertions
         self.assertGreater(len(estimated_sizes), 0, "No crystallite sizes could be estimated!")
