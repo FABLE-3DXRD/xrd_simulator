@@ -35,9 +35,6 @@ import matplotlib.pyplot as plt
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
-from xrd_simulator.phase import Phase
-from xrd_simulator.polycrystal import Polycrystal
-from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.cuda import configure_device, get_selected_device
 
 # Store original device before any test configuration
@@ -60,7 +57,6 @@ GAUSSIAN_SIGMA = 0.01  # Gaussian PSF sigma (very small to minimize instrumental
 # Sample parameters
 N_GRAINS = 1000 # Number of grains (100k for good powder statistics)
 TARGET_SIZE_NM = 5  # Target crystallite size in nm
-SAMPLE_EXTENT = 10.0  # Sample extent in microns (cube side length)
 
 # Rotation parameters (for powder averaging)
 ROTATION_ANGLE_DEG = 25.0  # Rotation angle in degrees
@@ -347,34 +343,9 @@ class TestCrystalliteSize(unittest.TestCase):
         """Restore original device state after tests."""
         configure_device(_ORIGINAL_DEVICE, verbose=False)
     
-    @classmethod
-    def _volume_for_crystallite_size(cls, size_nm):
-        """
-        Calculate mesh element volume needed for target crystallite size.
-        
-        From scattering_factors.py:
-        crystallite_size_A = 2.0 * (3 * V / (4 * pi))^(1/3) * 10000
-        where V is in microns³
-        
-        Inverting: V = (4*pi/3) * (size_A / 20000)³
-        """
-        size_A = size_nm * 10.0  # nm to Angstrom
-        volume_um3 = (4 * np.pi / 3) * (size_A / 20000.0) ** 3
-        return volume_um3
-    
-    @classmethod
-    def _tetrahedron_edge_for_volume(cls, target_volume):
-        """
-        Calculate tetrahedron edge length for target volume.
-        
-        Regular tetrahedron: V = (a³)/(6*sqrt(2))
-        So: a = (6*sqrt(2)*V)^(1/3)
-        """
-        return (6 * np.sqrt(2) * target_volume) ** (1/3)
-    
-    def _create_beam(self, sample_extent):
+    def _create_beam(self, sample_radius):
         """Create beam large enough to cover the sample."""
-        w = sample_extent * 20  # 20x sample extent for safety
+        w = sample_radius * 20  # 20x sample radius for safety
         beam_vertices = np.array([
             [-self.detector_distance, -w, -w],
             [-self.detector_distance,  w, -w],
@@ -408,60 +379,23 @@ class TestCrystalliteSize(unittest.TestCase):
         """
         Create a polycrystal with mesh elements sized for target crystallite size.
         
-        Creates tetrahedra with controlled volumes to achieve desired Scherrer broadening.
-        Distributes grains in a thin slab (300nm thick) to minimize parallax effects.
+        Uses the templates.get_uniform_powder_sample function with the appropriate
+        sample_bounding_radius computed from the target crystallite size.
         """
-        from scipy.spatial.transform import Rotation
+        from xrd_simulator.templates import get_uniform_powder_sample
         
-        # Calculate required volume and edge length
-        target_volume = self._volume_for_crystallite_size(target_size_nm)
-        edge_length = self._tetrahedron_edge_for_volume(target_volume)
+        # Compute the bounding radius needed for the target crystallite size
+        # Linear relationship: crystallite_size_nm ≈ 917.44 × sample_bounding_radius_microns
+        sample_radius = target_size_nm / 917.44
         
-        # Build tetrahedra mesh manually with controlled size
-        # Distribute grains in a thin slab (300nm thick) along beam direction
-        coord = []
-        enod = []
-        node_number = 0
-        
-        # Regular tetrahedron vertices (edge length = edge_length, centered at origin)
-        # Using standard regular tetrahedron coordinates scaled by edge_length
-        h = edge_length * np.sqrt(2/3)  # height
-        r_base = edge_length / np.sqrt(3)  # circumradius of base triangle
-        
-        # Cube geometry: equal extent in all directions
-        extent = SAMPLE_EXTENT  # microns
-        
-        for _ in range(self.n_grains):
-            # Random position within cube
-            offset_x = np.random.uniform(-extent/2, extent/2)
-            offset_y = np.random.uniform(-extent/2, extent/2)
-            offset_z = np.random.uniform(-extent/2, extent/2)
-            
-            # Vertices of regular tetrahedron, offset by random position
-            v0 = [offset_x + 0, offset_y + 0, offset_z + h * 0.75]  # apex
-            v1 = [offset_x + r_base, offset_y + 0, offset_z - h * 0.25]
-            v2 = [offset_x - r_base/2, offset_y + r_base * np.sqrt(3)/2, offset_z - h * 0.25]
-            v3 = [offset_x - r_base/2, offset_y - r_base * np.sqrt(3)/2, offset_z - h * 0.25]
-            
-            coord.extend([v0, v1, v2, v3])
-            enod.append([node_number, node_number+1, node_number+2, node_number+3])
-            node_number += 4
-        
-        coord = np.array(coord)
-        enod = np.array(enod)
-        
-        mesh = TetraMesh.generate_mesh_from_vertices(coord, enod)
-        orientation = Rotation.random(mesh.number_of_elements).as_matrix()
-        element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
-        phases = [Phase(self.unit_cell, self.sgname)]
-        
-        return Polycrystal(
-            mesh,
-            orientation,
-            strain=np.zeros((3, 3)),
-            phases=phases,
-            element_phase_map=element_phase_map,
+        polycrystal = get_uniform_powder_sample(
+            sample_bounding_radius=sample_radius,
+            number_of_grains=self.n_grains,
+            unit_cell=self.unit_cell,
+            sgname=self.sgname
         )
+        
+        return polycrystal
     
     def _create_polycrystal(self, sample_radius):
         """Create a polycrystal using standard template (for backward compatibility)."""
@@ -572,16 +506,14 @@ class TestCrystalliteSize(unittest.TestCase):
         print(f"Target crystallite size: {target_size_nm} nm")
         print("="*80)
         
-        # Calculate required volume and verify
-        target_volume = self._volume_for_crystallite_size(target_size_nm)
-        edge_length = self._tetrahedron_edge_for_volume(target_volume)
+        # Calculate bounding radius for target crystallite size
+        # Linear relationship: crystallite_size_nm ≈ 917.44 × sample_bounding_radius_microns
+        sample_radius = target_size_nm / 917.44
         print(f"\n[Config] Target crystallite size: {target_size_nm} nm")
-        print(f"[Config] Sample extent: {SAMPLE_EXTENT} µm (cube)")
-        print(f"[Config] Required element volume: {target_volume:.6e} µm³")
-        print(f"[Config] Tetrahedron edge length: {edge_length:.6f} µm")
+        print(f"[Config] Sample bounding radius: {sample_radius:.6f} µm ({sample_radius*1000:.2f} nm)")
         
-        # Create beam - use sample lateral extent not edge length
-        beam = self._create_beam(SAMPLE_EXTENT)
+        # Create beam - use sample bounding radius
+        beam = self._create_beam(sample_radius)
         motion = self._create_motion()
         
         # Create polycrystal with controlled element size
@@ -596,6 +528,9 @@ class TestCrystalliteSize(unittest.TestCase):
         avg_volume = np.mean(np.abs(volumes))
         expected_size_A = 2.0 * (3 * avg_volume / (4 * np.pi)) ** (1/3) * 10000
         expected_size_nm = expected_size_A / 10.0
+        # Calculate target volume from target crystallite size (for reporting)
+        target_radius_um = target_size_nm / 10000.0 / 2.0  # nm -> Angstrom -> µm, diameter to radius
+        target_volume = (4/3) * np.pi * target_radius_um**3
         print(f"    Actual average element volume: {avg_volume:.6e} µm³")
         print(f"    Effective crystallite size (from volume): {expected_size_nm:.1f} nm")
         
@@ -831,8 +766,10 @@ Scherrer Analysis:
         
         plt.tight_layout()
         
-        # Save and show
-        output_path = '/tmp/crystallite_size_100nm_analysis.png'
+        # Save to test_reports directory
+        test_reports_dir = os.path.join(os.path.dirname(__file__), '..', 'test_reports')
+        os.makedirs(test_reports_dir, exist_ok=True)
+        output_path = os.path.join(test_reports_dir, 'crystallite_size_100nm_analysis.png')
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         print(f"    Plot saved to: {output_path}")
         

@@ -51,19 +51,23 @@ quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
 from scipy.spatial.transform import Rotation as R
 from xrd_simulator.polycrystal import Polycrystal
 orientation = R.random(mesh.number_of_elements).as_matrix()
+# element_phase_map assigns each mesh element to a phase (0 = first phase)
+element_phase_map = np.zeros(mesh.number_of_elements, dtype=int)
 polycrystal = Polycrystal(mesh,
                           orientation,
                           strain=np.zeros((3, 3)),
                           phases=quartz,
-                          element_phase_map=None)
+                          element_phase_map=element_phase_map)
 ##example:
 
 
 ##example: savepolycrystal
-polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
+import os
+artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+os.makedirs(artifacts_dir, exist_ok=True)
+polycrystal.save(os.path.join(artifacts_dir, 'my_polycrystal'), save_mesh_as_xdmf=True)
 ##example:
 
-import os
 path = os.path.abspath(os.path.join( os.path.dirname(__file__), "..", 'images', "readme_example_polycrystal"))
 polycrystal.save(path, save_mesh_as_xdmf=True)
 
@@ -75,24 +79,24 @@ motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]
 ##example:
 
 ##example: diffract
-polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(frames_to_render=0,
-                                        lorentz=False,
-                                        polarization=False,
-                                        structure_factor=False,
-                                        method="project")
+peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
+diffraction_pattern = detector.render(peaks_dict,
+                                        frames_to_render=0,
+                                        method="micro")
 ##example:
 
 ##example: plot
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots(1,1)
-ax.imshow(diffraction_pattern, cmap='gray')
+# render returns (frames, height, width), take first frame
+pattern = diffraction_pattern[0].cpu().numpy() if hasattr(diffraction_pattern, 'cpu') else diffraction_pattern[0]
+ax.imshow(pattern, cmap='gray')
 plt.show()
 ##example:
 
 ##example: transform
 polycrystal.transform(motion, time=1.0)
-polycrystal.diffract(beam, detector, motion)
+peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
 ##example:
 
 path = os.path.join( os.path.dirname(__file__), "..", 'images', "diffraction_pattern.png")

@@ -324,7 +324,20 @@ def get_uniform_powder_sample(
 
 
 def _get_motion_from_params(parameters):
-    """Produce a ``xrd_simulator.motion.RigidBodyMotion`` from the s3dxrd params dictionary."""
+    """Produce a RigidBodyMotion from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'rotation_axis'`` and ``'rotation_step'`` keys.
+
+    Returns
+    -------
+    RigidBodyMotion
+        A rigid body motion with zero translation and rotation defined
+        by the parameters.
+    """
     translation = np.array([0.0, 0.0, 0.0])
     return RigidBodyMotion(
         parameters["rotation_axis"], parameters["rotation_step"], translation
@@ -332,7 +345,21 @@ def _get_motion_from_params(parameters):
 
 
 def _get_beam_from_params(parameters):
-    """Produce a ``xrd_simulator.beam.Beam`` from the s3dxrd params dictionary."""
+    """Produce a Beam from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'beam_side_length_z'``, ``'beam_side_length_y'``,
+        ``'detector_distance'``, and ``'wavelength'`` keys.
+
+    Returns
+    -------
+    Beam
+        An X-ray beam propagating along the positive x-axis with
+        polarization along y-axis.
+    """
     dz = parameters["beam_side_length_z"] / 2.0
     dy = parameters["beam_side_length_y"] / 2.0
     beam_vertices = np.array(
@@ -357,7 +384,22 @@ def _get_beam_from_params(parameters):
 
 
 def _get_detector_from_params(parameters):
-    """Produce a ``xrd_simulator.detector.Detector`` from the s3dxrd params dictionary."""
+    """Produce a Detector from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'pixel_side_length_z'``, ``'pixel_side_length_y'``,
+        ``'detector_distance'``, ``'number_of_detector_pixels_y'``,
+        ``'number_of_detector_pixels_z'``, ``'detector_center_pixel_z'``,
+        and ``'detector_center_pixel_y'`` keys.
+
+    Returns
+    -------
+    Detector
+        A detector positioned at the specified distance from the origin.
+    """
 
     p_z, p_y = parameters["pixel_side_length_z"], parameters["pixel_side_length_y"]
     det_dist = parameters["detector_distance"]
@@ -380,7 +422,31 @@ def _get_detector_from_params(parameters):
 
 
 def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
-    """Draw orientation matrices form an ODF at spatial locations ``coordinates``."""
+    """Draw orientation matrices from an ODF at spatial locations.
+
+    Samples the orientation density function by discretizing orientation
+    space over unit quaternions. Each bin is assigned its probability
+    assuming the ODF is approximately constant over a single bin.
+
+    Parameters
+    ----------
+    ODF : callable
+        Orientation density function ``ODF(x, q) -> float`` where ``x`` is
+        a spatial coordinate array of shape ``(3,)`` and ``q`` is a unit
+        quaternion array of shape ``(4,)`` in scalar-last format.
+    maximum_sampling_bin_seperation : float
+        Discretization step length for orientation space sampling in
+        radians. Smaller values give more accurate sampling but are slower.
+    coordinates : numpy.ndarray
+        Spatial coordinates at which to sample the ODF, shape ``(N, 3)``
+        where N is the number of sampling points.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotation matrices of shape ``(N, 3, 3)`` sampled from the ODF
+        at each coordinate.
+    """
 
     dalpha = maximum_sampling_bin_seperation / 2.0  # TODO: verify this analytically.
     dalpha = np.pi / 2.0 / int(np.pi / (dalpha * 2.0))

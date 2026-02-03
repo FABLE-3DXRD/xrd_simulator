@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from scipy.spatial.transform import Rotation as R
 from xrd_simulator.mesh import TetraMesh
 from xrd_simulator.phase import Phase
@@ -29,5 +30,7 @@ polycrystal = Polycrystal(mesh,
                           element_phase_map=None)
 
 # The polycrystal may be saved to disc for later usage.
-polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
-polycrystal_loaded_from_disc = Polycrystal.load('my_polycrystal.pc')
+artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+os.makedirs(artifacts_dir, exist_ok=True)
+polycrystal.save(os.path.join(artifacts_dir, 'my_polycrystal'), save_mesh_as_xdmf=True)
+polycrystal_loaded_from_disc = Polycrystal.load(os.path.join(artifacts_dir, 'my_polycrystal.pc'))

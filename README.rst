@@ -3,29 +3,11 @@
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
-.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?
-	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
-
-.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-macos-py38.yml/badge.svg?
-	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml
-
-.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?
-	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
-
-.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?
-	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml
-
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?
 	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/
 
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
-
-.. image:: https://anaconda.org/conda-forge/vsc-install/badges/platforms.svg?
-	:target: https://anaconda.org/conda-forge/xrd_simulator/
-
-.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
-	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 ===================================================================================================
 Simulate X-ray Diffraction from Polycrystals in 3D.
@@ -240,49 +222,38 @@ For more details, see the `GPU Usage Guide`_.
 Installation
 ======================================
 
-Anaconda installation (Linux and Macos)
-=============================================
-``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install
-the xrd_simulator package is via `Anaconda`_::
+``xrd_simulator`` requires Python 3.10 or later.
 
-   conda create -n xrd_simulator
-   conda activate xrd_simulator
-   conda install -c conda-forge xrd_simulator
-
-This is meant to work across OS-systems and requires an `Anaconda`_ installation.
-
-(The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
-
-Anaconda installation (Windows)
+Pip Installation (Recommended)
 ======================================
-For Windows installation via Anaconda, no special `pygalmesh` build dependencies are required because
-the project now uses ``meshpy`` which provides prebuilt wheels on common platforms. Installation
-instructions for platform-specific issues can be found in the project docs.
-
-Pip Installation
-======================================
-Pip installation is possible. The project uses ``meshpy`` for mesh generation (rather than ``pygalmesh``),
-so there are fewer external build steps on modern Python versions. Install with::
+All dependencies are available on PyPI. Install with::
 
    pip install xrd-simulator
 
-Source installation
+**For GPU support (CUDA)**, install PyTorch with CUDA first::
+
+   pip install torch --index-url https://download.pytorch.org/whl/cu126
+   pip install xrd-simulator
+
+Source Installation
 ===============================
-Naturally one may also install from the sources::
+To install from source::
 
    git clone https://github.com/FABLE-3DXRD/xrd_simulator.git
    cd xrd_simulator
-   python setup.py install
+   pip install .
 
-This will not require `pygalmesh` build dependencies because ``meshpy`` is used instead.
+For development (editable install)::
+
+   pip install -e ".[dev]"
 
 Credits
 ===============================
-``xrd_simulator`` makes good use of xfab. The project removed ``pygalmesh`` and adopted ``meshpy``
-to ensure compatibility with Python 3.13 and newer. The source code of related repos can be found here:
+``xrd_simulator`` makes good use of xfab and meshpy for tetrahedral mesh generation.
+The source code of related repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `meshpy`_ (preferred for tetrahedral mesh generation; guarantees Python 3.13+ compatibility)
+* `meshpy`_
 
 Citation
 ===============================
@@ -298,8 +269,6 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _https://github.com/marmakoide/miniball: https://github.com/marmakoide/miniball
 
-.. _Anaconda: https://www.anaconda.com/products/individual
-
 .. _meshpy: https://github.com/inducer/meshpy
 
 .. _scanning-3dxrd: https://doi.org/10.1107/S1600576720001016
@@ -310,14 +279,8 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
-.. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
-
 .. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/readme_tutorial.py
 
 .. _paraview: https://www.paraview.org/
-
-.. _can be found here.: https://github.com/conda-forge/xrd_simulator-feedstock
-
-.. _conda-forge channel: https://anaconda.org/conda-forge/xrd_simulator
 
 .. _GPU Usage Guide: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/GPU_USAGE.md

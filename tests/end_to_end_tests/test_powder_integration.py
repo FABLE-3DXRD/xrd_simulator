@@ -28,9 +28,6 @@ import matplotlib.pyplot as plt
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
 from xrd_simulator.motion import RigidBodyMotion
-from xrd_simulator.phase import Phase
-from xrd_simulator.polycrystal import Polycrystal
-from xrd_simulator.mesh import TetraMesh
 
 
 def compute_theoretical_Q_values(unit_cell, sgname, wavelength, max_bragg_angle):
@@ -206,15 +203,6 @@ class TestPowderIntegration(unittest.TestCase):
     
     def _create_polycrystal(self):
         """Create a polycrystal with many randomly oriented grains."""
-        # Create spherical mesh for sample
-        mesh = TetraMesh.generate_mesh_from_levelset(
-            level_set=lambda x: x[0]**2 + x[1]**2 + x[2]**2 - self.sample_radius**2,
-            bounding_radius=1.1 * self.sample_radius,
-            max_cell_circumradius=self.sample_radius / 5  # coarse mesh, many elements
-        )
-        
-        # We need many orientations - replicate mesh elements conceptually
-        # For efficiency, use templates.get_uniform_powder_sample which handles this
         from xrd_simulator.templates import get_uniform_powder_sample
         
         polycrystal = get_uniform_powder_sample(
@@ -311,6 +299,14 @@ class TestPowderIntegration(unittest.TestCase):
         ax2_top.set_xlabel('2θ')
         
         plt.tight_layout()
+        
+        # Save to test_reports folder
+        reports_dir = os.path.join(os.path.dirname(__file__), '..', 'test_reports')
+        os.makedirs(reports_dir, exist_ok=True)
+        save_path = os.path.join(reports_dir, 'powder_integration_results.png')
+        fig.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"    Saved plot to: {save_path}")
+        plt.close(fig)
     
     def test_powder_peak_positions(self):
         """

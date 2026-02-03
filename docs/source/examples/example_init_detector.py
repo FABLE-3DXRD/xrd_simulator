@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from xrd_simulator.detector import Detector
 
 # The detector is defined by it's corner coordinates det_corner_0, det_corner_1, det_corner_2
@@ -21,5 +22,7 @@ detector = Detector(det_corner_0=np.array([142938.3, -38400., -38400.]),
                     pixel_size=(75.0, 55.0))  # (z, y) in µm
 
 # The detector may be saved to disc for later usage.
-detector.save('my_detector')
-detector_loaded_from_disc = Detector.load('my_detector.det')
+artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+os.makedirs(artifacts_dir, exist_ok=True)
+detector.save(os.path.join(artifacts_dir, 'my_detector'))
+detector_loaded_from_disc = Detector.load(os.path.join(artifacts_dir, 'my_detector.det'))

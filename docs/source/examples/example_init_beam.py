@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from xrd_simulator.beam import Beam
 
 # The beam of xrays is represented as a convex polyhedron
@@ -21,5 +22,7 @@ beam = Beam(
     polarization_vector=np.array([0., 1., 0.]))
 
 # The xray beam may be saved to disc for later usage.
-beam.save('my_xray_beam')
-beam_loaded_from_disc = Beam.load('my_xray_beam.beam')
+artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+os.makedirs(artifacts_dir, exist_ok=True)
+beam.save(os.path.join(artifacts_dir, 'my_xray_beam'))
+beam_loaded_from_disc = Beam.load(os.path.join(artifacts_dir, 'my_xray_beam.beam'))
