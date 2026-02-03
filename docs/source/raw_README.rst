@@ -163,10 +163,11 @@ This will use `meshpy`_ which generally has better cross-platform support than p
 
 Credits
 ===============================
-``xrd_simulator`` makes good use of xfab and meshpy. The source code of these repos can be found here:
+``xrd_simulator`` makes good use of xfab and meshpy for tetrahedral mesh generation.
+The source code of related repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `https://github.com/nschloe/pygalmesh`_
+* `meshpy`_
 
 Citation
 ===============================

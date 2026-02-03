@@ -3,11 +3,29 @@
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
 
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-macos-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-linux-py38.yml
+
+.. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml/badge.svg?
+	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-conda-macos-py38.yml
+
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/badge.svg?
 	:target: https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/pages/pages-build-deployment/
 
 .. image:: https://badge.fury.io/py/xrd-simulator.svg?
 	:target: https://pypi.org/project/xrd-simulator/
+
+.. image:: https://anaconda.org/conda-forge/vsc-install/badges/platforms.svg?
+	:target: https://anaconda.org/conda-forge/xrd_simulator/
+
+.. image:: https://anaconda.org/conda-forge/xrd_simulator/badges/latest_release_relative_date.svg?
+	:target: https://anaconda.org/conda-forge/xrd_simulator/
 
 ===================================================================================================
 Simulate X-ray Diffraction from Polycrystals in 3D.
@@ -37,14 +55,6 @@ Introduction
 ===================================================================================================
 Before reading all the boring documentation (`which is hosted here`_) let's dive into some end to end
 examples to get us started on a good flavour.
-
-**Important Notes:**
-
-   * The **ScatteringUnit** class has been **deprecated**. The project now uses ``Polycrystal`` objects 
-     directly for all diffraction simulations.
-    * **Mesh generation**: The project removed ``pygalmesh`` and adopted ``meshpy`` for tetrahedral
-       mesh generation to guarantee compatibility with Python 3.13 and later. This avoids external
-       dependency issues previously required for building ``pygalmesh`` on newer Python versions.
 
 The ``xrd_simulator`` is built around four python objects which reflect a diffraction experiment:
 
@@ -89,7 +99,7 @@ We will also need to define a detector:
       detector = Detector(det_corner_0=np.array([142938.3, -38400., -38400.]),
                           det_corner_1=np.array([142938.3, 38400., -38400.]),
                           det_corner_2=np.array([142938.3, -38400., 38400.]),
-                          n_pixels=(1024, 1396))  # Or use pixel_size_z/pixel_size_y
+                          pixel_size=(75.0, 55.0))
 
 Next we go ahead and produce a sample, to do this we need to first define a mesh that
 describes the topology of the sample, in this example we make the sample shaped as a ball:
@@ -123,17 +133,22 @@ and the strain is uniformly zero in the sample:
       from scipy.spatial.transform import Rotation as R
       from xrd_simulator.polycrystal import Polycrystal
       orientation = R.random(mesh.number_of_elements).as_matrix()
+      # element_phase_map assigns each mesh element to a phase (0 = first phase)
+      element_phase_map = np.zeros(mesh.number_of_elements, dtype=int)
       polycrystal = Polycrystal(mesh,
                                 orientation,
                                 strain=np.zeros((3, 3)),
                                 phases=quartz,
-                                element_phase_map=None)
+                                element_phase_map=element_phase_map)
 
 We may save the polycrystal to disc by using the builtin ``save()`` command as
 
    .. code:: python
 
-      polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
+      import os
+      artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+      os.makedirs(artifacts_dir, exist_ok=True)
+      polycrystal.save(os.path.join(artifacts_dir, 'my_polycrystal'), save_mesh_as_xdmf=True)
 
 We can visualize the sample by loading the .xdmf file into your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
@@ -155,12 +170,10 @@ interact with the sample:
 
    .. code:: python
 
-      polycrystal.diffract(beam, detector, motion)
-      diffraction_pattern = detector.render(frames_to_render=0,
-                                              lorentz=False,
-                                              polarization=False,
-                                              structure_factor=False,
-                                              method="project")
+      peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
+      diffraction_pattern = detector.render(peaks_dict,
+                                              frames_to_render=0,
+                                              method="micro")
 
 The resulting rendered detector frame will look something like the below. Note that the positions of the diffraction spots may vary as the crystal orientations were randomly generated!:
 
@@ -168,7 +181,9 @@ The resulting rendered detector frame will look something like the below. Note t
 
       import matplotlib.pyplot as plt
       fig,ax = plt.subplots(1,1)
-      ax.imshow(diffraction_pattern, cmap='gray')
+      # render returns (frames, height, width), take first frame
+      pattern = diffraction_pattern[0].cpu().numpy() if hasattr(diffraction_pattern, 'cpu') else diffraction_pattern[0]
+      ax.imshow(pattern, cmap='gray')
       plt.show()
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
@@ -180,72 +195,48 @@ each computation using the same or another motion.
    .. code:: python
 
       polycrystal.transform(motion, time=1.0)
-      polycrystal.diffract(beam, detector, motion)
+      peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
 
 Many more options for experimental setups and intensity rendering exist, have fun experimenting!
 The above example code can be found as a `single .py file here.`_
 
 ======================================
-GPU/CPU Control
-======================================
-``xrd_simulator`` supports both CPU and GPU (CUDA) computing. You can control which device to use in several ways:
-
-**Environment Variable (Recommended for scripts):**
-
-   .. code:: bash
-
-      # Use GPU
-      XRD_USE_GPU=true python my_script.py
-      
-      # Use CPU
-      XRD_USE_GPU=false python my_script.py
-
-**Programmatic Control (Recommended for library usage):**
-
-   .. code:: python
-
-      import xrd_simulator
-      
-      # Force GPU usage
-      xrd_simulator.set_device(use_gpu=True)
-      
-      # Force CPU usage
-      xrd_simulator.set_device(use_gpu=False)
-
-**Interactive Prompt (Default):**
-
-If neither option is set and CUDA is available, you will be prompted interactively.
-
-For more details, see the `GPU Usage Guide`_.
-
-======================================
 Installation
 ======================================
 
-``xrd_simulator`` requires Python 3.10 or later.
+Anaconda installation (Linux and Macos)
+=============================================
+``xrd_simulator`` is distributed on the `conda-forge channel`_ and the preferred way to install
+the xrd_simulator package is via `Anaconda`_::
 
-Pip Installation (Recommended)
+   conda install -c conda-forge xrd_simulator
+   conda create -n xrd_simulator
+   conda activate xrd_simulator
+
+This is meant to work across OS-systems and requires an `Anaconda`_ installation.
+
+(The conda-forge feedstock of ``xrd_simulator`` `can be found here.`_)
+
+Anaconda installation (Windows)
 ======================================
-All dependencies are available on PyPI. Install with::
+``xrd_simulator`` can be installed on Windows via Anaconda. The package now uses `meshpy`_ which provides
+better cross-platform support than the previous pygalmesh dependency.
+
+Pip Installation
+======================================
+Pip installation is possible. The package uses `meshpy`_ which generally installs cleanly via pip::
 
    pip install xrd-simulator
 
-**For GPU support (CUDA)**, install PyTorch with CUDA first::
-
-   pip install torch --index-url https://download.pytorch.org/whl/cu126
-   pip install xrd-simulator
-
-Source Installation
+Source installation
 ===============================
-To install from source::
+Naturally one may also install from the sources::
 
    git clone https://github.com/FABLE-3DXRD/xrd_simulator.git
    cd xrd_simulator
-   pip install .
+   python setup.py install
 
-For development (editable install)::
-
-   pip install -e ".[dev]"
+This will use `meshpy`_ which generally has better cross-platform support than pygalmesh.
 
 Credits
 ===============================
@@ -269,7 +260,11 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _https://github.com/marmakoide/miniball: https://github.com/marmakoide/miniball
 
+.. _Anaconda: https://www.anaconda.com/products/individual
+
 .. _meshpy: https://github.com/inducer/meshpy
+
+.. _https://github.com/inducer/meshpy: https://github.com/inducer/meshpy
 
 .. _scanning-3dxrd: https://doi.org/10.1107/S1600576720001016
 
@@ -279,8 +274,12 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
 
+.. _which is hosted here: https://FABLE-3DXRD.github.io/xrd_simulator/
+
 .. _single .py file here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/readme_tutorial.py
 
 .. _paraview: https://www.paraview.org/
 
-.. _GPU Usage Guide: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/GPU_USAGE.md
+.. _can be found here.: https://github.com/conda-forge/xrd_simulator-feedstock
+
+.. _conda-forge channel: https://anaconda.org/conda-forge/xrd_simulator

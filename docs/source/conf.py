@@ -68,7 +68,6 @@ html_static_path = ['images']
 html_logo = "images/logo_stripped_white.png"
 html_theme_options = {
     'logo_only': True,
-    'display_version': False,
 }
 
 def linkcode_resolve(domain, info):
