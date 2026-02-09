@@ -230,7 +230,7 @@ class Detector:
         macro_grain_limit = None, #depends on the detector pixel size
         micro_grain_limit = 0.1**3, #in cubic microns
         render_dtype: torch.dtype | None = None,
-        verbose: bool = True,
+        verbose: bool | None = None,
     ) -> torch.Tensor:
         """Render diffraction frames using different peak profile methods.
 
@@ -252,8 +252,11 @@ class Detector:
             Peak data dictionary containing ``'peaks'`` tensor and metadata
             columns.
         frames_to_render : int, optional
-            Number of frames to generate. Values less than 1 are set to 1.
-            Default is 1.
+            Number of frames to generate. The diffraction time domain ``[0, 1]``
+            is divided into ``frames_to_render`` equal bins, and each peak is
+            assigned to the frame corresponding to its diffraction time. When
+            set to 1, all peaks are rendered into a single integrated frame.
+            Values less than 1 are clamped to 1. Default is 1.
         method : str, optional
             Rendering method: ``'micro'``, ``'nano'``, ``'macro'``, or ``'auto'``.
             Default is ``'micro'``.
@@ -266,9 +269,10 @@ class Detector:
         render_dtype : torch.dtype, optional
             Data type for rendered frames. If ``None``, uses the dtype of the
             peaks tensor.
-        verbose : bool, optional
-            If ``True``, print progress messages during rendering. Default is
-            ``True``.
+        verbose : bool or None, optional
+            If ``True``, print progress messages during rendering. If ``None``,
+            inherits the ``verbose`` flag from ``peaks_dict`` (set by
+            ``polycrystal.diffract``). Defaults to ``True`` if neither is set.
 
         Returns
         -------
@@ -287,11 +291,13 @@ class Detector:
         lab_mesh = peaks_dict.get("mesh_lab", None)
         rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
         target_dtype = render_dtype if render_dtype is not None else peaks.dtype
+        if verbose is None:
+            verbose = peaks_dict.get("verbose", True)
         self._verbose = verbose  # Store for use in rendering methods
         
         if frames_to_render < 1:
             frames_to_render = 1
-            if verbose:
+            if self._verbose:
                 print(f"[Detector.render] frames_to_render < 1, setting to 1")
 
         peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
@@ -624,7 +630,7 @@ class Detector:
         valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
         n_invalid = (~valid_intensity_mask).sum().item()
         
-        if n_invalid > 0:
+        if n_invalid > 0 and self._verbose:
             import warnings
             # Count specific reasons for invalid peaks
             infinite_mask = torch.isinf(peaks[:, 29])
@@ -1023,15 +1029,17 @@ class Detector:
         # Use ~4 times the first zero to capture sufficient rings
         radius = torch.tensor(max(4.0 * float(max_first_zero), 8.0))
 
-        # Ensure we also capture Gaussian tails
-        while True:
+        # Ensure we also capture Gaussian tails (cap at 128 pixels)
+        max_airy_radius = 128
+        while radius <= max_airy_radius:
             g_val = torch.exp(-(radius**2) / (2 * sigma**2))
             if g_val < threshold:
                 break
             radius = radius * 2
-        if radius > 128:
-            print(f"Airy kernel radius should be {radius.item()} but limited to 128")
-            radius = torch.tensor(128)
+        if radius > max_airy_radius:
+            if self._verbose:
+                print(f"Airy kernel radius should be {radius.item()} but limited to {max_airy_radius}")
+            radius = torch.tensor(max_airy_radius)
 
         ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
         yy, zz = torch.meshgrid(ax, ax, indexing="ij")
@@ -1270,6 +1278,9 @@ class Detector:
         # RigidBodyMotion handles (N, 4, 3) shape with per-vector times (N,)
         rotated_vertices = rigid_body_motion(vertices, times)  # Shape: (N_peaks, 4, 3)
         
+        total_peaks = peaks.shape[0]
+        processed_peaks = 0
+
         for frame_index in frames_bundle:
             # Initialize frame on same device as peaks
             frames = torch.zeros(
@@ -1281,15 +1292,15 @@ class Detector:
             # Process each peak in this frame
             frame_mask = peaks[:, 28] == frame_index
             frame_peak_indices = torch.where(frame_mask)[0]
-            total_peaks = len(frame_peak_indices)
             
             for i, peak_idx in enumerate(frame_peak_indices):
-                # Show progress for verbose mode using consistent progress bar
+                processed_peaks += 1
+                # Show progress for verbose mode using a single continuous bar
                 if self._verbose and total_peaks > 0:
-                    progress_fraction = (i + 1) / total_peaks
+                    progress_fraction = processed_peaks / total_peaks
                     utils._print_progress(
                         progress_fraction,
-                        f"[Macro] Frame {int(frame_index)+1}/{len(frames_bundle)}"
+                        f"[Macro] Peak {processed_peaks}/{total_peaks}"
                     )
                 
                 # Compute convex hull intersection with beam
@@ -1428,17 +1439,17 @@ class Detector:
         sigma = ensure_torch(self.gaussian_sigma).to(dev)
         threshold = self.kernel_threshold
 
-        radius = 1
-        while True:
-            value = torch.exp(-(radius**2) / (2 * sigma**2))
-            if value < threshold / 2:
-                break
-            radius += 1
-
         # DEFAULT: Limit Gaussian kernel to maximum 5x5 for consistency with Airy method
         # This ensures both Gauss and Airy use similar kernel sizes, providing
         # excellent agreement (<1% error) in azimuthally integrated profiles
         max_radius = 2  # gives 5x5 kernel (2*2+1=5)
+
+        radius = 1
+        while radius <= max_radius:
+            value = torch.exp(-(radius**2) / (2 * sigma**2))
+            if value < threshold / 2:
+                break
+            radius += 1
         radius = min(radius, max_radius)
         
         kernel_size = 2 * radius + 1

@@ -95,9 +95,10 @@ def _print_progress(progress_fraction, message):
         + str(progress_in_precent)
         + "%",
         end="",
+        flush=True,
     )
     if progress_fraction == 1.0:
-        print("")
+        print("", flush=True)
 
 def _clip_line_with_convex_polyhedron(
     line_points, line_direction, plane_points, plane_normals

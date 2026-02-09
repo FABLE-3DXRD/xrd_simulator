@@ -225,7 +225,8 @@ class Polycrystal:
             # Store mesh and motion data for on-demand hull computation
             "mesh_lab": self.mesh_lab,
             "rigid_body_motion": rigid_body_motion,
-            "beam": beam
+            "beam": beam,
+            "verbose": verbose,
         }
 
         return peaks_dict

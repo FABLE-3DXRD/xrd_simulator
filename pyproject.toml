@@ -29,9 +29,10 @@ dependencies = [
     "scipy>=1.11.0",
     "pandas>=2.0.0",
 
-    # Deep learning - install separately with CUDA support:
-    # pip install torch --index-url https://download.pytorch.org/whl/cu126
-    "torch>=2.5.0",
+    # Deep learning - CPU only by default
+    # For GPU support: pip install -e ".[gpu]"
+    "torch>=2.5.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "torch>=2.5.0,<2.6.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
 
     # Mesh generation and processing
     "meshpy",
@@ -62,6 +63,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gpu = [
+    # GPU PyTorch with CUDA support
+    # Install with: pip install -e ".[gpu]"
+    "torch>=2.5.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "torch>=2.5.0,<2.6.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+]
 dev = [
     "pytest",
     "pytest-cov",
