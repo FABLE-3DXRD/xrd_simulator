@@ -110,7 +110,7 @@ polycrystal = Polycrystal(mesh, orientation, strain=np.zeros((3,3)),
 
 # 4. Run diffraction simulation
 peaks_dict = polycrystal.diffract(beam, detector, motion)
-pattern = detector.render(peaks_dict, frames_to_render=0, method='gauss')
+pattern, peaks_dict = detector.render(peaks_dict, frames_to_render=0, method='gauss')
 ```
 
 ## Performance Considerations

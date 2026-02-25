@@ -74,7 +74,7 @@ motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
 
-diffraction_pattern = detector.render(
+diffraction_pattern, peaks_dict = detector.render(
     peaks_dict,
     frames_to_render=1,
     method='macro')

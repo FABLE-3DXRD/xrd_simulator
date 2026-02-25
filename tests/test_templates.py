@@ -157,7 +157,7 @@ class TestUtils(unittest.TestCase):
             detector=detector,
             verbose=True)
 
-        diffraction_pattern = detector.render(
+        diffraction_pattern, _ = detector.render(
             peaks_dict,
             frames_to_render=1,
             method="micro")
@@ -242,7 +242,7 @@ class TestUtils(unittest.TestCase):
             detector=detector,
             verbose=True)
 
-        diffraction_pattern = detector.render(
+        diffraction_pattern, _ = detector.render(
             peaks_dict,
             frames_to_render=1,
             method="micro")

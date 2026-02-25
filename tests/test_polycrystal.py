@@ -92,10 +92,10 @@ class TestPolycrystal(unittest.TestCase):
         peaks_dict = self.polycrystal.diffract(self.__class__.beam, motion, detector=self.__class__.detector, verbose=True)
         peaks_dict1 = self.polycrystal.diffract(self.__class__.beam, motion, detector=self.__class__.detector, verbose=False)
 
-        diffraction_pattern = self.__class__.detector.render(
+        diffraction_pattern, _ = self.__class__.detector.render(
             peaks_dict, frames_to_render=1, method='gauss')
 
-        diffraction_pattern1 = self.__class__.detector.render(
+        diffraction_pattern1, _ = self.__class__.detector.render(
             peaks_dict1, frames_to_render=1, method='gauss')
 
         # The rendered diffraction pattern should have intensity

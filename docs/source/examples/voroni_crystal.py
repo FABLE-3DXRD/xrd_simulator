@@ -178,14 +178,14 @@ print(f"Peaks in zoomed view: {len(peaks_dict_zoomed['peaks'])}")
 # ============================================================
 
 print("\n--- Wide detector rendering ---")
-diffraction_wide_macro = detector_wide.render(peaks_dict, frames_to_render=1, method="macro")
-diffraction_wide_micro = detector_wide.render(peaks_dict, frames_to_render=1, method='micro')
-diffraction_wide_nano = detector_wide.render(peaks_dict, frames_to_render=1, method='nano')
+diffraction_wide_macro, _ = detector_wide.render(peaks_dict, frames_to_render=1, method="macro")
+diffraction_wide_micro, _ = detector_wide.render(peaks_dict, frames_to_render=1, method='micro')
+diffraction_wide_nano, _ = detector_wide.render(peaks_dict, frames_to_render=1, method='nano')
 
 print("\n--- Zoomed detector rendering ---")
-diffraction_zoom_macro = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method="macro")
-diffraction_zoom_micro = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method='micro')
-diffraction_zoom_nano = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method='nano')
+diffraction_zoom_macro, _ = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method="macro")
+diffraction_zoom_micro, _ = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method='micro')
+diffraction_zoom_nano, _ = detector_zoomed.render(peaks_dict_zoomed, frames_to_render=1, method='nano')
 
 # Convert to numpy for plotting
 def to_numpy(arr):

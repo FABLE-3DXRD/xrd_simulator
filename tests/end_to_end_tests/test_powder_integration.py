@@ -356,7 +356,7 @@ class TestPowderIntegration(unittest.TestCase):
         
         # Step 4: Render pattern
         print("\n[4] Rendering diffraction pattern (micro mode)...")
-        pattern = self.detector.render(
+        pattern, _ = self.detector.render(
             peaks_dict,
             frames_to_render=0,  # single integrated frame
             method='micro'

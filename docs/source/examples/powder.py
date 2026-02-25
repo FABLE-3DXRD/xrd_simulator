@@ -52,7 +52,7 @@ translation = np.array([0, 0, 0])
 motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
 
 peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
-diffraction_pattern = detector.render(peaks_dict, frames_to_render=1, method='micro')
+diffraction_pattern, peaks_dict = detector.render(peaks_dict, frames_to_render=1, method='micro')
 
 # Convert to numpy for plotting
 if hasattr(diffraction_pattern, 'cpu'):

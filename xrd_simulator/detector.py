@@ -231,20 +231,25 @@ class Detector:
         micro_grain_limit = 0.1**3, #in cubic microns
         render_dtype: torch.dtype | None = None,
         verbose: bool | None = None,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, Dict[str, Union[torch.Tensor, List[str]]]]:
         """Render diffraction frames using different peak profile methods.
 
-        Available methods (named by grain size regime):
+        Three physically motivated rendering methods are provided, each
+        targeting a different grain-size regime.  See the individual
+        rendering methods for detailed physical justification.
 
-        - ``'micro'``: Fast Gaussian profiles, ideal for quick analysis and
-          medium-sized grains.
-        - ``'nano'``: Physically accurate Airy disk patterns from crystallite
-          diffraction. Broader for smaller crystallites, delta-like for large
-          crystals. This is the most realistic shape for size-broadened peaks.
-        - ``'macro'``: Projects 3D crystal volumes, showing morphology and strain
-          effects. Requires volume data in ``peaks_dict``.
-        - ``'auto'``: Automatically selects the rendering method based on grain
-          size, using ``macro_grain_limit`` and ``micro_grain_limit`` thresholds.
+        - ``'nano'``:  Airy-disk profiles for sub-micron crystallites
+          where the finite-lattice assumption breaks down and the
+          Fourier transform of the lattice is no longer a delta.
+          See :meth:`_render_airy_peaks`.
+        - ``'micro'``: Gaussian point-spread for medium grains (~0.1–10 µm)
+          where the instrument response dominates the spot shape.
+          See :meth:`_render_gauss_peaks`.
+        - ``'macro'``: Volume projection for grains larger than the pixel
+          size, capturing crystal morphology and strain.
+          See :meth:`_render_projected_volumes`.
+        - ``'auto'``:  Automatically selects per-peak based on grain volume
+          (``macro_grain_limit`` / ``micro_grain_limit`` thresholds).
 
         Parameters
         ----------
@@ -276,8 +281,14 @@ class Detector:
 
         Returns
         -------
-        torch.Tensor
+        diffraction_frames : torch.Tensor
             Rendered diffraction frames with shape ``(frames, height, width)``.
+        peaks_dict : dict
+            Updated peak data dictionary with detector intersection columns
+            (``zd``, ``yd``, ``incident_angle``, ``frame``,
+            ``intensity_factors``) appended and non-visible / invalid peaks
+            filtered out.  Identical to the output of
+            :meth:`peaks_detector_intersection`.
 
         Raises
         ------
@@ -285,12 +296,7 @@ class Detector:
             If an invalid method is specified.
         """
 
-        peaks = peaks_dict["peaks"]
-        columns = peaks_dict["columns"]
-        beam = peaks_dict.get("beam", None)
-        lab_mesh = peaks_dict.get("mesh_lab", None)
-        rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
-        target_dtype = render_dtype if render_dtype is not None else peaks.dtype
+        target_dtype = render_dtype if render_dtype is not None else peaks_dict["peaks"].dtype
         if verbose is None:
             verbose = peaks_dict.get("verbose", True)
         self._verbose = verbose  # Store for use in rendering methods
@@ -300,7 +306,11 @@ class Detector:
             if self._verbose:
                 print(f"[Detector.render] frames_to_render < 1, setting to 1")
 
-        peaks, columns = self._peaks_detector_intersection(peaks,columns, frames_to_render)
+        peaks_dict = self.peaks_detector_intersection(peaks_dict, frames_to_render, verbose)
+        peaks = peaks_dict["peaks"]
+        beam = peaks_dict.get("beam", None)
+        lab_mesh = peaks_dict.get("mesh_lab", None)
+        rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
 
         if method == "macro":
             diffraction_frames = self._render_projected_volumes(
@@ -343,7 +353,7 @@ class Detector:
                 f"Invalid method: {method}. Must be one of: 'micro', 'nano', 'macro', or 'auto'"
             )
 
-        return diffraction_frames
+        return diffraction_frames, peaks_dict
 
     def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
         """Check if detector coordinates are within bounds.
@@ -562,33 +572,80 @@ class Detector:
     # 4. Peak / frame preprocessing
     # ------------------------------------------------------------------
 
-    def _peaks_detector_intersection(
+    def peaks_detector_intersection(
         self,
-        peaks: torch.Tensor,
-        columns: list[str],
-        frames_to_render: int,
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        frames_to_render: int = 1,
+        verbose: bool = True,
     ) -> Dict[str, Union[torch.Tensor, List[str]]]:
-        """Compute detector intersections, filter visible peaks, and assign frame indices.
+        """Project diffraction peaks onto the detector and filter to those that hit it.
 
-        Also calculates and stores intensity factors (scattering strength per
-        unit volume) based on structure, polarization, and Lorentz factors.
+        Takes the ``peaks_dict`` produced by :meth:`Polycrystal.diffract` and
+        determines where each diffracted ray intersects the detector plane.
+        Peaks that fall outside the detector area or that have physically
+        invalid intensity (e.g. infinite Lorentz factor) are discarded.
+
+        The method performs three steps in order:
+
+        1. **Intersection** — computes where each diffracted ray
+           (defined by ``K_out`` and ``Source`` columns) hits the detector
+           plane, appending ``zd``, ``yd`` and ``incident_angle``.
+        2. **Filtering** — discards peaks that miss the detector
+           (via :meth:`contains`) or have non-finite / non-positive
+           intensity factors.
+        3. **Frame assignment & intensity** — bins peaks into
+           *frames_to_render* equal time bins and computes the combined
+           ``intensity_factors`` column from the enabled correction
+           factors (structure, polarization, Lorentz).
+
+        The following columns are **appended** to the peaks tensor:
+
+        ====  ====================  ==========================================
+        Col   Name                  Description
+        ====  ====================  ==========================================
+        25    ``zd``                Detector z-coordinate of the hit (µm).
+        26    ``yd``                Detector y-coordinate of the hit (µm).
+        27    ``incident_angle``    Angle between the diffracted ray and the
+                                    detector normal (degrees).
+        28    ``frame``             Frame index assigned from the diffraction
+                                    time via equal-width binning over [0, 1].
+        29    ``intensity_factors`` Product of the enabled correction factors
+                                    (structure, polarization, Lorentz) giving
+                                    the scattering strength per unit volume.
+        ====  ====================  ==========================================
 
         Parameters
         ----------
-        peaks : torch.Tensor
-            Peaks tensor containing diffraction peak data.
-        columns : list of str
-            List of column names corresponding to the peaks tensor.
-        frames_to_render : int
-            Number of frames to render.
+        peaks_dict : dict
+            Peak data dictionary as returned by
+            :meth:`Polycrystal.diffract`.  Must contain at least
+            ``'peaks'`` (torch.Tensor) and ``'columns'`` (list of str).
+        frames_to_render : int, optional
+            Number of time frames.  The diffraction-time interval [0, 1] is
+            split into *frames_to_render* equal bins and each peak is assigned
+            to the bin its ``diffraction_time`` falls into.  Default is ``1``.
+        verbose : bool, optional
+            If ``True``, emit warnings when peaks with invalid intensity
+            factors are discarded.  Default is ``True``.
 
         Returns
         -------
-        tuple
-            ``(peaks, columns)`` where peaks is the filtered and augmented tensor
-            and columns is the updated list of column names.
-        """
+        dict
+            A **new** dictionary with the same keys as *peaks_dict* but with
+            ``'peaks'`` and ``'columns'`` updated (augmented columns, filtered
+            rows).  The original *peaks_dict* is not modified.
 
+        Examples
+        --------
+        >>> peaks_dict = polycrystal.diffract(beam, motion)
+        >>> result = detector.peaks_detector_intersection(peaks_dict,
+        ...                                              frames_to_render=5)
+        >>> result["columns"][-5:]
+        ['zd', 'yd', 'incident_angle', 'frame', 'intensity_factors']
+        """
+        self._verbose = verbose
+        peaks = peaks_dict["peaks"]
+        columns = list(peaks_dict["columns"])  # copy to avoid mutating the original
 
         zd_yd_angle = self._get_intersection(peaks[:, 13:16], peaks[:, 16:19])
         peaks = torch.cat((peaks, zd_yd_angle), dim=1)
@@ -658,7 +715,10 @@ class Detector:
         
         peaks = peaks[valid_intensity_mask]
 
-        return peaks, columns
+        out = dict(peaks_dict)
+        out["peaks"] = peaks
+        out["columns"] = columns
+        return out
 
     # ------------------------------------------------------------------
     # 5. Rendering internals – grouped by method
@@ -666,15 +726,35 @@ class Detector:
     # ------------------------------------------------------------------
     # 5.a Gaussian peaks
     def _render_gauss_peaks(self, peaks, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
-        """Render Gaussian peaks onto detector frames using optimized interpolation.
+        """Render Gaussian peaks — the ``'micro'`` method.
 
-        This method uses σ=1.21 for Gaussian interpolation, which is equivalent to
-        the combined effect of σ=0.7 interpolation + σ=0.99 convolution. This
-        eliminates the need for a separate convolution step, providing 2.7×
-        speedup on both CPU and GPU while producing identical results.
+        **Physical motivation (medium grains, ~0.1–10 µm)**
 
-        Mathematical basis: ``G(σ₁) ⊗ G(σ₂) = G(√(σ₁² + σ₂²))``
-        where ``√(0.7² + 0.99²) = 1.21``.
+        Grains in this size range are large enough that Scherrer broadening
+        is negligible compared with the detector pixel size: the diffracted
+        beam is effectively a geometric ray that strikes a single detector
+        point.  The observed spot shape is therefore dominated by the
+        instrument response — detector point-spread function (PSF), beam
+        divergence, and mosaic spread — all of which are well approximated
+        by a Gaussian.  Because the intrinsic peak width carries no
+        crystallite-size information at this scale, a fast Gaussian
+        deposition is both physically appropriate and computationally
+        efficient.
+
+        **Implementation**
+
+        Each peak is deposited with sub-pixel accuracy using a combined
+        Gaussian kernel whose width folds the interpolation σ and the
+        detector PSF σ into a single convolution step:
+
+        .. math::
+
+            G(\sigma_1) \otimes G(\sigma_2)
+            = G\!\left(\sqrt{\sigma_1^2 + \sigma_2^2}\right)
+
+        With ``σ_interp = 0.7`` and ``σ_PSF ≈ 1.0``, this gives
+        ``σ_combined ≈ 1.21``, eliminating the separate convolution pass
+        and providing ~2.7× speedup while producing identical results.
 
         Parameters
         ----------
@@ -693,7 +773,7 @@ class Detector:
 
         Notes
         -----
-        Peak tensor column mapping (after ``_peaks_detector_intersection``):
+        Peak tensor column mapping (after ``peaks_detector_intersection``):
 
         - 0-24: Original columns from polycrystal (grain_index through peak_index)
         - 25: zd (detector x-coordinate in pixels)
@@ -872,7 +952,59 @@ class Detector:
         render_dtype: torch.dtype,
         memory_safety_factor: float = 3.0,
     ) -> torch.Tensor:
-        """Render Airy disk peaks with memory-aware batching.
+        """Render Airy-disk peaks — the ``'nano'`` method.
+
+        **Physical motivation (sub-micron / nanometre crystallites)**
+
+        Kinematic diffraction theory assumes an infinite crystal
+        lattice, so the Fourier transform of the electron density is a
+        set of delta functions at reciprocal-lattice points.  For a
+        real crystallite of finite size *D* this assumption breaks
+        down: the structure factor is the convolution of and infinite-
+        lattice deltas with the Fourier transform of the crystal's
+        *shape function* (its finite spatial extent).  The result is no
+        longer a delta but a broadened peak — a sinc-like function for
+        a 1D stack of *N* planes, or in general the *shape transform*
+        of the crystallite (Warren, 1969; Guinier, 1963).
+
+        On a 2D detector, we approximate each peak's shape-broadened
+        profile as an Airy disk, ``[2 J_1(x)/x]^2`` — the Fraunhofer
+        diffraction pattern of a circular aperture — whose angular
+        width scales inversely with *D*.  This is the standard
+        approximation for the detector-plane projection of a compact
+        crystallite's shape transform, and its FWHM is linked to the
+        Scherrer equation (Scherrer, 1918; Patterson, 1939):
+
+        .. math::
+
+            \\text{FWHM}_{2\\theta}
+            = \\frac{K\\,\\lambda}{D\\,\\cos\\theta}
+
+        For nanometre-scale grains (volume < ``micro_grain_limit``,
+        default 0.1³ µm³) this size broadening dominates the peak
+        profile, so the simulator renders each reflection as a 2D Airy
+        function whose first-zero radius is derived from the Scherrer
+        FWHM.  As the crystallite grows, the Airy disk contracts toward
+        a delta function and the method smoothly recovers the point-like
+        peaks expected from an effectively infinite lattice.
+
+        A detector point-spread-function (Gaussian convolution) is
+        applied after kernel deposition.
+
+        **References**
+
+        - Scherrer, P. (1918). *Göttinger Nachrichten*, **2**, 98.
+        - Patterson, A.L. (1939). *Phys. Rev.*, **56**, 978–982.
+        - Warren, B.E. (1969). *X-ray Diffraction*. Addison-Wesley,
+          Ch. 13.
+        - Guinier, A. (1963). *X-ray Diffraction*. W.H. Freeman,
+          Ch. 5.
+
+        **Implementation**
+
+        Peaks are processed in memory-aware batches (sorted largest-
+        kernel-first) so that broad patterns from the smallest
+        crystallites do not exceed available RAM / VRAM.
 
         Parameters
         ----------
@@ -1225,9 +1357,32 @@ class Detector:
 
     # 5.c Projected volumes
     def _render_projected_volumes(self, peaks, beam, mesh_lab, rigid_body_motion, frames_to_render, render_dtype: torch.dtype) -> torch.Tensor:
-        """Render projected volumes onto detector frames using volume projection.
+        """Render projected crystal volumes — the ``'macro'`` method.
 
-        This provides accurate peak shapes by projecting 3D crystal volumes.
+        **Physical motivation (grains larger than the pixel size)**
+
+        When a grain's linear dimension exceeds the detector pixel size,
+        its diffraction spot is no longer point-like: different parts of
+        the crystal illuminate different detector pixels, so the observed
+        peak reproduces the *geometric shadow* of the illuminated crystal
+        volume projected along the scattered wave-vector.  The per-pixel
+        intensity is proportional to the path length of the scattered ray
+        through the grain, i.e. the diffracting volume behind that pixel.
+
+        This regime is relevant for coarse-grained metals and geological
+        samples where individual grains span tens to hundreds of microns.
+        The resulting images capture grain morphology, intra-granular
+        orientation gradients, and spatial strain variations that are
+        invisible to the point-like methods.
+
+        **Implementation**
+
+        For each peak the grain's tetrahedral mesh is rotated to its
+        diffraction time, intersected with the beam footprint to form a
+        convex hull, and then ray-traced: parallel rays along the
+        scattered wave-vector are clipped against the hull to obtain
+        per-pixel path lengths.  A Gaussian PSF convolution is applied
+        afterwards.
 
         Parameters
         ----------
@@ -1322,7 +1477,7 @@ class Detector:
                         intensity = peaks[peak_idx, 29]  # intensity column is index 29                        
                         
                         # Note: Infinite intensity peaks should already be filtered out
-                        # by _peaks_detector_intersection. This check is defensive.
+                        # by peaks_detector_intersection. This check is defensive.
                         if torch.isfinite(intensity):
                             projection_torch = ensure_torch(projection)
                             # projection is path length, multiply by pixel area to get volume

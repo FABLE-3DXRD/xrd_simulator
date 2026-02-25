@@ -266,7 +266,7 @@ class TestDetector(unittest.TestCase):
         )
 
         # --- Test micro rendering ---
-        diffraction_pattern = self.detector.render(
+        diffraction_pattern, _ = self.detector.render(
             peaks_dict, frames_to_render=1, method="micro"
         )
         self.assertGreater(
@@ -286,7 +286,7 @@ class TestDetector(unittest.TestCase):
         )
 
         # --- Test nano rendering ---
-        diffraction_pattern_nano = self.detector.render(
+        diffraction_pattern_nano, _ = self.detector.render(
             peaks_dict, frames_to_render=1, method="nano"
         )
         self.assertGreater(
@@ -317,7 +317,7 @@ class TestDetector(unittest.TestCase):
             "mesh_lab": mesh,
             "rigid_body_motion": motion,
         }
-        diffraction_pattern_macro = self.detector.render(
+        diffraction_pattern_macro, _ = self.detector.render(
             peaks_dict_macro, frames_to_render=1, method="macro"
         )
         self.assertEqual(
@@ -354,7 +354,7 @@ class TestDetector(unittest.TestCase):
             "mesh_lab": mesh,
             "rigid_body_motion": motion,
         }
-        diffraction_pattern_auto = self.detector.render(
+        diffraction_pattern_auto, _ = self.detector.render(
             peaks_dict_auto, frames_to_render=1, method="auto", verbose=False
         )
         self.assertEqual(diffraction_pattern_auto.dim(), 3)
@@ -371,7 +371,7 @@ class TestDetector(unittest.TestCase):
         
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            diffraction_pattern_inf = self.detector.render(
+            diffraction_pattern_inf, _ = self.detector.render(
                 peaks_dict_inf, frames_to_render=1, method="micro"
             )
             self.assertEqual(len(w), 1, msg="Expected warning for infinite Lorentz")
@@ -568,7 +568,7 @@ class TestDetector(unittest.TestCase):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             
-            diffraction_pattern_micro = self.detector.render(
+            diffraction_pattern_micro, _ = self.detector.render(
                 peaks_dict,
                 frames_to_render=1,
                 method="micro"
@@ -593,7 +593,7 @@ class TestDetector(unittest.TestCase):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             
-            diffraction_pattern_nano = self.detector.render(
+            diffraction_pattern_nano, _ = self.detector.render(
                 peaks_dict,
                 frames_to_render=1,
                 method="nano"

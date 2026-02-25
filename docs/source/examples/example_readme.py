@@ -80,7 +80,7 @@ motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]
 
 ##example: diffract
 peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
-diffraction_pattern = detector.render(peaks_dict,
+diffraction_pattern, peaks_dict = detector.render(peaks_dict,
                                         frames_to_render=0,
                                         method="micro")
 ##example:

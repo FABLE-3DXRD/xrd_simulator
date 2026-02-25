@@ -564,7 +564,7 @@ class TestCrystalliteSize(unittest.TestCase):
         
         # Render pattern with NANO mode (GPU accelerated)
         print("\n[3] Rendering diffraction pattern (NANO mode, GPU)...")
-        pattern = self.detector.render(
+        pattern, _ = self.detector.render(
             peaks_dict,
             frames_to_render=0,
             method='nano'
