@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -15,12 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Set up Miniconda and create/activate the env
       - name: Setup Miniconda (conda)
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: xrd-sim-env
-          python-version: 3.13
+          python-version: "3.13"
           channels: conda-forge
           channel-priority: strict
           auto-activate-base: false
@@ -38,13 +37,10 @@ jobs:
       - name: Install dependencies
         shell: bash -l {0}
         run: |
-          # Make sure the env exists (setup-miniconda creates it if missing)
           conda env list
-          # Core deps from conda-forge
-          conda install -y -n xrd-sim-env -c conda-forge netcdf4 xrd_simulator
-          # Useful tooling
-          conda install -y -n xrd-sim-env -c conda-forge pip
+          conda install -y -n xrd-sim-env -c conda-forge netcdf4 pip
           python -m pip install --upgrade pip
+          pip install -e .
 
       - name: Lint with flake8
         shell: bash -l {0}
