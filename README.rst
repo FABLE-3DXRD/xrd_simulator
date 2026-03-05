@@ -63,34 +63,44 @@ Let's go ahead and build ourselves some x-rays:
 
       import numpy as np
       from xrd_simulator.beam import Beam
+
       # The beam of xrays is represented as a convex polyhedron
       # We specify the vertices in a numpy array.
-      beam_vertices = np.array([
-          [-1e6, -500., -500.],
-          [-1e6, 500., -500.],
-          [-1e6, 500., 500.],
-          [-1e6, -500., 500.],
-          [1e6, -500., -500.],
-          [1e6, 500., -500.],
-          [1e6, 500., 500.],
-          [1e6, -500., 500.]])
+      beam_vertices = np.array(
+         [
+            [-1e6, -500.0, -500.0],
+            [-1e6, 500.0, -500.0],
+            [-1e6, 500.0, 500.0],
+            [-1e6, -500.0, 500.0],
+            [1e6, -500.0, -500.0],
+            [1e6, 500.0, -500.0],
+            [1e6, 500.0, 500.0],
+            [1e6, -500.0, 500.0],
+         ]
+      )
 
       beam = Beam(
-          beam_vertices,
-          xray_propagation_direction=np.array([1., 0., 0.]),
-          wavelength=0.28523,
-          polarization_vector=np.array([0., 1., 0.]))
+         beam_vertices,
+         xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
+         wavelength=0.28523,
+         polarization_vector=np.array([0.0, 1.0, 0.0]),
+      )
 
 We will also need to define a detector:
 
    .. code:: python
 
       from xrd_simulator.detector import Detector
+
       # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
-      detector = Detector(det_corner_0=np.array([142938.3, -38400., -38400.]),
-                          det_corner_1=np.array([142938.3, 38400., -38400.]),
-                          det_corner_2=np.array([142938.3, -38400., 38400.]),
-                          pixel_size=(75.0, 55.0))
+      detector = Detector(
+         det_corner_0=np.array([142938.3, -38400.0, -38400.0]),
+         det_corner_1=np.array([142938.3, 38400.0, -38400.0]),
+         det_corner_2=np.array([142938.3, -38400.0, 38400.0]),
+         pixel_size=(55.0, 55.0),
+         gaussian_sigma=1.0,
+         max_gaussian_kernel_radius=5,
+      )
 
 Next we go ahead and produce a sample, to do this we need to first define a mesh that
 describes the topology of the sample, in this example we make the sample shaped as a ball:
@@ -98,12 +108,14 @@ describes the topology of the sample, in this example we make the sample shaped 
    .. code:: python
 
       from xrd_simulator.mesh import TetraMesh
+
       # xrd_simulator supports several ways to generate a mesh, here we
       # generate meshed solid sphere using a level set.
       mesh = TetraMesh.generate_mesh_from_levelset(
-          level_set=lambda x: np.linalg.norm(x) - 768.0,
-          bounding_radius=769.0,
-          max_cell_circumradius=450.)
+         level_set=lambda x: np.linalg.norm(x) - 768.0,
+         bounding_radius=769.0,
+         max_cell_circumradius=550.0,
+      )
 
 Every element in the sample is composed of some material, or "phase", we define the present phases
 in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a single phase is present:
@@ -111,10 +123,12 @@ in a list of ``xrd_simulator.phase.Phase`` objects, in this example only a singl
    .. code:: python
 
       from xrd_simulator.phase import Phase
-      quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
-                     sgname='P3221',  # (Quartz)
-                     path_to_cif_file=None  # phases can be defined from crystalographic information files
-                     )
+
+      quartz = Phase(
+         unit_cell=[4.926, 4.926, 5.4189, 90.0, 90.0, 120.0],
+         sgname="P3221",  # (Quartz)
+         path_to_cif_file=None,  # phases can be defined from crystalographic information files
+      )
 
 The polycrystal sample can now be created. In this example the crystal elements have random orientations
 and the strain is uniformly zero in the sample:
@@ -123,23 +137,23 @@ and the strain is uniformly zero in the sample:
 
       from scipy.spatial.transform import Rotation as R
       from xrd_simulator.polycrystal import Polycrystal
+
       orientation = R.random(mesh.number_of_elements).as_matrix()
       # element_phase_map assigns each mesh element to a phase (0 = first phase)
       element_phase_map = np.zeros(mesh.number_of_elements, dtype=int)
-      polycrystal = Polycrystal(mesh,
-                                orientation,
-                                strain=np.zeros((3, 3)),
-                                phases=quartz,
-                                element_phase_map=element_phase_map)
+      polycrystal = Polycrystal(
+         mesh,
+         orientation,
+         strain=np.zeros((3, 3)),
+         phases=quartz,
+         element_phase_map=element_phase_map,
+      )
 
 We may save the polycrystal to disc by using the builtin ``save()`` command as
 
    .. code:: python
 
-      import os
-      artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
-      os.makedirs(artifacts_dir, exist_ok=True)
-      polycrystal.save(os.path.join(artifacts_dir, 'my_polycrystal'), save_mesh_as_xdmf=True)
+      polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
 
 We can visualize the sample by loading the .xdmf file into your favorite 3D rendering program.
 In `paraview`_ the sampled colored by one of its Euler angles looks like this:
@@ -152,9 +166,12 @@ We can now define some motion of the sample over which to integrate the diffract
    .. code:: python
 
       from xrd_simulator.motion import RigidBodyMotion
-      motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
-                               rotation_angle=np.radians(1.0),
-                               translation=np.array([123, -153.3, 3.42]))
+
+      motion = RigidBodyMotion(
+         rotation_axis=np.array([0, 1 / np.sqrt(2), -1 / np.sqrt(2)]),
+         rotation_angle=np.radians(0.1),
+         translation=np.array([123, -153.3, 3.42]),
+      )
 
 Now that we have an experimental setup we may collect diffraction by letting the beam and detector
 interact with the sample:
@@ -162,19 +179,24 @@ interact with the sample:
    .. code:: python
 
       peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
-      diffraction_pattern, peaks_dict = detector.render(peaks_dict,
-                                              frames_to_render=0,
-                                              method="micro")
+      diffraction_pattern, peaks_dict = detector.render(
+         peaks_dict, frames_to_render=0, method="micro"
+      )
 
 The resulting rendered detector frame will look something like the below. Note that the positions of the diffraction spots may vary as the crystal orientations were randomly generated!:
 
    .. code:: python
 
       import matplotlib.pyplot as plt
-      fig,ax = plt.subplots(1,1)
+
+      fig, ax = plt.subplots(1, 1, figsize=(12, 12))
       # render returns (frames, height, width), take first frame
-      pattern = diffraction_pattern[0].cpu().numpy() if hasattr(diffraction_pattern, 'cpu') else diffraction_pattern[0]
-      ax.imshow(pattern, cmap='gray')
+      pattern = (
+         diffraction_pattern[0].cpu().numpy()
+         if hasattr(diffraction_pattern, "cpu")
+         else diffraction_pattern[0]
+      )
+      ax.imshow(pattern, cmap="gray", vmax=5000)
       plt.show()
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true

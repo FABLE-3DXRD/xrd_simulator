@@ -624,19 +624,23 @@ class Detector:
 
         The following columns are **appended** to the peaks tensor:
 
-        ====  ====================  ==========================================
-        Col   Name                  Description
-        ====  ====================  ==========================================
-        25    ``zd``                Detector z-coordinate of the hit (µm).
-        26    ``yd``                Detector y-coordinate of the hit (µm).
-        27    ``incident_angle``    Angle between the diffracted ray and the
-                                    detector normal (degrees).
-        28    ``frame``             Frame index assigned from the diffraction
-                                    time via equal-width binning over [0, 1].
-        29    ``intensity_factors`` Product of the enabled correction factors
-                                    (structure, polarization, Lorentz) giving
-                                    the scattering strength per unit volume.
-        ====  ====================  ==========================================
+        +-----+----------------------+-------------------------------------------------------------+
+        | Col | Name                 | Description                                                 |
+        +=====+======================+=============================================================+
+        | 25  | ``zd``               | Detector z-coordinate of the hit (µm).                      |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 26  | ``yd``               | Detector y-coordinate of the hit (µm).                      |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 27  | ``incident_angle``   | Angle between the diffracted ray and the detector normal    |
+        |     |                      | (degrees).                                                  |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 28  | ``frame``            | Frame index assigned from the diffraction time via          |
+        |     |                      | equal-width binning over [0, 1].                            |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 29  | ``intensity_factors``| Product of the enabled correction factors (structure,       |
+        |     |                      | polarization, Lorentz) giving the scattering strength per   |
+        |     |                      | unit volume.                                                |
+        +-----+----------------------+-------------------------------------------------------------+
 
         Parameters
         ----------
