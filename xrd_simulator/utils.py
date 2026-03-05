@@ -26,7 +26,7 @@ Functions:
     _circumsphere_of_segments: Compute the minimum circumsphere of line segments.
     _circumsphere_of_triangles: Compute the minimum circumsphere of triangles.
     _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
-"""
+
 
 This module provides various utility functions used for internal package
 operations. The functions include mathematical computations, geometric
@@ -72,23 +72,16 @@ _circumsphere_of_tetrahedrons
 
 from __future__ import annotations
 
-import os
-import logging
-from itertools import combinations
 import gc
+import logging
 from typing import Dict, List
+
+import numpy as np
+import torch
 from CifFile import ReadCif
 from scipy.spatial.transform import Rotation
-import numpy as np
-import sys
-import logging as _logging
-import pandas as pd
-import torch
 
 from xrd_simulator.cuda import get_selected_device
-
-import numpy as np
-import torch
 
 
 def _cif_open(cif_file):
@@ -107,9 +100,9 @@ def _print_progress(progress_fraction, message):
     message : str
         Optional message to prepend the loading bar with (max 55 characters).
     """
-    assert (
-        len(message) <= 55.0
-    ), "Message to print is too long, max 55 characters allowed."
+    assert len(message) <= 55.0, (
+        "Message to print is too long, max 55 characters allowed."
+    )
     progress_in_precent = np.round(100 * progress_fraction, 1)
     progress_bar_length = int(progress_fraction * 40)
     print(
@@ -127,6 +120,7 @@ def _print_progress(progress_fraction, message):
     )
     if progress_fraction == 1.0:
         print("", flush=True)
+
 
 def _clip_line_with_convex_polyhedron(
     line_points, line_direction, plane_points, plane_normals
@@ -160,9 +154,11 @@ def _clip_line_with_convex_polyhedron(
     tl_mask = t2 > 0
 
     if not te_mask.any() or not tl_mask.any():
-        return torch.zeros(line_points.shape[0], device=line_points.device, dtype=line_points.dtype)
+        return torch.zeros(
+            line_points.shape[0], device=line_points.device, dtype=line_points.dtype
+        )
 
-    # d = n_i · p_i 
+    # d = n_i · p_i
     d = torch.sum(plane_normals * plane_points, dim=1)  # (m,)
 
     # Compute all line-plane intersections at once
@@ -242,10 +238,6 @@ def _lab_strain_to_B_matrix(
     return B.squeeze()
 
 
-
-
-
-
 def _set_xfab_logging(disabled):
     """Disable/Enable all loging of xfab; it is very verbose!"""
     xfab_modules = [
@@ -285,7 +277,6 @@ def _strain_as_vector(strain_tensor):
     )
 
 
-
 def _epsilon_to_b(crystal_strain, B0):
     """Handle large deformations as opposed to current xfab.tools.epsilon_to_b"""
     # Convert to torch tensors first, using the configured device
@@ -310,18 +301,18 @@ def _epsilon_to_b(crystal_strain, B0):
     B = torch.matmul(torch.linalg.inv(F), B0)
     return B
 
+
 def _b_to_epsilon(B_matrix, B0):
     """Handle large deformations as opposed to current xfab.tools.b_to_epsilon.
-    
+
     Inverse operation of _epsilon_to_b.
     """
     B_matrix = ensure_torch(B_matrix)
     B0 = ensure_torch(B0)
-    
+
     F = torch.matmul(B0, torch.linalg.inv(B_matrix))
     strain_tensor = 0.5 * (torch.matmul(F.T, F) - torch.eye(3))  # large deformations
     return _strain_as_vector(strain_tensor)
-
 
 
 def _get_misorientations(orientations):
@@ -342,14 +333,14 @@ def _get_misorientations(orientations):
         orientations_np = orientations.cpu().detach().numpy()
     else:
         orientations_np = orientations
-        
+
     mean_orientation = Rotation.mean(Rotation.from_matrix(orientations_np)).as_matrix()
     misorientations = np.zeros((orientations_np.shape[0],))
-    
+
     for i, U in enumerate(orientations_np):  # Use numpy array for iteration
         difference_rotation = Rotation.from_matrix(np.dot(U, mean_orientation.T))
         misorientations[i] = Rotation.magnitude(difference_rotation)
-    
+
     return misorientations
 
 
@@ -371,7 +362,7 @@ def _compute_sides(points):
     """
     # Ensure input is torch tensor
     points = ensure_torch(points, dtype=torch.float64)
-    
+
     # Reshape the points array to have shape (n, 1, 4, 3)
     reshaped_points = points[:, None, :, :]
 
@@ -439,8 +430,10 @@ def _circumsphere_of_triangles(triangles):
     acXab = torch.cross(ac, ab, dim=1)
 
     a_to_centre = (
-        torch.cross(abXac, ab, dim=1) * ((torch.linalg.norm(ac, dim=1) ** 2).unsqueeze(1))
-        + torch.cross(acXab, ac, dim=1) * ((torch.linalg.norm(ab, dim=1) ** 2).unsqueeze(1))
+        torch.cross(abXac, ab, dim=1)
+        * ((torch.linalg.norm(ac, dim=1) ** 2).unsqueeze(1))
+        + torch.cross(acXab, ac, dim=1)
+        * ((torch.linalg.norm(ab, dim=1) ** 2).unsqueeze(1))
     ) / (2 * (torch.linalg.norm(abXac, dim=1) ** 2).unsqueeze(1))
 
     centers = triangles[:, 0, :] + a_to_centre
@@ -478,9 +471,9 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
             (v2 - v0).T,
             (v3 - v0).T,
         ],
-        dim=0
+        dim=0,
     ).permute(2, 0, 1)
-    
+
     B = (
         0.5
         * torch.stack(
@@ -489,7 +482,7 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
                 torch.linalg.norm(v2, dim=1) ** 2 - torch.linalg.norm(v0, dim=1) ** 2,
                 torch.linalg.norm(v3, dim=1) ** 2 - torch.linalg.norm(v0, dim=1) ** 2,
             ],
-            dim=0
+            dim=0,
         ).T
     )
 
@@ -502,8 +495,9 @@ def _circumsphere_of_tetrahedrons(tetrahedra):
     return centers, radii * 1.0001  # because loss of floating point precision
 
 
-
-def ensure_torch(data: np.ndarray | torch.Tensor | list | tuple, dtype=None) -> torch.Tensor:
+def ensure_torch(
+    data: np.ndarray | torch.Tensor | list | tuple, dtype=None
+) -> torch.Tensor:
     """Convert input to torch tensor if it isn't already.
 
     The device is automatically determined from torch's default device
@@ -584,11 +578,12 @@ def ensure_numpy(data: np.ndarray | torch.Tensor | list | tuple) -> np.ndarray:
     elif isinstance(data, (list, tuple)):
         return np.array(data, dtype=np.float64)
     # Handle any other case - check if it might be a tensor-like object with is_cuda
-    if hasattr(data, 'is_cuda') and data.is_cuda:
+    if hasattr(data, "is_cuda") and data.is_cuda:
         data = data.cpu()
-    if hasattr(data, 'detach'):
+    if hasattr(data, "detach"):
         return data.detach().numpy().astype(np.float64)
     return np.array(data, dtype=np.float64)
+
 
 def print_memory_report(
     device_index: int = 0,
@@ -643,7 +638,9 @@ def print_memory_report(
         try:
             if isinstance(obj, torch.Tensor):
                 dev_type = obj.device.type
-                if (dev_type == "cpu" and not include_cpu) or (dev_type == "cuda" and not include_cuda):
+                if (dev_type == "cpu" and not include_cpu) or (
+                    dev_type == "cuda" and not include_cuda
+                ):
                     continue
                 nbytes = obj.nelement() * obj.element_size()
                 tensors.append(
@@ -670,7 +667,9 @@ def print_memory_report(
     # CPU summary
     if include_cpu:
         cpu_bytes = sum(t["bytes"] for t in tensors if "cpu" in t["device"])
-        print(f"CPU tensors: {cpu_bytes / (1024**3):.3f} GB total (top {len([t for t in tensors if 'cpu' in t['device']])} listed)")
+        print(
+            f"CPU tensors: {cpu_bytes / (1024**3):.3f} GB total (top {len([t for t in tensors if 'cpu' in t['device']])} listed)"
+        )
 
     print("Top tensors by size:")
     for idx, entry in enumerate(tensors, start=1):
@@ -697,6 +696,7 @@ def return_device_memory() -> Dict[str, float]:
         # CPU path
         try:
             import psutil  # type: ignore
+
             vm = psutil.virtual_memory()
             return {
                 "device": "cpu",
@@ -719,7 +719,11 @@ def return_device_memory() -> Dict[str, float]:
             "free_gb": float(free),
         }
     except Exception:
-        return {"device": f"cuda:{torch.cuda.current_device() if torch.cuda.is_available() else 'unknown'}", "available_gb": 0.0, "free_gb": 0.0}
+        return {
+            "device": f"cuda:{torch.cuda.current_device() if torch.cuda.is_available() else 'unknown'}",
+            "available_gb": 0.0,
+            "free_gb": 0.0,
+        }
 
 
 def _compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
@@ -768,6 +772,7 @@ def _compute_tetrahedra_volumes(vertices: torch.Tensor) -> torch.Tensor:
 # They are kept temporarily for backwards compatibility but will be removed.
 # ==============================================================================
 
+
 def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0):
     """Compute diffractogram from pixelated diffraction pattern.
 
@@ -795,11 +800,12 @@ def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0)
         ``(bin_centres, histogram)``.
     """
     import warnings
+
     warnings.warn(
         "_diffractogram is deprecated and will be removed in a future version. "
         "Use manual radial integration instead.",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
     m, n = diffraction_pattern.shape
     max_radius = np.max([m, n])
@@ -822,15 +828,16 @@ def _diffractogram(diffraction_pattern, det_centre_z, det_centre_y, binsize=1.0)
 
 def _contained_by_intervals(value, intervals):
     """Assert if a float ``value`` is contained by any of a number of ``intervals``.
-    
+
     .. deprecated::
         This method is no longer used in the codebase and will be removed in a future version.
     """
     import warnings
+
     warnings.warn(
         "_contained_by_intervals is deprecated and will be removed in a future version.",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
     for bracket in intervals:
         if value >= bracket[0] and value <= bracket[1]:
@@ -870,7 +877,7 @@ def _get_circumscribed_sphere_centroid(subset_of_points):
 
 def _strain_as_tensor(strain_vector):
     """Convert strain vector to strain tensor.
-    
+
     .. deprecated::
         This method is no longer used in the codebase and will be removed in a future version.
     """
