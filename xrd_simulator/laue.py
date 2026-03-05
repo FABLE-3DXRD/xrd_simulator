@@ -4,6 +4,7 @@ This module provides functions for arbitrary rigid body motions. It is mainly
 used internally by the :class:`xrd_simulator.polycrystal.Polycrystal`. However,
 for the advanced user, access to these functions may be of interest.
 """
+
 import numpy as np
 import torch
 

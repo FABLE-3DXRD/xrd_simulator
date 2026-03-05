@@ -12,16 +12,16 @@ pr.enable()
 
 parameters = {
     "detector_distance": 191023.9164,
-    "detector_center_pixel_z": 256.2345,
-    "detector_center_pixel_y": 255.1129,
-    "pixel_side_length_z": 181.4234,
-    "pixel_side_length_y": 180.2343,
-    "number_of_detector_pixels_z": 512,
-    "number_of_detector_pixels_y": 512,
+    "detector_center_pixel_z": 1024.938,
+    "detector_center_pixel_y": 1020.4516,
+    "pixel_side_length_z": 45.35585,
+    "pixel_side_length_y": 45.058575,
+    "number_of_detector_pixels_z": 2048,
+    "number_of_detector_pixels_y": 2048,
     "wavelength": 0.285227,
-    "beam_side_length_z": 512 * 200.,
-    "beam_side_length_y": 512 * 200.,
-    "rotation_step": np.radians(10.0),
+    "beam_side_length_z": 102400.0,
+    "beam_side_length_y": 102400.0,
+    "rotation_step": np.radians(2.0),
     "rotation_axis": np.array([0., 0., 1.0])
 }
 
@@ -29,6 +29,7 @@ beam, detector, motion = templates.s3dxrd(parameters)
 
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
 sgname = 'P3221'  # Quartz
+path_to_cif_file = None
 def orientation_density_function(x, q): return 1. / (np.pi**2)  # uniform ODF.
 
 
@@ -37,17 +38,10 @@ number_of_crystals = 50
 sample_bounding_cylinder_height = 256 * 180 / 16.
 sample_bounding_cylinder_radius = 256 * 180 / 16.
 maximum_sampling_bin_seperation = np.radians(10.0)
+
 # Linear strain gradient along rotation axis.
-
-
 def strain_tensor(x): return np.array(
     [[0, 0, 0], [0, 0, 0], [0, 0, 0.02 * x[2] / sample_bounding_cylinder_height]])
-
-# Make the beam much smaller than the sample
-# vertices = beam.vertices.copy()
-# vertices[:,1:] = 0.180*vertices[:,1:]/np.max(vertices[:,1:])
-# beam.set_beam_vertices(vertices)
-
 
 polycrystal = templates.polycrystal_from_odf(orientation_density_function,
                                              number_of_crystals,

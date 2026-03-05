@@ -1,5 +1,6 @@
 import unittest
 from scipy.spatial import ConvexHull
+from scipy.spatial.transform import Rotation
 import os
 import torch
 from xrd_simulator.detector import Detector
@@ -209,6 +210,9 @@ class TestDetector(unittest.TestCase):
             / (torch.linalg.norm(scattered_wave_vector) * wavelength)
         )
 
+        zd1,yd1 = tuple(self.detector.get_intersection(scattered_wave_vector,verts1.mean(axis=0)[np.newaxis,:])[0])
+        zd2,yd2 = tuple(self.detector.get_intersection(scattered_wave_vector,verts2.mean(axis=0)[np.newaxis,:])[0])
+        
         data = os.path.join(
             os.path.join(os.path.dirname(__file__), "data"),
             "Fe_mp-150_conventional_standard.cif",

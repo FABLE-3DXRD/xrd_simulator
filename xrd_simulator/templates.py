@@ -421,6 +421,7 @@ def _get_detector_from_params(parameters):
         pixel_size=(p_z, p_y))
 
 
+
 def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
     """Draw orientation matrices from an ODF at spatial locations.
 

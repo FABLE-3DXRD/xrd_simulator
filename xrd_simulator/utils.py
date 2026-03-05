@@ -1,4 +1,32 @@
-"""General internal package utility functions.
+"""
+General internal package utility functions.
+
+This module provides various utility functions used for internal package operations.
+The functions include mathematical computations, geometric transformations, file handling,
+and progress tracking.
+
+Functions:
+    _diffractogram: Compute diffractogram from pixelated diffraction pattern.
+    _contained_by_intervals: Check if a value is contained within specified intervals.
+    _cif_open: Open a CIF file using the ReadCif function from the CifFile module.
+    _print_progress: Print a progress bar in the executing shell terminal.
+    _clip_line_with_convex_polyhedron: Compute lengths of parallel lines clipped by a convex polyhedron.
+    alpha_to_quarternion: Generate a unit quaternion from spherical angle coordinates on the S3 ball.
+    lab_strain_to_B_matrix: Convert strain tensors in lab coordinates to lattice matrices (B matrices).
+    _get_circumscribed_sphere_centroid: Compute the centroid of a circumscribed sphere for a given set of points.
+    _get_bounding_ball: Compute a minimal bounding ball for a set of Euclidean points.
+    _set_xfab_logging: Enable or disable logging for the xfab module.
+    _verbose_manager: Manage global verbose options for logging within with statements.
+    _strain_as_tensor: Convert a strain vector to a strain tensor.
+    _strain_as_vector: Convert a strain tensor to a strain vector.
+    _b_to_epsilon: Compute strain tensor from B matrix for large deformations.
+    _epsilon_to_b: Compute B matrix from strain tensor for large deformations.
+    _get_misorientations: Compute minimal angles required to rotate SO3 elements to their mean orientation.
+    _compute_sides: Compute the lengths of the sides of tetrahedrons.
+    _circumsphere_of_segments: Compute the minimum circumsphere of line segments.
+    _circumsphere_of_triangles: Compute the minimum circumsphere of triangles.
+    _circumsphere_of_tetrahedrons: Compute the circumcenter of tetrahedrons.
+"""
 
 This module provides various utility functions used for internal package
 operations. The functions include mathematical computations, geometric
@@ -217,6 +245,7 @@ def _lab_strain_to_B_matrix(
 
 
 
+
 def _set_xfab_logging(disabled):
     """Disable/Enable all loging of xfab; it is very verbose!"""
     xfab_modules = [
@@ -254,6 +283,7 @@ def _strain_as_vector(strain_tensor):
     return (
         list(strain_tensor[0, :]) + list(strain_tensor[1, 1:]) + [strain_tensor[2, 2]]
     )
+
 
 
 def _epsilon_to_b(crystal_strain, B0):
