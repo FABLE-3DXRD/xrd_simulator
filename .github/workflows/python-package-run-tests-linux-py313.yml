@@ -1,4 +1,4 @@
-name: ubuntu-linux conda-build
+name: ubuntu-linux
 
 on:
   push:
