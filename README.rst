@@ -201,7 +201,7 @@ The resulting rendered detector frame will look something like the below. Note t
 
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/diffraction_pattern.png?raw=true
    :align: center
-   :width: 80%
+   :width: 95%
 
 To compute several frames simply change the motion and collect the diffraction again. The sample may be moved before
 each computation using the same or another motion.
