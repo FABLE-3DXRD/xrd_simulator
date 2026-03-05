@@ -1,278 +1,95 @@
-"""The polycrystal module is used to represent a polycrystalline sample. The :class:`xrd_simulator.polycrystal.Polycrystal`
-object holds the function :func:`xrd_simulator.polycrystal.Polycrystal.diffract` which may be used to compute diffraction.
-To move the sample spatially, the function :func:`xrd_simulator.polycrystal.Polycrystal.transform` can be used.
-Here is a minimal example of how to instantiate a polycrystal object and save it to disc:
+"""Polycrystal module for representing and simulating polycrystalline samples.
 
-    Examples:
-        .. literalinclude:: examples/example_init_polycrystal.py
+This module provides the Polycrystal class which handles:
 
-Below follows a detailed description of the polycrystal class attributes and functions.
-
+- Multi-phase polycrystal representation as a tetrahedral mesh
+- Diffraction computation
+- Spatial transformations
+- Crystal orientations and strains
 """
+from __future__ import annotations
 
+from typing import Dict
 import copy
-from multiprocessing import Pool
 import numpy as np
-from scipy.spatial import ConvexHull
-import pandas as pd
+import numpy.typing as npt
+import torch
+from torch import Tensor
 import dill
 from xfab import tools
-from xrd_simulator.scattering_unit import ScatteringUnit
+
 from xrd_simulator import utils, laue
+from xrd_simulator.scattering_factors import _lorentz, _polarization, _scherrer
+from xrd_simulator.utils import ensure_torch, ensure_numpy, _compute_tetrahedra_volumes
+from xrd_simulator.beam import Beam
+from xrd_simulator.detector import Detector
+from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.mesh import TetraMesh
+from xrd_simulator.phase import Phase
 
-
-def _diffract(dict):
-    """
-    Compute diffraction for a subset of the polycrystal.
-
-    Args:
-        args (dict): A dictionary containing the following keys:
-            - 'beam' (Beam): Object representing the incident X-ray beam.
-            - 'detector' (Detector): Object representing the X-ray detector.
-            - 'rigid_body_motion' (RigidBodyMotion): Object describing the polycrystal's transformation.
-            - 'phases' (list): List of Phase objects representing the phases present in the polycrystal.
-            - 'espherecentroids' (numpy.ndarray): Array containing the centroids of the scattering elements.
-            - 'eradius' (numpy.ndarray): Array containing the radii of the scattering elements.
-            - 'orientation_lab' (numpy.ndarray): Array containing orientation matrices in laboratory coordinates.
-            - 'eB' (numpy.ndarray): Array containing per-element 3x3 B matrices mapping hkl values to crystal coordinates.
-            - 'element_phase_map' (numpy.ndarray): Array mapping elements to phases.
-            - 'ecoord' (numpy.ndarray): Array containing coordinates of the scattering elements.
-            - 'verbose' (bool): Flag indicating whether to print progress.
-            - 'proximity' (bool): Flag indicating whether to remove grains unlikely to be hit by the beam.
-            - 'BB_intersection' (bool): Flag indicating whether to use Bounding-Box intersection for speed.
-
-    Returns:
-        list: A list of ScatteringUnit objects representing diffraction events.
-    """
-
-    beam = dict["beam"]
-    detector = dict["detector"]
-    rigid_body_motion = dict["rigid_body_motion"]
-    phases = dict["phases"]
-    espherecentroids = dict["espherecentroids"]
-    eradius = dict["eradius"]
-    orientation_lab = dict["orientation_lab"]
-    eB = dict["eB"]
-    element_phase_map = dict["element_phase_map"]
-    ecoord = dict["ecoord"]
-    verbose = dict[
-        "verbose"
-    ]  # should be deprecated or repurposed since computation now takes place phase by phase not by individual scatterer
-    proximity = dict["proximity"]
-    BB_intersection = dict["BB_intersection"]
-    number_of_elements = ecoord.shape[0]
-
-    rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
-    rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
-    rho_2_factor = np.float32(
-        beam.wave_vector.dot(np.eye(3, 3) + rigid_body_motion.rotator.K2)
-    )
-
-    if proximity:
-        # Grains with no chance to be hit by the beam are removed beforehand, if proximity is toggled as True
-        proximity_intervals = beam._get_proximity_intervals(
-            espherecentroids, eradius, rigid_body_motion
-        )
-        possible_scatterers_mask = np.array(
-            [pi[0] is not None for pi in proximity_intervals]
-        )
-        espherecentroids = np.float32(espherecentroids[possible_scatterers_mask])
-        eradius = np.float32(eradius[possible_scatterers_mask])
-
-        orientation_lab = np.float32(orientation_lab[possible_scatterers_mask])
-        eB = np.float32(eB[possible_scatterers_mask])
-        element_phase_map = element_phase_map[possible_scatterers_mask]
-        ecoord = np.float32(ecoord[possible_scatterers_mask])
-
-    reflections_df = (
-        pd.DataFrame()
-    )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
-    scattering_units = []  # The output
-
-    # For each phase of the sample, we compute all reflections at once in a vectorized manner
-    for i, phase in enumerate(phases):
-        # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
-        grain_index = np.where(element_phase_map == i)[0]
-        miller_indices = np.float32(phase.miller_indices)
-        # Get all scattering vectors for all scatterers in a given phase
-        G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
-        # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
-        reflection_index, time_values = (
-            laue.find_solutions_to_tangens_half_angle_equation(
-                G_0,
-                rho_0_factor,
-                rho_1_factor,
-                rho_2_factor,
-                rigid_body_motion.rotation_angle,
-            )
-        )
-        G_0_reflected = G_0.transpose(0, 2, 1)[
-            reflection_index[0, :], reflection_index[1, :]
-        ]
-
-        del G_0
-        # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
-
-        table = pd.DataFrame(
-            {
-                "Grain": grain_index[reflection_index[0]],
-                "phase": i,
-                "hkl": reflection_index[1],
-                "time": time_values,
-                "G_0x": G_0_reflected[:, 0],
-                "G_0y": G_0_reflected[:, 1],
-                "G_0z": G_0_reflected[:, 2],
-            }
-        )
-
-        del G_0_reflected, reflection_index, time_values
-        reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(
-            by="Grain"
-        )
-
-    reflections_df = reflections_df[
-        (0 < reflections_df["time"]) & (reflections_df["time"] < 1)
-    ]  # We filter out the times which exceed 0 or 1
-    reflections_df[["Gx", "Gy", "Gz"]] = rigid_body_motion.rotate(
-        reflections_df[["G_0x", "G_0y", "G_0z"]].values, reflections_df["time"].values
-    )
-    reflections_df[["k'x", "k'y", "k'z"]] = (
-        reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector
-    )
-    reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(
-        espherecentroids[reflections_df["Grain"]], reflections_df["time"].values
-    )
-    reflections_df[["zd", "yd"]] = detector.get_intersection(
-        reflections_df[["k'x", "k'y", "k'z"]].values,
-        reflections_df[["Source_x", "Source_y", "Source_z"]].values,
-    )
-    reflections_df = reflections_df[
-        detector.contains(reflections_df["zd"], reflections_df["yd"])
-    ]
-
-    element_vertices_0 = ecoord[reflections_df["Grain"]]
-    element_vertices = rigid_body_motion(
-        element_vertices_0, reflections_df["time"].values
-    )
-
-    reflections_np = (
-        reflections_df.values
-    )  # We move from pandas to numpy for enhanced speed
-    scattering_units = []
-
-    if BB_intersection:
-        # A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed),
-        # simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism.
-
-        reflections_np = reflections_np[
-            reflections_np[:, 14] < (beam.vertices[:, 1].max())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 14] > (beam.vertices[:, 1].min())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 15] < (beam.vertices[:, 2].max())
-        ]  #
-        reflections_np = reflections_np[
-            reflections_np[:, 15] > (beam.vertices[:, 2].min())
-        ]  #
-
-        for ei in range(reflections_np.shape[0]):
-            scattering_unit = ScatteringUnit(
-                ConvexHull(element_vertices[ei]),
-                reflections_np[ei, 10:13],  # outgoing wavevector
-                beam.wave_vector,
-                beam.wavelength,
-                beam.polarization_vector,
-                rigid_body_motion.rotation_axis,
-                reflections_np[ei, 3],  # time
-                phases[reflections_np[ei, 1].astype(int)],  # phase
-                reflections_np[ei, 2].astype(int),  # hkl index
-                ei,
-                zd=reflections_np[
-                    ei, 16
-                ],  # zd saved to avoid recomputing during redering
-                yd=reflections_np[ei, 17],
-            )  # yd saved to avoid recomputing during redering)
-
-            scattering_units.append(scattering_unit)
-
-    else:
-        """Otherwise, compute the true intersection of each tet with the beam to get the true scattering volume."""
-        for ei in range(element_vertices.shape[0]):
-            scattering_region = beam.intersect(element_vertices[ei])
-
-            if scattering_region is not None:
-                scattering_unit = ScatteringUnit(
-                    scattering_region,
-                    reflections_np[ei, 10:13],  # outgoing wavevector
-                    beam.wave_vector,
-                    beam.wavelength,
-                    beam.polarization_vector,
-                    rigid_body_motion.rotation_axis,
-                    reflections_np[ei, 3],  # time
-                    phases[reflections_np[ei, 1].astype(int)],  # phase
-                    reflections_np[ei, 2].astype(int),  # hkl index
-                    ei,
-                    zd=reflections_np[
-                        ei, 16
-                    ],  # zd saved to avoid recomputing during redering
-                    yd=reflections_np[
-                        ei, 17
-                    ],  # yd saved to avoid recomputing during redering
-                )
-
-                scattering_units.append(scattering_unit)
-
-    return scattering_units
+torch.set_default_dtype(torch.float64)
 
 
 class Polycrystal:
-    """Represents a multi-phase polycrystal as a tetrahedral mesh where each element can be a single crystal
+    """A multi-phase polycrystal represented as a tetrahedral mesh.
 
-    The polycrystal is created in laboratory coordinates. At instantiation it is assumed that the sample and
-    lab coordinate systems are aligned.
+    Each element in the mesh can be a single crystal. The polycrystal is created
+    in laboratory coordinates with sample and lab coordinate systems initially
+    aligned.
 
-    Args:
-        mesh (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample. (At instantiation it is assumed that the sample and lab coordinate systems
-            are aligned.)
-        orientation (:obj:`numpy array`): Per element orientation matrices (sometimes known by the capital letter U),
-            (``shape=(N,3,3)``) or (``shape=(3,3)``) if the orientation is the same for all elements. The orientation
-            matrix maps from crystal coordinates to sample coordinates.
-        strain (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor, in lab coordinates, (``shape=(N,3,3)``)
-            or (``shape=(3,3)``) if the strain is the same for all elements elements.
-        phases (:obj:`xrd_simulator.phase.Phase` or :obj:`list` of :obj:`xrd_simulator.phase.Phase`): Phase of the
-            polycrystal, or for multiphase samples, a list of all phases present in the polycrystal.
-        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
-            gives the xrd_simulator.phase.Phase object of element number i. None if the sample is composed of a single phase.
-            (Defaults to None)
+    Parameters
+    ----------
+    mesh : TetraMesh
+        Tetrahedral mesh defining sample geometry.
+    orientation : numpy.ndarray or torch.Tensor
+        Per-element orientation matrices (U) with shape ``(N, 3, 3)`` or
+        ``(3, 3)`` if same for all elements.
+    strain : numpy.ndarray or torch.Tensor
+        Per-element Green-Lagrange strain tensor with shape ``(N, 3, 3)`` or
+        ``(3, 3)`` if same for all elements.
+    phases : Phase or list of Phase
+        Single phase or list of phases present.
+    element_phase_map : numpy.ndarray or torch.Tensor, optional
+        Indices mapping elements to phases. Required for multi-phase samples.
+        Default is ``None``.
 
-    Attributes:
-        mesh_lab (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a fixed lab frame coordinate system. This quantity is updated when the sample transforms.
-        mesh_sample (:obj:`xrd_simulator.mesh.TetraMesh`): Object representing a tetrahedral mesh which defines the
-            geometry of the sample in a sample metadata={'angle':angle,
-                               'angles':n_angles,
-                               'steps':n_scans,
-                               'beam':beam_file,
-                               'sample':polycrystal_file,
-                               'detector':detector_file},coordinate system. This quantity is not updated when the sample transforms.
-        orientation_lab (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the lab coordinate
-            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
-        orientation_sample (:obj:`numpy array`): Per element orientation matrices mapping from the crystal to the sample
-            coordinate system.,  this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_lab (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a fixed lab frame coordinate
-            system, this quantity is updated when the sample transforms. (``shape=(N,3,3)``).
-        strain_sample (:obj:`numpy array`): Per element (Green-Lagrange) strain tensor in a sample coordinate
-            system., this quantity is not updated when the sample transforms. (``shape=(N,3,3)``).
-        phases (:obj:`list` of :obj:`xrd_simulator.phase.Phase`): List of all unique phases present in the polycrystal.
-        element_phase_map (:obj:`numpy array`): Index of phase that elements belong to such that phases[element_phase_map[i]]
-            gives the xrd_simulator.phase.Phase object of element number i.
-
+    Attributes
+    ----------
+    mesh_lab : TetraMesh
+        Mesh in lab coordinates (updated during transforms).
+    mesh_sample : TetraMesh
+        Mesh in sample coordinates (fixed).
+    orientation_lab : torch.Tensor
+        Crystal-to-lab orientation matrices.
+    orientation_sample : torch.Tensor
+        Crystal-to-sample orientation matrices.
+    strain_lab : torch.Tensor
+        Strain tensors in lab coordinates.
+    strain_sample : torch.Tensor
+        Strain tensors in sample coordinates.
+    phases : list of Phase
+        List of unique phases.
+    element_phase_map : torch.Tensor
+        Phase index per element.
     """
 
-    def __init__(self, mesh, orientation, strain, phases, element_phase_map=None):
+    def __init__(
+        self,
+        mesh: TetraMesh,
+        orientation: npt.NDArray | Tensor,
+        strain: npt.NDArray | Tensor,
+        phases: Phase | list[Phase],
+        element_phase_map: npt.NDArray | Tensor | None = None,
+    ) -> None:
+        mesh = self._move_mesh_to_torch(mesh)
+        orientation = ensure_torch(orientation)
+        strain = ensure_torch(strain)
+
+        # Compute and store mesh volumes during initialization
+        element_vertices = mesh.coord[mesh.enod]
+        self.mesh_volumes = utils._compute_tetrahedra_volumes(
+            ensure_torch(element_vertices)
+        )
 
         self.orientation_lab = self._instantiate_orientation(orientation, mesh)
         self.strain_lab = self._instantiate_strain(strain, mesh)
@@ -290,166 +107,349 @@ class Polycrystal:
         # Assuming sample and lab frames to be aligned at instantiation.
         self.mesh_lab = copy.deepcopy(mesh)
         self.mesh_sample = copy.deepcopy(mesh)
-        self.strain_sample = np.copy(self.strain_lab)
-        self.orientation_sample = np.copy(self.orientation_lab)
+        self.strain_sample = self.strain_lab.clone()
+        self.orientation_sample = self.orientation_lab.clone()
 
     def diffract(
         self,
-        beam,
-        detector,
-        rigid_body_motion,
-        min_bragg_angle=0,
-        max_bragg_angle=None,
-        verbose=False,
-        number_of_processes=1,
-        number_of_frames=1,
-        proximity=False,
-        BB_intersection=False,
-    ):
-        """Compute diffraction from the rotating and translating polycrystal while illuminated by an xray beam.
+        beam: Beam,
+        rigid_body_motion: RigidBodyMotion,
+        min_bragg_angle: float = 0,
+        max_bragg_angle: float = 90 * np.pi / 180,
+        detector: Detector | None = None,
+        verbose: bool = True,
+    ) -> Dict[str, Tensor | list]:
+        """Compute diffraction from the rotating and translating polycrystal.
 
-        The xray beam interacts with the polycrystal producing scattering units which are stored in a detector frame.
-        The scattering units may be rendered as pixelated patterns on the detector by using a detector rendering
-        option.
+        Simulates diffraction while the sample is illuminated by an X-ray beam.
+        Returns peaks that can be rendered on a detector.
 
-        Args:
-            beam (:obj:`xrd_simulator.beam.Beam`): Object representing a monochromatic beam of xrays.
-            detector (:obj:`xrd_simulator.detector.Detector`): Object representing a flat rectangular detector.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain (time=[0,1]) over which diffraction is to be
-                computed.
-            min_bragg_angle (:obj:`float`): Minimum Bragg angle (radians) below which to not compute diffraction.
-                Defaults to 0.
-            max_bragg_angle (:obj:`float`): Maximum Bragg angle (radians) after which to not compute diffraction. By default
-                the max_bragg_angle is approximated by wrapping the detector corners in a cone with apex at the sample-beam
-                intersection centroid for time=0 in the rigid_body_motion.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
-                computation. Defaults to 1, i.e a single processes.
-            number_of_frames (:obj:`int`): Optional keyword specifying the number of desired temporally equidistantly spaced frames
-                to be collected. Defaults to 1, which means that the detector reads diffraction during the full rigid body
-                motion and integrates out the signal to a single frame. The number_of_frames keyword primarily allows for single
-                rotation axis full 180 dgrs or 360 dgrs sample rotation data sets to be computed rapidly and convinently.
-            proximity (:obj:`bool`): Set to False if all or most grains from the sample are expected to diffract.
-                For instance, if the diffraction scan illuminates all grains from the sample at least once at a give angle/position.
-            BB_intersection (:obj:`bool`): Set to True in order to assume the beam as a square prism, the scattering volume for the tetrahedra
-                to be the whole tetrahedron and the scattering tetrahedra to be all those whose centroids are included in the square prism.
-                Greatly speeds up computation, valid approximation for powder-like samples.
+        Parameters
+        ----------
+        beam : Beam
+            Monochromatic X-ray beam.
+        rigid_body_motion : RigidBodyMotion
+            Sample transformation over time domain ``[0, 1]``.
+        min_bragg_angle : float, optional
+            Minimum Bragg angle in radians. Default is 0.
+        max_bragg_angle : float, optional
+            Maximum Bragg angle in radians. Default is ``90 * pi / 180``.
+        detector : Detector, optional
+            Optional detector for automatic Bragg angle bounds.
+        verbose : bool, optional
+            If ``True``, print progress messages during diffraction.
+            Default is ``True``.
 
+        Returns
+        -------
+        dict
+            Dictionary containing:
+
+            - ``'peaks'``: Tensor of diffraction peaks
+            - ``'columns'``: Column names for peaks tensor
+            - ``'mesh_lab'``: Mesh for computing convex hulls (if needed)
+            - ``'rigid_body_motion'``: Motion object (if needed)
+            - ``'beam'``: Beam object (if needed)
         """
-        if verbose and number_of_processes != 1:
-            raise NotImplemented(
-                "Verbose mode is not implemented for multiprocesses computations"
-            )
 
-        min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
-            detector, beam, min_bragg_angle, max_bragg_angle
-        )
+        if detector is not None:
+            min_bragg_angle, max_bragg_angle = self._get_bragg_angle_bounds(
+                detector, beam, min_bragg_angle, max_bragg_angle
+            )
 
         for phase in self.phases:
-            with utils._verbose_manager(verbose):
-                phase.setup_diffracting_planes(
-                    beam.wavelength, min_bragg_angle, max_bragg_angle
+            phase._setup_diffracting_planes(
+                beam.wavelength, min_bragg_angle, max_bragg_angle
+            )
+
+        peaks = self._compute_peaks(beam, rigid_body_motion, verbose=verbose)
+
+        # Filter peaks by beam illumination using source positions
+        source_points = peaks[:, 16:19].T  # Get source points (x,y,z) and transpose for contains method
+        illuminated_peaks = beam._contains(source_points)
+        peaks = peaks[illuminated_peaks]
+
+        # Add peak indices as a unique identifier for each peak
+        peak_indices = torch.arange(len(peaks), device=peaks.device).unsqueeze(1)
+        peaks = torch.cat([peaks, peak_indices], dim=1)  # Add peak_index column (now column 24)
+
+        """
+            Column names of peaks are
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        21: 'volumes'
+            2: 'h'                  12: 'Gz'        22: '2theta'
+            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
+            4: 'l'                  14: 'K_out_y'   24: 'peak_index'
+            5: 'structure_factors'  15: 'K_out_z'
+            6: 'diffraction_times'  16: 'Source_x'
+            7: 'G0_x'               17: 'Source_y'      
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'lorentz_factors'           
+        """
+
+        column_names = [
+            "grain_index",
+            "phase_number", 
+            "h",
+            "k",
+            "l",
+            "structure_factors",
+            "diffraction_times",
+            "G0_x",
+            "G0_y",
+            "G0_z",
+            "Gx",
+            "Gy", 
+            "Gz",
+            "K_out_x",
+            "K_out_y",
+            "K_out_z",
+            "Source_x",
+            "Source_y",
+            "Source_z",
+            "lorentz_factors",
+            "polarization_factors",
+            "volumes",
+            "2theta",
+            "scherrer_fwhm",
+            "peak_index"  # Unique identifier for each diffraction peak
+        ]
+
+        # Wrap the peaks columns into a dict to preserve information
+        peaks_dict = {
+            "peaks": peaks,
+            "columns": column_names,
+            "incident_vector": beam.wave_vector,
+            "wavelength": beam.wavelength,
+            "rotation_axis": rigid_body_motion.rotation_axis,
+            # Store mesh and motion data for on-demand hull computation
+            "mesh_lab": self.mesh_lab,
+            "rigid_body_motion": rigid_body_motion,
+            "beam": beam,
+            "verbose": verbose,
+        }
+
+        return peaks_dict
+
+    def _compute_peaks(self, beam, rigid_body_motion, verbose=True):
+        """Compute diffraction for the polycrystal.
+
+        Parameters
+        ----------
+        beam : Beam
+            Object representing the incident X-ray beam.
+        rigid_body_motion : RigidBodyMotion
+            Object describing the polycrystal's transformation.
+        verbose : bool, optional
+            If ``True``, print progress messages. Default is ``True``.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor containing diffraction peak data with columns:
+
+            - 0: ``'grain_index'``
+            - 1: ``'phase_number'``
+            - 2-4: ``'h'``, ``'k'``, ``'l'``
+            - 5: ``'structure_factors'``
+            - 6: ``'diffraction_times'``
+            - 7-9: ``'G0_x'``, ``'G0_y'``, ``'G0_z'``
+            - 10-12: ``'Gx'``, ``'Gy'``, ``'Gz'``
+            - 13-15: ``'K_out_x'``, ``'K_out_y'``, ``'K_out_z'``
+            - 16-18: ``'Source_x'``, ``'Source_y'``, ``'Source_z'``
+            - 19: ``'lorentz_factors'``
+            - 20: ``'polarization_factors'``
+            - 21: ``'volumes'``
+            - 22: ``'2theta'``
+            - 23: ``'scherrer_fwhm'``
+        """
+
+        beam = beam
+        rigid_body_motion = rigid_body_motion
+        phases = self.phases
+        espherecentroids = self.mesh_lab.espherecentroids
+        orientation_lab = self.orientation_lab
+        eB = self._eB
+        element_phase_map = self.element_phase_map
+
+        rho_0_factor = torch.matmul(-beam.wave_vector, rigid_body_motion.rotator.K2)
+        rho_1_factor = torch.matmul(beam.wave_vector, rigid_body_motion.rotator.K)
+        rho_2_factor = torch.matmul(
+            beam.wave_vector, (torch.eye(3, 3) + rigid_body_motion.rotator.K2)
+        )
+
+        peaks = torch.empty(
+            (0, 10)
+        )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+
+        # For each phase of the sample, we compute all reflections at once in a vectorized manner
+        for i, phase in enumerate(phases):
+
+            # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
+            grain_indices = torch.where(element_phase_map == i)[0]
+            miller_indices = ensure_torch(phase.miller_indices)
+            # # Retrieve the structure factors of the miller indices for this phase, exclude the miller incides with zero structure factor
+            if phase.structure_factors is not None:
+                structure_factors = torch.sum(
+                    ensure_torch(phase.structure_factors) ** 2, axis=1
                 )
+                miller_indices = miller_indices[structure_factors > 1e-6]
+                structure_factors = structure_factors[structure_factors > 1e-6]
+            else:
+                # If no structure factors provided, use uniform intensity (all ones)
+                structure_factors = torch.ones(miller_indices.shape[0])
 
-        espherecentroids = np.array_split(
-            self.mesh_lab.espherecentroids, number_of_processes, axis=0
-        )
-        eradius = np.array_split(self.mesh_lab.eradius, number_of_processes, axis=0)
-        orientation_lab = np.array_split(
-            self.orientation_lab, number_of_processes, axis=0
-        )
-        eB = np.array_split(self._eB, number_of_processes, axis=0)
-        element_phase_map = np.array_split(
-            self.element_phase_map, number_of_processes, axis=0
-        )
-        enod = np.array_split(self.mesh_lab.enod, number_of_processes, axis=0)
-
-        args = []
-        for i in range(number_of_processes):
-            ecoord = np.zeros((enod[i].shape[0], 4, 3))
-            for k, en in enumerate(enod[i]):
-                ecoord[k, :, :] = self.mesh_lab.coord[en]
-            args.append(
-                {
-                    "beam": beam,
-                    "detector": detector,
-                    "rigid_body_motion": rigid_body_motion,
-                    "phases": self.phases,
-                    "espherecentroids": espherecentroids[i],
-                    "eradius": eradius[i],
-                    "orientation_lab": orientation_lab[i],
-                    "eB": eB[i],
-                    "element_phase_map": element_phase_map[i],
-                    "ecoord": ecoord,
-                    "verbose": verbose,
-                    "proximity": proximity,
-                    "BB_intersection": BB_intersection,
-                }
+            # Get all scattering vectors for all scatterers in a given phase
+            G_0 = laue._get_G(
+                orientation_lab[grain_indices], eB[grain_indices], miller_indices
+            )
+            # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
+            grains, planes, times, G0_xyz = (
+                laue._find_solutions_to_tangens_half_angle_equation(
+                    G_0,
+                    rho_0_factor,
+                    rho_1_factor,
+                    rho_2_factor,
+                    rigid_body_motion.rotation_angle,
+                )
             )
 
-        if number_of_processes == 1:
-            all_scattering_units = _diffract(args[0])
-
-        else:
-            with Pool(number_of_processes) as p:
-                scattering_units = p.map(_diffract, args)
-            all_scattering_units = []
-            for su in scattering_units:
-                all_scattering_units.extend(su)
-
-        if number_of_frames == 1:
-            detector.frames.append(all_scattering_units)
-        else:
-            # TODO: unit test
-            all_scattering_units.sort(
-                key=lambda scattering_unit: scattering_unit.time, reverse=True
+            # We now assemble the tensors with the valid reflections for each grain and phase including time, hkl plane and G vector
+            # Column names of peaks are:
+            # 0: grain_index        10: Gx          20: polarization_factors
+            # 1: phase_number       11: Gy          21: volumes
+            # 2: h                  12: Gz          22: 2theta
+            # 3: k                  13: K_out_x     23: scherrer_fwhm
+            # 4: l                  14: K_out_y     24: large_grain
+            # 5: structure_factors  15: K_out_z
+            # 6: diffraction_times  16: Source_x
+            # 7: G0_x              17: Source_y
+            # 8: G0_y              18: Source_z
+            # 9: G0_z              19: lorentz_factors
+            del G_0
+            structure_factors = structure_factors[planes].unsqueeze(1)
+            grain_indices = grain_indices[grains].unsqueeze(1)
+            miller_indices = miller_indices[planes]
+            phase_index = torch.full((G0_xyz.shape[0],), i).unsqueeze(1)
+            times = times.unsqueeze(1)
+            peaks_ith_phase = torch.cat(
+                (
+                    grain_indices,
+                    phase_index,
+                    miller_indices,
+                    structure_factors,
+                    times,
+                    G0_xyz,
+                ),
+                dim=1,
             )
-            dt = 1.0 / number_of_frames
-            start_time_of_current_frame = 0
-            while start_time_of_current_frame <= 1 - 1e-8:
-                frame = []
-                while (
-                    len(all_scattering_units) > 0
-                    and all_scattering_units[-1].time < start_time_of_current_frame + dt
-                ):
-                    frame.append(all_scattering_units.pop())
-                start_time_of_current_frame += dt
-                detector.frames.append(frame)
-            assert len(all_scattering_units) == 0
+            peaks = torch.cat([peaks, peaks_ith_phase], axis=0)
+
+        # Rotated G-vectors
+        Gxyz = rigid_body_motion.rotate(peaks[:, 7:10], peaks[:, 6])
+
+        # Outgoing scattering vectors
+        K_out_xyz = Gxyz + beam.wave_vector
+
+        # Lorentz factor
+        lorentz_factors = _lorentz(
+            beam.wave_vector, K_out_xyz, rigid_body_motion.rotation_axis
+        )
+        # Polarization factor
+        polarization_factors = _polarization(K_out_xyz, beam.polarization_vector)
+
+        Sources_xyz = rigid_body_motion(
+            espherecentroids[peaks[:, 0].int()], peaks[:, 6]
+        )
+        # tetrahedra volumes
+        volumes = self.mesh_volumes[peaks[:, 0].int()]
+
+        # Calculate 2theta (scattering angle)
+        k_in = beam.wave_vector / torch.linalg.norm(beam.wave_vector)
+        k_out = K_out_xyz / torch.linalg.norm(K_out_xyz, dim=1, keepdim=True)
+        two_theta = torch.arccos(torch.sum(k_in * k_out, dim=1))
+        scherrer_fwhm = _scherrer(volumes, two_theta, beam.wavelength)
+
+        peaks = torch.cat(
+            (
+                peaks,
+                Gxyz,
+                K_out_xyz,
+                Sources_xyz,
+                lorentz_factors.unsqueeze(1),
+                polarization_factors.unsqueeze(1),
+                volumes.unsqueeze(1),
+                two_theta.unsqueeze(1),
+                scherrer_fwhm.unsqueeze(1),
+            ),
+            dim=1,
+        )
+
+        """
+            Column names of peaks are
+            0: 'grain_index'        10: 'Gx'        20: 'polarization_factors'
+            1: 'phase_number'       11: 'Gy'        21: 'volumes'
+            2: 'h'                  12: 'Gz'        22: '2theta'
+            3: 'k'                  13: 'K_out_x'   23: 'scherrer_fwhm'
+            4: 'l'                  14: 'K_out_y'   
+            5: 'structure_factors'  15: 'K_out_z'
+            6: 'diffraction_times'  16: 'Source_x'
+            7: 'G0_x'               17: 'Source_y'      
+            8: 'G0_y'               18: 'Source_z'
+            9: 'G0_z'               19: 'lorentz_factors'           
+        """
+
+        return peaks
 
     def transform(self, rigid_body_motion, time):
-        """Transform the polycrystal by performing a rigid body motion (translation + rotation)
+        """Transform the polycrystal by performing a rigid body motion.
 
-                This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
-                such as face normals etc. Likewise, it will update the per element crystal orientation
-                matrices (U) as well as the lab frame description of strain tensors.
-        tt`): Time between [0,1] at which to call the rigid body motion.
+        This function updates the polycrystal mesh (update in lab frame) with
+        any dependent quantities such as face normals. Likewise, it updates the
+        per-element crystal orientation matrices (U) as well as the lab frame
+        description of strain tensors.
 
+        Parameters
+        ----------
+        rigid_body_motion : RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
+        time : float
+            Time between ``[0, 1]`` at which to call the rigid body motion.
         """
         self.mesh_lab.update(rigid_body_motion, time)
 
         Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
             rigid_body_motion.rotation_angle * time
         )
+        
+        # Ensure Rot_mat has batch dimension for proper broadcasting
+        if Rot_mat.ndim == 2:
+            Rot_mat = Rot_mat.unsqueeze(0)  # (3, 3) -> (1, 3, 3)
+        
+        self.orientation_lab = torch.matmul(Rot_mat, self.orientation_lab)
+        self.strain_lab = torch.matmul(
+            torch.matmul(Rot_mat, self.strain_lab), Rot_mat.transpose(2, 1)
+        )
 
-        self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+    def save(self, path: str, save_mesh_as_xdmf: bool = True) -> None:
+        """Save polycrystal to disc via pickling.
 
-        self.strain_lab = np.matmul(np.matmul(Rot_mat, self.strain_lab), Rot_mat.T)
-
-    def save(self, path, save_mesh_as_xdmf=True):
-        """Save polycrystal to disc (via pickling).
-
-        Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
-            save_mesh_as_xdmf (:obj:`bool`): If true, saves the polycrystal mesh with associated
-                strains and crystal orientations as a .xdmf for visualization (sample coordinates).
-                The results can be vizualised with for instance paraview (https://www.paraview.org/).
-                The resulting data fields of the mesh data are the 6 unique components of the strain
-                tensor (in sample coordinates) and the 3 Bunge Euler angles (Bunge, H. J. (1982). Texture
-                Analysis in Materials Science. London: Butterworths.). Additionally a single field specifying
-                the material phases of the sample will be saved.
-
+        Parameters
+        ----------
+        path : str
+            File path at which to save, ending with the desired filename.
+            The ``.pc`` extension is added if not present.
+        save_mesh_as_xdmf : bool, optional
+            If ``True``, saves the polycrystal mesh with associated strains and
+            crystal orientations as a ``.xdmf`` for visualization (sample
+            coordinates). The results can be visualized with for instance
+            ParaView (https://www.paraview.org/). The resulting data fields
+            are the 6 unique components of the strain tensor (in sample
+            coordinates) and the 3 Bunge Euler angles (Bunge, H. J. (1982).
+            Texture Analysis in Materials Science. London: Butterworths.).
+            Additionally, a single field specifying the material phases of the
+            sample will be saved. Default is ``True``.
         """
         if not path.endswith(".pc"):
             pickle_path = path + ".pc"
@@ -475,7 +475,9 @@ class Polycrystal:
             misorientations = utils._get_misorientations(self.orientation_sample)
 
             for U, misorientation in zip(self.orientation_sample, misorientations):
-                phi_1, PHI, phi_2 = tools.u_to_euler(U)
+                # Convert tensor to numpy for xfab tools
+                U_np = ensure_numpy(U)
+                phi_1, PHI, phi_2 = tools.u_to_euler(U_np)
                 element_data["Bunge Euler Angle phi_1 [degrees]"].append(
                     np.degrees(phi_1)
                 )
@@ -492,93 +494,229 @@ class Polycrystal:
             self.mesh_sample.save(xdmf_path, element_data=element_data)
 
     @classmethod
-    def load(cls, path):
-        """Load polycrystal from disc (via pickling).
+    def load(cls, path: str) -> "Polycrystal":
+        """Load polycrystal from disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+        Parameters
+        ----------
+        path : str
+            File path at which to load, ending with the desired filename.
 
-        .. warning::
-            This function will unpickle data from the provied path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Returns
+        -------
+        Polycrystal
+            Loaded polycrystal object.
 
+        Raises
+        ------
+        ValueError
+            If the file does not end with ``.pc``.
+
+        Warnings
+        --------
+        This function will unpickle data from the provided path. The pickle
+        module is not intended to be secure against erroneous or maliciously
+        constructed data. Never unpickle data received from an untrusted or
+        unauthenticated source.
         """
         if not path.endswith(".pc"):
             raise ValueError("The loaded polycrystal file must end with .pc")
         with open(path, "rb") as f:
-            return dill.load(f)
+            loaded = dill.load(f)
+            loaded.orientation_lab = ensure_torch(
+                loaded.orientation_lab, dtype=torch.float64
+            )
+            loaded.strain_lab = ensure_torch(loaded.strain_lab)
+            loaded.element_phase_map = ensure_torch(
+                loaded.element_phase_map, dtype=torch.float64
+            )
+            loaded._eB = ensure_torch(loaded._eB)
+            loaded.mesh_lab = cls._move_mesh_to_torch(loaded.mesh_lab)
+            loaded.mesh_sample = cls._move_mesh_to_torch(loaded.mesh_sample)
+            loaded.strain_sample = ensure_torch(
+                loaded.strain_sample, dtype=torch.float64
+            )
+            loaded.orientation_sample = ensure_torch(
+                loaded.orientation_sample, dtype=torch.float64
+            )
+            return loaded
 
-    def _instantiate_orientation(self, orientation, mesh):
-        """Instantiate the orientations using for smart multi shape handling."""
+    def _instantiate_orientation(
+        self, orientation: npt.NDArray | Tensor, mesh: TetraMesh
+    ) -> Tensor:
+        """Instantiate orientations with smart multi-shape handling.
+
+        Parameters
+        ----------
+        orientation : numpy.ndarray or torch.Tensor
+            Orientation matrices, shape ``(3, 3)`` or ``(N, 3, 3)``.
+        mesh : TetraMesh
+            Mesh defining the polycrystal geometry.
+
+        Returns
+        -------
+        torch.Tensor
+            Orientation matrices for all elements, shape ``(N, 3, 3)``.
+        """
         if orientation.shape == (3, 3):
-            orientation_lab = np.repeat(
-                orientation.reshape(1, 3, 3), mesh.number_of_elements, axis=0
+            orientation_lab = torch.repeat_interleave(
+                ensure_torch(orientation).unsqueeze(0),
+                mesh.number_of_elements,
+                dim=0,
             )
         elif orientation.shape == (mesh.number_of_elements, 3, 3):
-            orientation_lab = np.copy(orientation)
+            orientation_lab = ensure_torch(orientation)
         else:
             raise ValueError("orientation input is of incompatible shape")
         return orientation_lab
 
-    def _instantiate_strain(self, strain, mesh):
-        """Instantiate the strain using for smart multi shape handling."""
+    def _instantiate_strain(
+        self, strain: npt.NDArray | Tensor, mesh: TetraMesh
+    ) -> Tensor:
+        """Instantiate strain with smart multi-shape handling.
+
+        Parameters
+        ----------
+        strain : numpy.ndarray or torch.Tensor
+            Strain tensors, shape ``(3, 3)`` or ``(N, 3, 3)``.
+        mesh : TetraMesh
+            Mesh defining the polycrystal geometry.
+
+        Returns
+        -------
+        torch.Tensor
+            Strain tensors for all elements, shape ``(N, 3, 3)``.
+        """
+        strain = ensure_torch(strain)
         if strain.shape == (3, 3):
-            strain_lab = np.repeat(
-                strain.reshape(1, 3, 3), mesh.number_of_elements, axis=0
-            )
+            strain_lab = strain.unsqueeze(0).repeat(mesh.number_of_elements, 1, 1)
         elif strain.shape == (mesh.number_of_elements, 3, 3):
-            strain_lab = np.copy(strain)
+            strain_lab = strain  # Fixed: was np.copy(strain) which returned numpy array
         else:
             raise ValueError("strain input is of incompatible shape")
         return strain_lab
 
-    def _instantiate_phase(self, phases, element_phase_map, mesh):
-        """Instantiate the phases using for smart multi shape handling."""
+    def _instantiate_phase(
+        self,
+        phases: Phase | list[Phase],
+        element_phase_map: npt.NDArray | Tensor | None,
+        mesh: TetraMesh,
+    ) -> tuple[Tensor, list[Phase]]:
+        """Instantiate phases with smart multi-shape handling.
+
+        Parameters
+        ----------
+        phases : Phase or list of Phase
+            Single phase or list of phases.
+        element_phase_map : numpy.ndarray, torch.Tensor, or None
+            Indices mapping elements to phases.
+        mesh : TetraMesh
+            Mesh defining the polycrystal geometry.
+
+        Returns
+        -------
+        tuple
+            ``(element_phase_map, phases)`` where ``element_phase_map`` is a
+            tensor and ``phases`` is a list.
+        """
         if not isinstance(phases, list):
             phases = [phases]
         if element_phase_map is None:
             if len(phases) > 1:
                 raise ValueError("element_phase_map not set for multiphase polycrystal")
             element_phase_map = np.zeros((mesh.number_of_elements,), dtype=int)
+        else:
+            element_phase_map = ensure_torch(element_phase_map)
         return element_phase_map, phases
 
     def _instantiate_eB(
-        self, orientation_lab, strain_lab, phases, element_phase_map, mesh
-    ):
-        """Compute per element 3x3 B matrices that map hkl (Miller) values to crystal coordinates.
+        self,
+        orientation_lab: Tensor,
+        strain_lab: Tensor,
+        phases: list[Phase],
+        element_phase_map: Tensor,
+        mesh: TetraMesh,
+    ) -> Tensor:
+        """Compute per-element 3x3 B matrices mapping hkl to crystal coordinates.
 
-        (These are upper triangular matrices such that
-            G_s = U * B G_hkl
-        where G_hkl = [h,k,l] lattice plane miller indices and G_s is the sample frame diffraction vectors.
-        and U are the crystal element orientation matrices.)
+        These are upper triangular matrices such that ``G_s = U * B * G_hkl``
+        where ``G_hkl = [h, k, l]`` are lattice plane Miller indices, ``G_s``
+        is the sample frame diffraction vector, and ``U`` are the crystal
+        element orientation matrices.
 
+        Parameters
+        ----------
+        orientation_lab : torch.Tensor
+            Orientation matrices, shape ``(N, 3, 3)``.
+        strain_lab : torch.Tensor
+            Strain tensors, shape ``(N, 3, 3)``.
+        phases : list of Phase
+            List of phases.
+        element_phase_map : torch.Tensor
+            Phase index per element.
+        mesh : TetraMesh
+            Mesh defining the polycrystal geometry.
+
+        Returns
+        -------
+        torch.Tensor
+            B matrices for all elements, shape ``(N, 3, 3)``.
         """
-        _eB = np.zeros((mesh.number_of_elements, 3, 3))
-        B0s = np.zeros((len(phases), 3, 3))
+
+        _eB = torch.zeros((mesh.number_of_elements, 3, 3))
+        B0s = torch.zeros((len(phases), 3, 3))
         for i, phase in enumerate(phases):
-            B0s[i] = tools.form_b_mat(phase.unit_cell)
-            grain_indices = np.where(np.array(element_phase_map) == i)[0]
-            _eB[grain_indices] = utils.lab_strain_to_B_matrix(
+            B0s[i] = ensure_torch(tools.form_b_mat(phase.unit_cell))
+            element_phase_map_tensor = ensure_torch(element_phase_map)
+            grain_indices = torch.where(element_phase_map_tensor == i)[0]
+            _eB[grain_indices] = utils._lab_strain_to_B_matrix(
                 strain_lab[grain_indices], orientation_lab[grain_indices], B0s[i]
             )
 
         return _eB
 
-    def _get_bragg_angle_bounds(self, detector, beam, min_bragg_angle, max_bragg_angle):
-        """Compute a maximum Bragg angle cut of based on the beam sample interection region centroid and detector corners.
+    def _get_bragg_angle_bounds(
+        self,
+        detector: Detector,
+        beam: Beam,
+        min_bragg_angle: float,
+        max_bragg_angle: float,
+    ) -> tuple[float, float]:
+        """Compute maximum Bragg angle based on beam-sample intersection.
 
-        If the beam graces or misses the sample, the sample centroid is used.
+        Uses the beam-sample intersection region centroid and detector corners.
+        If the beam grazes or misses the sample, the sample centroid is used.
+
+        Parameters
+        ----------
+        detector : Detector
+            Detector object.
+        beam : Beam
+            Beam object.
+        min_bragg_angle : float
+            Minimum Bragg angle in radians.
+        max_bragg_angle : float
+            Maximum Bragg angle in radians.
+
+        Returns
+        -------
+        tuple of float
+            ``(min_bragg_angle, max_bragg_angle)`` in radians.
         """
-        if max_bragg_angle is None:
-            mesh_nodes_contained_by_beam = self.mesh_lab.coord[
-                beam.contains(self.mesh_lab.coord.T), :
-            ]
-            if mesh_nodes_contained_by_beam.shape[0] != 0:
-                source_point = np.mean(mesh_nodes_contained_by_beam, axis=0)
-            else:
-                source_point = self.mesh_lab.centroid
-            max_bragg_angle = detector.get_wrapping_cone(beam.wave_vector, source_point)
+
+        # Get points contained by beam
+        points_contained = beam._contains(self.mesh_lab.coord.T)
+        if torch.any(points_contained):
+            # Use boolean indexing with torch tensors
+            mesh_nodes_contained_by_beam = self.mesh_lab.coord[points_contained]
+            source_point = torch.mean(mesh_nodes_contained_by_beam, dim=0)
+        else:
+            source_point = ensure_torch(self.mesh_lab.centroid)
+        
+        max_bragg_angle = detector._get_wrapping_cone(
+            beam.wave_vector, source_point
+        ).item()
+
         assert (
             min_bragg_angle >= 0
         ), "min_bragg_angle must be greater or equal than zero"
@@ -590,3 +728,28 @@ class Polycrystal:
             + "dgrs"
         )
         return min_bragg_angle, max_bragg_angle
+
+    @staticmethod
+    def _move_mesh_to_torch(mesh: TetraMesh) -> TetraMesh:
+        """Convert mesh arrays from numpy to torch using the default device.
+
+        Parameters
+        ----------
+        mesh : TetraMesh
+            Mesh with numpy arrays.
+
+        Returns
+        -------
+        TetraMesh
+            Mesh with torch tensors.
+        """
+        mesh.coord = ensure_torch(mesh.coord)
+        mesh.enod = ensure_torch(mesh.enod).to(dtype=torch.int32)
+        mesh.dof = ensure_torch(mesh.dof)
+        mesh.efaces = ensure_torch(mesh.efaces).to(dtype=torch.int32)
+        mesh.enormals = ensure_torch(mesh.enormals)
+        mesh.ecentroids = ensure_torch(mesh.ecentroids)
+        mesh.eradius = ensure_torch(mesh.eradius)
+        mesh.espherecentroids = ensure_torch(mesh.espherecentroids)
+        mesh.centroid = ensure_torch(mesh.centroid)
+        return mesh

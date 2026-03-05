@@ -1,10 +1,13 @@
-"""The ``templates`` module allows for fast creation of a few select sample types and diffraction geometries without having to
-worry about any of the "under the hood" scripting.
+"""Templates module for fast creation of sample types and diffraction geometries.
 
+The ``templates`` module allows for fast creation of a few select sample types
+and diffraction geometries without having to worry about any of the "under the
+hood" scripting.
 """
 
 import numpy as np
-import pygalmesh
+import meshpy.tet as tet
+import meshio
 from scipy.spatial.transform import Rotation
 from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
@@ -31,45 +34,51 @@ PARAMETER_KEYS = [
 
 
 def s3dxrd(parameters):
-    """Construct a scaning-three-dimensional-xray diffraction experiment.
+    """Construct a scanning-three-dimensional X-ray diffraction experiment.
 
-    This is a helper/utility function for quickly creating an experiment. For full controll
-    over the diffraction geometry consider custom creation of the primitive quantities:
-    (:obj:`xrd_simulator.beam.Beam`), and (:obj:`xrd_simulator.detector.Detector`) seperately.
+    This is a helper/utility function for quickly creating an experiment. For
+    full control over the diffraction geometry consider custom creation of the
+    primitive quantities: :obj:`xrd_simulator.beam.Beam`, and
+    :obj:`xrd_simulator.detector.Detector` separately.
 
-    Args:
-        parameters (:obj:`dict`): Dictionary with fields as \n
-            ``"detector_distance"``           : (:obj:`float`) Distance form sample origin to
-                detector centre in units of microns. \n
-            ``"number_of_detector_pixels_z"`` : (:obj:`int`) Number of detector pixels
-                along z-axis. \n
-            ``"number_of_detector_pixels_y"`` : (:obj:`int`) Number of detector pixels
-                along y-axis. \n
-            ``"detector_center_pixel_z"``     : (:obj:`float`) Intersection pixel coordinate between
-                 beam centroid line and detector along z-axis. \n
-            ``"detector_center_pixel_y"``     : (:obj:`float`) Intersection pixel coordinate between
-                 beam centroid line and detector along y-axis. \n
-            ``"pixel_side_length_z"``         : (:obj:`float`) Detector pixel side length in units
-                of microns along z-axis. \n
-            ``"pixel_side_length_y"``         : (:obj:`float`) Detector pixel side length in units
-                of microns along y-axis. \n
-            ``"wavelength"``                  : (:obj:`float`) Wavelength in units of Angstrom. \n
-            ``"beam_side_length_z"``          : (:obj:`float`) Beam side length in units
-                of microns. \n
-            ``"beam_side_length_y"``          : (:obj:`float`) Beam side length in units
-                of microns. \n
-            ``"rotation_step"``               : (:obj:`float`) Angular frame integration step in
-                units of radians. \n
-            ``"rotation_axis"``               : (:obj:`numpy array`)  Axis around which to
-                positively rotate the sample by ``rotation_step`` radians. \n
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary with the following fields:
 
-    Returns:
-        (:obj:`xrd_simulator`) objects defining an experiment: (:obj:`xrd_simulator.beam.Beam`),
-        (:obj:`xrd_simulator.detector.Detector`), (:obj:`xrd_simulator.motion.RigidBodyMotion`).
+        - ``"detector_distance"``: Distance from sample origin to detector
+          centre in units of microns.
+        - ``"number_of_detector_pixels_z"``: Number of detector pixels along
+          z-axis.
+        - ``"number_of_detector_pixels_y"``: Number of detector pixels along
+          y-axis.
+        - ``"detector_center_pixel_z"``: Intersection pixel coordinate between
+          beam centroid line and detector along z-axis.
+        - ``"detector_center_pixel_y"``: Intersection pixel coordinate between
+          beam centroid line and detector along y-axis.
+        - ``"pixel_side_length_z"``: Detector pixel side length in units of
+          microns along z-axis.
+        - ``"pixel_side_length_y"``: Detector pixel side length in units of
+          microns along y-axis.
+        - ``"wavelength"``: Wavelength in units of Angstrom.
+        - ``"beam_side_length_z"``: Beam side length in units of microns.
+        - ``"beam_side_length_y"``: Beam side length in units of microns.
+        - ``"rotation_step"``: Angular frame integration step in units of
+          radians.
+        - ``"rotation_axis"``: Axis around which to positively rotate the
+          sample by ``rotation_step`` radians.
 
-    Examples:
-        .. literalinclude:: examples/example_s3dxrd.py
+    Returns
+    -------
+    tuple
+        Objects defining an experiment:
+        (:obj:`xrd_simulator.beam.Beam`,
+        :obj:`xrd_simulator.detector.Detector`,
+        :obj:`xrd_simulator.motion.RigidBodyMotion`).
 
+    Examples
+    --------
+    .. literalinclude:: examples/example_s3dxrd.py
     """
     for key in PARAMETER_KEYS:
         if key not in list(parameters):
@@ -94,65 +103,67 @@ def polycrystal_from_odf(
     path_to_cif_file=None,
     maximum_sampling_bin_seperation=np.radians(5.0),
     strain_tensor=lambda x: np.zeros((3, 3)),
-    phase_fractions=None
 ):
     """Fill a cylinder with crystals from a given orientation density function.
 
-    The ``orientation_density_function`` is sampled by discretizing orientation space over the unit
-    quarternions. Each bin is assigned its apropiate probability, assuming the
-    ``orientation_density_function`` is approximately constant over a single bin. Each sampled
-    orientation is constructed by first drawing a random bin and next drawing uniformly from
-    within that bin, again assuming that ``orientation_density_function`` is approximately constant
+    The ``orientation_density_function`` is sampled by discretizing orientation
+    space over the unit quaternions. Each bin is assigned its appropriate
+    probability, assuming the ``orientation_density_function`` is approximately
+    constant over a single bin. Each sampled orientation is constructed by first
+    drawing a random bin and next drawing uniformly from within that bin, again
+    assuming that ``orientation_density_function`` is approximately constant
     over a bin.
 
-    Args:
-        orientation_density_function (:obj:`callable`): orientation_density_function(x, q) ->
-            :obj:`float` where input variable ``x`` is a :obj:`numpy array` of shape ``(3,)``
-            representing a spatial coordinate in the cylinder (x,y,z) and ``q`` is a
-            :obj:`numpy array` of shape ``(4,)`` representing a orientation in so3 by a unit
-            quarternion. The format of the quarternion is "scalar last"
-            (same as in scipy.spatial.transform.Rotation).
-        number_of_crystals (:obj:`int`): Approximate number of crystal elements to compose the
-            cylinder volume.
-        sample_bounding_cylinder_height (:obj:`float`): Height of sample cylinder in units of
-             microns.
-        sample_bounding_cylinder_radius (:obj:`float`): Radius of sample cylinder in units of
-            microns.
-        unit_cell (:obj:`list of lists` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma] or [[a,b,c,alpha,beta,gamma],], where alpha,beta and gamma are 
-            in units of degrees while a,b and c are in units of anstrom. When the unit_cell is just a 
-            list (first example), the input represents single-phase material. When the unit_cell is an 
-            iterable list (second example), the input represents multi-phase material.
-        sgname (:obj:`list of strings`): Name of space group , e.g 'P3221' or ['P3221',] for quartz, 
-            SiO2, for instance. When the input is just a string, it represents space group for 
-            single-phase material. When the input is a list of string (second example), it represents 
-            space groups for multi-phase material.
-        path_to_cif_file (:obj:`list of strings`): Path to CIF file or [Path to CIF file,]. 
-            Defaults to None, in which case no structure factors are computed. When the input is a 
-            single file path (first example), the input is for single-phase material. When the 
-            input is a list of file paths (second example), the input is for multi-phase material.
-        maximum_sampling_bin_seperation (:obj:`float`): Discretization steplength of orientation
-            space using spherical coordinates over the unit quarternions in units of radians.
-            A smaller steplength gives more accurate sampling of the input
-            ``orientation_density_function`` but is computationally slower.
-        strain_tensor (:obj:`callable`): Strain tensor field over sample cylinder.
-            strain_tensor(x) -> :obj:`numpy array` of shape ``(3,3)`` where input variable ``x`` is
-            a :obj:`numpy array` of shape ``(3,)`` representing a spatial coordinate in the
-            cylinder (x,y,z).
-        phase_fraction (:obj: `list` of :obj:`float`): Phase fraction represented as probability, summing up to 1.
-            Default None; will take even distribution of crystals.
+    Parameters
+    ----------
+    orientation_density_function : callable
+        Function ``orientation_density_function(x, q) -> float`` where input
+        variable ``x`` is a numpy array of shape ``(3,)`` representing a
+        spatial coordinate in the cylinder ``(x, y, z)`` and ``q`` is a numpy
+        array of shape ``(4,)`` representing an orientation in SO3 by a unit
+        quaternion. The format of the quaternion is "scalar last" (same as in
+        ``scipy.spatial.transform.Rotation``).
+    number_of_crystals : int
+        Approximate number of crystal elements to compose the cylinder volume.
+    sample_bounding_cylinder_height : float
+        Height of sample cylinder in units of microns.
+    sample_bounding_cylinder_radius : float
+        Radius of sample cylinder in units of microns.
+    unit_cell : list of float
+        Crystal unit cell representation of the form
+        ``[a, b, c, alpha, beta, gamma]``, where alpha, beta and gamma are in
+        units of degrees while a, b and c are in units of Angstrom.
+    sgname : str
+        Name of space group, e.g. ``'P3221'`` for quartz, SiO2, for instance.
+    path_to_cif_file : str, optional
+        Path to CIF file. Default is ``None``, in which case no structure
+        factors are computed.
+    maximum_sampling_bin_seperation : float, optional
+        Discretization steplength of orientation space using spherical
+        coordinates over the unit quaternions in units of radians. A smaller
+        steplength gives more accurate sampling of the input
+        ``orientation_density_function`` but is computationally slower.
+        Default is ``np.radians(5.0)``.
+    strain_tensor : callable, optional
+        Strain tensor field over sample cylinder.
+        ``strain_tensor(x) -> numpy.ndarray`` of shape ``(3, 3)`` where input
+        variable ``x`` is a numpy array of shape ``(3,)`` representing a
+        spatial coordinate in the cylinder ``(x, y, z)``.
+        Default returns zero strain.
 
-    Returns:
-        (:obj:`xrd_simulator.polycrystal.Polycrystal`)
+    Returns
+    -------
+    Polycrystal
+        A polycrystal sample filling the specified cylinder.
 
-    Examples:
-        .. literalinclude:: examples/example_polycrystal_from_odf.py
+    Examples
+    --------
+    .. literalinclude:: examples/example_polycrystal_from_odf.py
 
-    More complicated ODFs are also possible to use. Why not use a von-Mises-Fisher distribution for instance:
+    More complicated ODFs are also possible to use. Why not use a
+    von-Mises-Fisher distribution for instance:
 
-    Examples:
-        .. literalinclude:: examples/example_polycrystal_from_von_mises_fisher_odf.py
-
+    .. literalinclude:: examples/example_polycrystal_from_von_mises_fisher_odf.py
     """
     # Sample topology
     volume_per_crystal = (
@@ -163,44 +174,72 @@ def polycrystal_from_odf(
     )
     max_cell_circumradius = (3 * volume_per_crystal / (np.pi * 4.0)) ** (1 / 3.0)
 
-    # Fudge factor 2.6 gives approximately number_of_crystals elements in the
-    # mesh
-    max_cell_circumradius = 2.65 * max_cell_circumradius
+    # Fudge factor gives approximately number_of_crystals elements in the mesh
+    # (calibrated for meshpy.tet)
+    max_cell_circumradius = 4.2 * max_cell_circumradius
 
     dz = sample_bounding_cylinder_height / 2.0
     R = float(sample_bounding_cylinder_radius)
-
-    cylinder = pygalmesh.generate_mesh(
-        pygalmesh.Cylinder(-dz, dz, R, max_cell_circumradius),
-        max_cell_circumradius=max_cell_circumradius,
-        max_edge_size_at_feature_edges=max_cell_circumradius,
-        verbose=False,
-    )
-
-    mesh = TetraMesh._build_tetramesh(cylinder)
     
-    if all(isinstance(x, list) for x in unit_cell) \
-        and isinstance(sgname, list):
-        # Multi Phase Material
-        if not isinstance(path_to_cif_file, list):
-            if path_to_cif_file is None:
-                path_to_cif_file = [None]* len(unit_cell)
-            else:
-                print("Single cif file input. Please enter list of corresponding cif files.")
-                exit
-        phases = [Phase(uc, sg, cf) for uc, sg, cf in zip(unit_cell, sgname, path_to_cif_file)]
-        if phase_fractions is None:
-            # Sample is uniformly distributed phases
-            element_phase_map = np.random.randint(len(phases), size=(mesh.number_of_elements,))
-        else :
-            # Sample is distributed by phase fraction
-            probabilities = np.array(phase_fractions)
-            element_phase_map = np.random.choice(len(phases), size=(mesh.number_of_elements,), p=probabilities)
-    else:
-        # Single Phase Material
-        phases = [Phase(unit_cell, sgname, path_to_cif_file)]
-        # Sample is uniformly single phase
-        element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
+    # Generate points for the cylinder
+    n = max(8, int(2 * np.pi * R / max_cell_circumradius))  # At least 8 points
+    angles = np.linspace(0, 2*np.pi, n, endpoint=False)
+    
+    # Bottom and top circles
+    bottom_points = [(R*np.cos(angle), R*np.sin(angle), -dz) 
+                    for angle in angles]
+    top_points = [(R*np.cos(angle), R*np.sin(angle), dz) 
+                  for angle in angles]
+    
+    # Add center points for top and bottom
+    # Point indices: 0 to n-1 = bottom circle, n to 2n-1 = top circle, 
+    # 2n = bottom center, 2n+1 = top center
+    points = bottom_points + top_points + [(0, 0, -dz), (0, 0, dz)]
+    
+    # Create mesh info
+    mesh_info = tet.MeshInfo()
+    mesh_info.set_points(points)
+    
+    # Define triangular facets (not edges!)
+    facets = []
+    
+    # Bottom circle triangles (from center to edge)
+    bottom_center_idx = 2 * n
+    for i in range(n):
+        next_i = (i + 1) % n
+        facets.append([bottom_center_idx, i, next_i])
+    
+    # Top circle triangles (from center to edge)
+    top_center_idx = 2 * n + 1
+    for i in range(n):
+        next_i = (i + 1) % n
+        # Reverse order for outward-facing normal
+        facets.append([top_center_idx, n + next_i, n + i])
+    
+    # Side rectangles split into two triangles each
+    for i in range(n):
+        next_i = (i + 1) % n
+        # Bottom triangle of rectangle
+        facets.append([i, next_i, n + i])
+        # Top triangle of rectangle
+        facets.append([next_i, n + next_i, n + i])
+    
+    mesh_info.set_facets(facets)
+    
+    # Generate mesh
+    mesh = tet.build(mesh_info, max_volume=(max_cell_circumradius**3)/6.0)
+    
+    # Convert to meshio format
+    vertices = np.array(mesh.points)
+    elements = np.array(mesh.elements)
+    mesh_obj = meshio.Mesh(vertices, [("tetra", elements)])
+    
+    # Build TetraMesh
+    mesh = TetraMesh._build_tetramesh(mesh_obj)
+
+    # Sample is uniformly single phase
+    phases = [Phase(unit_cell, sgname, path_to_cif_file)]
+    element_phase_map = np.zeros((mesh.number_of_elements,)).astype(int)
 
     # Sample spatial texture
     orientation = _sample_ODF(
@@ -230,27 +269,36 @@ def get_uniform_powder_sample(
     strain_tensor=np.zeros((3, 3)),
     path_to_cif_file=None,
 ):
-    """Generate a polycyrystal with grains overlayed at the origin and orientations drawn uniformly.
+    """Generate a polycrystal with grains overlayed at origin, uniform orientations.
 
-    Args:
-        sample_bounding_radius (:obj:`float`): Bounding radius of sample. All tetrahedral crystal
-            elements will be overlayed within a sphere of ``sample_bounding_radius`` radius.
-        number_of_grains (:obj:`int`): Number of grains composing the polycrystal sample.
-        unit_cell (:obj:`list` of :obj:`float`): Crystal unit cell representation of the form
-            [a,b,c,alpha,beta,gamma], where alpha,beta and gamma are in units of degrees while
-            a,b and c are in units of anstrom.
-        sgname (:obj:`string`):  Name of space group , e.g 'P3221' for quartz, SiO2, for instance
-        strain_tensor (:obj:`numpy array`): Strain tensor to apply to all tetrahedral crystal
-            elements contained within the sample. ``shape=(3,3)``.
-        path_to_cif_file (:obj:`string`): Path to CIF file. Defaults to None, in which case no structure
-            factors are computed.
+    Parameters
+    ----------
+    sample_bounding_radius : float
+        Bounding radius of sample. All tetrahedral crystal elements will be
+        overlayed within a sphere of ``sample_bounding_radius`` radius.
+    number_of_grains : int
+        Number of grains composing the polycrystal sample.
+    unit_cell : list of float
+        Crystal unit cell representation of the form
+        ``[a, b, c, alpha, beta, gamma]``, where alpha, beta and gamma are in
+        units of degrees while a, b and c are in units of Angstrom.
+    sgname : str
+        Name of space group, e.g. ``'P3221'`` for quartz, SiO2, for instance.
+    strain_tensor : numpy.ndarray, optional
+        Strain tensor to apply to all tetrahedral crystal elements contained
+        within the sample, shape ``(3, 3)``. Default is zero strain.
+    path_to_cif_file : str, optional
+        Path to CIF file. Default is ``None``, in which case no structure
+        factors are computed.
 
-    Returns:
-        (:obj:`xrd_simulator.polycrystal`) A polycyrystal sample with ``number_of_grains`` grains.
+    Returns
+    -------
+    Polycrystal
+        A polycrystal sample with ``number_of_grains`` grains.
 
-    Examples:
-        .. literalinclude:: examples/example_get_uniform_powder_sample.py
-
+    Examples
+    --------
+    .. literalinclude:: examples/example_get_uniform_powder_sample.py
     """
     coord, enod, node_number = [], [], 0
     r = sample_bounding_radius
@@ -276,7 +324,20 @@ def get_uniform_powder_sample(
 
 
 def _get_motion_from_params(parameters):
-    """Produce a ``xrd_simulator.motion.RigidBodyMotion`` from the s3dxrd params dictionary."""
+    """Produce a RigidBodyMotion from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'rotation_axis'`` and ``'rotation_step'`` keys.
+
+    Returns
+    -------
+    RigidBodyMotion
+        A rigid body motion with zero translation and rotation defined
+        by the parameters.
+    """
     translation = np.array([0.0, 0.0, 0.0])
     return RigidBodyMotion(
         parameters["rotation_axis"], parameters["rotation_step"], translation
@@ -284,7 +345,21 @@ def _get_motion_from_params(parameters):
 
 
 def _get_beam_from_params(parameters):
-    """Produce a ``xrd_simulator.beam.Beam`` from the s3dxrd params dictionary."""
+    """Produce a Beam from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'beam_side_length_z'``, ``'beam_side_length_y'``,
+        ``'detector_distance'``, and ``'wavelength'`` keys.
+
+    Returns
+    -------
+    Beam
+        An X-ray beam propagating along the positive x-axis with
+        polarization along y-axis.
+    """
     dz = parameters["beam_side_length_z"] / 2.0
     dy = parameters["beam_side_length_y"] / 2.0
     beam_vertices = np.array(
@@ -309,7 +384,22 @@ def _get_beam_from_params(parameters):
 
 
 def _get_detector_from_params(parameters):
-    """Produce a ``xrd_simulator.detector.Detector`` from the s3dxrd params dictionary."""
+    """Produce a Detector from the s3dxrd parameters dictionary.
+
+    Parameters
+    ----------
+    parameters : dict
+        Dictionary containing s3dxrd experiment parameters, must include
+        ``'pixel_side_length_z'``, ``'pixel_side_length_y'``,
+        ``'detector_distance'``, ``'number_of_detector_pixels_y'``,
+        ``'number_of_detector_pixels_z'``, ``'detector_center_pixel_z'``,
+        and ``'detector_center_pixel_y'`` keys.
+
+    Returns
+    -------
+    Detector
+        A detector positioned at the specified distance from the origin.
+    """
 
     p_z, p_y = parameters["pixel_side_length_z"], parameters["pixel_side_length_y"]
     det_dist = parameters["detector_distance"]
@@ -324,11 +414,40 @@ def _get_detector_from_params(parameters):
     d_1 = np.array([det_dist, (det_pix_y - det_cy) * p_y, -det_cz * p_z])
     d_2 = np.array([det_dist, -det_cy * p_y, (det_pix_z - det_cz) * p_z])
 
-    return Detector(p_z, p_y, d_0, d_1, d_2)
+    return Detector(
+        det_corner_0=d_0,
+        det_corner_1=d_1,
+        det_corner_2=d_2,
+        pixel_size=(p_z, p_y))
+
 
 
 def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
-    """Draw orientation matrices form an ODF at spatial locations ``coordinates``."""
+    """Draw orientation matrices from an ODF at spatial locations.
+
+    Samples the orientation density function by discretizing orientation
+    space over unit quaternions. Each bin is assigned its probability
+    assuming the ODF is approximately constant over a single bin.
+
+    Parameters
+    ----------
+    ODF : callable
+        Orientation density function ``ODF(x, q) -> float`` where ``x`` is
+        a spatial coordinate array of shape ``(3,)`` and ``q`` is a unit
+        quaternion array of shape ``(4,)`` in scalar-last format.
+    maximum_sampling_bin_seperation : float
+        Discretization step length for orientation space sampling in
+        radians. Smaller values give more accurate sampling but are slower.
+    coordinates : numpy.ndarray
+        Spatial coordinates at which to sample the ODF, shape ``(N, 3)``
+        where N is the number of sampling points.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotation matrices of shape ``(N, 3, 3)`` sampled from the ODF
+        at each coordinate.
+    """
 
     dalpha = maximum_sampling_bin_seperation / 2.0  # TODO: verify this analytically.
     dalpha = np.pi / 2.0 / int(np.pi / (dalpha * 2.0))
@@ -345,7 +464,7 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
     A1, A2, A3 = np.meshgrid(alpha_1, alpha_2, alpha_3, indexing="ij")
     A1, A2, A3 = A1.flatten(), A2.flatten(), A3.flatten()
 
-    q = utils.alpha_to_quarternion(A1, A2, A3)
+    q = utils._alpha_to_quarternion(A1, A2, A3)
 
     # Approximate volume ber bin:
     # volume_element = (np.sin(A1)**2) * np.sin(A2) * (dalpha**3)
@@ -373,7 +492,7 @@ def _sample_ODF(ODF, maximum_sampling_bin_seperation, coordinates):
         a1 = A1[draw] + dalpha * (np.random.rand() - 0.5)
         a2 = A2[draw] + dalpha * (np.random.rand() - 0.5)
         a3 = A3[draw] + dalpha * (np.random.rand() - 0.5)
-        q_pertubated = utils.alpha_to_quarternion(a1, a2, a3)
+        q_pertubated = utils._alpha_to_quarternion(a1, a2, a3)
         rotations.append(Rotation.from_quat(q_pertubated).as_matrix().reshape(3, 3))
 
     return np.array(rotations)

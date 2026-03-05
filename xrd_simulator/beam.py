@@ -1,190 +1,277 @@
-"""The beam module is used to represent a beam of xrays. The idea is to create a :class:`xrd_simulator.beam.Beam` object and
-pass it along to the :func:`xrd_simulator.polycrystal.Polycrystal.diffract` function to compute diffraction from the sample
-for the specified xray beam geometry. Here is a minimal example of how to instantiate a beam object and save it to disc:
+"""The beam module is used to represent a beam of X-rays.
 
-    Examples:
-        .. literalinclude:: examples/example_init_beam.py
+The idea is to create a :class:`xrd_simulator.beam.Beam` object and pass it
+along to the :func:`xrd_simulator.polycrystal.Polycrystal.diffract` function
+to compute diffraction from the sample for the specified X-ray beam geometry.
 
-Below follows a detailed description of the beam class attributes and functions.
+Examples
+--------
+Here is a minimal example of how to instantiate a beam object and save it to
+disc:
+
+.. literalinclude:: examples/example_init_beam.py
+
+Below follows a detailed description of the beam class attributes and
+functions.
 """
 
-import numpy as np
+from __future__ import annotations
+
 import dill
-from scipy.spatial import ConvexHull, HalfspaceIntersection
+import numpy as np
+import torch
 from scipy.optimize import linprog
+from scipy.spatial import ConvexHull, HalfspaceIntersection
+
+torch.set_default_dtype(torch.float64)
+from xrd_simulator.utils import ensure_numpy, ensure_torch
 
 
 class Beam:
-    """Represents a monochromatic xray beam as a convex polyhedra with uniform intensity.
+    """Represents a monochromatic X-ray beam as a convex polyhedra.
 
-    The beam is described in the laboratory coordinate system.
+    The beam has uniform intensity and is described in the laboratory
+    coordinate system.
 
-    Args:
-        beam_vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-        xray_propagation_direction (:obj:`numpy array`): Propagation direction of xrays, ``shape=(3,)``.
-        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
-        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
-            Must be orthogonal to the xray propagation direction.
+    Parameters
+    ----------
+    beam_vertices : torch.Tensor or numpy.ndarray
+        Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
+    xray_propagation_direction : torch.Tensor or numpy.ndarray
+        Propagation direction of X-rays, shape ``(3,)``.
+    wavelength : float
+        X-ray wavelength in units of angstrom.
+    polarization_vector : torch.Tensor or numpy.ndarray
+        Beam linear polarization unit vector, shape ``(3,)``. Must be
+        orthogonal to the X-ray propagation direction.
 
-    Attributes:
-        vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-        wavelength (:obj:`float`): Xray wavelength in units of angstrom.
-        wave_vector (:obj:`numpy array`): Beam wavevector with norm 2*pi/wavelength, ``shape=(3,)``
-        polarization_vector (:obj:`numpy array`): Beam linear polarization unit vector ``shape=(3,)``.
-            Must be orthogonal to the xray propagation direction.
-        centroid (:obj:`numpy array`): Beam convex hull centroid ``shape=(3,)``
-        halfspaces (:obj:`numpy array`): Beam halfspace equation coefficients ``shape=(N,3)``.
-            A point x is on the interior of the halfspace if: halfspaces[i,:-1].dot(x) +  halfspaces[i,-1] <= 0.
-
+    Attributes
+    ----------
+    vertices : torch.Tensor
+        Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
+    wavelength : float
+        X-ray wavelength in units of angstrom.
+    wave_vector : torch.Tensor
+        Beam wavevector with norm ``2*pi/wavelength``, shape ``(3,)``.
+    polarization_vector : torch.Tensor
+        Beam linear polarization unit vector, shape ``(3,)``. Must be
+        orthogonal to the X-ray propagation direction.
+    centroid : torch.Tensor
+        Beam convex hull centroid, shape ``(3,)``.
+    halfspaces : torch.Tensor
+        Beam halfspace equation coefficients, shape ``(N, 4)``. A point ``x``
+        is on the interior of the halfspace if:
+        ``halfspaces[i, :-1].dot(x) + halfspaces[i, -1] <= 0``.
     """
 
     def __init__(
-        self, beam_vertices, xray_propagation_direction, wavelength, polarization_vector
+        self,
+        beam_vertices: torch.Tensor | np.ndarray | list | tuple,
+        xray_propagation_direction: torch.Tensor | np.ndarray | list | tuple,
+        wavelength: float,
+        polarization_vector: torch.Tensor | np.ndarray | list | tuple,
     ):
-
+        # Convert to torch tensors first, then normalize using torch operations
+        xray_dir = ensure_torch(xray_propagation_direction)
         self.wave_vector = (
-            (2 * np.pi / wavelength)
-            * xray_propagation_direction
-            / np.linalg.norm(xray_propagation_direction)
+            (2 * np.pi / wavelength) * xray_dir / torch.linalg.norm(xray_dir)
         )
         self.wavelength = wavelength
-        self.set_beam_vertices(beam_vertices)
-        self.polarization_vector = polarization_vector / np.linalg.norm(
-            polarization_vector
-        )
-        assert np.allclose(
-            np.dot(self.polarization_vector, self.wave_vector), 0
+        self.set_beam_vertices(ensure_torch(beam_vertices))
+        pol_vec = ensure_torch(polarization_vector)
+        self.polarization_vector = pol_vec / torch.linalg.norm(pol_vec)
+        assert torch.allclose(
+            torch.dot(self.polarization_vector, self.wave_vector), ensure_torch(0.0)
         ), "The xray polarization vector is not orthogonal to the wavevector."
 
-    def set_beam_vertices(self, beam_vertices):
-        """Set the beam vertices defining the beam convex hull and update all dependent quantities.
+    def set_beam_vertices(self, beam_vertices: torch.Tensor):
+        """Set beam vertices and update all dependent quantities.
 
-        Args:
-            beam_vertices (:obj:`numpy array`): Vertices of the xray beam in units of microns, ``shape=(N,3)``.
-
+        Parameters
+        ----------
+        beam_vertices : torch.Tensor
+            Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
         """
-        ch = ConvexHull(beam_vertices)
-        assert (
-            ch.points.shape[0] == ch.vertices.shape[0]
-        ), "The provided beam vertices does not form a convex hull"
-        self.vertices = beam_vertices.copy()
-        self.centroid = np.mean(self.vertices, axis=0)
-        self.halfspaces = ConvexHull(self.vertices, qhull_options="QJ").equations
+        ch = ConvexHull(beam_vertices.cpu().numpy())
+        assert ch.points.shape[0] == ch.vertices.shape[0], (
+            "The provided beam vertices does not form a convex hull"
+        )
+        self.vertices = beam_vertices.clone()
+        self.centroid = torch.mean(self.vertices, axis=0)
+        # ConvexHull requires numpy, convert result back to torch
+        self.halfspaces = ensure_torch(
+            np.unique(
+                ConvexHull(
+                    ensure_numpy(self.vertices), qhull_options="QJ"
+                ).equations.round(decimals=6),
+                axis=0,
+            )
+        )
 
-        # ConvexHull triangulates, this removes hull triangles positioned the same plane
-        self.halfspaces = np.unique(self.halfspaces.round(decimals=6), axis=0)
-
-    def contains(self, points):
+    def _contains(self, points):
         """Check if the beam contains a number of point(s).
 
-        Args:
-            points (:obj:`numpy array`): Point(s) to evaluate ``shape=(3,n)`` or ``shape=(3,)``.
+        Parameters
+        ----------
+        points : torch.Tensor or numpy.ndarray
+            Point(s) to evaluate, shape ``(3, n)`` or ``(3,)``.
 
-        Returns:
-            numpy array with 1 if the point is contained by the beam and 0 otherwise, if single point is passed this returns
-            scalar 1 or 0.
-
+        Returns
+        -------
+        torch.Tensor or bool
+            Boolean array with ``True`` if the point is contained by the beam
+            and ``False`` otherwise. If a single point is passed, returns a
+            single boolean value.
         """
-        normal_distances = self.halfspaces[:, 0:3].dot(points)
-        if len(points.shape) == 1:
-            return np.all(normal_distances + self.halfspaces[:, 3] < 0)
-        else:
-            return (
-                np.sum(
-                    (
-                        normal_distances
-                        + self.halfspaces[:, 3].reshape(self.halfspaces.shape[0], 1)
-                    )
-                    >= 0,
-                    axis=0,
-                )
-                == 0
-            )
+        points = ensure_torch(points)
+        normals = self.halfspaces[:, 0:3]
+        offsets = self.halfspaces[:, 3:4]
 
-    def intersect(self, vertices):
+        if len(points.shape) == 1:
+            # Single point: shape (3,)
+            normal_distances = torch.matmul(
+                normals, points.unsqueeze(1)
+            )  # shape (N, 1)
+            return torch.all(normal_distances + offsets < 0)
+        else:
+            # Multiple points: shape (3, n)
+            normal_distances = torch.matmul(normals, points)  # shape (N, n)
+            return torch.all(normal_distances + offsets < 0, dim=0)  # shape (n,)
+
+    def _intersect(self, vertices: torch.Tensor) -> ConvexHull | None:
         """Compute the beam intersection with a convex polyhedra.
 
-        Args:
-            vertices (:obj:`numpy array`): Vertices of a convex polyhedra with ``shape=(N,3)``.
+        Parameters
+        ----------
+        vertices : torch.Tensor
+            Vertices of a convex polyhedra, shape ``(N, 3)``.
 
-        Returns:
-            A :class:`scipy.spatial.ConvexHull` object formed from the vertices of the intersection between beam vertices and
-            input vertices.
-
+        Returns
+        -------
+        scipy.spatial.ConvexHull or None
+            A ConvexHull object formed from the vertices of the intersection
+            between beam vertices and input vertices, or ``None`` if no
+            intersection exists.
         """
 
-        for vertex in vertices:
-            if not self.contains(vertex):
-                break
-        else:
-            return ConvexHull(vertices)  # Tetra completely contained by beam
+        # Batch check all vertices at once for efficiency
+        vertices_contained = self._contains(vertices.T)  # shape (N,)
+        if torch.all(vertices_contained):
+            return ConvexHull(
+                vertices.cpu().numpy()
+            )  # Tetra completely contained by beam
 
-        poly_halfspace = ConvexHull(vertices).equations
+        poly_halfspace = ConvexHull(vertices.cpu().numpy()).equations
         poly_halfspace = np.unique(poly_halfspace.round(decimals=6), axis=0)
-        combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces))
+        combined_halfspaces = np.vstack((poly_halfspace, self.halfspaces.cpu().numpy()))
 
         # Since _find_feasible_point() is expensive it is worth checking for if the polyhedra
         # centroid is contained by the beam, being a potential cheaply computed interior_point.
 
-        centroid = np.mean(vertices, axis=0)
-        if self.contains(centroid):
+        centroid = torch.mean(vertices, axis=0)
+        if self._contains(centroid):
             interior_point = centroid
         else:
             trial_points = centroid + (vertices - centroid) * 0.99
 
-            for i, is_contained in enumerate(self.contains(trial_points.T)):
+            for i, is_contained in enumerate(self._contains(trial_points.T)):
                 if is_contained:
                     interior_point = trial_points[i, :].flatten()
                     break
             else:
                 interior_point = self._find_feasible_point(combined_halfspaces)
+                interior_point = (
+                    ensure_torch(interior_point) if interior_point is not None else None
+                )
 
         if interior_point is not None:
-            hs = HalfspaceIntersection(combined_halfspaces, interior_point)
+            hs = HalfspaceIntersection(
+                combined_halfspaces, interior_point.cpu().numpy()
+            )
             return ConvexHull(hs.intersections)
         else:
             return None
 
-    def save(self, path):
-        """Save the xray beam to disc (via pickling).
+    def save(self, path: str):
+        """Save the X-ray beam to disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
-
+        Parameters
+        ----------
+        path : str
+            File path at which to save, ending with the desired filename.
+            The ``.beam`` extension is added if not present.
         """
         if not path.endswith(".beam"):
             path = path + ".beam"
         with open(path, "wb") as f:
-            dill.dump(self, f, dill.HIGHEST_PROTOCOL)
+            dill.dump(
+                {
+                    "wave_vector": ensure_numpy(self.wave_vector),
+                    "vertices": ensure_numpy(self.vertices),
+                    "polarization_vector": ensure_numpy(self.polarization_vector),
+                    "halfspaces": ensure_numpy(self.halfspaces),
+                    "wavelength": self.wavelength,
+                },
+                f,
+                dill.HIGHEST_PROTOCOL,
+            )
 
     @classmethod
-    def load(cls, path):
-        """Load the xray beam from disc (via pickling).
+    def load(cls, path: str) -> "Beam":
+        """Load the X-ray beam from disc via pickling.
 
-        Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+        Parameters
+        ----------
+        path : str
+            File path at which to load, ending with the desired filename.
 
-        .. warning::
-            This function will unpickle data from the provied path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Returns
+        -------
+        Beam
+            Loaded Beam object.
 
+        Raises
+        ------
+        ValueError
+            If the file does not end with ``.beam``.
+
+        Warnings
+        --------
+        This function will unpickle data from the provided path. The pickle
+        module is not intended to be secure against erroneous or maliciously
+        constructed data. Never unpickle data received from an untrusted or
+        unauthenticated source.
         """
         if not path.endswith(".beam"):
             raise ValueError("The loaded file must end with .beam")
         with open(path, "rb") as f:
-            return dill.load(f)
+            data = dill.load(f)
+            loaded = cls(
+                ensure_torch(data["vertices"]),
+                ensure_torch(data["wave_vector"]),
+                data["wavelength"],
+                ensure_torch(data["polarization_vector"]),
+            )
+            loaded.halfspaces = ensure_torch(data["halfspaces"])
+            return loaded
 
-    def _find_feasible_point(self, halfspaces):
-        """Find a point which is clearly inside a set of halfspaces (A * point + b < 0).
+    def _find_feasible_point(self, halfspaces: np.ndarray) -> np.ndarray | None:
+        """Find a point clearly inside a set of halfspaces.
 
-        Args:
-            halfspaces (:obj:`numpy array`): Halfspace equations, each row holds coefficients of a halfspace (``shape=(N,4)``).
+        The halfspace inequality is ``A * point + b < 0``.
 
-        Returns:
-            (:obj:`None`) if no point is found else (:obj:`numpy array`) point.
+        Parameters
+        ----------
+        halfspaces : numpy.ndarray
+            Halfspace equations, each row holds coefficients of a halfspace,
+            shape ``(N, 4)``.
 
+        Returns
+        -------
+        numpy.ndarray or None
+            Interior point if found, otherwise ``None``.
         """
+        halfspaces = ensure_numpy(halfspaces)
         res = linprog(
             c=np.zeros((3,)),
             A_ub=halfspaces[:, :-1],
@@ -197,19 +284,11 @@ class Beam:
             },  # typical solve time is ~1-2 ms
         )
         if res.success:
-
-             # res.slack == 0 means that the interior point is touching the boundary
             if np.any(res.slack == 0):
-                # if some constraints are active, we need to find a point inside the convex hull
-                # of the active constraints. This is done by solving the linear system
-                # A * dx = -1e-5, where A is the matrix of active constraints. This may
-                # give us a point inside the convex hull of the active constraints as x + dx.
-                # Here 1e-5 is a fixed constant that is assumed to be small compared to the
-                # element domain hull size.
                 A = halfspaces[res.slack == 0, :-1]
-                dx = np.linalg.lstsq(
-                    A, -np.ones((A.shape[0],)) * 1e-5, rcond=None
-                )[0]
+                dx = np.linalg.solve(
+                    A.T.dot(A), A.T.dot(-np.ones((A.shape[0],)) * 1e-5)
+                )
                 trial = res.x + dx
             else:
                 trial = res.x
@@ -220,81 +299,125 @@ class Beam:
         else:
             return None
 
-    def _get_candidate_spheres(self, sphere_centres, sphere_radius, rigid_body_motion):
-        """Mask spheres which are close to intersecting a given convex beam hull undergoing a prescribed motion.
+    def _get_candidate_spheres(
+        self,
+        sphere_centres: torch.Tensor,
+        sphere_radius: torch.Tensor,
+        rigid_body_motion,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Mask spheres which may intersect the beam during a prescribed motion.
 
-        NOTE: This function is approximate in the sense that the motion path is sampled at discrete moments in time
-        at which the spheres are checked against the union of the sampled convex hulls. The sampling rate is choosen
-        such that the motion translation maximally moves any sphere by half it's radius. Furthermore, the sampling is
-        selected to always be less than or equal to a rotation stepsize of 1 degree.
+        This function is approximate: the motion path is sampled at discrete
+        moments in time at which the spheres are checked against the union of
+        the sampled convex hulls. The sampling rate is chosen such that the
+        motion translation maximally moves any sphere by half its radius.
+        Furthermore, the sampling is selected to always be less than or equal
+        to a rotation stepsize of 1 degree.
 
-        Args:
-            sphere_centres (:obj:`numpy array`): Centroids of a spheres ``shape=(3,n)``.
-            sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
+        Parameters
+        ----------
+        sphere_centres : torch.Tensor
+            Centroids of spheres, shape ``(3, n)``.
+        sphere_radius : torch.Tensor
+            Radius of spheres, shape ``(n,)``.
+        rigid_body_motion : xrd_simulator.motion.RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
 
-        Returns:
-            (:obj:`list` of :obj:`bool`): Mask with True if the sphere has a high intersection probability
-
+        Returns
+        -------
+        tuple of torch.Tensor
+            ``(mask, sample_times)`` where ``mask`` has ``True`` if the sphere
+            has a high intersection probability and ``sample_times`` contains
+            the time samples used for checking.
         """
-
         inverse_rigid_body_motion = rigid_body_motion.inverse()
 
-        dx = np.min(sphere_radius) / 2.0
-        translation = np.abs(rigid_body_motion.translation / dx)
+        dx = torch.min(sphere_radius) / 2.0
+        translation = torch.abs(rigid_body_motion.translation / dx)
         number_of_sampling_points = int(
-            np.max(
-                [np.max(translation), np.degrees(rigid_body_motion.rotation_angle), 2]
-            )
+            torch.max(
+                ensure_torch(
+                    [
+                        torch.max(translation),
+                        torch.rad2deg(rigid_body_motion.rotation_angle),
+                        ensure_torch(2.0),
+                    ]
+                )
+            ).item()
             + 1
         )
-        sample_times = np.linspace(0, 1, number_of_sampling_points)
+        sample_times = torch.linspace(0, 1, number_of_sampling_points)
 
         R = sphere_radius.reshape(1, sphere_radius.shape[0])
-        not_candidates = np.zeros((len(sample_times), R.shape[1]), dtype=bool)
+        not_candidates = torch.zeros((len(sample_times), R.shape[1]), dtype=torch.bool)
         for i, time in enumerate(sample_times):
-
             halfspaces = ConvexHull(
-                inverse_rigid_body_motion(self.vertices, time=time)
+                inverse_rigid_body_motion(self.vertices, time=time).cpu().numpy()
             ).equations
             halfspaces = np.unique(halfspaces.round(decimals=6), axis=0)
-            normals = halfspaces[:, 0:3]
-            distances = halfspaces[:, 3].reshape(normals.shape[0], 1)
-            sphere_beam_distances = normals.dot(sphere_centres.T) + distances
-            not_candidates[i, :] += np.any(sphere_beam_distances > R, axis=0)
+            normals = ensure_torch(halfspaces[:, 0:3])
+            distances = ensure_torch(halfspaces[:, 3]).reshape(normals.shape[0], 1)
+            sphere_beam_distances = normals.matmul(sphere_centres.T) + distances
+            not_candidates[i, :] += torch.any(sphere_beam_distances > R, axis=0)
 
         return ~not_candidates, sample_times
 
+    # ==============================================================================
+    # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+    # ==============================================================================
+    # The following methods are no longer called anywhere in the codebase.
+    # They are kept temporarily for backwards compatibility but will be removed.
+    # ==============================================================================
+
     def _get_proximity_intervals(
-        self, sphere_centres, sphere_radius, rigid_body_motion
-    ):
-        """Compute the parametric intervals t=[[t_1,t_2],[t_3,t_4],..] in which spheres are interesecting beam.
+        self,
+        sphere_centres: torch.Tensor,
+        sphere_radius: torch.Tensor,
+        rigid_body_motion,
+    ) -> list[list[list[float]]]:
+        """Compute parametric intervals where spheres intersect the beam.
 
-        This method can be used as a pre-checker before running the `intersect()` method on a polyhedral
-        set. This avoids wasting compute resources on polyhedra which clearly do not intersect the beam.
+        .. deprecated::
+            This method is no longer used in the codebase and will be removed
+            in a future version.
 
-        Args:
-            sphere_centres (:obj:`numpy array`): Centroids of a spheres ``shape=(3,n)``.
-            sphere_radius (:obj:`numpy array`): Radius of a spheres ``shape=(n,)``.
-            rigid_body_motion (:obj:`xrd_simulator.motion.RigidBodyMotion`): Rigid body motion object describing the
-                polycrystal transformation as a function of time on the domain time=[0,1].
+        This method can be used as a pre-checker before running the
+        ``intersect()`` method on a polyhedral set. This avoids wasting
+        compute resources on polyhedra which clearly do not intersect the beam.
 
-        Returns:
-            (:obj:`list` of :obj:`list` of :obj:`list`): Parametric ranges in which the spheres
-            has an intersection with the beam. [(:obj:`None`)] if no intersection exist in ```time=[0,1]```.
-            the entry at ```[i][j]``` is a list with two floats ```[t_1,t_2]``` and gives the j:th
-            intersection interval of sphere number i with the beam.
+        Parameters
+        ----------
+        sphere_centres : torch.Tensor
+            Centroids of spheres, shape ``(3, n)``.
+        sphere_radius : torch.Tensor
+            Radius of spheres, shape ``(n,)``.
+        rigid_body_motion : xrd_simulator.motion.RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
 
+        Returns
+        -------
+        list
+            Parametric ranges in which the spheres intersect the beam.
+            ``[None]`` if no intersection exists in ``time=[0, 1]``. The entry
+            at ``[i][j]`` is a list with two floats ``[t_1, t_2]`` giving the
+            j-th intersection interval of sphere number i with the beam.
         """
-        # TODO: better unit tests.
+        import warnings
+
+        warnings.warn(
+            "_get_proximity_intervals is deprecated and will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         candidate_mask, sample_times = self._get_candidate_spheres(
             sphere_centres, sphere_radius, rigid_body_motion
         )
 
         all_intersections = []
         for j in range(candidate_mask.shape[1]):
-            if np.sum(candidate_mask[:, j]) == 0:
+            if torch.sum(candidate_mask[:, j]) == 0:
                 merged_intersection = [None]
                 all_intersections.append(merged_intersection)
             else:
@@ -307,7 +430,6 @@ class Beam:
                     counting = True
 
                 for i in range(1, candidate_mask.shape[0] - 1):
-
                     if candidate_mask[i, j] and not counting:
                         merged_intersection.append(
                             [sample_times[i - 1], sample_times[i + 1]]

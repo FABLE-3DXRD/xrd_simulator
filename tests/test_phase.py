@@ -2,7 +2,9 @@
 import os
 import unittest
 import numpy as np
+import torch
 from xrd_simulator.phase import Phase
+from xrd_simulator import utils
 
 
 class TestPhase(unittest.TestCase):
@@ -23,7 +25,7 @@ class TestPhase(unittest.TestCase):
         min_bragg_angle = 1 * np.pi / 180
         max_bragg_angle = 25 * np.pi / 180
 
-        ph.setup_diffracting_planes(
+        ph._setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
             max_bragg_angle)
@@ -34,7 +36,7 @@ class TestPhase(unittest.TestCase):
         unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
         sgname = 'Fm-3m'  # Iron
         ph = Phase(unit_cell, sgname)
-        ph.setup_diffracting_planes(
+        ph._setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
             max_bragg_angle)
@@ -64,7 +66,7 @@ class TestPhase(unittest.TestCase):
         wavelength = 1.0
         min_bragg_angle = 1 * np.pi / 180
         max_bragg_angle = 25 * np.pi / 180
-        ph.setup_diffracting_planes(
+        ph._setup_diffracting_planes(
             wavelength,
             min_bragg_angle,
             max_bragg_angle)

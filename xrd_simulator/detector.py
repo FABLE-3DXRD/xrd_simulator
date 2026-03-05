@@ -12,425 +12,178 @@ Below follows a detailed description of the detector class attributes and functi
 
 """
 
-import numpy as np
-from xrd_simulator import utils
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import dill
-from scipy.signal import convolve2d
-from multiprocessing import Pool
+import numpy as np
+import numpy.typing as npt
+import torch
+import torch.nn.functional as F
+from scipy.special import j1
+
+from xrd_simulator import utils
+from xrd_simulator.cuda import get_selected_device
+from xrd_simulator.utils import ensure_numpy, ensure_torch, return_device_memory
+
+torch.set_default_dtype(torch.float64)
 
 
 class Detector:
     """Represents a rectangular 2D area detector.
 
-    The detector collects :class:`xrd_simulator.scattering_unit.ScatteringUnit` during diffraction from a
-    :class:`xrd_simulator.polycrystal.Polycrystal`. The detector implements various rendering of the scattering
-    as 2D pixelated images. The detector geometry is described by specifying the locations of three detector
-    corners. The detector is described in the laboratory coordinate system.
+    The detector collects :class:`xrd_simulator.scattering_unit.ScatteringUnit`
+    during diffraction from a :class:`xrd_simulator.polycrystal.Polycrystal`.
+    The detector implements various rendering of the scattering as 2D pixelated
+    frames. The detector geometry is described by specifying the locations of
+    three detector corners. The detector is described in the laboratory
+    coordinate system.
 
-    Args:
-        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
-            (zdhat is the unit vector from det_corner_0 towards det_corner_2)
-        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-            (ydhat is the unit vector from det_corner_0 towards det_corner_1)
-        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
-            The origin of the detector is at det_corner_0.
+    Parameters
+    ----------
+    det_corner_0 : numpy.ndarray
+        Detector corner 3D coordinates, shape ``(3,)``. The origin of the
+        detector is at this corner.
+    det_corner_1 : numpy.ndarray
+        Detector corner 3D coordinates, shape ``(3,)``. Defines the y-axis
+        direction of the detector.
+    det_corner_2 : numpy.ndarray
+        Detector corner 3D coordinates, shape ``(3,)``. Defines the z-axis
+        direction of the detector.
+    n_pixels : int or tuple, optional
+        Number of pixels. Can be a single int (square detector) or tuple
+        ``(n_z, n_y)``. If provided, pixel sizes are calculated automatically
+        from detector dimensions. Mutually exclusive with ``pixel_size``.
+    pixel_size : float or tuple, optional
+        Pixel side length in microns. Can be a single value (square pixels)
+        or tuple ``(pixel_size_z, pixel_size_y)`` for rectangular pixels.
+        ``zdhat`` is the unit vector from ``det_corner_0`` towards
+        ``det_corner_2``. ``ydhat`` is the unit vector from ``det_corner_0``
+        towards ``det_corner_1``.
+    gaussian_sigma : float, optional
+        Standard deviation of the Gaussian point spread function in pixels.
+        Default is 1.0.
+    kernel_threshold : float, optional
+        Intensity threshold used to determine the kernel size. The kernel will
+        extend until the Gaussian tail drops below this value. Default is 0.02.
+    max_gaussian_kernel_radius : int
+        Maximum radius of the Gaussian kernel. Default is 2 providing a 5x5 kernel, which is consistent with the Airy method.
+        When the Gaussian kernel radius is larger than this value, the kernel will be truncated.
+    use_lorentz : bool, optional
+        Whether to apply the Lorentz factor correction. Default is ``True``.
+    use_polarization : bool, optional
+        Whether to apply the polarization factor correction. Default is ``True``.
+    use_structure_factor : bool, optional
+        Whether to apply the structure factor. Default is ``True``.
 
-    Attributes:
-        pixel_size_z (:obj:`float`): Pixel side length along zdhat (rectangular pixels) in units of microns.
-        pixel_size_y (:obj:`float`): Pixel side length along ydhat (rectangular pixels) in units of microns.
-        det_corner_0,det_corner_1,det_corner_2 (:obj:`numpy array`): Detector corner 3d coordinates ``shape=(3,)``.
-            The origin of the detector is at det_corner_0.
-        frames (:obj:`list` of :obj:`list` of :obj:`scattering_unit.ScatteringUnit`): Analytical diffraction patterns which
-        zdhat,ydhat (:obj:`numpy array`): Detector basis vectors.
-        normal (:obj:`numpy array`): Detector normal, fromed as the cross product: numpy.cross(self.zdhat, self.ydhat)
-        zmax,ymax (:obj:`numpy array`): Detector width and height.
-        pixel_coordinates  (:obj:`numpy array`): Real space 3d detector pixel coordinates. ``shape=(n,3)``
-        point_spread_function  (:obj:`callable`): Scalar point spread function called as point_spread_function(z, y). The
-            z and y coordinates are assumed to be in local units of pixels. I.e point_spread_function(0, 0) returns the
-            value of the pointspread function at the location of the point being spread. This is meant to model blurring
-            due to detector optics. Defaults to a Gaussian with standard deviation 1.0 and mean at (z,y)=(0,0).
-
-
+    Attributes
+    ----------
+    pixel_size_z : float
+        Pixel side length along ``zdhat`` (rectangular pixels) in microns.
+    pixel_size_y : float
+        Pixel side length along ``ydhat`` (rectangular pixels) in microns.
+    det_corner_0 : torch.Tensor
+        Detector corner 3D coordinates, shape ``(3,)``. The origin of the
+        detector.
+    det_corner_1 : torch.Tensor
+        Detector corner 3D coordinates, shape ``(3,)``.
+    det_corner_2 : torch.Tensor
+        Detector corner 3D coordinates, shape ``(3,)``.
+    frames : list
+        Analytical diffraction frames.
+    zdhat : torch.Tensor
+        Detector basis vector along the z-axis direction.
+    ydhat : torch.Tensor
+        Detector basis vector along the y-axis direction.
+    normal : torch.Tensor
+        Detector normal, formed as the cross product:
+        ``torch.cross(self.zdhat, self.ydhat)``.
+    zmax : torch.Tensor
+        Detector width along ``zdhat``.
+    ymax : torch.Tensor
+        Detector height along ``ydhat``.
+    pixel_coordinates : torch.Tensor
+        Real space 3D detector pixel coordinates, shape ``(n_z, n_y, 3)``.
+    gaussian_sigma : float
+        Standard deviation of the Gaussian point spread function.
+    kernel_threshold : float
+        Threshold value that determines the kernel size.
+    gaussian_kernel : torch.Tensor
+        Pre-computed normalized 2D Gaussian kernel.
+    lorentz_factor : bool
+        Whether the Lorentz factor correction is applied.
+    polarization_factor : bool
+        Whether the polarization factor correction is applied.
+    structure_factor : bool
+        Whether the structure factor is applied.
     """
 
+    # ------------------------------------------------------------------
+    # 1. Core lifecycle
+    # ------------------------------------------------------------------
+
     def __init__(
-        self, pixel_size_z, pixel_size_y, det_corner_0, det_corner_1, det_corner_2
+        self,
+        det_corner_0: npt.NDArray,
+        det_corner_1: npt.NDArray,
+        det_corner_2: npt.NDArray,
+        n_pixels: int | tuple = None,
+        pixel_size: float | tuple = None,
+        gaussian_sigma: float = 1.0,
+        kernel_threshold: float = 0.02,
+        max_gaussian_kernel_radius: int = 2,
+        use_lorentz: bool = True,
+        use_polarization: bool = True,
+        use_structure_factor: bool = True,
     ):
-        self.det_corner_0, self.det_corner_1, self.det_corner_2 = (
-            det_corner_0,
-            det_corner_1,
-            det_corner_2,
-        )
-        self.pixel_size_z = pixel_size_z
-        self.pixel_size_y = pixel_size_y
-        self.zmax = np.linalg.norm(det_corner_2 - det_corner_0)
-        self.ymax = np.linalg.norm(det_corner_1 - det_corner_0)
-        self.zdhat = (det_corner_2 - det_corner_0) / self.zmax
-        self.ydhat = (det_corner_1 - det_corner_0) / self.ymax
-        self.normal = np.cross(self.zdhat, self.ydhat)
-        self.normal = self.normal / np.linalg.norm(self.normal)
+        self.det_corner_0 = ensure_torch(det_corner_0)
+        self.det_corner_1 = ensure_torch(det_corner_1)
+        self.det_corner_2 = ensure_torch(det_corner_2)
+
+        self.zmax = torch.linalg.norm(self.det_corner_2 - self.det_corner_0)
+        self.ymax = torch.linalg.norm(self.det_corner_1 - self.det_corner_0)
+
+        # Determine pixel sizes from either n_pixels or pixel_size
+        if n_pixels is not None:
+            if pixel_size is not None:
+                raise ValueError("Cannot specify both n_pixels and pixel_size")
+            if isinstance(n_pixels, (tuple, list)):
+                n_z, n_y = n_pixels
+            else:
+                n_z = n_y = n_pixels
+            self.pixel_size_z = self.zmax / n_z
+            self.pixel_size_y = self.ymax / n_y
+        elif pixel_size is not None:
+            if isinstance(pixel_size, (tuple, list)):
+                self.pixel_size_z = ensure_torch(pixel_size[0])
+                self.pixel_size_y = ensure_torch(pixel_size[1])
+            else:
+                self.pixel_size_z = ensure_torch(pixel_size)
+                self.pixel_size_y = ensure_torch(pixel_size)
+        else:
+            raise ValueError("Must specify either n_pixels=(n_z, n_y) or pixel_size")
+
+        self.zdhat = (self.det_corner_2 - self.det_corner_0) / self.zmax
+        self.ydhat = (self.det_corner_1 - self.det_corner_0) / self.ymax
+        self.normal = torch.linalg.cross(self.zdhat, self.ydhat)
+        self.normal = self.normal / torch.linalg.norm(self.normal)
         self.frames = []
         self.pixel_coordinates = self._get_pixel_coordinates()
+        self.gaussian_sigma = gaussian_sigma
+        self.kernel_threshold = kernel_threshold
+        self._max_gaussian_kernel_radius = max_gaussian_kernel_radius
+        self.gaussian_kernel = self._generate_gaussian_kernel()
 
-        self._point_spread_kernel_shape = (5, 5)
+        self.lorentz_factor = use_lorentz
+        self.polarization_factor = use_polarization
+        self.structure_factor = use_structure_factor
 
-    def point_spread_function(self, z, y):
-        return np.exp(-0.5 * (z * z + y * y) / (1.0 * 1.0))
+    def save(self, path: str) -> None:
+        """Save detector to disk.
 
-    @property
-    def point_spread_kernel_shape(self):
-        """point_spread_kernel_shape  (:obj:`tuple`): Number of pixels in zdhat and ydhat over which to apply the pointspread
-        function for each scattering event. I.e the shape of the kernel that will be convolved with the diffraction
-        pattern. The values of the kernel is defined by the point_spread_function. Defaults to shape (5, 5).
-
-        NOTE: The point_spread_function is automatically normalised over the point_spread_kernel_shape domain such that the
-            final convolution over the detector diffraction pattern is intensity preserving.
-        """
-        return self._point_spread_kernel_shape
-
-    @point_spread_kernel_shape.setter
-    def point_spread_kernel_shape(self, kernel_shape):
-
-        if kernel_shape[0] % 2 == 0 or kernel_shape[1] % 2 == 0:
-            raise ValueError(
-                "Point spread function kernel shape must be odd in both dimensions, but shape "
-                + str(kernel_shape)
-                + " was provided."
-            )
-        else:
-            self._point_spread_kernel_shape = kernel_shape
-
-    def render(
-        self,
-        frames_to_render,
-        lorentz=True,
-        polarization=True,
-        structure_factor=True,
-        method="centroid",
-        verbose=True,
-        number_of_processes=1,
-    ):
-        """Render a pixelated diffraction pattern onto the detector plane .
-
-        NOTE: The value read out on a pixel in the detector is an approximation of the integrated number of counts over
-        the pixel area.
-
-        Args:
-            frames_to_render (:obj:`int` or :obj:`iterable` of :obj:`int` or :obj:`str`): Indices of the frame in the :obj:`frames` list
-                to be rendered. Optionally the keyword string 'all' can be passed to render all frames of the detector.
-            lorentz (:obj:`bool`): Weight scattered intensity by Lorentz factor. Defaults to False.
-            polarization (:obj:`bool`): Weight scattered intensity by Polarization factor. Defaults to False.
-            structure_factor (:obj:`bool`): Weight scattered intensity by Structure Factor factor. Defaults to False.
-            method (:obj:`str`): Rendering method, must be one of ```project``` , ```centroid``` or ```centroid_with_scintillator```.
-                Defaults to ```centroid```. The default,```method=centroid```, is a simple deposit of intensity for each scattering_unit
-                onto the detector by tracing a line from the sample scattering region centroid to the detector plane. The intensity
-                is deposited into a single detector pixel regardless of the geometrical shape of the scattering_unit. If instead
-                ```method=project``` the scattering regions are projected onto the detector depositing a intensity over
-                possibly several pixels as weighted by the optical path lengths of the rays diffracting from the scattering
-                region. If ```method=centroid_with_scintillator`` a centroid type raytracing is used, but the scintillator
-                point spread is applied before deposition unto the pixel grid, revealing sub pixel shifts in the scattering events.
-            verbose (:obj:`bool`): Prints progress. Defaults to True.
-            number_of_processes (:obj:`int`): Optional keyword specifying the number of desired processes to use for diffraction
-                computation. Defaults to 1, i.e a single processes.
-        Returns:
-            A pixelated frame as a (:obj:`numpy array`) with shape inferred form the detector geometry and
-            pixel size.
-
-        NOTE: This function can be overwitten to do more advanced models for intensity.
-
-        """
-
-        if verbose and number_of_processes != 1:
-            raise NotImplemented(
-                "Verbose mode is not implemented for multiprocesses computations"
-            )
-
-        if frames_to_render == "all":
-            frames_to_render = list(range(len(self.frames)))
-        elif isinstance(frames_to_render, int):
-            frames_to_render = [frames_to_render]
-
-        if method == "project":
-            renderer = self._projection_render
-            kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid":
-            renderer = self._centroid_render
-            kernel = self._get_point_spread_function_kernel()
-        elif method == "centroid_with_scintillator":
-            renderer = self._centroid_render_with_scintillator
-            kernel = None
-        else:
-            raise ValueError(
-                "No such method: "
-                + method
-                + " exist, method should be one of project or centroid"
-            )
-
-        if number_of_processes == 1:
-            rendered_frames = self._render_and_convolve(
-                (
-                    frames_to_render,
-                    kernel,
-                    renderer,
-                    lorentz,
-                    polarization,
-                    structure_factor,
-                    verbose,
-                )
-            )
-        else:
-            args = []
-            for frames_bundle in np.array_split(
-                np.array(frames_to_render), number_of_processes
-            ):
-                args.append(
-                    (
-                        frames_bundle,
-                        kernel,
-                        renderer,
-                        lorentz,
-                        polarization,
-                        structure_factor,
-                        verbose,
-                    )
-                )
-            with Pool(number_of_processes) as p:  # TODO: better unit tests
-                nested_frame_bundles = p.map(self._render_and_convolve, args)
-            rendered_frames = []
-            for frames_bundle in nested_frame_bundles:
-                rendered_frames.extend(frames_bundle)
-        rendered_frames = np.array(rendered_frames)
-
-        if len(frames_to_render) == 1:
-            return rendered_frames[0, :, :]
-        else:
-            return rendered_frames
-
-    def _render_and_convolve(self, args):
-        (
-            frames_bundle,
-            kernel,
-            renderer,
-            lorentz,
-            polarization,
-            structure_factor,
-            verbose,
-        ) = args
-        rendered_frames = []
-        for frame_index in frames_bundle:
-            frame = np.zeros(
-                (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1])
-            )
-            for si, scattering_unit in enumerate(self.frames[frame_index]):
-                if verbose:
-                    progress_bar_message = (
-                        "Rendering "
-                        + str(len(self.frames[frame_index]))
-                        + " scattering volumes unto the detector"
-                    )
-                    progress_fraction = float(si + 1) / len(self.frames[frame_index])
-                    utils._print_progress(
-                        progress_fraction, message=progress_bar_message
-                    )
-                renderer(
-                    scattering_unit, frame, lorentz, polarization, structure_factor
-                )
-            if kernel is not None:
-                frame = self._apply_point_spread_function(frame, kernel)
-            rendered_frames.append(frame)
-        return rendered_frames
-
-    def _apply_point_spread_function(self, frame, kernel):
-        """Apply the point spread function to a rendered pixelated frame by convolution.
-
-        np.inf values due to approximate lorentz factors are preserved but treated as zeros
-        during convolution.
-
-        """
-        if self.point_spread_function is not None:
-            infmask = np.isinf(frame)  # Due to approximate Lorentz factors
-            frame[infmask] = 0
-            if not np.all(frame == 0):
-                frame = convolve2d(frame, kernel, mode="same")
-            frame[infmask] = np.inf
-        return frame
-
-    def pixel_index_to_theta_eta(
-        self,
-        incoming_wavevector,
-        pixel_zd_index,
-        pixel_yd_index,
-        scattering_origin=np.array([0, 0, 0]),
-    ):
-        """Compute bragg angle and azimuth angle for a detector pixel index.
-
-        Args:
-            pixel_zd_index (:obj:`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_index (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
-
-        Returns:
-            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
-        """
-        # TODO: unit test
-        pixel_zd_coord = pixel_zd_index * self.pixel_size_z
-        pixel_yd_coord = pixel_yd_index * self.pixel_size_y
-        theta, eta = self.pixel_coord_to_theta_eta(
-            incoming_wavevector,
-            pixel_zd_coord,
-            pixel_yd_coord,
-            scattering_origin=np.array([0, 0, 0]),
-        )
-        return theta, eta
-
-    def pixel_coord_to_theta_eta(
-        self,
-        incoming_wavevector,
-        pixel_zd_coord,
-        pixel_yd_coord,
-        scattering_origin=np.array([0, 0, 0]),
-    ):
-        """Compute bragg angle and azimuth angle  for a detector coordinate.
-
-        Args:
-            pixel_zd_coord (:obj:`float`): Coordinate in microns along detector zd axis.
-            pixel_yd_coord (:obj:`float`): Coordinate in microns along detector yd axis.
-            scattering_origin (obj:`numpy array`): Origin of diffraction in microns. Defaults to np.array([0, 0, 0]).
-
-        Returns:
-            (:obj:`tuple`) Bragg angle theta and azimuth angle eta (measured from det_corner_1 - det_corner_0 axis) in radians
-        """
-        # TODO: unit test
-        khat = incoming_wavevector / np.linalg.norm(incoming_wavevector)
-        kp = (
-            self.det_corner_0
-            + pixel_zd_coord * self.zdhat
-            + pixel_yd_coord * self.ydhat
-            - scattering_origin
-        )
-        kprimehat = kp / np.linalg.norm(kp)
-        theta = np.arccos(khat.dot(kprimehat)) / 2.0
-        korthogonal = kprimehat - (khat * kprimehat.dot(khat))
-        eta = np.arccos(self.zdhat.dot(korthogonal) / np.linalg.norm(korthogonal))
-        eta *= np.sign((np.cross(self.zdhat, korthogonal)).dot(-incoming_wavevector))
-        return theta, eta
-
-    def get_intersection(self, ray_direction, source_point):
-        """Get detector intersection in detector coordinates of a single ray originating from source_point.
-
-        Args:
-            ray_direction (:obj:`numpy array`): Vector in direction of the xray propagation
-            source_point (:obj:`numpy array`): Origin of the ray.
-
-        Returns:
-            (:obj:`tuple`) zd, yd in detector plane coordinates.
-
-        """
-
-        s = (self.det_corner_0 - source_point).dot(self.normal) / ray_direction.dot(
-            self.normal
-        )
-
-        intersection = source_point + ray_direction * s[:, np.newaxis]
-
-        # such that backwards rays are not considered to intersect the detector
-        # i.e only rays that can intersect the detector plane by propagating
-        # forward along the photon path are considered.
-        intersection[s < 0] = np.nan
-
-        zd = np.dot(intersection - self.det_corner_0, self.zdhat)
-        yd = np.dot(intersection - self.det_corner_0, self.ydhat)
-        return np.array([zd, yd]).T
-
-    def contains(self, zd, yd):
-        """Determine if the detector coordinate zd,yd lies within the detector bounds.
-
-        Args:
-            zd (:obj:`float`): Detector z coordinate
-            yd (:obj:`float`): Detector y coordinate
-
-        Returns:
-            (:obj:`boolean`) True if the zd,yd is within the detector bounds.
-
-        """
-
-        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
-
-    def project(self, scattering_unit, box):
-        """Compute parametric projection of scattering region unto detector.
-
-        Args:
-            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
-            box (:obj:`tuple` of :obj:`int`): indices of the detector frame over which to compute the projection.
-                i.e the subgrid of the detector is taken as: array[[box[0]:box[1], box[2]:box[3]].
-
-        Returns:
-            (:obj:`numpy array`) clip lengths between scattering_unit polyhedron and rays traced from the detector.
-
-        """
-
-        ray_points = self.pixel_coordinates[
-            box[0] : box[1], box[2] : box[3], :
-        ].reshape((box[1] - box[0]) * (box[3] - box[2]), 3)
-
-        plane_normals = scattering_unit.convex_hull.equations[:, 0:3]
-        plane_ofsets = scattering_unit.convex_hull.equations[:, 3].reshape(
-            scattering_unit.convex_hull.equations.shape[0], 1
-        )
-        plane_points = -np.multiply(plane_ofsets, plane_normals)
-
-        ray_points = np.ascontiguousarray(ray_points)
-        ray_direction = np.ascontiguousarray(
-            scattering_unit.scattered_wave_vector
-            / np.linalg.norm(scattering_unit.scattered_wave_vector)
-        )
-        plane_points = np.ascontiguousarray(plane_points)
-        plane_normals = np.ascontiguousarray(plane_normals)
-
-        clip_lengths = utils._clip_line_with_convex_polyhedron(
-            ray_points, ray_direction, plane_points, plane_normals
-        )
-        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
-
-        return clip_lengths
-
-    def get_wrapping_cone(self, k, source_point):
-        """Compute the cone around a wavevector such that the cone wraps the detector corners.
-
-        Args:
-            k (:obj:`numpy array`): Wavevector forming the central axis of cone ```shape=(3,)```.
-            source_point (:obj:`numpy array`): Origin of the wavevector ```shape=(3,)```.
-
-        Returns:
-            (:obj:`float`) Cone opening angle divided by two (radians), corresponding to a maximum bragg angle after
-                which scattering will systematically miss the detector.
-
-        """
-        fourth_corner_of_detector = self.det_corner_2 + (
-            self.det_corner_1 - self.det_corner_0[:]
-        )
-        geom_mat = np.zeros((3, 4))
-        for i, det_corner in enumerate(
-            [
-                self.det_corner_0,
-                self.det_corner_1,
-                self.det_corner_2,
-                fourth_corner_of_detector,
-            ]
-        ):
-            geom_mat[:, i] = det_corner - source_point
-        normalised_local_coord_geom_mat = geom_mat / np.linalg.norm(geom_mat, axis=0)
-        cone_opening = np.arccos(
-            np.dot(normalised_local_coord_geom_mat.T, k / np.linalg.norm(k))
-        )  # These are two time Bragg angles
-        return np.max(cone_opening) / 2.0
-
-    def save(self, path):
-        """Save the detector object to disc (via pickling).
-
-        Args:
-            path (:obj:`str`): File path at which to save, ending with the desired filename.
-
+        Parameters
+        ----------
+        path : str
+            Output file path. The ``.det`` extension is added if missing.
         """
         if not path.endswith(".det"):
             path = path + ".det"
@@ -438,49 +191,233 @@ class Detector:
             dill.dump(self, f, dill.HIGHEST_PROTOCOL)
 
     @classmethod
-    def load(cls, path):
-        """Load the detector object from disc (via pickling).
+    def load(cls, path: str) -> "Detector":
+        """Load detector from disk.
 
-        Args:
-            path (:obj:`str`): File path at which to load, ending with the desired filename.
+        Parameters
+        ----------
+        path : str
+            Path to ``.det`` file.
 
-        .. warning::
-            This function will unpickle data from the provied path. The pickle module
-            is not intended to be secure against erroneous or maliciously constructed data.
-            Never unpickle data received from an untrusted or unauthenticated source.
+        Returns
+        -------
+        Detector
+            Loaded Detector instance.
 
+        Raises
+        ------
+        ValueError
+            If file extension is not ``.det``.
         """
         if not path.endswith(".det"):
             raise ValueError("The loaded motion file must end with .det")
         with open(path, "rb") as f:
-            return dill.load(f)
+            loaded = dill.load(f)
+            loaded.normal = ensure_torch(loaded.normal)
+            loaded.det_corner_0 = ensure_torch(loaded.det_corner_0)
+            loaded.det_corner_1 = ensure_torch(loaded.det_corner_1)
+            loaded.det_corner_2 = ensure_torch(loaded.det_corner_2)
+            loaded.zdhat = ensure_torch(loaded.zdhat)
+            loaded.ydhat = ensure_torch(loaded.ydhat)
+            loaded.zmax = ensure_torch(loaded.zmax)
+            loaded.ymax = ensure_torch(loaded.ymax)
+            loaded.pixel_size_z = ensure_torch(loaded.pixel_size_z)
+            loaded.pixel_size_y = ensure_torch(loaded.pixel_size_y)
+            return loaded
 
-    def _get_point_spread_function_kernel(self):
-        """Render the point_spread_function onto a grid of shape specified by point_spread_kernel_shape."""
-        sz, sy = self.point_spread_kernel_shape
-        axz = np.linspace(-(sz - 1) / 2.0, (sz - 1) / 2.0, sz)
-        axy = np.linspace(-(sy - 1) / 2.0, (sy - 1) / 2.0, sy)
-        Z, Y = np.meshgrid(axz, axy, indexing="ij")
-        kernel = np.zeros(self.point_spread_kernel_shape)
-        for i in range(Z.shape[0]):
-            for j in range(Y.shape[1]):
-                kernel[i, j] = self.point_spread_function(Z[i, j], Y[i, j])
+    # ------------------------------------------------------------------
+    # 2. High-level public API
+    # ------------------------------------------------------------------
 
-        assert (
-            len(kernel[kernel < 0]) == 0
-        ), "Point spread function must be strictly positive, but negative values were found."
-        assert (
-            np.sum(kernel) > 1e-8
-        ), "The integrated value of the point spread function over the defined kernel domain is close to zero."
+    def render(
+        self,
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        frames_to_render: int = 1,
+        method: str = "auto",
+        macro_grain_limit=None,  # depends on the detector pixel size
+        micro_grain_limit=0.1**3,  # in cubic microns
+        render_dtype: torch.dtype | None = None,
+        verbose: bool | None = None,
+    ) -> tuple[torch.Tensor, Dict[str, Union[torch.Tensor, List[str]]]]:
+        """Render diffraction frames using different peak profile methods.
 
-        return kernel / np.sum(kernel)
+        Three physically motivated rendering methods are provided, each
+        targeting a different grain-size regime.  See the individual
+        rendering methods for detailed physical justification.
 
-    def _get_pixel_coordinates(self):
-        zds = np.arange(0, self.zmax, self.pixel_size_z)
-        yds = np.arange(0, self.ymax, self.pixel_size_y)
-        Z, Y = np.meshgrid(zds, yds, indexing="ij")
-        Zds = np.zeros((len(zds), len(yds), 3))
-        Yds = np.zeros((len(zds), len(yds), 3))
+        - ``'nano'``:  Airy-disk profiles for sub-micron crystallites
+          where the finite-lattice assumption breaks down and the
+          Fourier transform of the lattice is no longer a delta.
+          See :meth:`_render_airy_peaks`.
+        - ``'micro'``: Gaussian point-spread for medium grains (~0.1–10 µm)
+          where the instrument response dominates the spot shape.
+          See :meth:`_render_gauss_peaks`.
+        - ``'macro'``: Volume projection for grains larger than the pixel
+          size, capturing crystal morphology and strain.
+          See :meth:`_render_projected_volumes`.
+        - ``'auto'``:  Automatically selects per-peak based on grain volume
+          (``macro_grain_limit`` / ``micro_grain_limit`` thresholds).
+
+        Parameters
+        ----------
+        peaks_dict : dict
+            Peak data dictionary containing ``'peaks'`` tensor and metadata
+            columns.
+        frames_to_render : int, optional
+            Number of frames to generate. The diffraction time domain ``[0, 1]``
+            is divided into ``frames_to_render`` equal bins, and each peak is
+            assigned to the frame corresponding to its diffraction time. When
+            set to 1, all peaks are rendered into a single integrated frame.
+            Values less than 1 are clamped to 1. Default is 1.
+        method : str, optional
+            Rendering method: ``'micro'``, ``'nano'``, ``'macro'``, or ``'auto'``.
+            Default is ``'micro'``.
+        macro_grain_limit : float, optional
+            Volume threshold (cubic microns) above which grains use the macro
+            rendering method. Default is ``pixel_size**3``.
+        micro_grain_limit : float, optional
+            Volume threshold (cubic microns) below which grains use the nano
+            rendering method. Default is ``0.001`` (0.1³ cubic microns).
+        render_dtype : torch.dtype, optional
+            Data type for rendered frames. If ``None``, uses the dtype of the
+            peaks tensor.
+        verbose : bool or None, optional
+            If ``True``, print progress messages during rendering. If ``None``,
+            inherits the ``verbose`` flag from ``peaks_dict`` (set by
+            ``polycrystal.diffract``). Defaults to ``True`` if neither is set.
+
+        Returns
+        -------
+        diffraction_frames : torch.Tensor
+            Rendered diffraction frames with shape ``(frames, height, width)``.
+        peaks_dict : dict
+            Updated peak data dictionary with detector intersection columns
+            (``zd``, ``yd``, ``incident_angle``, ``frame``,
+            ``intensity_factors``) appended and non-visible / invalid peaks
+            filtered out.  Identical to the output of
+            :meth:`peaks_detector_intersection`.
+
+        Raises
+        ------
+        ValueError
+            If an invalid method is specified.
+        """
+
+        target_dtype = (
+            render_dtype if render_dtype is not None else peaks_dict["peaks"].dtype
+        )
+        if verbose is None:
+            verbose = peaks_dict.get("verbose", True)
+        self._verbose = verbose  # Store for use in rendering methods
+
+        if frames_to_render < 1:
+            frames_to_render = 1
+            if self._verbose:
+                print("[Detector.render] frames_to_render < 1, setting to 1")
+
+        peaks_dict = self.peaks_detector_intersection(
+            peaks_dict, frames_to_render, verbose
+        )
+        peaks = peaks_dict["peaks"]
+        beam = peaks_dict.get("beam", None)
+        lab_mesh = peaks_dict.get("mesh_lab", None)
+        rigid_body_motion = peaks_dict.get("rigid_body_motion", None)
+
+        if method == "macro":
+            diffraction_frames = self._render_projected_volumes(
+                peaks, beam, lab_mesh, rigid_body_motion, frames_to_render, target_dtype
+            )
+        elif method == "micro":
+            diffraction_frames = self._render_gauss_peaks(
+                peaks, frames_to_render, target_dtype
+            )
+        elif method == "nano":
+            diffraction_frames = self._render_airy_peaks(
+                peaks, frames_to_render, target_dtype
+            )
+        elif method == "auto":
+            if macro_grain_limit is None:
+                macro_grain_limit = (min(self.pixel_size_y, self.pixel_size_z)) ** 3
+            large_grains_mask = peaks[:, 21] >= macro_grain_limit
+            small_grains_mask = peaks[:, 21] < micro_grain_limit
+            medium_grains_mask = (~large_grains_mask) & (~small_grains_mask)
+
+            diffraction_frames = torch.zeros(
+                (
+                    frames_to_render,
+                    self.pixel_coordinates.shape[0],
+                    self.pixel_coordinates.shape[1],
+                ),
+                device=peaks.device,
+            )
+
+            # Collect contributions (each returns frames_to_render-length tensors)
+            contrib_macro = self._render_projected_volumes(
+                peaks[large_grains_mask],
+                beam,
+                lab_mesh,
+                rigid_body_motion,
+                frames_to_render,
+                target_dtype,
+            )
+            contrib_micro = self._render_gauss_peaks(
+                peaks[medium_grains_mask], frames_to_render, target_dtype
+            )
+            contrib_nano = self._render_airy_peaks(
+                peaks[small_grains_mask], frames_to_render, target_dtype
+            )
+
+            # Ensure dtype/device matching and add up
+            diffraction_frames = diffraction_frames.to(contrib_nano.device)
+            diffraction_frames += contrib_nano
+            diffraction_frames += contrib_macro
+            diffraction_frames += contrib_micro
+        else:
+            raise ValueError(
+                f"Invalid method: {method}. Must be one of: 'micro', 'nano', 'macro', or 'auto'"
+            )
+
+        return diffraction_frames, peaks_dict
+
+    def contains(self, zd: torch.Tensor, yd: torch.Tensor) -> torch.Tensor:
+        """Check if detector coordinates are within bounds.
+
+        Parameters
+        ----------
+        zd : torch.Tensor
+            Z-axis detector coordinates.
+        yd : torch.Tensor
+            Y-axis detector coordinates.
+
+        Returns
+        -------
+        torch.Tensor
+            Boolean tensor indicating which coordinates are within detector
+            bounds.
+        """
+        return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
+
+    # ------------------------------------------------------------------
+    # 3. Geometry & coordinate helpers
+    # ------------------------------------------------------------------
+
+    def _get_pixel_coordinates(self) -> torch.Tensor:
+        """Calculate real-space coordinates for each detector pixel.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of shape ``(Z, Y, 3)`` containing 3D coordinates for each
+            pixel center.
+        """
+        # Get device from det_corner_0 to ensure all tensors are on same device
+        dev = self.det_corner_0.device
+
+        zds = torch.arange(0, self.zmax, self.pixel_size_z, device=dev)
+        yds = torch.arange(0, self.ymax, self.pixel_size_y, device=dev)
+        Z, Y = torch.meshgrid(zds, yds, indexing="ij")
+        Zds = torch.zeros((len(zds), len(yds), 3), device=dev)
+        Yds = torch.zeros((len(zds), len(yds), 3), device=dev)
         for i in range(3):
             Zds[:, :, i] = Z
             Yds[:, :, i] = Y
@@ -491,154 +428,154 @@ class Detector:
         )
         return pixel_coordinates
 
-    def _centroid_render(
-        self, scattering_unit, frame, lorentz, polarization, structure_factor
-    ):
-        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
-        sample scattering region centroid to the detector plane. The intensity is deposited into a single
-        detector pixel regardless of the geometrical shape of the scattering_unit.
+    def _get_intersection(
+        self, ray_direction: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Get detector intersection coordinates for rays.
+
+        Parameters
+        ----------
+        ray_direction : torch.Tensor
+            Direction vectors for each ray, shape ``(N, 3)`` or ``(3,)``.
+        source_point : torch.Tensor
+            Origin points for each ray, shape ``(N, 3)`` or ``(3,)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Intersection coordinates ``(zd, yd)`` and incident angles, shape
+            ``(N, 3)``.
         """
-        zd, yd = scattering_unit.zd, scattering_unit.yd
+        # Handle single vector inputs by adding batch dimension
+        if ray_direction.dim() == 1:
+            ray_direction = ray_direction.unsqueeze(0)
+        if source_point.dim() == 1:
+            source_point = source_point.unsqueeze(0)
 
-        if self.contains(zd, yd):
-            intensity_scaling_factor = self._get_intensity_factor(
-                scattering_unit, lorentz, polarization, structure_factor
-            )
-            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            if np.isinf(intensity_scaling_factor):
-                frame[row, col] += np.inf
-            else:
-                frame[row, col] += scattering_unit.volume * intensity_scaling_factor
+        s = torch.matmul(self.det_corner_0 - source_point, self.normal) / torch.matmul(
+            ray_direction, self.normal
+        )
 
-    def _centroid_render_with_scintillator(
-        self, scattering_unit, frame, lorentz, polarization, structure_factor
-    ):
-        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a line from the
-        sample scattering region centroid to the detector plane. The intensity is deposited by placing the detector
-        point spread function at the hit location and rendering it unto the detector grid.
+        intersection = source_point + ray_direction * s.unsqueeze(1)
+        intersection[s < 0] = np.nan
+        zd = torch.matmul(intersection - self.det_corner_0, self.zdhat)
+        yd = torch.matmul(intersection - self.det_corner_0, self.ydhat)
 
-        NOTE: this is different from self._centroid_render which applies the point spread function as a post-proccessing
-        step using convolution. Here the point spread is simulated to take place in the scintillator, before reaching the
-        chip.
+        ray_dir_norm = ray_direction / torch.norm(ray_direction, dim=1).unsqueeze(-1)
+        normal_norm = self.normal / torch.linalg.norm(self.normal)
+        cosine_theta = torch.matmul(ray_dir_norm, -normal_norm)
+        incident_angle_deg = torch.arccos(cosine_theta) * (180 / torch.pi)
+        return torch.stack((zd, yd, incident_angle_deg), dim=1)
+
+    def _get_wrapping_cone(
+        self, k: torch.Tensor, source_point: torch.Tensor
+    ) -> torch.Tensor:
+        """Compute cone that wraps detector corners around wavevector.
+
+        Parameters
+        ----------
+        k : torch.Tensor
+            Central wavevector of cone, shape ``(3,)``.
+        source_point : torch.Tensor
+            Cone vertex point, shape ``(3,)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Half-angle of cone opening in radians.
         """
-        zd, yd = scattering_unit.zd, scattering_unit.yd
-        if self.contains(zd, yd):
-            intensity_scaling_factor = self._get_intensity_factor(
-                scattering_unit, lorentz, polarization, structure_factor
-            )
+        # Ensure k and source_point are torch tensors
+        k = ensure_torch(k)
+        source_point = ensure_torch(source_point)
 
-            a, b = self.point_spread_kernel_shape
-            row, col = self._detector_coordinate_to_pixel_index(zd, yd)
-            zd_in_pixels = zd / self.pixel_size_z
-            yd_in_pixels = yd / self.pixel_size_y
-            rl, rh = row - a // 2 - 1, row + a // 2 + 1
-            cl, ch = col - b // 2 - 1, col + b // 2 + 1
-            rl, rh = np.max([rl, 0]), np.min([rh, self.pixel_coordinates.shape[0] - 1])
-            cl, ch = np.max([cl, 0]), np.min([ch, self.pixel_coordinates.shape[1] - 1])
-            zg = np.linspace(rl, rh, rh - rl + 1) + 0.5  # pixel centre coordinates in z
-            yg = np.linspace(cl, ch, ch - cl + 1) + 0.5  # pixel centre coordinates in y
-            Z, Y = np.meshgrid(zg, yg, indexing="ij")
-            drifted_kernel = self.point_spread_function(
-                Z - zd_in_pixels, Y - yd_in_pixels
-            )
-            drifted_kernel = drifted_kernel / np.sum(drifted_kernel)
+        fourth_corner_of_detector = self.det_corner_2 + (
+            self.det_corner_1 - self.det_corner_0[:]
+        )
+        geom_mat = torch.zeros((3, 4))
+        for i, det_corner in enumerate(
+            [
+                self.det_corner_0,
+                self.det_corner_1,
+                self.det_corner_2,
+                fourth_corner_of_detector,
+            ]
+        ):
+            geom_mat[:, i] = det_corner - source_point
+        normalised_local_coord_geom_mat = geom_mat / torch.linalg.norm(geom_mat, axis=0)
+        cone_opening = torch.arccos(
+            torch.matmul(normalised_local_coord_geom_mat.T, k / torch.linalg.norm(k))
+        )
+        return torch.max(cone_opening) / 2.0
 
-            if np.isinf(intensity_scaling_factor):
-                frame[rl : rh + 1, cl : ch + 1] = np.inf
-            else:
-                frame[rl : rh + 1, cl : ch + 1] += (
-                    scattering_unit.volume * intensity_scaling_factor * drifted_kernel
-                )
+    def _detector_coordinate_to_pixel_index(
+        self, zd: float, yd: float
+    ) -> Tuple[int, int]:
+        """Convert detector coordinates to pixel indices.
 
-    def _projection_render(
-        self, scattering_unit, frame, lorentz, polarization, structure_factor
-    ):
-        """Raytrace and project the scattering regions onto the detector plane for increased peak shape accuracy.
-        This is generally very computationally expensive compared to the simpler (:obj:`function`):_centroid_render
-        function.
+        Parameters
+        ----------
+        zd : float
+            Z-axis detector coordinate in microns.
+        yd : float
+            Y-axis detector coordinate in microns.
 
-        NOTE: If the projection of the scattering_unit does not hit any pixel centroids of the detector fallback to
-        the (:obj:`function`):_centroid_render function is used to deposit the intensity into a single detector pixel.
+        Returns
+        -------
+        tuple of int
+            ``(row_index, col_index)`` pixel indices.
         """
-        box = self._get_projected_bounding_box(scattering_unit)
-        if box is not None:
-            projection = self.project(scattering_unit, box)
-            if np.sum(projection) == 0:
-                # The projection of the scattering_unit did not hit any pixel centroids of the detector.
-                # i.e the scattering_unit is small in comparison to the detector
-                # pixels.
-                self._centroid_render(
-                    scattering_unit, frame, lorentz, polarization, structure_factor
-                )
-            else:
-                intensity_scaling_factor = self._get_intensity_factor(
-                    scattering_unit, lorentz, polarization, structure_factor
-                )
-                if np.isinf(intensity_scaling_factor):
-                    frame[box[0] : box[1], box[2] : box[3]] += np.inf
-                else:
-                    frame[box[0] : box[1], box[2] : box[3]] += (
-                        projection
-                        * intensity_scaling_factor
-                        * self.pixel_size_z
-                        * self.pixel_size_y
-                    )
-
-    def _get_intensity_factor(
-        self, scattering_unit, lorentz, polarization, structure_factor
-    ):
-        intensity_factor = 1.0
-        # TODO: Consider solid angle intensity rescaling and air scattering.
-        if lorentz:
-            intensity_factor *= scattering_unit.lorentz_factor
-        if polarization:
-            intensity_factor *= scattering_unit.polarization_factor
-        if structure_factor:
-            if scattering_unit.phase.structure_factors is not None:
-                intensity_factor *= (
-                    scattering_unit.real_structure_factor**2
-                    + scattering_unit.imaginary_structure_factor**2
-                )
-            else:
-                raise ValueError(
-                    "Structure factors have not been set, .cif file is required at sample instantiation."
-                )
-
-        return intensity_factor
-
-    def _detector_coordinate_to_pixel_index(self, zd, yd):
         row_index = int(zd / self.pixel_size_z)
         col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
 
-    def _get_projected_bounding_box(self, scattering_unit):
-        """Compute bounding detector pixel indices of the bounding the projection of a scattering region.
+    def _get_projected_bounding_box(
+        self, proj_context: Dict[str, Any]
+    ) -> Optional[Tuple[int, int, int, int]]:
+        """Compute bounding detector pixel indices for a convex hull projection.
 
-        Args:
-            scattering_unit (:obj:`xrd_simulator.ScatteringUnit`): The scattering region.
+        Parameters
+        ----------
+        proj_context : dict
+            Dictionary containing:
 
-        Returns:
-            (:obj:`tuple` of :obj:`int`) indices that can be used to slice the detector frame array and get the pixels that
-                are within the bounding box.
+            - ``'convex_hull'``: ConvexHull object to project.
+            - ``'scattered_wave_vector'``: Direction of scattered wave.
 
+        Returns
+        -------
+        tuple of int or None
+            ``(min_row, max_row, min_col, max_col)`` indices for slicing the
+            detector frame array. Returns ``None`` if the projection does not
+            intersect the detector.
         """
-        vertices = scattering_unit.convex_hull.points[
-            scattering_unit.convex_hull.vertices
-        ]
+        # Get vertices from convex hull (numpy) and convert to torch
+        hull = proj_context["convex_hull"]
+        vertices = ensure_torch(hull.points[hull.vertices])
 
-        projected_vertices = self.get_intersection(
-            scattering_unit.scattered_wave_vector, vertices
-        )
+        # Reshape scattered_wave_vector to (N,3) by repeating for each vertex
+        scattered_vec = proj_context["scattered_wave_vector"]
+        scattered_vec = scattered_vec.unsqueeze(0).repeat(vertices.shape[0], 1)
 
-        min_zd, max_zd = np.min(projected_vertices[:, 0]), np.max(
-            projected_vertices[:, 0]
-        )
-        min_yd, max_yd = np.min(projected_vertices[:, 1]), np.max(
-            projected_vertices[:, 1]
-        )
+        # Get intersections - stays in torch
+        projected_vertices = self._get_intersection(scattered_vec, vertices)
 
-        min_zd, max_zd = np.max([min_zd, 0]), np.min([max_zd, self.zmax])
-        min_yd, max_yd = np.max([min_yd, 0]), np.min([max_yd, self.ymax])
+        # Calculate bounds using torch operations
+        zmax = self.zmax
+        ymax = self.ymax
+
+        # Get z and y columns, filter out NaN values for min/max
+        z_vals = projected_vertices[:, 0]
+        y_vals = projected_vertices[:, 1]
+        z_valid = z_vals[~torch.isnan(z_vals)]
+        y_valid = y_vals[~torch.isnan(y_vals)]
+
+        if z_valid.numel() == 0 or y_valid.numel() == 0:
+            return None
+
+        min_zd = max(float(z_valid.min().item()), 0)
+        max_zd = min(float(z_valid.max().item()), float(zmax))
+        min_yd = max(float(y_valid.min().item()), 0)
+        max_yd = min(float(y_valid.max().item()), float(ymax))
 
         if min_zd > max_zd or min_yd > max_yd:
             return None
@@ -650,7 +587,1263 @@ class Detector:
             max_zd, max_yd
         )
 
-        max_row_indx = np.min([max_row_indx + 1, int(self.zmax / self.pixel_size_z)])
-        max_col_indx = np.min([max_col_indx + 1, int(self.ymax / self.pixel_size_y)])
+        max_row_indx = min(max_row_indx + 1, int(zmax / self.pixel_size_z))
+        max_col_indx = min(max_col_indx + 1, int(ymax / self.pixel_size_y))
 
         return min_row_indx, max_row_indx, min_col_indx, max_col_indx
+
+    # ------------------------------------------------------------------
+    # 4. Peak / frame preprocessing
+    # ------------------------------------------------------------------
+
+    def peaks_detector_intersection(
+        self,
+        peaks_dict: Dict[str, Union[torch.Tensor, List[str]]],
+        frames_to_render: int = 1,
+        verbose: bool = True,
+    ) -> Dict[str, Union[torch.Tensor, List[str]]]:
+        """Project diffraction peaks onto the detector and filter to those that hit it.
+
+        Takes the ``peaks_dict`` produced by :meth:`Polycrystal.diffract` and
+        determines where each diffracted ray intersects the detector plane.
+        Peaks that fall outside the detector area or that have physically
+        invalid intensity (e.g. infinite Lorentz factor) are discarded.
+
+        The method performs three steps in order:
+
+        1. **Intersection** — computes where each diffracted ray
+           (defined by ``K_out`` and ``Source`` columns) hits the detector
+           plane, appending ``zd``, ``yd`` and ``incident_angle``.
+        2. **Filtering** — discards peaks that miss the detector
+           (via :meth:`contains`) or have non-finite / non-positive
+           intensity factors.
+        3. **Frame assignment & intensity** — bins peaks into
+           *frames_to_render* equal time bins and computes the combined
+           ``intensity_factors`` column from the enabled correction
+           factors (structure, polarization, Lorentz).
+
+        The following columns are **appended** to the peaks tensor:
+
+        +-----+----------------------+-------------------------------------------------------------+
+        | Col | Name                 | Description                                                 |
+        +=====+======================+=============================================================+
+        | 25  | ``zd``               | Detector z-coordinate of the hit (µm).                      |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 26  | ``yd``               | Detector y-coordinate of the hit (µm).                      |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 27  | ``incident_angle``   | Angle between the diffracted ray and the detector normal    |
+        |     |                      | (degrees).                                                  |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 28  | ``frame``            | Frame index assigned from the diffraction time via          |
+        |     |                      | equal-width binning over [0, 1].                            |
+        +-----+----------------------+-------------------------------------------------------------+
+        | 29  | ``intensity_factors``| Product of the enabled correction factors (structure,       |
+        |     |                      | polarization, Lorentz) giving the scattering strength per   |
+        |     |                      | unit volume.                                                |
+        +-----+----------------------+-------------------------------------------------------------+
+
+        Parameters
+        ----------
+        peaks_dict : dict
+            Peak data dictionary as returned by
+            :meth:`Polycrystal.diffract`.  Must contain at least
+            ``'peaks'`` (torch.Tensor) and ``'columns'`` (list of str).
+        frames_to_render : int, optional
+            Number of time frames.  The diffraction-time interval [0, 1] is
+            split into *frames_to_render* equal bins and each peak is assigned
+            to the bin its ``diffraction_time`` falls into.  Default is ``1``.
+        verbose : bool, optional
+            If ``True``, emit warnings when peaks with invalid intensity
+            factors are discarded.  Default is ``True``.
+
+        Returns
+        -------
+        dict
+            A **new** dictionary with the same keys as *peaks_dict* but with
+            ``'peaks'`` and ``'columns'`` updated (augmented columns, filtered
+            rows).  The original *peaks_dict* is not modified.
+
+        Examples
+        --------
+        >>> peaks_dict = polycrystal.diffract(beam, motion)
+        >>> result = detector.peaks_detector_intersection(peaks_dict,
+        ...                                              frames_to_render=5)
+        >>> result["columns"][-5:]
+        ['zd', 'yd', 'incident_angle', 'frame', 'intensity_factors']
+        """
+        self._verbose = verbose
+        peaks = peaks_dict["peaks"]
+        columns = list(peaks_dict["columns"])  # copy to avoid mutating the original
+
+        zd_yd_angle = self._get_intersection(peaks[:, 13:16], peaks[:, 16:19])
+        peaks = torch.cat((peaks, zd_yd_angle), dim=1)
+        columns.extend(["zd", "yd", "incident_angle"])
+
+        # Filter peaks by detector bounds
+        mask = self.contains(
+            peaks[:, 25], peaks[:, 26]
+        )  # Shifted by 1 due to large_grain column
+        peaks = peaks[mask]
+        time = peaks[:, 6].contiguous()
+
+        # Handle frame assignment: when frames_to_render==1, assign all to frame 0
+        if frames_to_render <= 1:
+            frame = torch.zeros(
+                (peaks.shape[0], 1), dtype=torch.int64, device=peaks.device
+            )
+        else:
+            bins = torch.linspace(0, 1, steps=frames_to_render + 1).contiguous()
+            frame = torch.bucketize(time, bins).unsqueeze(1) - 1
+            # Clamp frame indices to valid range [0, frames_to_render-1]
+            frame = torch.clamp(frame, 0, frames_to_render - 1)
+
+        peaks = torch.cat((peaks, frame), dim=1)
+        columns.append("frame")
+
+        # Compute intensity factors (scattering strength per unit volume)
+        # This is the product of structure, polarization, and Lorentz factors
+        intensity_factors = torch.ones(peaks.shape[0], device=peaks.device)
+        if self.structure_factor:
+            intensity_factors = intensity_factors * peaks[:, 5]
+        if self.polarization_factor:
+            intensity_factors = intensity_factors * peaks[:, 20]
+        if self.lorentz_factor:
+            intensity_factors = intensity_factors * peaks[:, 19]
+
+        intensity_factors = intensity_factors.unsqueeze(1)
+        peaks = torch.cat((peaks, intensity_factors), dim=1)
+        columns.append("intensity_factors")
+
+        # Filter out peaks with infinite or invalid intensity factors (geometrically impossible reflections)
+        # These occur when Lorentz factor is infinite (eta near 0° or 180°, or theta near 0°)
+        valid_intensity_mask = torch.isfinite(peaks[:, 29]) & (peaks[:, 29] > 0)
+        n_invalid = (~valid_intensity_mask).sum().item()
+
+        if n_invalid > 0 and self._verbose:
+            import warnings
+
+            # Count specific reasons for invalid peaks
+            infinite_mask = torch.isinf(peaks[:, 29])
+            n_infinite = infinite_mask.sum().item()
+            n_negative_or_zero = ((peaks[:, 29] <= 0) & ~infinite_mask).sum().item()
+            n_nan = torch.isnan(peaks[:, 29]).sum().item()
+
+            reason_parts = []
+            if n_infinite > 0:
+                reason_parts.append(
+                    f"{n_infinite} with infinite Lorentz factor (eta ≈ 0°/180° or θ ≈ 0°)"
+                )
+            if n_negative_or_zero > 0:
+                reason_parts.append(f"{n_negative_or_zero} with non-positive intensity")
+            if n_nan > 0:
+                reason_parts.append(f"{n_nan} with NaN intensity")
+
+            reason_str = "; ".join(reason_parts)
+            warnings.warn(
+                f"Skipping {n_invalid} peaks with invalid intensity factors: {reason_str}. "
+                f"These represent geometrically impossible reflections.",
+                UserWarning,
+                stacklevel=3,  # Points to render() caller
+            )
+
+        peaks = peaks[valid_intensity_mask]
+
+        out = dict(peaks_dict)
+        out["peaks"] = peaks
+        out["columns"] = columns
+        return out
+
+    # ------------------------------------------------------------------
+    # 5. Rendering internals – grouped by method
+    #    (order matches the 'method' options in render())
+    # ------------------------------------------------------------------
+    # 5.a Gaussian peaks
+    def _render_gauss_peaks(
+        self, peaks, frames_to_render, render_dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Render Gaussian peaks — the ``'micro'`` method.
+
+        **Physical motivation (medium grains, ~0.1–10 µm)**
+
+        Grains in this size range are large enough that Scherrer broadening
+        is negligible compared with the detector pixel size: the diffracted
+        beam is effectively a geometric ray that strikes a single detector
+        point.  The observed spot shape is therefore dominated by the
+        instrument response — detector point-spread function (PSF), beam
+        divergence, and mosaic spread — all of which are well approximated
+        by a Gaussian.  Because the intrinsic peak width carries no
+        crystallite-size information at this scale, a fast Gaussian
+        deposition is both physically appropriate and computationally
+        efficient.
+
+        **Implementation**
+
+        Each peak is deposited with sub-pixel accuracy using a combined
+        Gaussian kernel whose width folds the interpolation σ and the
+        detector PSF σ into a single convolution step:
+
+        .. math::
+
+            G(\sigma_1) \otimes G(\sigma_2)
+            = G\!\left(\sqrt{\sigma_1^2 + \sigma_2^2}\right)
+
+        With ``σ_interp = 0.7`` and ``σ_PSF ≈ 1.0``, this gives
+        ``σ_combined ≈ 1.21``, eliminating the separate convolution pass
+        and providing ~2.7× speedup while producing identical results.
+
+        Parameters
+        ----------
+        peaks : torch.Tensor
+            Peak data tensor containing positions and intensities.
+        frames_to_render : int
+            Number of frames to generate.
+        render_dtype : torch.dtype
+            Data type for rendered frames.
+
+        Returns
+        -------
+        torch.Tensor
+            Rendered diffraction frames with Gaussian peaks, shape
+            ``(frames, height, width)``.
+
+        Notes
+        -----
+        Peak tensor column mapping (after ``peaks_detector_intersection``):
+
+        - 0-24: Original columns from polycrystal (grain_index through peak_index)
+        - 25: zd (detector x-coordinate in pixels)
+        - 26: yd (detector y-coordinate in pixels)
+        - 27: incident_angle (in degrees)
+        - 28: frame (frame index for time-resolved rendering)
+        - 29: intensity_factors (scattering strength per unit volume)
+        """
+
+        # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (
+                    frames_to_render,
+                    self.pixel_coordinates.shape[0],
+                    self.pixel_coordinates.shape[1],
+                ),
+                device=self.det_corner_0.device,
+                dtype=render_dtype,
+            )
+
+        diffraction_frames = torch.zeros(
+            (
+                frames_to_render,
+                self.pixel_coordinates.shape[0],
+                self.pixel_coordinates.shape[1],
+            ),
+            device=peaks.device,
+            dtype=render_dtype,
+        )
+
+        # Get continuous pixel coordinates
+        pos_z = peaks[:, 25] / self.pixel_size_z  # zd coordinate
+        pos_y = peaks[:, 26] / self.pixel_size_y  # yd coordinate
+
+        # Get integer coordinates for Gaussian interpolation
+        z_center = pos_z.round().long()
+        y_center = pos_y.round().long()
+
+        # Compute total intensity = intensity_factors × volume
+        intensity_factors = peaks[:, 29]  # Scattering strength per unit volume
+        volumes = peaks[:, 21]  # Element volumes
+        intensities = intensity_factors * volumes  # Total peak intensity
+
+        cuda_selected = get_selected_device() == "cuda"
+
+        # Gaussian interpolation parameters (OPTIMIZED for performance)
+        # Combines interpolation σ_interp + detector PSF σ_detector into single step
+        # Mathematical basis: G(σ₁) ⊗ G(σ₂) = G(√(σ₁² + σ₂²))
+        # Using σ_interp=0.7 for sub-pixel interpolation
+        sigma_interp = 0.7
+        sigma = float((sigma_interp**2 + self.gaussian_sigma**2) ** 0.5)
+        radius = max(3, int(3 * sigma) + 1)  # ≈3σ coverage for >99% energy
+
+        # Pre-compute Gaussian neighborhood offsets
+        offsets = torch.arange(
+            -radius, radius + 1, dtype=torch.float64, device=pos_z.device
+        )
+        dz_grid, dy_grid = torch.meshgrid(offsets, offsets, indexing="ij")
+
+        # Flatten grids for easier processing
+        dz_flat = dz_grid.flatten().to(torch.int32)  # Shape: (25,)
+        dy_flat = dy_grid.flatten().to(torch.int32)  # Shape: (25,)
+
+        # Batch peaks to limit intermediate memory usage. Estimate a batch size based
+        # on free VRAM when CUDA is the selected device; otherwise fall back to a default.
+        approx_bytes_per_peak = 25 * (
+            4 + 4 + 4 + 4 + 4
+        )  # rough int/float32 intermediates per offset
+
+        try:
+            free_bytes = return_device_memory().get("free_gb")
+            target_bytes = free_bytes * 0.5 if free_bytes > 0 else 0
+            batch_size = int(target_bytes / max(approx_bytes_per_peak, 1))
+            batch_size = (
+                max(10_000, min(batch_size, 200_000)) if batch_size > 0 else 50_000
+            )
+        except Exception:
+            batch_size = 50_000
+
+        n_peaks = pos_z.shape[0]
+        n_batches = (n_peaks + batch_size - 1) // batch_size if batch_size > 0 else 1
+        for batch_idx, start in enumerate(range(0, n_peaks, batch_size)):
+            end = min(start + batch_size, n_peaks)
+            if self._verbose:
+                progress_fraction = end / n_peaks
+                utils._print_progress(
+                    progress_fraction, f"[Micro] Batch {batch_idx + 1}/{n_batches}"
+                )
+
+            z_centers_exp = z_center[start:end].to(torch.int32).unsqueeze(1)
+            pos_z_exp = pos_z[start:end].float().unsqueeze(1)
+            z_pixels = z_centers_exp + dz_flat.unsqueeze(0)
+            z_dist = z_pixels.float() - pos_z_exp
+            del z_centers_exp, pos_z_exp
+
+            y_centers_exp = y_center[start:end].to(torch.int32).unsqueeze(1)
+            pos_y_exp = pos_y[start:end].float().unsqueeze(1)
+            y_pixels = y_centers_exp + dy_flat.unsqueeze(0)
+            y_dist = y_pixels.float() - pos_y_exp
+            del y_centers_exp, pos_y_exp
+
+            dist_sq = z_dist**2 + y_dist**2
+
+            weights = torch.exp(-dist_sq / (2 * sigma**2))
+            weight_sums = weights.sum(dim=1, keepdim=True)
+            weights = weights / (weight_sums + 1e-12)
+            weights = weights * intensities[start:end].unsqueeze(1)
+
+            valid = (
+                (z_pixels >= 0)
+                & (z_pixels < diffraction_frames.shape[1])
+                & (y_pixels >= 0)
+                & (y_pixels < diffraction_frames.shape[2])
+                & (weights > 1e-6)
+            )  # Only significant weights
+
+            if valid.any():
+                valid_peaks, valid_offsets = valid.nonzero(as_tuple=True)
+                z_coords = z_pixels[valid].long()  # Convert to long for indexing
+                y_coords = y_pixels[valid].long()  # Convert to long for indexing
+                valid_weights = weights[valid]
+                frame_indices = peaks[start:end][
+                    valid_peaks, 28
+                ].long()  # Frame indices for this batch
+
+                diffraction_frames.index_put_(
+                    (frame_indices, z_coords, y_coords),
+                    valid_weights.to(render_dtype),
+                    accumulate=True,
+                )
+
+        return diffraction_frames
+
+    # 5.b Airy peaks
+    def _estimate_airy_kernel_memory(
+        self,
+        fwhm_rad: torch.Tensor,
+        incident_angles: torch.Tensor,
+    ) -> torch.Tensor:
+        """Estimate memory requirement per peak based on Airy kernel size.
+
+        Memory scales quadratically with kernel radius. Smaller crystallites have
+        larger FWHM (Scherrer broadening), leading to larger kernels and more
+        memory usage.
+
+        The kernel radius is determined by:
+
+        - Airy: ``first_zero = FWHM_rad * R / pixel_size * 1.1861``
+        - Final radius is approximately 4-5× the characteristic width until
+          intensity drops below threshold.
+
+        Parameters
+        ----------
+        fwhm_rad : torch.Tensor
+            Scherrer FWHM in radians, shape ``(N,)``.
+        incident_angles : torch.Tensor
+            Incident angles in degrees, shape ``(N,)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Estimated memory per peak in bytes, shape ``(N,)``.
+        """
+        detector_distance = torch.linalg.norm(self.det_corner_0)
+        incident_angles_rad = incident_angles * torch.pi / 180
+        R = detector_distance / torch.cos(incident_angles_rad)
+
+        # Compute characteristic width parameter in pixels
+        # Airy: first_zero = FWHM * R / pixel_size * 1.1861
+        char_width = fwhm_rad * R / self.pixel_size_z * 1.1861
+        # Airy needs ~4× first_zero to capture rings
+        kernel_radius = 4.0 * char_width
+
+        # Ensure minimum radius (Gaussian PSF)
+        min_radius = 3.0 * self.gaussian_sigma
+        kernel_radius = torch.maximum(kernel_radius, torch.tensor(min_radius))
+
+        # Kernel size = 2 * radius + 1
+        kernel_size = 2 * kernel_radius.ceil() + 1
+
+        # Memory = kernel_size² × 8 bytes (float64) × overhead factor (4× for buffers)
+        memory_bytes = kernel_size**2 * 8.0 * 4.0
+
+        return memory_bytes
+
+    def _render_airy_peaks(
+        self,
+        peaks,
+        frames_to_render,
+        render_dtype: torch.dtype,
+        memory_safety_factor: float = 3.0,
+    ) -> torch.Tensor:
+        """Render Airy-disk peaks — the ``'nano'`` method.
+
+        **Physical motivation (sub-micron / nanometre crystallites)**
+
+        Kinematic diffraction theory assumes an infinite crystal
+        lattice, so the Fourier transform of the electron density is a
+        set of delta functions at reciprocal-lattice points.  For a
+        real crystallite of finite size *D* this assumption breaks
+        down: the structure factor is the convolution of and infinite-
+        lattice deltas with the Fourier transform of the crystal's
+        *shape function* (its finite spatial extent).  The result is no
+        longer a delta but a broadened peak — a sinc-like function for
+        a 1D stack of *N* planes, or in general the *shape transform*
+        of the crystallite (Warren, 1969; Guinier, 1963).
+
+        On a 2D detector, we approximate each peak's shape-broadened
+        profile as an Airy disk, ``[2 J_1(x)/x]^2`` — the Fraunhofer
+        diffraction pattern of a circular aperture — whose angular
+        width scales inversely with *D*.  This is the standard
+        approximation for the detector-plane projection of a compact
+        crystallite's shape transform, and its FWHM is linked to the
+        Scherrer equation (Scherrer, 1918; Patterson, 1939):
+
+        .. math::
+
+            \\text{FWHM}_{2\\theta}
+            = \\frac{K\\,\\lambda}{D\\,\\cos\\theta}
+
+        For nanometre-scale grains (volume < ``micro_grain_limit``,
+        default 0.1³ µm³) this size broadening dominates the peak
+        profile, so the simulator renders each reflection as a 2D Airy
+        function whose first-zero radius is derived from the Scherrer
+        FWHM.  As the crystallite grows, the Airy disk contracts toward
+        a delta function and the method smoothly recovers the point-like
+        peaks expected from an effectively infinite lattice.
+
+        A detector point-spread-function (Gaussian convolution) is
+        applied after kernel deposition.
+
+        **References**
+
+        - Scherrer, P. (1918). *Göttinger Nachrichten*, **2**, 98.
+        - Patterson, A.L. (1939). *Phys. Rev.*, **56**, 978–982.
+        - Warren, B.E. (1969). *X-ray Diffraction*. Addison-Wesley,
+          Ch. 13.
+        - Guinier, A. (1963). *X-ray Diffraction*. W.H. Freeman,
+          Ch. 5.
+
+        **Implementation**
+
+        Peaks are processed in memory-aware batches (sorted largest-
+        kernel-first) so that broad patterns from the smallest
+        crystallites do not exceed available RAM / VRAM.
+
+        Parameters
+        ----------
+        peaks : torch.Tensor
+            Processed peaks tensor with detector intersections and intensity
+            factors.
+        frames_to_render : int
+            Number of frames to generate.
+        render_dtype : torch.dtype
+            Data type for rendered frames.
+        memory_safety_factor : float, optional
+            Multiplier for memory estimation to ensure safe batching.
+            Default is 3.0.
+
+        Returns
+        -------
+        torch.Tensor
+            Rendered diffraction frames with broadened peaks, shape
+            ``(frames, height, width)``.
+        """
+        # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (
+                    frames_to_render,
+                    self.pixel_coordinates.shape[0],
+                    self.pixel_coordinates.shape[1],
+                ),
+                device=self.det_corner_0.device,
+                dtype=render_dtype,
+            )
+
+        # 1. Estimate memory per peak based on kernel fwhm_rad
+        memory_per_peak = (
+            self._estimate_airy_kernel_memory(peaks[:, 23], peaks[:, 27])
+            * memory_safety_factor
+        )
+
+        # 2. Estimate available memory (works for both CPU and GPU)
+        available_bytes = return_device_memory().get("free_gb", 1.0) * (1024**3)
+
+        # 3. Sort peaks by memory (largest first)
+        sort_indices = torch.argsort(memory_per_peak, descending=True)
+        peaks = peaks[sort_indices]
+        memory_per_peak = memory_per_peak[sort_indices]
+
+        # Initialize output frames
+        frames = torch.zeros(
+            (
+                frames_to_render,
+                self.pixel_coordinates.shape[0],
+                self.pixel_coordinates.shape[1],
+            ),
+            device=peaks.device,
+            dtype=render_dtype,
+        )
+
+        # 4-6. Process in batches that fit in available memory
+        n_peaks = peaks.shape[0]
+        start_idx = 0
+        batch_num = 0
+
+        while start_idx < n_peaks:
+            # Find how many peaks fit in available memory
+            cumulative_memory = torch.cumsum(memory_per_peak[start_idx:], dim=0)
+            fits_mask = cumulative_memory <= available_bytes
+            batch_size = max(1, int(fits_mask.sum().item()))
+
+            end_idx = start_idx + batch_size
+            batch_peaks = peaks[start_idx:end_idx]
+
+            # Extract batch data
+            fwhm_rad = batch_peaks[:, 23]
+            incident_angles = batch_peaks[:, 27]
+            zd = batch_peaks[:, 25] / self.pixel_size_z
+            yd = batch_peaks[:, 26] / self.pixel_size_y
+            intensities = batch_peaks[:, 29] * batch_peaks[:, 21]
+
+            # Generate Airy disk kernels
+            kernels = self._airy_kernel_batch(fwhm_rad, incident_angles)
+            kernels = (kernels * intensities.view(-1, 1, 1, 1)).to(render_dtype)
+
+            # Deposit kernels to appropriate frames
+            for frame_idx in range(frames_to_render):
+                frame_mask = batch_peaks[:, 28] == frame_idx
+                if frame_mask.any():
+                    frames[frame_idx] = self._deposit_kernels_batch(
+                        frames[frame_idx],
+                        kernels[frame_mask],
+                        zd[frame_mask],
+                        yd[frame_mask],
+                        render_dtype,
+                    )
+
+            if self._verbose:
+                progress = end_idx / n_peaks
+                utils._print_progress(
+                    progress, f"[Nano] Batch {batch_num + 1}, n={batch_size}"
+                )
+
+            del kernels
+            start_idx = end_idx
+            batch_num += 1
+
+        # Apply Gaussian convolution for detector point spread function
+        for i in range(frames_to_render):
+            frames[i] = self._conv2d_gaussian_kernel(frames[i])
+
+        return frames
+
+    def _airy_kernel_batch(
+        self, fwhm_rad: torch.Tensor, incident_angles: torch.Tensor
+    ) -> torch.Tensor:
+        """Generate multiple 2D Airy disk kernels for crystallite diffraction.
+
+        The Airy disk is the physically correct diffraction pattern from a
+        circular aperture (crystallite). The pattern width scales inversely with
+        crystallite size:
+
+        - Small crystallites → broad Airy patterns
+        - Large crystallites → narrow Airy patterns (approaching delta function)
+
+        The Airy intensity pattern is: ``I(x) = I_0 * [2*J_1(x)/x]^2``
+        where ``x = 3.8317 * r / first_zero_radius`` (first zero of J_1 is at
+        3.8317).
+
+        The FWHM of the Airy pattern is approximately ``0.847 * first_zero_radius``.
+        Therefore: ``first_zero_radius = FWHM / 0.847 ≈ FWHM * 1.181``.
+
+        This ensures that when the Scherrer FWHM is given, the resulting Airy
+        disk has matching FWHM, allowing accurate crystallite size recovery.
+
+        Parameters
+        ----------
+        fwhm_rad : torch.Tensor
+            FWHM values in radians from Scherrer broadening, shape ``(N,)``.
+        incident_angles : torch.Tensor
+            Incident angles in degrees for each peak, shape ``(N,)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Batch of normalized Airy disk kernels with shape ``(N, 1, H, W)``.
+        """
+        detector_distance = torch.linalg.norm(self.det_corner_0)
+        incident_angles_rad = incident_angles * torch.pi / 180
+        R = detector_distance / torch.cos(incident_angles_rad)
+
+        # Convert FWHM in radians to pixel scale
+        fwhm_pixels = fwhm_rad * R / self.pixel_size_z
+
+        # The Airy pattern has FWHM ≈ 0.843 * first_zero_radius
+        # Therefore: first_zero_radius = FWHM / 0.843 ≈ FWHM * 1.1861
+        # This ensures the rendered Airy disk has the correct FWHM for Scherrer recovery
+        AIRY_FWHM_TO_FIRST_ZERO = 1.1861  # = 1 / 0.843
+        first_zero_pixels = fwhm_pixels * AIRY_FWHM_TO_FIRST_ZERO
+
+        sigma = self.gaussian_sigma
+        max_first_zero = first_zero_pixels.max()
+        threshold = self.kernel_threshold / 2
+
+        # Calculate kernel radius - need to capture several Airy rings
+        # Airy pattern decays as 1/x^3 in the tails, so we need larger extent
+        # for small crystallites (broad patterns)
+        # Use ~4 times the first zero to capture sufficient rings
+        radius = torch.tensor(max(4.0 * float(max_first_zero), 8.0))
+
+        # Ensure we also capture Gaussian tails (cap at 128 pixels)
+        max_airy_radius = 128
+        while radius <= max_airy_radius:
+            g_val = torch.exp(-(radius**2) / (2 * sigma**2))
+            if g_val < threshold:
+                break
+            radius = radius * 2
+        if radius > max_airy_radius:
+            if self._verbose:
+                print(
+                    f"Airy kernel radius should be {radius.item()} but limited to {max_airy_radius}"
+                )
+            radius = torch.tensor(max_airy_radius)
+
+        ax = torch.arange(-radius, radius + 1, dtype=torch.float64)
+        yy, zz = torch.meshgrid(ax, ax, indexing="ij")
+        r = torch.sqrt(yy**2 + zz**2)
+
+        kernels = []
+        max_size = 0
+
+        # First zero of J_1(x) occurs at x ≈ 3.8317
+        FIRST_ZERO_J1 = 3.8317
+
+        def airy_profile(
+            r: npt.NDArray, first_zero: float, sigma: float
+        ) -> npt.NDArray:
+            """Compute Airy disk profile convolved with Gaussian PSF.
+
+            The Airy intensity pattern is: ``I(x) = [2*J_1(x)/x]^2``
+            where ``x = 3.8317 * r / first_zero_radius``.
+
+            The first zero of J_1(x) is at x = 3.8317, so the pattern's
+            first zero occurs at r = first_zero_radius.
+
+            For r=0, the pattern has value 1 (use L'Hôpital's rule).
+
+            Parameters
+            ----------
+            r : numpy.ndarray
+                Radial distances in pixels.
+            first_zero : float
+                First zero radius of Airy pattern in pixels.
+            sigma : float
+                Gaussian width for instrument broadening within the Airy kernel.
+
+            Returns
+            -------
+            numpy.ndarray
+                Computed Airy disk values (normalized later).
+            """
+            # Scale r so that first zero occurs at r = first_zero
+            # x = 3.8317 * r / first_zero, so at r = first_zero, x = 3.8317
+            x = np.where(r == 0, 1e-10, FIRST_ZERO_J1 * r / first_zero)
+
+            # Airy pattern: [2*J_1(x)/x]^2
+            # Handle small x separately to avoid numerical issues
+            airy = np.where(
+                np.abs(x) < 1e-8,
+                1.0,  # At center, the jinc function approaches 1
+                (2 * j1(x) / x) ** 2,
+            )
+
+            # For very small crystallites (broad patterns), the Airy disk dominates
+            # For large crystallites (narrow patterns), convolve with Gaussian PSF
+            if first_zero < sigma:
+                # Pattern is sharper than PSF - convolve with Gaussian
+                # Simple approximation: multiply by Gaussian to smooth
+                gaussian = np.exp(-(r**2) / (2 * sigma**2))
+                return airy * gaussian
+            else:
+                return airy
+
+        r_np = r.cpu().numpy()
+        sigma_np = float(sigma)
+
+        for first_zero in first_zero_pixels:
+            first_zero_np = float(first_zero)
+
+            # For very large crystallites (very small first_zero), use Gaussian kernel
+            if first_zero_np < 0.5:
+                kernel = self.gaussian_kernel
+            else:
+                kernel = ensure_torch(airy_profile(r_np, first_zero_np, sigma_np))
+
+            kernel = kernel / kernel.sum()
+
+            # Crop to significant region using binary search
+            center = kernel.shape[0] // 2
+            left, right = 1, center
+            while left < right:
+                mid = (left + right) // 2
+                window = kernel[
+                    center - mid : center + mid + 1, center - mid : center + mid + 1
+                ]
+                if window.sum() >= 1 - self.kernel_threshold:
+                    right = mid
+                else:
+                    left = mid + 1
+
+            crop_r = left
+            cropped = kernel[
+                center - crop_r : center + crop_r + 1,
+                center - crop_r : center + crop_r + 1,
+            ]
+
+            kernels.append(cropped.unsqueeze(0).unsqueeze(0))
+            max_size = max(max_size, 2 * crop_r + 1)
+
+        # Pad all kernels to same size
+        padded_kernels = []
+        for k in kernels:
+            if k.shape[-1] < max_size:
+                pad = (max_size - k.shape[-1]) // 2
+                k_padded = F.pad(k, (pad, pad, pad, pad), mode="constant", value=0)
+                padded_kernels.append(k_padded.to(device=first_zero_pixels.device))
+            else:
+                padded_kernels.append(k.to(device=first_zero_pixels.device))
+
+        result = torch.cat(padded_kernels, dim=0)
+        return result
+
+    def _deposit_kernels_batch(
+        self,
+        tensor: torch.Tensor,
+        kernels: torch.Tensor,
+        centers_z: torch.Tensor,
+        centers_y: torch.Tensor,
+        render_dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Deposit multiple kernels onto a tensor with sub-pixel precision.
+
+        Uses bilinear interpolation (4 neighbors) for sub-pixel positioning,
+        which is memory-efficient while preserving positional accuracy.
+
+        Parameters
+        ----------
+        tensor : torch.Tensor
+            Target tensor to deposit onto, shape ``(H, W)``.
+        kernels : torch.Tensor
+            Batch of kernels to deposit, shape ``(N, 1, H, W)``.
+        centers_z : torch.Tensor
+            Z coordinates for kernel centers (in pixels, sub-pixel precision).
+        centers_y : torch.Tensor
+            Y coordinates for kernel centers (in pixels, sub-pixel precision).
+        render_dtype : torch.dtype
+            Data type for output values.
+
+        Returns
+        -------
+        torch.Tensor
+            Updated tensor with deposited kernels.
+        """
+        N = kernels.shape[0]
+        kh, kw = kernels.shape[-2:]
+        half_h, half_w = kh // 2, kw // 2
+        H, W = tensor.shape
+
+        # Create kernel pixel offsets (relative to center)
+        offsets_z = (
+            torch.arange(kh, device=kernels.device, dtype=torch.float64) - half_h
+        )
+        offsets_y = (
+            torch.arange(kw, device=kernels.device, dtype=torch.float64) - half_w
+        )
+
+        # Build all sub-pixel positions: (N, kh, kw)
+        all_z = centers_z.view(N, 1, 1) + offsets_z.view(1, kh, 1)
+        all_y = centers_y.view(N, 1, 1) + offsets_y.view(1, 1, kw)
+
+        # Expand to full grid and flatten
+        all_z = all_z.expand(N, kh, kw).reshape(-1)
+        all_y = all_y.expand(N, kh, kw).reshape(-1)
+
+        # Flatten kernel values
+        values = kernels.view(N, -1).reshape(-1)
+
+        # Bilinear interpolation: split into integer and fractional parts
+        z0 = all_z.floor().long()
+        y0 = all_y.floor().long()
+        z1 = z0 + 1
+        y1 = y0 + 1
+
+        # Fractional parts for weighting
+        fz = all_z - z0.float()
+        fy = all_y - y0.float()
+
+        # Bilinear weights for 4 corners
+        w00 = (1 - fz) * (1 - fy)  # top-left
+        w01 = (1 - fz) * fy  # top-right
+        w10 = fz * (1 - fy)  # bottom-left
+        w11 = fz * fy  # bottom-right
+
+        # Deposit to all 4 corners with their weights
+        for zi, yi, w in [(z0, y0, w00), (z0, y1, w01), (z1, y0, w10), (z1, y1, w11)]:
+            valid = (zi >= 0) & (zi < H) & (yi >= 0) & (yi < W)
+            if valid.any():
+                tensor.index_put_(
+                    (zi[valid], yi[valid]),
+                    (values[valid] * w[valid]).to(render_dtype),
+                    accumulate=True,
+                )
+
+        return tensor
+
+    # 5.c Projected volumes
+    def _render_projected_volumes(
+        self,
+        peaks,
+        beam,
+        mesh_lab,
+        rigid_body_motion,
+        frames_to_render,
+        render_dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Render projected crystal volumes — the ``'macro'`` method.
+
+        **Physical motivation (grains larger than the pixel size)**
+
+        When a grain's linear dimension exceeds the detector pixel size,
+        its diffraction spot is no longer point-like: different parts of
+        the crystal illuminate different detector pixels, so the observed
+        peak reproduces the *geometric shadow* of the illuminated crystal
+        volume projected along the scattered wave-vector.  The per-pixel
+        intensity is proportional to the path length of the scattered ray
+        through the grain, i.e. the diffracting volume behind that pixel.
+
+        This regime is relevant for coarse-grained metals and geological
+        samples where individual grains span tens to hundreds of microns.
+        The resulting images capture grain morphology, intra-granular
+        orientation gradients, and spatial strain variations that are
+        invisible to the point-like methods.
+
+        **Implementation**
+
+        For each peak the grain's tetrahedral mesh is rotated to its
+        diffraction time, intersected with the beam footprint to form a
+        convex hull, and then ray-traced: parallel rays along the
+        scattered wave-vector are clipped against the hull to obtain
+        per-pixel path lengths.  A Gaussian PSF convolution is applied
+        afterwards.
+
+        Parameters
+        ----------
+        peaks : torch.Tensor
+            Processed peaks tensor with detector intersections and intensity
+            factors.
+        beam : Beam
+            Beam object for computing convex hull intersections.
+        mesh_lab : Mesh
+            Mesh object containing tetrahedral element geometry.
+        rigid_body_motion : RigidBodyMotion
+            RigidBodyMotion object for transforming vertices.
+        frames_to_render : int
+            Number of frames to generate.
+        render_dtype : torch.dtype
+            Data type for rendered frames.
+
+        Returns
+        -------
+        torch.Tensor
+            Rendered diffraction frames with projected volumes, shape
+            ``(frames, height, width)``.
+        """
+        frames_bundle = peaks[:, 28].unique()  # frame column is index 28
+
+        # Early exit for empty peak list
+        if peaks.shape[0] == 0:
+            return torch.zeros(
+                (
+                    frames_to_render,
+                    self.pixel_coordinates.shape[0],
+                    self.pixel_coordinates.shape[1],
+                ),
+                device=self.det_corner_0.device,
+                dtype=render_dtype,
+            )
+
+        device = peaks.device
+        scattered_vectors = peaks[:, 13:16]
+
+        # Get element indices from peaks (column 0: grain_index which maps to element)
+        element_indices = peaks[:, 0].long()
+        times = peaks[:, 6]
+        # Initialize all frames to zeros so we can write directly by frame index
+        diffraction_frames = torch.zeros(
+            (
+                frames_to_render,
+                self.pixel_coordinates.shape[0],
+                self.pixel_coordinates.shape[1],
+            ),
+            device=device,
+            dtype=render_dtype,
+        )
+
+        # Get vertices for each peak and apply rigid body motion
+        node_indices = mesh_lab.enod[element_indices]
+        vertices = ensure_torch(mesh_lab.coord[node_indices])  # Shape: (N_peaks, 4, 3)
+
+        # Apply rigid body motion to all vertices at their corresponding times
+        # RigidBodyMotion handles (N, 4, 3) shape with per-vector times (N,)
+        rotated_vertices = rigid_body_motion(vertices, times)  # Shape: (N_peaks, 4, 3)
+
+        total_peaks = peaks.shape[0]
+        processed_peaks = 0
+
+        for frame_index in frames_bundle:
+            # Initialize frame on same device as peaks
+            frames = torch.zeros(
+                (self.pixel_coordinates.shape[0], self.pixel_coordinates.shape[1]),
+                device=device,
+                dtype=render_dtype,
+            )
+
+            # Process each peak in this frame
+            frame_mask = peaks[:, 28] == frame_index
+            frame_peak_indices = torch.where(frame_mask)[0]
+
+            for i, peak_idx in enumerate(frame_peak_indices):
+                processed_peaks += 1
+                # Show progress for verbose mode using a single continuous bar
+                if self._verbose and total_peaks > 0:
+                    progress_fraction = processed_peaks / total_peaks
+                    utils._print_progress(
+                        progress_fraction,
+                        f"[Macro] Peak {processed_peaks}/{total_peaks}",
+                    )
+
+                # Compute convex hull intersection with beam
+                hull = beam._intersect(rotated_vertices[peak_idx])
+
+                if hull is not None:
+                    # Create minimal projection context
+                    proj_context = {
+                        "convex_hull": hull,
+                        "scattered_wave_vector": scattered_vectors[peak_idx],
+                    }
+
+                    # Project volume using only necessary data
+                    box = self._get_projected_bounding_box(proj_context)
+                    if box is not None:
+                        # Keep projection in numpy for computation
+                        projection = self._project_convex_hull(proj_context, box)
+                        # Use pre-calculated intensity from peaks tensor
+                        intensity = peaks[peak_idx, 29]  # intensity column is index 29
+
+                        # Note: Infinite intensity peaks should already be filtered out
+                        # by peaks_detector_intersection. This check is defensive.
+                        if torch.isfinite(intensity):
+                            projection_torch = ensure_torch(projection)
+                            # projection is path length, multiply by pixel area to get volume
+                            projected_volume = (
+                                projection_torch * self.pixel_size_z * self.pixel_size_y
+                            )
+                            # Multiply intensity per volume by projected volume
+                            result = (intensity * projected_volume).to(render_dtype)
+                            frames[box[0] : box[1], box[2] : box[3]] += result
+
+            # Apply Gaussian convolution for point spread function
+            frames = self._conv2d_gaussian_kernel(frames)
+            diffraction_frames[frame_index.long()] = frames
+
+        return diffraction_frames
+
+    def _project_convex_hull(
+        self, proj_context: Dict[str, Any], box: Tuple[int, int, int, int]
+    ) -> npt.NDArray:
+        """Project convex hull onto detector region.
+
+        Parameters
+        ----------
+        proj_context : dict
+            Dictionary containing:
+
+            - ``'convex_hull'``: ConvexHull object to project.
+            - ``'scattered_wave_vector'``: Direction of scattered wave.
+
+        box : tuple of int
+            ``(min_z, max_z, min_y, max_y)`` bounds for projection region.
+
+        Returns
+        -------
+        torch.Tensor
+            Array of clip lengths (path lengths) through the hull for each
+            detector ray.
+        """
+        # Get pixel coordinates - keep in torch
+        pixel_coords = self.pixel_coordinates[box[0] : box[1], box[2] : box[3], :]
+        ray_points = pixel_coords.reshape((box[1] - box[0]) * (box[3] - box[2]), 3)
+
+        # ConvexHull from scipy returns numpy, convert to torch
+        hull = proj_context["convex_hull"]
+        plane_normals = ensure_torch(hull.equations[:, 0:3])
+        plane_offsets = ensure_torch(hull.equations[:, 3]).reshape(
+            hull.equations.shape[0], 1
+        )
+        plane_points = -plane_offsets * plane_normals
+
+        # Ray direction in torch
+        scattered_vec = proj_context["scattered_wave_vector"]
+        ray_direction = scattered_vec / torch.linalg.norm(scattered_vec)
+
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
+            ray_points, ray_direction, plane_points, plane_normals
+        )
+        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
+
+        return clip_lengths
+
+    # ------------------------------------------------------------------
+    # 6. Convolution / kernel helpers
+    # ------------------------------------------------------------------
+    def _conv2d_gaussian_kernel(self, frames: torch.Tensor) -> torch.Tensor:
+        """Apply the point spread function to detector frames using Gaussian convolution.
+
+        Parameters
+        ----------
+        frames : torch.Tensor
+            Input frames to convolve, shape ``(H, W)``, ``(N, H, W)``, or
+            ``(N, C, H, W)``.
+
+        Returns
+        -------
+        torch.Tensor
+            Convolved frames with same shape as input.
+        """
+        frames = ensure_torch(frames)
+
+        input_dims = frames.ndim
+        if input_dims == 2:
+            frames = frames.unsqueeze(0).unsqueeze(0)
+        elif input_dims == 3:
+            frames = frames.unsqueeze(1)
+
+        kernel = self.gaussian_kernel.to(frames.dtype).unsqueeze(0).unsqueeze(0)
+        kernel_padding = kernel.shape[-1] // 2
+
+        with torch.no_grad():
+            output = torch.nn.functional.conv2d(
+                frames, weight=kernel, padding=kernel_padding
+            )
+
+        if input_dims == 2:
+            output = output.squeeze(0).squeeze(0)
+        elif input_dims == 3:
+            output = output.squeeze(1)
+
+        return output
+
+    def _generate_gaussian_kernel(self) -> torch.Tensor:
+        """Generate a normalized 2D Gaussian kernel with dynamic size.
+
+        The kernel size is determined by the ``kernel_threshold`` attribute,
+        expanding until the Gaussian tail drops below the threshold.
+
+        Returns
+        -------
+        torch.Tensor
+            2D Gaussian kernel of shape ``(H, W)``, normalized to sum to 1.
+        """
+        # Get device from det_corner_0 to ensure kernel is on same device
+        dev = self.det_corner_0.device
+
+        sigma = ensure_torch(self.gaussian_sigma).to(dev)
+        threshold = self.kernel_threshold
+
+        radius = 1
+        while radius <= self._max_gaussian_kernel_radius:
+            value = torch.exp(-(radius**2) / (2 * sigma**2))
+            if value < threshold / 2:
+                break
+            radius += 1
+        radius = min(radius, self._max_gaussian_kernel_radius)
+
+        kernel_size = 2 * radius + 1
+
+        ax = torch.arange(kernel_size, dtype=torch.float64, device=dev) - radius
+        xx, yy = torch.meshgrid(ax, ax, indexing="ij")
+        kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
+        kernel /= kernel.sum()
+
+        return kernel  # Return as (H,W) instead of (1,1,H,W)
+
+    # ------------------------------------------------------------------
+    # 7. Deprecated methods (clearly separated)
+    # ------------------------------------------------------------------
+    # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
+
+    def _ray_detector_intersection(
+        self, origin: np.ndarray, direction: np.ndarray
+    ) -> Optional[np.ndarray]:
+        """Find where a ray intersects the detector plane.
+
+        .. deprecated::
+            This method is deprecated and will be removed in a future version.
+
+        Parameters
+        ----------
+        origin : numpy.ndarray
+            Ray origin point, shape ``(3,)``.
+        direction : numpy.ndarray
+            Normalized ray direction, shape ``(3,)``.
+
+        Returns
+        -------
+        numpy.ndarray or None
+            3D intersection point, or ``None`` if no intersection exists.
+        """
+        # Detector plane equation: dot(point - det_corner_0, normal) = 0
+        # Ray equation: point = origin + t * direction
+
+        normal = ensure_numpy(self.normal)
+        corner = ensure_numpy(self.det_corner_0)
+
+        denom = np.dot(direction, normal)
+
+        if abs(denom) < 1e-10:
+            return None  # Ray parallel to plane
+
+        t = np.dot(corner - origin, normal) / denom
+
+        if t < 0:
+            return None  # Intersection behind ray origin
+
+        intersection = origin + t * direction
+        return intersection
+
+    def _world_to_pixel_coords(
+        self, world_point: np.ndarray
+    ) -> Optional[Tuple[float, float]]:
+        """Convert 3D world coordinates to 2D pixel coordinates.
+
+        .. deprecated::
+            This method is deprecated and will be removed in a future version.
+
+        Parameters
+        ----------
+        world_point : numpy.ndarray
+            3D point in lab frame, shape ``(3,)``.
+
+        Returns
+        -------
+        tuple of float or None
+            ``(z_pixel, y_pixel)`` coordinates, or ``None`` if outside detector.
+        """
+        corner = ensure_numpy(self.det_corner_0)
+        zdhat = ensure_numpy(self.zdhat)
+        ydhat = ensure_numpy(self.ydhat)
+
+        # Vector from detector corner to point
+        v = world_point - corner
+
+        # Project onto detector axes
+        z_coord = np.dot(v, zdhat)
+        y_coord = np.dot(v, ydhat)
+
+        # Convert to pixel coordinates
+        z_pixel = z_coord / float(self.pixel_size_z)
+        y_pixel = y_coord / float(self.pixel_size_y)
+
+        # Check bounds
+        if (
+            z_pixel < 0
+            or z_pixel >= self.pixel_coordinates.shape[0]
+            or y_pixel < 0
+            or y_pixel >= self.pixel_coordinates.shape[1]
+        ):
+            return None
+
+        return (z_pixel, y_pixel)
+
+    def _compute_pixel_path_length(
+        self, ray_point: np.ndarray, ray_direction: np.ndarray, hull
+    ) -> float:
+        """Compute exact path length of ray through convex hull.
+
+        .. deprecated::
+            This method is deprecated and will be removed in a future version.
+
+        Parameters
+        ----------
+        ray_point : numpy.ndarray
+            3D starting point of ray (pixel position).
+        ray_direction : numpy.ndarray
+            Normalized ray direction (scattered wave direction).
+        hull : ConvexHull
+            ConvexHull object from beam intersection.
+
+        Returns
+        -------
+        float
+            Path length through hull in microns.
+        """
+        # Use existing utility function for ray-polyhedron intersection
+        from scipy.spatial import ConvexHull as SciPyConvexHull
+
+        # Get hull faces (planes)
+        hull_points = ensure_numpy(hull.points)
+        try:
+            scipy_hull = SciPyConvexHull(hull_points)
+        except:
+            return 0.0
+
+        # Get plane normals and points
+        plane_normals = scipy_hull.equations[:, :3]  # (n_faces, 3)
+        plane_offsets = scipy_hull.equations[:, 3]  # (n_faces,)
+
+        # Plane points (any point on each plane)
+        plane_points = hull_points[scipy_hull.simplices[:, 0]]  # (n_faces, 3)
+
+        # Convert to torch for utility function
+        ray_point_torch = ensure_torch(ray_point).unsqueeze(0)  # (1, 3)
+        ray_direction_torch = ensure_torch(ray_direction).unsqueeze(0)  # (1, 3)
+        plane_points_torch = ensure_torch(plane_points)
+        plane_normals_torch = ensure_torch(plane_normals)
+
+        # Compute clip length
+        clip_lengths = utils._clip_line_with_convex_polyhedron(
+            ray_point_torch,
+            ray_direction_torch,
+            plane_points_torch,
+            plane_normals_torch,
+        )
+
+        return float(clip_lengths[0])

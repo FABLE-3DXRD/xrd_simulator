@@ -20,11 +20,10 @@ beam = Beam(
 
 from xrd_simulator.detector import Detector
 # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
-detector = Detector(pixel_size_z=75.0,
-                    pixel_size_y=55.0,
-                    det_corner_0=np.array([142938.3, -38400., -38400.]),
+detector = Detector(det_corner_0=np.array([142938.3, -38400., -38400.]),
                     det_corner_1=np.array([142938.3, 38400., -38400.]),
-                    det_corner_2=np.array([142938.3, -38400., 38400.]))
+                    det_corner_2=np.array([142938.3, -38400., 38400.]),
+                    pixel_size=(75.0, 55.0))
 
 from xrd_simulator.mesh import TetraMesh
 # xrd_simulator supports several ways to generate a mesh, here we
@@ -43,31 +42,36 @@ quartz = Phase(unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
 from scipy.spatial.transform import Rotation as R
 from xrd_simulator.polycrystal import Polycrystal
 orientation = R.random(mesh.number_of_elements).as_matrix()
+# element_phase_map assigns each mesh element to a phase (0 = first phase)
+element_phase_map = np.zeros(mesh.number_of_elements, dtype=int)
 polycrystal = Polycrystal(mesh,
                           orientation,
                           strain=np.zeros((3, 3)),
                           phases=quartz,
-                          element_phase_map=None)
+                          element_phase_map=element_phase_map)
 
-polycrystal.save('my_polycrystal', save_mesh_as_xdmf=True)
+import os
+artifacts_dir = os.path.join(os.path.dirname(__file__), 'test_artifacts')
+os.makedirs(artifacts_dir, exist_ok=True)
+polycrystal.save(os.path.join(artifacts_dir, 'my_polycrystal'), save_mesh_as_xdmf=True)
 
 from xrd_simulator.motion import RigidBodyMotion
 motion = RigidBodyMotion(rotation_axis=np.array([0, 1/np.sqrt(2), -1/np.sqrt(2)]),
                          rotation_angle=np.radians(1.0),
                          translation=np.array([123, -153.3, 3.42]))
 
-polycrystal.diffract(beam, detector, motion)
-diffraction_pattern = detector.render(frames_to_render=0,
-                                        lorentz=False,
-                                        polarization=False,
-                                        structure_factor=False,
-                                        method="project")
+peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
+diffraction_pattern, peaks_dict = detector.render(peaks_dict,
+                                        frames_to_render=0,
+                                        method="micro")
 
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots(1,1)
-ax.imshow(diffraction_pattern, cmap='gray')
+# render returns (frames, height, width), take first frame
+pattern = diffraction_pattern[0].cpu().numpy() if hasattr(diffraction_pattern, 'cpu') else diffraction_pattern[0]
+ax.imshow(pattern, cmap='gray')
 plt.show()
 
 polycrystal.transform(motion, time=1.0)
-polycrystal.diffract(beam, detector, motion)
+peaks_dict = polycrystal.diffract(beam, motion, detector=detector)
 

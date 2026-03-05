@@ -142,14 +142,12 @@ This is meant to work across OS-systems and requires an `Anaconda`_ installation
 
 Anaconda installation (Windows)
 ======================================
-To install with anaconda on windows you must make sure that external dependencies of `pygalmesh`_ are preinstalled
-on your system. Documentation on installing these package `can be found elsewhere.`_
+``xrd_simulator`` can be installed on Windows via Anaconda. The package now uses `meshpy`_ which provides
+better cross-platform support than the previous pygalmesh dependency.
 
 Pip Installation
 ======================================
-Pip installation is possible, however, external dependencies of `pygalmesh`_ must the be preinstalled
-on your system. Installation of these will be OS dependent and documentation
-`can be found elsewhere.`_::
+Pip installation is possible. The package uses `meshpy`_ which generally installs cleanly via pip::
 
    pip install xrd-simulator
 
@@ -161,14 +159,15 @@ Naturally one may also install from the sources::
    cd xrd_simulator
    python setup.py install
 
-This will then again require the `pygalmesh`_ dependencies to be resolved beforehand.
+This will use `meshpy`_ which generally has better cross-platform support than pygalmesh.
 
 Credits
 ===============================
-``xrd_simulator`` makes good use of xfab and pygalmesh. The source code of these repos can be found here:
+``xrd_simulator`` makes good use of xfab and meshpy for tetrahedral mesh generation.
+The source code of related repos can be found here:
 
 * `https://github.com/FABLE-3DXRD/xfab`_
-* `https://github.com/nschloe/pygalmesh`_
+* `meshpy`_
 
 Citation
 ===============================
@@ -186,11 +185,9 @@ Henningsson, A. & Hall, S. A. (2023). J. Appl. Cryst. 56, 282-292.*
 
 .. _Anaconda: https://www.anaconda.com/products/individual
 
-.. _pygalmesh: https://github.com/nschloe/pygalmesh
+.. _meshpy: https://github.com/inducer/meshpy
 
-.. _https://github.com/nschloe/pygalmesh: https://github.com/nschloe/pygalmesh
-
-.. _can be found elsewhere.: https://github.com/nschloe/pygalmesh#installation
+.. _https://github.com/inducer/meshpy: https://github.com/inducer/meshpy
 
 .. _scanning-3dxrd: https://doi.org/10.1107/S1600576720001016
 

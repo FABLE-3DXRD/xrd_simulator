@@ -1,4 +1,5 @@
 import unittest
+import warnings
 import numpy as np
 from xfab import tools
 from xrd_simulator import utils
@@ -63,7 +64,7 @@ class TestUtils(unittest.TestCase):
         unit_cell = [5.028, 5.028, 5.519, 90.0, 90.0, 120.0]
 
         B0 = tools.form_b_mat(unit_cell)
-        B = utils.lab_strain_to_B_matrix(strain_tensor, U, B0)
+        B = utils._lab_strain_to_B_matrix(strain_tensor, U, B0)
 
         n_c = np.random.rand(
             3,
@@ -73,7 +74,7 @@ class TestUtils(unittest.TestCase):
 
         # strain along n_l described in lab frame
         strain_l = np.dot(np.dot(n_l, strain_tensor), n_l)
-        s = utils._b_to_epsilon(B, B0)
+        s = utils.ensure_numpy(utils._b_to_epsilon(B, B0))
         crystal_strain = np.array(
             [[s[0], s[1], s[2]], [s[1], s[3], s[4]], [s[2], s[4], s[5]]]
         )
@@ -90,7 +91,7 @@ class TestUtils(unittest.TestCase):
         _, alpha_2, alpha_3 = np.random.rand(
             3,
         )
-        q = utils.alpha_to_quarternion(0, alpha_2, alpha_3)
+        q = utils._alpha_to_quarternion(0, alpha_2, alpha_3)
         self.assertAlmostEqual(q[0], 1.0, msg="quarternion wrongly computed")
         self.assertAlmostEqual(q[1], 0.0, msg="quarternion wrongly computed")
         self.assertAlmostEqual(q[2], 0.0, msg="quarternion wrongly computed")
@@ -104,63 +105,11 @@ class TestUtils(unittest.TestCase):
         alpha_3 = np.random.rand(
             7,
         )
-        qq = utils.alpha_to_quarternion(alpha_1, alpha_2, alpha_3)
+        qq = utils._alpha_to_quarternion(alpha_1, alpha_2, alpha_3)
         for q in qq:
             self.assertTrue(
                 np.abs(np.linalg.norm(q) - 1.0) < 1e-5, msg="quarternion not normalised"
             )
-
-    def test_diffractogram(self):
-        diffraction_pattern = np.zeros((20, 20))
-        R = 8
-        det_c_z, det_c_y = 10.0, 10.0
-        for i in range(diffraction_pattern.shape[0]):
-            for j in range(diffraction_pattern.shape[1]):
-                if np.abs(np.sqrt((i - det_c_z) ** 2 + (j - det_c_y) ** 2) - R) < 0.5:
-                    diffraction_pattern[i, j] += 1
-        bin_centres, histogram = utils._diffractogram(
-            diffraction_pattern, det_c_z, det_c_y, 1.0
-        )
-        self.assertEqual(
-            np.sum(histogram > 0), 1, msg="Error in diffractogram azimuth integration"
-        )
-        self.assertEqual(
-            np.sum(histogram),
-            np.sum(diffraction_pattern),
-            msg="Error in diffractogram azimuth integration",
-        )
-        self.assertEqual(
-            histogram[R],
-            np.sum(diffraction_pattern),
-            msg="Error in diffractogram azimuth integration",
-        )
-
-    def test_get_bounding_ball(self):
-        points = np.random.rand(4, 3) - 0.5
-        centre, radius = utils._get_bounding_ball(points)
-        mean = np.mean(points, axis=0)
-        base_radius = np.max(np.linalg.norm(points - mean, axis=1))
-        self.assertLessEqual(
-            radius, base_radius, msg="Ball is larger than initial guess"
-        )
-
-        for p in points:
-            self.assertLessEqual(
-                (p - centre[0:3]).dot(p - centre[0:3]),
-                (radius * 1.0001) ** 2,
-                msg="Point not contained by ball",
-            )
-
-        ratios = []
-        for _ in range(500):
-            points = np.random.rand(4, 3) - 0.5
-            centre, radius = utils._get_bounding_ball(points)
-            mean = np.mean(points, axis=0)
-            base_radius = np.max(np.linalg.norm(points - mean, axis=1))
-            ratios.append(radius / base_radius)
-        self.assertLessEqual(
-            np.mean(ratios), 0.9, msg="Averag radius decrease less than 10%"
-        )
 
     def test_epsilon_to_b(self):
         unit_cell = [4.926, 4.926, 5.4189, 90.0, 90.0, 120.0]
@@ -177,7 +126,7 @@ class TestUtils(unittest.TestCase):
         B0 = tools.form_b_mat(unit_cell)
         strain_tensor1 = utils._strain_as_tensor(eps1)
         B = utils._epsilon_to_b(strain_tensor1, B0)
-        eps2 = utils._b_to_epsilon(B, B0)
+        eps2 = utils.ensure_numpy(utils._b_to_epsilon(B, B0))
         self.assertTrue(np.allclose(eps1, eps2))
 
     def test_get_misorientations(self):
@@ -197,6 +146,65 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(misorientations.shape[0], 2)
         self.assertAlmostEqual(misorientations[0], 0)
         self.assertAlmostEqual(misorientations[1], 0)
+
+    def test_diffractogram_deprecated(self):
+        """Test that _diffractogram raises a deprecation warning.
+        
+        .. deprecated::
+            This test verifies that _diffractogram is properly marked as deprecated.
+            The function will be removed in a future version.
+        """
+        diffraction_pattern = np.zeros((20, 20))
+        R = 8
+        det_c_z, det_c_y = 10.0, 10.0
+        for i in range(diffraction_pattern.shape[0]):
+            for j in range(diffraction_pattern.shape[1]):
+                if np.abs(np.sqrt((i - det_c_z) ** 2 + (j - det_c_y) ** 2) - R) < 0.5:
+                    diffraction_pattern[i, j] += 1
+
+        # Verify deprecation warning is raised
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            bin_centres, histogram = utils._diffractogram(
+                diffraction_pattern, det_c_z, det_c_y, 1.0
+            )
+            # Check that deprecation warning was raised
+            self.assertTrue(
+                any(issubclass(warning.category, DeprecationWarning) for warning in w),
+                msg="_diffractogram should raise DeprecationWarning"
+            )
+
+        # Verify function still works correctly (for backward compatibility)
+        self.assertEqual(
+            np.sum(histogram > 0), 1, msg="Error in diffractogram azimuth integration"
+        )
+        self.assertEqual(
+            np.sum(histogram),
+            np.sum(diffraction_pattern),
+            msg="Error in diffractogram azimuth integration",
+        )
+
+    def test_contained_by_intervals_deprecated(self):
+        """Test that _contained_by_intervals raises a deprecation warning.
+        
+        .. deprecated::
+            This test verifies that _contained_by_intervals is properly marked as deprecated.
+            The function will be removed in a future version.
+        """
+        intervals = [[0.0, 0.5], [0.7, 1.0]]
+        
+        # Verify deprecation warning is raised
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = utils._contained_by_intervals(0.3, intervals)
+            # Check that deprecation warning was raised
+            self.assertTrue(
+                any(issubclass(warning.category, DeprecationWarning) for warning in w),
+                msg="_contained_by_intervals should raise DeprecationWarning"
+            )
+        
+        # Verify function still works correctly (for backward compatibility)
+        self.assertTrue(result, msg="0.3 should be contained in [0.0, 0.5]")
 
 
 if __name__ == "__main__":

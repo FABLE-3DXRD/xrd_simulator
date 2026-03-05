@@ -10,7 +10,7 @@ number_of_crystals = 500
 bounding_height = 50.0
 bounding_radius = 25.0
 unit_cell = [4.926, 4.926, 5.4189, 90., 90., 120.]
-sgname = 'P3221',  # Quartz
+sgname = 'P3221'  # Quartz
 max_bin = np.radians(10.0)
 path_to_cif_file = None
 

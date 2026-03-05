@@ -57,13 +57,6 @@ templates
     :members:
     :inherited-members:
 
-scattering_unit
-======================================
-
-.. automodule:: xrd_simulator.scattering_unit
-    :members:
-    :inherited-members:
-
 laue
 ======================================
 
