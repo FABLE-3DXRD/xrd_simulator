@@ -1,4 +1,4 @@
-name: macos conda-build
+name: macos
 
 on:
   push:
