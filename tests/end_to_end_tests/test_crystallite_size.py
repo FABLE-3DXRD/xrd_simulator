@@ -14,11 +14,10 @@ This validates the entire pipeline from crystal structure to detector output to
 crystallographic grain size analysis.
 """
 
-import unittest
-import numpy as np
 import os
-import sys
-import io
+import unittest
+
+import numpy as np
 
 try:
     import pyFAI
@@ -28,16 +27,17 @@ try:
 except ImportError:
     HAS_PYFAI = False
 
-from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
+from scipy.integrate import trapezoid as _trapz
 from scipy.optimize import curve_fit
+from scipy.signal import find_peaks
 from scipy.special import voigt_profile
 from xfab import tools
-import matplotlib.pyplot as plt
 
-from xrd_simulator.detector import Detector
 from xrd_simulator.beam import Beam
-from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.cuda import configure_device, get_selected_device
+from xrd_simulator.detector import Detector
+from xrd_simulator.motion import RigidBodyMotion
 
 # Store original device before any test configuration
 _ORIGINAL_DEVICE = get_selected_device()
@@ -229,7 +229,6 @@ def fit_voigt_peak(x_data, y_data, center_guess, verbose=False):
     y_norm = y_data / y_max
 
     # Estimate initial parameters
-    _trapz = getattr(np, "trapezoid", np.trapz)
     amplitude_guess = _trapz(y_norm, x_data)  # Area under curve
     fwhm_guess = 0.3  # degrees, typical for powder diffraction
 
@@ -537,9 +536,9 @@ class TestCrystalliteSize(unittest.TestCase):
         print(f"Grains: {self.n_grains}")
         print(f"Rotation: {np.degrees(self.rotation_angle):.1f}°")
         print(
-            f"Detector: {self.n_pixels}x{self.n_pixels} pixels, {self.detector_distance/1000:.1f} mm distance"
+            f"Detector: {self.n_pixels}x{self.n_pixels} pixels, {self.detector_distance / 1000:.1f} mm distance"
         )
-        print(f"Max 2θ coverage: {np.degrees(2*self.max_bragg_angle):.2f}°")
+        print(f"Max 2θ coverage: {np.degrees(2 * self.max_bragg_angle):.2f}°")
         print(f"Material: Ferrite - BCC Iron ({self.sgname})")
         print(f"Target crystallite size: {target_size_nm} nm")
         print("=" * 80)
@@ -549,7 +548,7 @@ class TestCrystalliteSize(unittest.TestCase):
         sample_radius = target_size_nm / 917.44
         print(f"\n[Config] Target crystallite size: {target_size_nm} nm")
         print(
-            f"[Config] Sample bounding radius: {sample_radius:.6f} µm ({sample_radius*1000:.2f} nm)"
+            f"[Config] Sample bounding radius: {sample_radius:.6f} µm ({sample_radius * 1000:.2f} nm)"
         )
 
         # Create beam - use sample bounding radius
@@ -688,7 +687,7 @@ class TestCrystalliteSize(unittest.TestCase):
                 )
 
                 print(
-                    f"      Peak {i+1}: 2θ={fit_result['center']:.2f}°, FWHM={fwhm_deg:.4f}°, η={fit_result['eta']:.3f}, size={size_nm:.1f}nm"
+                    f"      Peak {i + 1}: 2θ={fit_result['center']:.2f}°, FWHM={fwhm_deg:.4f}°, η={fit_result['eta']:.3f}, size={size_nm:.1f}nm"
                 )
 
                 if size_nm > 0 and size_nm < 10000:
@@ -710,7 +709,9 @@ class TestCrystalliteSize(unittest.TestCase):
             internal_fwhm = np.degrees(np.mean(scherrer_fwhm_rad))
             print(f"\n    Fitted FWHM (avg): {avg_fitted_fwhm:.4f}°")
             print(f"    Internal Scherrer FWHM: {internal_fwhm:.4f}°")
-            print(f"    Ratio (fitted/internal): {avg_fitted_fwhm/internal_fwhm:.2f}x")
+            print(
+                f"    Ratio (fitted/internal): {avg_fitted_fwhm / internal_fwhm:.2f}x"
+            )
 
         # Compute results - Voigt fitting
         if len(estimated_sizes_voigt) > 0:
@@ -843,7 +844,7 @@ class TestCrystalliteSize(unittest.TestCase):
 
         summary_text = f"""
 CRYSTALLITE SIZE ESTIMATION SUMMARY
-{'='*45}
+{"=" * 45}
 
 Input Configuration:
   • Target crystallite size: {target_size_nm} nm
@@ -858,11 +859,11 @@ Verification:
 
 Scherrer Analysis:
   • Peaks analyzed: {len(estimated_sizes)}
-  • Estimated size: {f'{avg_estimated:.1f} ± {std_estimated:.1f} nm' if avg_estimated else 'N/A'}
+  • Estimated size: {f"{avg_estimated:.1f} ± {std_estimated:.1f} nm" if avg_estimated else "N/A"}
   • Expected size: {expected_size_nm:.1f} nm
-  • Error: {f'{error_percent:.1f}%' if error_percent else 'N/A'}
+  • Error: {f"{error_percent:.1f}%" if error_percent else "N/A"}
 
-{'='*45}
+{"=" * 45}
 """
         ax4.text(
             0.1,

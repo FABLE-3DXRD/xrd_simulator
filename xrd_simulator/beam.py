@@ -14,16 +14,17 @@ disc:
 Below follows a detailed description of the beam class attributes and
 functions.
 """
+
 from __future__ import annotations
 
-import numpy as np
 import dill
-from scipy.spatial import ConvexHull, HalfspaceIntersection
-from scipy.optimize import linprog
+import numpy as np
 import torch
+from scipy.optimize import linprog
+from scipy.spatial import ConvexHull, HalfspaceIntersection
 
 torch.set_default_dtype(torch.float64)
-from xrd_simulator.utils import ensure_torch, ensure_numpy
+from xrd_simulator.utils import ensure_numpy, ensure_torch
 
 
 class Beam:
@@ -72,7 +73,9 @@ class Beam:
     ):
         # Convert to torch tensors first, then normalize using torch operations
         xray_dir = ensure_torch(xray_propagation_direction)
-        self.wave_vector = (2 * np.pi / wavelength) * xray_dir / torch.linalg.norm(xray_dir)
+        self.wave_vector = (
+            (2 * np.pi / wavelength) * xray_dir / torch.linalg.norm(xray_dir)
+        )
         self.wavelength = wavelength
         self.set_beam_vertices(ensure_torch(beam_vertices))
         pol_vec = ensure_torch(polarization_vector)
@@ -90,16 +93,18 @@ class Beam:
             Vertices of the X-ray beam in units of microns, shape ``(N, 3)``.
         """
         ch = ConvexHull(beam_vertices.cpu().numpy())
-        assert (
-            ch.points.shape[0] == ch.vertices.shape[0]
-        ), "The provided beam vertices does not form a convex hull"
+        assert ch.points.shape[0] == ch.vertices.shape[0], (
+            "The provided beam vertices does not form a convex hull"
+        )
         self.vertices = beam_vertices.clone()
         self.centroid = torch.mean(self.vertices, axis=0)
         # ConvexHull requires numpy, convert result back to torch
         self.halfspaces = ensure_torch(
             np.unique(
-                ConvexHull(ensure_numpy(self.vertices), qhull_options="QJ").equations.round(decimals=6),
-                axis=0
+                ConvexHull(
+                    ensure_numpy(self.vertices), qhull_options="QJ"
+                ).equations.round(decimals=6),
+                axis=0,
             )
         )
 
@@ -121,10 +126,12 @@ class Beam:
         points = ensure_torch(points)
         normals = self.halfspaces[:, 0:3]
         offsets = self.halfspaces[:, 3:4]
-        
+
         if len(points.shape) == 1:
             # Single point: shape (3,)
-            normal_distances = torch.matmul(normals, points.unsqueeze(1))  # shape (N, 1)
+            normal_distances = torch.matmul(
+                normals, points.unsqueeze(1)
+            )  # shape (N, 1)
             return torch.all(normal_distances + offsets < 0)
         else:
             # Multiple points: shape (3, n)
@@ -173,6 +180,9 @@ class Beam:
                     break
             else:
                 interior_point = self._find_feasible_point(combined_halfspaces)
+                interior_point = (
+                    ensure_torch(interior_point) if interior_point is not None else None
+                )
 
         if interior_point is not None:
             hs = HalfspaceIntersection(
@@ -342,7 +352,6 @@ class Beam:
         R = sphere_radius.reshape(1, sphere_radius.shape[0])
         not_candidates = torch.zeros((len(sample_times), R.shape[1]), dtype=torch.bool)
         for i, time in enumerate(sample_times):
-
             halfspaces = ConvexHull(
                 inverse_rigid_body_motion(self.vertices, time=time).cpu().numpy()
             ).equations
@@ -353,9 +362,6 @@ class Beam:
             not_candidates[i, :] += torch.any(sphere_beam_distances > R, axis=0)
 
         return ~not_candidates, sample_times
-
-
-
 
     # ==============================================================================
     # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
@@ -399,10 +405,11 @@ class Beam:
             j-th intersection interval of sphere number i with the beam.
         """
         import warnings
+
         warnings.warn(
             "_get_proximity_intervals is deprecated and will be removed in a future version.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         candidate_mask, sample_times = self._get_candidate_spheres(
             sphere_centres, sphere_radius, rigid_body_motion
@@ -423,7 +430,6 @@ class Beam:
                     counting = True
 
                 for i in range(1, candidate_mask.shape[0] - 1):
-
                     if candidate_mask[i, j] and not counting:
                         merged_intersection.append(
                             [sample_times[i - 1], sample_times[i + 1]]
