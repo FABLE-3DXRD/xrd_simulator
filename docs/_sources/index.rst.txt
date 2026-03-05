@@ -4,84 +4,62 @@
 
 .. include:: ../../README.rst
 
+======================================
 Documentation
 ======================================
 
-
-======================================
-beam
-======================================
-
-.. automodule:: xrd_simulator.beam
-    :members:
-    :show-inheritance:
-
-======================================
-detector
-======================================
-
-.. automodule:: xrd_simulator.detector
-    :members:
-    :show-inheritance:
-
-======================================
-mesh
-======================================
-
-.. automodule:: xrd_simulator.mesh
-    :members:
-    :show-inheritance:
-
-======================================
-Phase
-======================================
-
-.. automodule:: xrd_simulator.phase
-    :members:
-    :show-inheritance:
-
-======================================
 polycrystal
 ======================================
 
 .. automodule:: xrd_simulator.polycrystal
     :members:
-    :show-inheritance:
+    :inherited-members:
 
-======================================
-scattering_unit
+mesh
 ======================================
 
-.. automodule:: xrd_simulator.scattering_unit
+.. automodule:: xrd_simulator.mesh
     :members:
-    :show-inheritance:
+    :inherited-members:
 
-======================================
-laue
+phase
 ======================================
 
-.. automodule:: xrd_simulator.laue
+.. automodule:: xrd_simulator.phase
     :members:
-    :show-inheritance:
+    :inherited-members:
 
-======================================
-utils
+beam
 ======================================
 
-.. automodule:: xrd_simulator.utils
+.. automodule:: xrd_simulator.beam
     :members:
-    :show-inheritance:
+    :inherited-members:
 
+detector
 ======================================
+
+.. automodule:: xrd_simulator.detector
+    :members:
+    :inherited-members:
+
+motion
+======================================
+
+.. automodule:: xrd_simulator.motion
+    :members:
+    :inherited-members:
+
 templates
 ======================================
 
 .. automodule:: xrd_simulator.templates
     :members:
-    :show-inheritance:
+    :inherited-members:
 
-Indices and tables
-==================
+laue
+======================================
 
-* :ref:`modindex`
-* :ref:`search`
+.. automodule:: xrd_simulator.laue
+    :members:
+    :inherited-members:
