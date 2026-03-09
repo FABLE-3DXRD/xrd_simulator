@@ -83,6 +83,8 @@ from scipy.spatial.transform import Rotation
 
 from xrd_simulator.cuda import get_selected_device
 
+rng = np.random.default_rng()
+
 
 def _cif_open(cif_file):
     """Helper function to be able to use the ``.CIFread`` of ``xfab``."""
@@ -120,6 +122,47 @@ def _print_progress(progress_fraction, message):
     )
     if progress_fraction == 1.0:
         print("", flush=True)
+
+
+def _sample_convex_hull_3d(hull, n_samples):
+    """Uniformly randomly sample points from the interior of a convex hull.
+
+    Parameters
+    ----------
+    hull : scipy.spatial.ConvexHull
+        Convex hull to sample from.
+    n_samples : int
+        Number of samples to draw.
+
+    Returns
+    -------
+    numpy.ndarray
+        Sampled points, shape ``(n_samples, 3)``.
+    """
+
+    # Split the convex hull into tetrahedra
+    points = hull.points
+    r = points.mean(axis=0)
+    tris = points[hull.simplices]
+    tets = np.empty((len(tris), 4, 3), dtype=points.dtype)
+    tets[:, 0] = r
+    tets[:, 1:] = tris
+    a = tets[:, 1] - tets[:, 0]
+    b = tets[:, 2] - tets[:, 0]
+    c = tets[:, 3] - tets[:, 0]
+
+    # Compute the volumes of the tetrahedra and randomly select tets
+    # based on volume weights.
+    vols = np.abs(np.einsum("ij,ij->i", a, np.cross(b, c))) / 6.0
+    idx = rng.choice(len(tets), size=n_samples, p=vols / vols.sum())
+
+    # Now use barycentric coordinates to uniformly sample points from
+    # the selected tetrahedra
+    w = rng.exponential(size=(n_samples, 4))
+    w /= w.sum(axis=1, keepdims=True)
+    random_points = np.einsum("ni,nij->nj", w, tets[idx])
+
+    return random_points
 
 
 def _clip_line_with_convex_polyhedron(

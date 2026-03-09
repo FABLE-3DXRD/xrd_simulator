@@ -3,8 +3,11 @@ import unittest
 
 import numpy as np
 import torch
+from scipy.ndimage import label
 from scipy.spatial import ConvexHull
+from scipy.spatial.transform import Rotation
 
+from xrd_simulator import polycrystal
 from xrd_simulator.beam import Beam
 from xrd_simulator.detector import Detector
 from xrd_simulator.mesh import TetraMesh
@@ -702,6 +705,107 @@ class TestDetector(unittest.TestCase):
             torch.sum(diffraction_pattern_nano),
             0,
             msg="Pattern should be empty when all peaks have infinite Lorentz",
+        )
+
+    def test_macro_scanning_3dxrd_setup(self):
+
+        radius = 100.0
+        mesh = TetraMesh.generate_mesh_from_levelset(
+            level_set=lambda x: np.linalg.norm(x) - radius,
+            bounding_radius=radius + 5.0,
+            max_cell_circumradius=50.0,
+        )
+
+        mesh.translate(-mesh.ecentroids.mean(axis=0))
+        data = os.path.join(
+            os.path.join(os.path.dirname(__file__), "data"),
+            "Fe_mp-150_conventional_standard.cif",
+        )
+        unit_cell = [3.64570000, 3.64570000, 3.64570000, 90.0, 90.0, 90.0]
+        sgname = "Fm-3m"
+        phase = Phase(unit_cell, sgname, path_to_cif_file=data)
+
+        detector_distance = 98932.41043969788
+        pixel_size = 75  # microns
+        detector_size = 2048 * pixel_size
+        energy = 55.5  # kev
+        wavelength = 12.3984198742 / energy  # angstrom
+
+        phase._setup_diffracting_planes(wavelength, 0, 20 * torch.pi / 180)
+
+        pc = polycrystal.Polycrystal(
+            mesh=mesh,
+            orientation=Rotation.random(mesh.number_of_elements).as_matrix(),
+            strain=np.zeros((3, 3)),
+            phases=[Phase(unit_cell, sgname, path_to_cif_file=None)],
+            element_phase_map=np.zeros((mesh.number_of_elements,)).astype(int),
+        )
+
+        det_corner_0 = np.array(
+            [detector_distance, -detector_size / 2.0, -detector_size / 2.0]
+        )
+        det_corner_1 = np.array(
+            [detector_distance, detector_size / 2.0, -detector_size / 2.0]
+        )
+        det_corner_2 = np.array(
+            [detector_distance, -detector_size / 2.0, detector_size / 2.0]
+        )
+
+        beam_y = 2.0  # um
+        t = beam_y / 2.0
+        dz = beam_y / 2.0
+        beam_vertices = np.array(
+            [
+                [-detector_distance, -t, -dz],
+                [-detector_distance, t, -dz],
+                [-detector_distance, t, dz],
+                [-detector_distance, -t, dz],
+                [detector_distance, -t, -dz],
+                [detector_distance, t, -dz],
+                [detector_distance, t, dz],
+                [detector_distance, -t, dz],
+            ]
+        )
+        xray_propagation_direction = np.array([1, 0, 0]) * 2 * np.pi / wavelength
+        polarization_vector = np.array([0, 1, 0])
+        xray_beam = Beam(
+            beam_vertices, xray_propagation_direction, wavelength, polarization_vector
+        )
+        rotation_angle = np.radians(20.0)
+        rotation_axis = np.array([0, 0, 1])
+        single_frame_motion = RigidBodyMotion(
+            rotation_axis,
+            rotation_angle,
+            translation=np.array([0, 0, 0]),
+        )
+
+        eiger = Detector(
+            det_corner_0,
+            det_corner_1,
+            det_corner_2,
+            pixel_size=(pixel_size, pixel_size),
+            gaussian_sigma=0.4,
+            kernel_threshold=0.001,
+            max_gaussian_kernel_radius=9,
+        )
+        peaks = pc.diffract(
+            xray_beam, single_frame_motion, detector=eiger, verbose=True
+        )
+        diffraction_pattern, peaks = eiger.render(
+            peaks,
+            frames_to_render=1,
+            method="macro",
+        )
+
+        im = diffraction_pattern[0].numpy()
+        im[np.isnan(im)] = 0
+
+        self.assertGreaterEqual(im.max(), 0, msg="Diffraction pattern is empty")
+
+        _, num_labels = label(im)
+
+        self.assertGreaterEqual(
+            num_labels, 20, msg="There appears to be very few diffraction spots"
         )
 
 

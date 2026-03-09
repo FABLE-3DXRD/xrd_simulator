@@ -1591,6 +1591,13 @@ class Detector:
     ) -> npt.NDArray:
         """Project convex hull onto detector region.
 
+        Swithces between a sample driven and detector driven approcimation depending on
+        the detector pixel size and the convex hull size. When the convex hull is large
+        compared to the pixel size, the detector driven approach is used. This means that
+        rays traced from pixel centroids are used as projection lines. When the convex
+        hull is small compared to the pixel size, the sample driven approach is used. This
+        means that points are sampled from the interior of the hull and used as projection lines.
+
         Parameters
         ----------
         proj_context : dict
@@ -1605,12 +1612,10 @@ class Detector:
         Returns
         -------
         torch.Tensor
-            Array of clip lengths (path lengths) through the hull for each
-            detector ray.
+            Array of projected fractional contribution to each detector pixel
+            in the box. The sum total contribution is proportional to the
+            volume of the convex hull.
         """
-        # Get pixel coordinates - keep in torch
-        pixel_coords = self.pixel_coordinates[box[0] : box[1], box[2] : box[3], :]
-        ray_points = pixel_coords.reshape((box[1] - box[0]) * (box[3] - box[2]), 3)
 
         # ConvexHull from scipy returns numpy, convert to torch
         hull = proj_context["convex_hull"]
@@ -1620,14 +1625,62 @@ class Detector:
         )
         plane_points = -plane_offsets * plane_normals
 
+        n_pixels_in_box = (box[1] - box[0]) * (box[3] - box[2])
+
         # Ray direction in torch
         scattered_vec = proj_context["scattered_wave_vector"]
         ray_direction = scattered_vec / torch.linalg.norm(scattered_vec)
 
-        clip_lengths = utils._clip_line_with_convex_polyhedron(
-            ray_points, ray_direction, plane_points, plane_normals
-        )
-        clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
+        if n_pixels_in_box == 1:
+            # tetra is fully contained in a detector pixel, use the volume of the tetra as intensity
+            return torch.ones(1, 1) * proj_context["convex_hull"].volume
+        elif (
+            n_pixels_in_box <= 4
+        ):  # tetra is small compared to the pixel size, adapt to sampling approach.
+            # This is a decent approximation when the tetras are small in relation to the pixel size
+            n_samples = (
+                7 * n_pixels_in_box
+            )  # TODO the ad-hoc number 7 here should perhaps be a parameter to give controll over the accuracy of the statistics.
+            ray_points = utils._sample_convex_hull_3d(
+                proj_context["convex_hull"], n_samples
+            )
+            ray_points.reshape(n_samples, 3)
+            ray_points = ensure_torch(ray_points)
+
+            clip_lengths = utils._clip_line_with_convex_polyhedron(
+                ray_points, ray_direction, plane_points, plane_normals
+            )
+            # now map the clip lengths to the detector pixels
+            ray_directions = torch.tile(ray_direction, (n_samples, 1))
+            out = self._get_intersection(ray_directions, ray_points)
+            zd = out[:, 0]
+            yd = out[:, 1]
+
+            row_index = ensure_numpy(zd / self.pixel_size_z).astype(int) - box[0]
+            col_index = ensure_numpy(yd / self.pixel_size_y).astype(int) - box[2]
+
+            box_intensities = np.zeros((box[1] - box[0], box[3] - box[2]))
+            np.add.at(box_intensities, (row_index, col_index), clip_lengths)
+            box_intensities /= box_intensities.sum()
+            box_intensities *= proj_context["convex_hull"].volume
+
+            return ensure_torch(box_intensities)
+
+        else:
+            # This is a good approximation when the tetras are large in relation to the pixel size
+            # Get pixel coordinates and project on pixel centorid ray-lines
+            pixel_coords = self.pixel_coordinates[box[0] : box[1], box[2] : box[3], :]
+            ray_points = pixel_coords.reshape((box[1] - box[0]) * (box[3] - box[2]), 3)
+
+            clip_lengths = utils._clip_line_with_convex_polyhedron(
+                ray_points, ray_direction, plane_points, plane_normals
+            )
+
+            # ensure that scattering is proportional to the material volume
+            # that is scattering.
+            clip_lengths /= clip_lengths.sum()
+            clip_lengths *= proj_context["convex_hull"].volume
+            clip_lengths = clip_lengths.reshape(box[1] - box[0], box[3] - box[2])
 
         return clip_lengths
 

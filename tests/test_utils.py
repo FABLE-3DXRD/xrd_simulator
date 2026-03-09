@@ -1,15 +1,36 @@
 import unittest
 import warnings
+
 import numpy as np
-from xfab import tools
-from xrd_simulator import utils
+from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
+from xfab import tools
+
+from xrd_simulator import utils
+
+rng = np.random.default_rng(0)
 
 
 class TestUtils(unittest.TestCase):
-
     def setUp(self):
         np.random.seed(10)  # changes all randomisation in the test
+
+    def test_sample_convex_hull_3d(self):
+        hull = ConvexHull(rng.random((100, 3)))
+        points = hull.points
+        r = points.mean(axis=0)
+        tris = points[hull.simplices]
+        a = tris[:, 0] - r
+        b = tris[:, 1] - r
+        c = tris[:, 2] - r
+        vols = np.abs(np.einsum("ij,ij->i", a, np.cross(b, c))) / 6.0
+        cents = (r + tris[:, 0] + tris[:, 1] + tris[:, 2]) / 4.0
+        cents = np.sum(cents * vols[:, None], axis=0) / vols.sum()
+        X = utils._sample_convex_hull_3d(hull, 200000)
+        A = hull.equations[:, :-1]
+        b = hull.equations[:, -1]
+        assert np.all(X @ A.T + b <= 1e-10)
+        assert np.allclose(X.mean(axis=0), cents, atol=1e-2)
 
     def test_clip_line_with_convex_polyhedron(self):
         line_points = np.ascontiguousarray([[-1.0, 0.2, 0.2], [-1.0, 0.4, 0.6]])
@@ -149,7 +170,7 @@ class TestUtils(unittest.TestCase):
 
     def test_diffractogram_deprecated(self):
         """Test that _diffractogram raises a deprecation warning.
-        
+
         .. deprecated::
             This test verifies that _diffractogram is properly marked as deprecated.
             The function will be removed in a future version.
@@ -171,7 +192,7 @@ class TestUtils(unittest.TestCase):
             # Check that deprecation warning was raised
             self.assertTrue(
                 any(issubclass(warning.category, DeprecationWarning) for warning in w),
-                msg="_diffractogram should raise DeprecationWarning"
+                msg="_diffractogram should raise DeprecationWarning",
             )
 
         # Verify function still works correctly (for backward compatibility)
@@ -186,13 +207,13 @@ class TestUtils(unittest.TestCase):
 
     def test_contained_by_intervals_deprecated(self):
         """Test that _contained_by_intervals raises a deprecation warning.
-        
+
         .. deprecated::
             This test verifies that _contained_by_intervals is properly marked as deprecated.
             The function will be removed in a future version.
         """
         intervals = [[0.0, 0.5], [0.7, 1.0]]
-        
+
         # Verify deprecation warning is raised
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -200,9 +221,9 @@ class TestUtils(unittest.TestCase):
             # Check that deprecation warning was raised
             self.assertTrue(
                 any(issubclass(warning.category, DeprecationWarning) for warning in w),
-                msg="_contained_by_intervals should raise DeprecationWarning"
+                msg="_contained_by_intervals should raise DeprecationWarning",
             )
-        
+
         # Verify function still works correctly (for backward compatibility)
         self.assertTrue(result, msg="0.3 should be contained in [0.0, 0.5]")
 
