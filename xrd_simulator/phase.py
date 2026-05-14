@@ -20,7 +20,8 @@ functions.
 .. _The .cif file used in the above example can be found here.: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/examples/quartz.cif?raw=true
 """
 import numpy as np
-from xfab import tools, structure, sg, symmetry
+from xfab import tools, structure, sg
+from xfab.tools import form_a_mat
 from xrd_simulator import utils
 
 class Phase(object):
@@ -69,9 +70,11 @@ class Phase(object):
         self.unit_cell = unit_cell
         self.sgname = sgname
 
-        # Warning, this is the pointgroup of the lattice, not of the system. So you cannot deal with all spacegroups this way
-        # there seems to be no way to get the proper point group in xfab.
-        self.rot = symmetry.rotations(sg.sg(sgname=sgname).crystal_system)
+        # These are rotations in the reference coordinate system where the lattice matrix is upper triangular
+        A = form_a_mat(unit_cell)
+        A_inv = np.linalg.inv(A)
+        sg_obj = sg.sg(sgname=sgname)
+        self.rot = rots = np.stack([A @ rot_lattce_space @ A_inv for rot_lattce_space in sg_obj.rot])
 
         self.miller_indices = None
         self.structure_factors = None
