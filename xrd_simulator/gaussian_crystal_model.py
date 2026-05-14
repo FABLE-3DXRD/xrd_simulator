@@ -83,7 +83,7 @@ class GaussianPolycrystal:
         # d = torch.dot(detector_norm, detector_origin) / torch.dot(detector_norm, xray_propagation_direction)
         pixellengths = torch.tensor([detector.pixel_size_y, detector.pixel_size_z])
         
-        # TODO generate hkl_list and structurefactors
+        # TODO generate hkl_list and structurefactors with xfab?
         hkl_list = [(1, 1, 0), (2, 0, 0), (0, 0, 1)]
         structurefactors = [1, 1, 1]
 
@@ -119,19 +119,23 @@ class GaussianPolycrystal:
             )
 
             #TODO Splat grain realspace shapes
-            realspace_splat_concentration = 1/20**2*torch.tile(torch.eye(2)[None, :, :], (len(partiality), 1, 1))
+            samplespace_splat_concentration = 1/3**2*torch.tile(torch.eye(2)[None, :, :], (len(partiality), 1, 1))
 
-            #TODO Do smearing due to angular divergence.
-            
             # Direct beam is pos + mean_scatt_dir * x, detector is det_ori dot det_norm = 0 
             pos = torch.tile(self.positions[:, None, :], (1, n_symmetries, 1,))[does_diffract]
             ray_lengths = torch.einsum('xi,i->x', detector_origin[None, :] - pos, detector_norm) / torch.einsum('xi,i->x', mean_scattering_directions, detector_norm)
             point_of_detector_intersection = pos + ray_lengths[:,None] * mean_scattering_directions
             uv_coords = torch.einsum('xi, vi, v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths)
 
+            #Do smearing due to angular divergence.
+            azimuthal_direction_uv = torch.einsum('xi,ui->xu', azim_direction, W) / pixellengths[None, :] * ray_lengths[:, None] * azim_width[:, None] / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2)
+            azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
+            detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(samplespace_splat_concentration) + azimuthal_smearing_tensor)
+
             uv_corrds_list.append(uv_coords)
-            scalefactors_list.append(partiality)
-            splat_concentration_tensors_list.append(realspace_splat_concentration)
+            scalefactors_list.append(S * partiality)
+            splat_concentration_tensors_list.append(detspace_splat_concentration)
+                         
 
         f = self.rasterize_on_detector(
             torch.concat(uv_corrds_list),
@@ -147,7 +151,7 @@ class GaussianPolycrystal:
             uv_corrds: Tensor,
             scale_factors: Tensor,
             concentration_tensors: Tensor,
-            shape: Tuple,
+            shape: tuple,
             patch_size: int = 16,
             splat_max_size: float = 100.0
         ):
@@ -175,8 +179,8 @@ class GaussianPolycrystal:
 
 
                 local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
-                                         v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
-                                         ], axis=1)
+                                            v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
+                                            ], axis=1)
 
                 f[patch_slice] +=  torch.sum(scale_factors[include_index, None, None]\
                     * torch.exp(- torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)), axis=0)
@@ -219,7 +223,7 @@ class GaussianPolycrystal:
         
         partiality = torch.exp(-A - B**2 / C) * 2 * torch.sqrt( torch.linalg.det(misori_tensors) / D )
         
-        azim_divergence = np.sqrt(1 / C)
+        azim_divergence = np.sqrt(1 / C) * torch.sin(theta_angle) # TODO Check trigonometric function here
         azim_offset = B / C
         mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
             + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
