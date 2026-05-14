@@ -177,6 +177,13 @@ class Detector:
         self.polarization_factor = use_polarization
         self.structure_factor = use_structure_factor
 
+        # Mads' favourite parametrization
+        self.shape = self.pixel_coordinates.shape[:2]
+        self.ori = self.pixel_coordinates[0,0]
+        v = torch.tensordot(self.pixel_coordinates - self.pixel_coordinates[0,0], self.ydhat, ((2,),(0,)))
+        u = torch.tensordot(self.pixel_coordinates - self.pixel_coordinates[0,0], self.zdhat, ((2,),(0,)))
+        self.W = np.stack([self.zdhat, self.ydhat])
+
     def save(self, path: str) -> None:
         """Save detector to disk.
 
