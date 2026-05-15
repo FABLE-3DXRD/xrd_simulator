@@ -73,6 +73,7 @@ class GaussianPolycrystal:
         sample_orientation: npt.NDArray | Tensor = np.eye(3),
         sample_rotation_during_exposure: npt.NDArray | Tensor = np.zeros(3),
         max_misorientation: float = 0.1,
+        max_grain_shape:float = 1000,
     ):
 
         sample_orientation = ensure_torch(sample_orientation)
@@ -84,7 +85,8 @@ class GaussianPolycrystal:
         detector_origin = torch.einsum('ij,i->j', sample_orientation, ensure_torch(detector.ori))
         W = torch.einsum('ij,ui->uj', sample_orientation, ensure_torch(detector.W))
         pixellengths = torch.tensor([detector.pixel_size_y, detector.pixel_size_z])
-        
+        d = torch.dot(detector_origin, detector_norm) / torch.dot(xray_propagation_direction, detector_norm)
+
         # Simulate sample-rotation by adding a rotation to the grain misorientation
         rotation_vector = torch.einsum('ij,i->j', sample_orientation, sample_rotation_during_exposure)
         smeared_misorientation_tensors = torch.linalg.inv(torch.linalg.inv(self.misori_concentration_tensors) + torch.outer(rotation_vector, rotation_vector))
@@ -105,8 +107,12 @@ class GaussianPolycrystal:
             sg_obj.crystal_system,
             sg_obj.Laue,
         )
-        self.phase._set_structure_factors(hkl_list)  #TODO Using private method
-        structurefactors = ensure_torch(np.sum(self.phase.structure_factors**2, axis=1))
+
+        if self.phase.path_to_cif_file is None:
+            structurefactors = torch.ones(hkl_list.shape[0])
+        else:
+            self.phase._set_structure_factors(hkl_list)  #TODO Using private method
+            structurefactors = ensure_torch(np.sum(self.phase.structure_factors**2, axis=1))
 
         uv_corrds_list = []
         splat_concentration_tensors_list = []
@@ -159,17 +165,17 @@ class GaussianPolycrystal:
             detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + azimuthal_smearing_tensor)
             intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )  #TODO This was (organically) vibe-coded. Check on paper if there is a simplification.
             
-
+            # Append to list
             uv_corrds_list.append(uv_coords)
             scalefactors_list.append(S * projected_thicknes_scale_factor * partiality * intensity_spread_out_factor)
             splat_concentration_tensors_list.append(detspace_splat_concentration)
-                         
 
         f = self.rasterize_on_detector(
             torch.concat(uv_corrds_list),
             torch.concat(scalefactors_list),
             torch.concat(splat_concentration_tensors_list),
             detector.shape,
+            splat_max_size= (d * max_misorientation + max_grain_shape ) / torch.min(pixellengths)
         )
 
         return f
@@ -207,7 +213,8 @@ class GaussianPolycrystal:
             concentration_tensors: Tensor,
             shape: tuple,
             patch_size: int = 16,
-            splat_max_size: float = 300.0
+            splat_max_size: float = 50.0 # Todo, come pu with good rule here. 
+                                         # d times max misorientation + max grainsize
         ):
 
 
