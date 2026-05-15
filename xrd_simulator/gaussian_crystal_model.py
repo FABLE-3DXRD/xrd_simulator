@@ -8,7 +8,8 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.utils import ensure_torch
 from xrd_simulator.detector import Detector
 
-from xfab.tools import form_a_mat
+from xfab.tools import form_a_mat, genhkl_base
+from xfab import sg
 
 
 class GaussianGrainish:
@@ -74,52 +75,77 @@ class GaussianPolycrystal:
         max_misorientation: float = 0.1,
     ):
 
+        sample_orientation = ensure_torch(sample_orientation)
+        sample_rotation_during_exposure = ensure_torch(sample_rotation_during_exposure)
 
-        #TODO Rotate detector or sample?
-        xray_propagation_direction = ensure_torch(xray_propagation_direction)
-        detector_norm = ensure_torch(np.cross(detector.W[0,:], detector.W[1,:]))
-        detector_origin = ensure_torch(detector.ori)
-        W = ensure_torch(detector.W)
-        # d = torch.dot(detector_norm, detector_origin) / torch.dot(detector_norm, xray_propagation_direction)
+        #Rotate detector and incident beam by inverse of sample-rotation.
+        xray_propagation_direction = torch.einsum('ij,i->j', sample_orientation, ensure_torch(xray_propagation_direction) )
+        detector_norm = torch.einsum('ij,i->j', sample_orientation, ensure_torch(np.cross(detector.W[0,:], detector.W[1,:])))
+        detector_origin = torch.einsum('ij,i->j', sample_orientation, ensure_torch(detector.ori))
+        W = torch.einsum('ij,ui->uj', sample_orientation, ensure_torch(detector.W))
         pixellengths = torch.tensor([detector.pixel_size_y, detector.pixel_size_z])
         
-        # TODO generate hkl_list and structurefactors with xfab?
-        hkl_list = [(1, 1, 0), (2, 0, 0), (0, 0, 1)]
-        structurefactors = [1, 1, 1]
+        # Simulate sample-rotation by adding a rotation to the grain misorientation
+        rotation_vector = torch.einsum('ij,i->j', sample_orientation, sample_rotation_during_exposure)
+        smeared_misorientation_tensors = torch.linalg.inv(torch.linalg.inv(self.misori_concentration_tensors) + torch.outer(rotation_vector, rotation_vector))
+
+        #Figure out what reflections are in the bragg-condition
+        A = form_a_mat(self.phase.unit_cell)
+        B = 2 * np.pi * np.linalg.inv(A).T # TODO Check if the 2 pi is conventional here 
+
+        # Generate structure-factors and 
+        max_angle = detector._get_wrapping_cone(xray_propagation_direction, np.mean([0, 0, 0]))
+        self.phase._setup_diffracting_planes(wavelength=wavelength, min_bragg_angle=0.0, max_bragg_angle=max_angle)  #TODO Using private method
+        sg_obj = sg.sg(sgname=self.phase.sgname)
+
+        hkl_list = genhkl_base(
+            self.phase.unit_cell,
+            sg_obj.syscond,
+            0.0, np.sin(max_angle) / wavelength,
+            sg_obj.crystal_system,
+            sg_obj.Laue,
+        )
+        self.phase._set_structure_factors(hkl_list)  #TODO Using private method
+        structurefactors = ensure_torch(np.sum(self.phase.structure_factors**2, axis=1))
 
         uv_corrds_list = []
         splat_concentration_tensors_list = []
         scalefactors_list = []
 
+        # Loop over reflection orders
         for hkl, S in zip(hkl_list, structurefactors):
-            
-            #Figure out what reflections are in the bragg-condition
-            A = form_a_mat(self.phase.unit_cell)
-            B = 2 * np.pi * np.linalg.inv(A).T
-            h = torch.tensor(B @ hkl)
-            h_norm = torch.linalg.norm(h)
-            theta_angle_unstrained = np.asin( h_norm * wavelength / 4 / np.pi )
 
             # TODO reduce the number of symmetries evaluated for low-multiplicity peaks
             n_symmetries = len(self.phase.rot)
 
+
+            # Quick test to discard reflections far from Bragg-condition
+            h = torch.tensor(B @ hkl)
+            h_norm = torch.linalg.norm(h)
+            theta_angle_unstrained = np.asin( h_norm * wavelength / 4 / np.pi )
             p_vectors = torch.einsum('ghi,gij,sjk,k->gsh', torch.eye(3)[None,:,:] - self.strains, self.orientaions, ensure_torch(self.phase.rot), h)
             p_vectors_norm = torch.linalg.norm(p_vectors, axis=-1)
-            
             dp = torch.einsum('i,gsi->gs', xray_propagation_direction, p_vectors) / p_vectors_norm            
             does_diffract = torch.abs( dp + torch.sin(theta_angle_unstrained) ) <  torch.abs(3 * max_misorientation * torch.cos(theta_angle_unstrained))
 
-            oris = torch.tile(self.orientaions[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
-            misori_tensors = torch.tile(self.misori_concentration_tensors[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
-            p_vecs = p_vectors[does_diffract]
+            # Select the relevant reflections and flatten grain- and symetry-indexes.
+            orientations = torch.tile(self.orientaions[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
+            misori_concentration_tensors = torch.tile(smeared_misorientation_tensors[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
+            p_vectors = p_vectors[does_diffract]
 
-            #Subsample polefigure-splats on ring
+            # Do pole-figure part of the calculation
             mean_scattering_directions, partiality, azim_direction, azim_width = self.get_diffraction_arcsegment(
-                oris, p_vecs, misori_tensors, xray_propagation_direction, wavelength
+                orientations, p_vectors, misori_concentration_tensors, xray_propagation_direction, wavelength
             )
 
-            #TODO Splat grain realspace shapes
-            samplespace_splat_concentration = 1/3**2*torch.tile(torch.eye(2)[None, :, :], (len(partiality), 1, 1))
+            # Splat grain realspace shapes (Consider using the non-strained non-azimuthally shifted directions to simplify gradients later)
+            shape_concentration_tensors = torch.tile(self.shape_concentration_tensors[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
+            detectorspace_grainshape_projections, projected_thicknes_scale_factor = self.splat_grainshapes(
+                mean_scattering_directions,
+                shape_concentration_tensors,
+                W,
+                pixellengths,
+            )
 
             # Direct beam is pos + mean_scatt_dir * x, detector is det_ori dot det_norm = 0 
             pos = torch.tile(self.positions[:, None, :], (1, n_symmetries, 1,))[does_diffract]
@@ -130,10 +156,12 @@ class GaussianPolycrystal:
             #Do smearing due to angular divergence.
             azimuthal_direction_uv = torch.einsum('xi,ui->xu', azim_direction, W) / pixellengths[None, :] * ray_lengths[:, None] * azim_width[:, None] / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2)
             azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
-            detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(samplespace_splat_concentration) + azimuthal_smearing_tensor)
+            detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + azimuthal_smearing_tensor)
+            intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )  #TODO This was (organically) vibe-coded. Check on paper if there is a simplification.
+            
 
             uv_corrds_list.append(uv_coords)
-            scalefactors_list.append(S * partiality)
+            scalefactors_list.append(S * projected_thicknes_scale_factor * partiality * intensity_spread_out_factor)
             splat_concentration_tensors_list.append(detspace_splat_concentration)
                          
 
@@ -145,6 +173,32 @@ class GaussianPolycrystal:
         )
 
         return f
+    
+    def splat_grainshapes(
+            self,
+            mean_scattering_directions: Tensor,
+            shape_concentration_tensors: Tensor,
+            W: Tensor,
+            pixellengths: Tensor,
+    ):
+        
+        # grain_volume = torch.sqrt(1/torch.linalg.det(shape_concentration_tensors))
+        dSd = torch.einsum('xi,xij,xj->x', mean_scattering_directions, shape_concentration_tensors, mean_scattering_directions)
+
+        inner_term = shape_concentration_tensors - torch.einsum(
+            'xij,xj,xk,xkl->xil',
+            shape_concentration_tensors,
+            mean_scattering_directions,
+            mean_scattering_directions,
+            shape_concentration_tensors,
+        ) / dSd[:, None, None]
+        
+        W_scaled = W * pixellengths[:, None]
+        projected_shape_pixelunits = torch.einsum(
+            'ui,xij,vj->xuv', W_scaled, inner_term, W_scaled, 
+        )
+
+        return projected_shape_pixelunits, 1/torch.sqrt(dSd)
             
     def rasterize_on_detector(
             self,
@@ -153,7 +207,7 @@ class GaussianPolycrystal:
             concentration_tensors: Tensor,
             shape: tuple,
             patch_size: int = 16,
-            splat_max_size: float = 100.0
+            splat_max_size: float = 300.0
         ):
 
 
@@ -221,12 +275,11 @@ class GaussianPolycrystal:
         B = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, dir_scatteringplane_orth,)
         C = torch.einsum('xi,xij,xj->x', dir_scatteringplane_orth, T_proj, dir_scatteringplane_orth,)
         
-        partiality = torch.exp(-A - B**2 / C) * 2 * torch.sqrt( torch.linalg.det(misori_tensors) / D )
-        
         azim_divergence = np.sqrt(1 / C) * torch.sin(theta_angle) # TODO Check trigonometric function here
         azim_offset = B / C
         mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
             + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
+        partiality = torch.exp(-A + B**2 / C) * 2 * torch.sqrt( torch.linalg.det(misori_tensors) / D ) / torch.sqrt(C)
 
         return mean_scattering_directions, partiality, dir_scatteringplane_orth, azim_divergence 
 
