@@ -422,8 +422,6 @@ class Detector:
             Intensity scale factors, shape ``(N,)``
         concentration_tensors : Tensor
             Shape concentration tensors, shape ``(N, 2, 2)``
-        shape : tuple
-            Detector shape as a 2-length tuple
         patch_size : int
             For evaluation the detector is split into patches of shize `patch_size` by `patch_size`.
         splat_max_size : float
@@ -432,7 +430,7 @@ class Detector:
         Returns
         -------
         detector_image : Tensor
-            Detector image, shape ``shape``.
+            Detector image, shape ``self.shape``.
         """
 
         shape = self.shape
