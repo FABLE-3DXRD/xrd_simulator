@@ -7,6 +7,7 @@ for the advanced user, access to these functions may be of interest.
 
 import numpy as np
 import torch
+from torch import Tensor
 
 torch.set_default_dtype(torch.float64)
 from xrd_simulator.utils import ensure_torch
@@ -154,6 +155,90 @@ def _find_solutions_to_tangens_half_angle_equation(
 
     return grains, planes, times, G
 
+
+_levi_cita_symbol = np.zeros((3,3,3))
+_levi_cita_symbol[0, 1, 2] = 1
+_levi_cita_symbol[1, 2, 0] = 1
+_levi_cita_symbol[2, 0, 1] = 1
+_levi_cita_symbol[0, 2, 1] = -1
+_levi_cita_symbol[1, 0, 2] = -1
+_levi_cita_symbol[2, 1, 0] = -1
+_levi_cita_symbol = torch.tensor(_levi_cita_symbol)
+
+
+def _get_diffraction_arcsegment(
+        p_vectors: Tensor,
+        T: Tensor,
+        xray_propagation_direction: Tensor,
+        wavelength: Tensor,
+    ):
+    """ Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
+    of the scattered beam.
+
+    Parameters
+    ----------
+    p_vectors : Tensor
+        Lattice vectors in lattice reference frame (not hkl-tuples), shape ``(N, 3)``
+        Uses the convention with
+        .. math:: |h| = 4 \pi\sin\theta / \lambda
+    T : Tensor
+        Lab-space orientation concentration tensors, shape ``(N, 3, 3)``
+    xray_propagation_direction : Tensor
+        Incident x-ray propagation direction unit vector, shape ``(3,)``
+    wavelength : float
+        
+
+    Returns
+    -------
+    mean_scattering_directions : Tensor
+        Propagation direction unit vectors of the center of the scattered beams, shape ``(N, 3,)``
+    partialities : Tenor
+        Intensity of the scattered beams per unit-volume sample, shape ``(N,)``
+    dir_scatteringplane_orth : Tensor
+        Dispersion direction unit vectors of the scattered beams, shape ``(N, 3,)``
+    azimuthal_divergence : Tensor
+        Divergence of the scattered beams in radians, shape ``(N,)``        
+    """
+
+    # Splat onto poelfigure
+    p_norm = torch.linalg.norm(p_vectors, axis=-1)
+    D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
+
+    inner_part = T - torch.einsum(
+        'xij,xj,xk,xkl->xil',
+        T,
+        p_vectors,
+        p_vectors,
+        T,
+    ) / D[:, None, None] / p_norm[:, None, None]**2
+    T_proj = torch.einsum(
+        'xj,ijk,xil,lmn,xm->xkn',
+        p_vectors,
+        _levi_cita_symbol,
+        inner_part,
+        _levi_cita_symbol,
+        p_vectors,
+    ) / p_norm[:, None, None]**2
+
+    # Compute point of "exact bragg condition" in the plane Span(k_0, p)
+    theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
+    dir_scatteringplane_norm = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
+    dir_scatteringplane_norm = dir_scatteringplane_norm / torch.linalg.norm(dir_scatteringplane_norm, axis=-1)[:, None]
+    q_0_unit = torch.cos(theta_angle)[:, None] * dir_scatteringplane_norm - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
+    dir_scatteringplane_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, dir_scatteringplane_norm)
+
+    # Compute partiality, mean direction, and azimthal spread
+    A = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, q_0_unit,)
+    B = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, dir_scatteringplane_orth,)
+    C = torch.einsum('xi,xij,xj->x', dir_scatteringplane_orth, T_proj, dir_scatteringplane_orth,)
+    
+    azimuthal_divergence = np.sqrt(1 / C) * torch.sin( 2 * theta_angle )
+    azim_offset = B / C
+    mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
+        + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
+    partialities = torch.exp(-A + B**2 / C) * 2 * torch.sqrt( torch.linalg.det(T) / D ) / torch.sqrt(C)
+
+    return mean_scattering_directions, partialities, dir_scatteringplane_orth, azimuthal_divergence
 
 # ==============================================================================
 # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION

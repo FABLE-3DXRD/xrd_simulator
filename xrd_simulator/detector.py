@@ -18,6 +18,7 @@ import dill
 import numpy as np
 import numpy.typing as npt
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 from scipy.special import j1
 
@@ -176,13 +177,8 @@ class Detector:
         self.lorentz_factor = use_lorentz
         self.polarization_factor = use_polarization
         self.structure_factor = use_structure_factor
-
-        # Mads' favourite parametrization
         self.shape = self.pixel_coordinates.shape[:2]
-        self.ori = self.pixel_coordinates[0,0]
-        v = torch.tensordot(self.pixel_coordinates - self.pixel_coordinates[0,0], self.ydhat, ((2,),(0,)))
-        u = torch.tensordot(self.pixel_coordinates - self.pixel_coordinates[0,0], self.zdhat, ((2,),(0,)))
-        self.W = np.stack([self.zdhat, self.ydhat])
+
 
     def save(self, path: str) -> None:
         """Save detector to disk.
@@ -403,6 +399,72 @@ class Detector:
             bounds.
         """
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
+
+
+    def render_gaussian_splats(
+            self,
+            uv_corrds: Tensor,
+            scale_factors: Tensor,
+            concentration_tensors: Tensor,
+            patch_size: int = 16,
+            splat_max_size: float = 50.0 # Todo, come pu with good rule here. 
+                                         # d times max misorientation + max grainsize
+        ):
+        """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
+
+        .. math:: f = s \exp(-[u-u_0, v-v_0] S [u-u_0, v-v_0]^T).
+
+        Parameters
+        ----------
+        uv_corrds : Tensor
+            Centroid pixel coordinates, shape ``(N, 2)``
+        scale_factors : Tensor
+            Intensity scale factors, shape ``(N,)``
+        concentration_tensors : Tensor
+            Shape concentration tensors, shape ``(N, 2, 2)``
+        shape : tuple
+            Detector shape as a 2-length tuple
+        patch_size : int
+            For evaluation the detector is split into patches of shize `patch_size` by `patch_size`.
+        splat_max_size : float
+            Maximum size of a gaussian splat.
+
+        Returns
+        -------
+        detector_image : Tensor
+            Detector image, shape ``shape``.
+        """
+
+        shape = self.shape
+        u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
+        f = torch.zeros(shape)
+
+        patch_size = 16
+        n_patches_dim1 = (shape[0]-1)//patch_size+1
+        n_patches_dim2 = (shape[1]-1)//patch_size+1
+
+        for patch_index_1 in range(n_patches_dim1):
+            for patch_index_2 in range(n_patches_dim2):
+
+                patch_slice = (slice(patch_size*patch_index_1, patch_size*(patch_index_1+1)),
+                               slice(patch_size*patch_index_2, patch_size*(patch_index_2+1)),)
+
+                patch_mean_u = patch_size*(patch_index_1+0.5)
+                patch_mean_v = patch_size*(patch_index_2+0.5)
+                
+                include_index = (uv_corrds[:, 0]-patch_mean_u)**2 + (uv_corrds[:, 1]-patch_mean_v)**2 < splat_max_size**2
+                if not torch.any(include_index):
+                    continue
+
+
+                local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
+                                            v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
+                                            ], axis=1)
+
+                f[patch_slice] +=  torch.sum(scale_factors[include_index, None, None]\
+                    * torch.exp(- torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)), axis=0)
+
+        return f
 
     # ------------------------------------------------------------------
     # 3. Geometry & coordinate helpers
