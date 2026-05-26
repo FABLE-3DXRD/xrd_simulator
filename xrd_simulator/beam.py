@@ -448,3 +448,79 @@ class Beam:
                 all_intersections.append(merged_intersection)
 
         return all_intersections
+
+
+class GaussianBeam:
+
+    def __init__(
+        self,
+        beam_centroid_position,
+        xray_propagation_direction,
+        wavelength,
+        long_axis_width=None,
+        long_axis_direction=None,
+        short_axis_width=None,
+        short_axis_direction=None,
+    ):
+        
+        # Convert to torch tensors first, then normalize using torch operations
+        self.xray_dir = ensure_torch(xray_propagation_direction)
+        self.xray_dir = self.xray_dir / torch.linalg.norm(self.xray_dir)
+        self.beam_center = ensure_torch(beam_centroid_position)
+        self.beam_center = self.beam_center - torch.dot(self.xray_dir, self.beam_center) * self.xray_dir
+        self.wavelength = wavelength
+
+        # If no shape information is given, assume wide-field illumination
+        if long_axis_width is None:
+            self.beam_concentration_tensor = torch.zeros((3, 3,))
+            self.max_width = np.inf
+
+        # If only one width is given, assume circular beam.
+        elif long_axis_direction is None and short_axis_width is None and short_axis_direction is None:
+            
+            self.beam_concentration_tensor = (torch.eye(3) - torch.outer(self.xray_dir, self.xray_dir)) * 1 / long_axis_width**2
+            self.max_width = long_axis_width
+
+        # If all parameters are given, full 2D beamshape
+        else:
+            raise NotImplementedError
+
+    def _intersect(
+            self,
+            positions,
+            shape_concentration_tensors,
+            rotation,
+            translation,
+            max_grain_size,
+        ):
+
+        # Rotate beam by inverse sample rotation
+        xray_propagation_direction = torch.einsum('ij,i->j', rotation, self.xray_dir )
+        beam_center = torch.einsum('ij,i->j', rotation, self.beam_center - translation ) #TODO Check how to compose translation and rotations
+        beam_concentration_tensor = torch.einsum('ij,ik,kl->il', rotation, self.beam_concentration_tensor, rotation) 
+
+        # Filter by distance to beam
+        a_minus_p = positions - beam_center[None, :]
+        proj_onto_line = torch.einsum('gi,i->g', a_minus_p, xray_propagation_direction)[:, None] * xray_propagation_direction[None, :] 
+        distance_from_beam = torch.linalg.norm(a_minus_p - proj_onto_line, axis=1)
+        grains_hit_indexvector = distance_from_beam < 3 * (self.max_width + max_grain_size) 
+
+        # Compute the overlap of the beam with each grain
+        intersection_shape_concentration_tensors = beam_concentration_tensor[None, :, :] + shape_concentration_tensors[grains_hit_indexvector, :, :]
+        B_plus_S_inv = torch.linalg.inv(intersection_shape_concentration_tensors)
+        B_b_plus_S_c = torch.einsum('ij,j->i', beam_concentration_tensor, beam_center)[None, :]\
+            + torch.einsum('gij,gj->gi', shape_concentration_tensors[grains_hit_indexvector, :, :], positions[grains_hit_indexvector, :])
+        intersection_positions = torch.einsum('gij,gj->gi', B_plus_S_inv, B_b_plus_S_c)
+        
+        # Beam intensity term.
+        #TODO This can maybe be simplified.
+        bBb = torch.einsum('i,ij,j', beam_center, beam_concentration_tensor, beam_center)
+        cSc = torch.einsum(
+            'gi,gij,gj->g', positions[grains_hit_indexvector, :],
+            shape_concentration_tensors[grains_hit_indexvector, :, :],
+            positions[grains_hit_indexvector, :]
+            )
+        C = torch.einsum('gi,gij,gj->g', B_b_plus_S_c, B_plus_S_inv, B_b_plus_S_c)
+        beam_intensity_factors = torch.exp(C - bBb - cSc)
+
+        return intersection_positions, intersection_shape_concentration_tensors, beam_intensity_factors, grains_hit_indexvector
