@@ -497,7 +497,7 @@ class GaussianBeam:
         # Rotate beam by inverse sample rotation
         xray_propagation_direction = torch.einsum('ij,i->j', rotation, self.xray_dir )
         beam_center = torch.einsum('ij,i->j', rotation, self.beam_center - translation ) #TODO Check how to compose translation and rotations
-        beam_concentration_tensor = torch.einsum('ij,ik,kl->il', rotation, self.beam_concentration_tensor, rotation) 
+        beam_concentration_tensor = torch.einsum('ij,ik,kl', rotation, self.beam_concentration_tensor, rotation) 
 
         # Filter by distance to beam
         a_minus_p = positions - beam_center[None, :]
