@@ -9,10 +9,13 @@ from xrd_simulator.utils import ensure_torch
 from xrd_simulator.detector import Detector
 from xrd_simulator.laue import _get_diffraction_arcsegment
 from xrd_simulator.beam import GaussianBeam
+from xrd_simulator.motion import RigidBodyMotion
 
 from xfab.tools import form_b_mat, genhkl_base
 from xfab import sg
 
+
+import time
 
 class GaussianGrainish:
     """It's not a grain, it's a grain-ish.
@@ -85,7 +88,11 @@ class GaussianPolycrystal:
         sample_orientation: npt.NDArray | Tensor = np.eye(3),
         sample_translation: npt.NDArray | Tensor = np.zeros(3),
         sample_rotation_during_exposure: npt.NDArray | Tensor = np.zeros(3),
+        timing=False
     ):
+
+        if timing:
+            t0 = time.time()
 
         xray_propagation_direction = beam.xray_dir
         wavelength = beam.wavelength
@@ -112,6 +119,7 @@ class GaussianPolycrystal:
             self.max_grain_size,
         )
 
+
         # Simulate sample-rotation by adding a rotation to the grain misorientation
         sample_rotation_during_exposure = ensure_torch(sample_rotation_during_exposure)
         rotation_vector = torch.einsum('ij,i->j', sample_orientation, sample_rotation_during_exposure)
@@ -137,6 +145,7 @@ class GaussianPolycrystal:
             self.phase._set_structure_factors(hkl_list)  #TODO Using private method
             structurefactors = ensure_torch(np.sum(self.phase.structure_factors**2, axis=1))
 
+
         # Initialize lists of 2D gaussian splat parameters
         uv_corrds_list = []
         splat_concentration_tensors_list = []
@@ -161,9 +170,11 @@ class GaussianPolycrystal:
                 does_diffract = torch.abs( dp + torch.sin(theta_angle_unstrained) ) <  torch.abs(3 * (self.max_misorientation+torch.linalg.norm(sample_rotation_during_exposure)) * torch.cos(theta_angle_unstrained))
 
                 # Select the relevant reflections and flatten the grain- and symetry-indexes.
-                misori_concentration_tensors = torch.tile(smeared_misorientation_tensors[grains_hit, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
+                misori_concentration_tensors = torch.tile(smeared_misorientation_tensors[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
                 p_vectors = p_vectors[does_diffract]
                 shape_concentration_tensors = torch.tile(intersection_shape_concentration_tensors[:, None, :, :], (1, n_symmetries, 1, 1))[does_diffract]
+
+
 
                 # Do pole-figure part of the calculation
                 mean_scattering_directions, partialities, azim_directions, azim_widths = _get_diffraction_arcsegment(
@@ -172,6 +183,8 @@ class GaussianPolycrystal:
                     xray_propagation_direction,
                     wavelength,
                 )
+
+
 
                 # Splat grain realspace shapes (Consider using the non-strained non-azimuthally shifted directions to simplify gradients later)
                 detectorspace_grainshape_projections, projected_thicknes_scale_factors = self.splat_grainshapes(
@@ -203,6 +216,10 @@ class GaussianPolycrystal:
                 scalefactors_list.append(S * projected_thicknes_scale_factors * partialities * intensity_spread_out_factor * beam_intensity_factors_insideloop)
                 splat_concentration_tensors_list.append(detspace_splat_concentration)
 
+        if timing:
+            print(f'Splatting took {time.time()-t0}')
+            t0 = time.time()
+
         f = detector.render_gaussian_splats(
             torch.concat(uv_corrds_list),
             torch.concat(scalefactors_list),
@@ -210,15 +227,19 @@ class GaussianPolycrystal:
             splat_max_size= (d * (self.max_misorientation+torch.linalg.norm(sample_rotation_during_exposure)) + self.max_grain_size ) / torch.min(pixellengths)
         )
 
+        if timing:
+            print(f'Rasterization took {time.time()-t0}')
+            t0 = time.time()
+
         return f
     
 
     def splat_grainshapes(
-            self,
-            mean_scattering_directions: Tensor,
-            shape_concentration_tensors: Tensor,
-            W: Tensor,
-            pixellengths: Tensor,
+        self,
+        mean_scattering_directions: Tensor,
+        shape_concentration_tensors: Tensor,
+        W: Tensor,
+        pixellengths: Tensor,
     ):
         """ Project the laoratory space shape-concentration-tensors of a range of grains along a the scattering directions
         into 2D detector pixels space.
@@ -259,6 +280,46 @@ class GaussianPolycrystal:
         )
 
         return projected_shape_pixelunits, 1/torch.sqrt(dSd)
+
+
+    def transform(
+            self,
+            rigid_body_motion : RigidBodyMotion,
+            time : float = 1.0,
+        ):
+        """Transform the polycrystal by performing a rigid body motion.
+
+        This updates all the sample-information in-place.
+
+        Parameters
+        ----------
+        rigid_body_motion : RigidBodyMotion
+            Rigid body motion object describing the polycrystal transformation
+            as a function of time on the domain ``time=[0, 1]``.
+        time : float
+            Time between ``[0, 1]`` at which to call the rigid body motion.
+        """
+
+        # Get rotation matrix and translation vector.
+        Rot_mat = rigid_body_motion.rotator.get_rotation_matrix(
+            rigid_body_motion.rotation_angle * time
+        )
+        translation_vector = rigid_body_motion.translation * time
+
+        # Rotate vectors:
+        self.positions = torch.einsum('ij,gj->gi', Rot_mat, self.positions-self.origin[None,:])+self.origin[None,:]
+
+        # Rotate compose rotations
+        self.orientaions = torch.einsum('ij,gjk->gik', Rot_mat, self.orientaions)
+
+        #Rotate tensors
+        self.shape_concentration_tensors = torch.einsum('ij,gjk,lk ->gil', Rot_mat, self.shape_concentration_tensors, Rot_mat)
+        self.misori_concentration_tensors = torch.einsum('ij,gjk,lk ->gil', Rot_mat, self.misori_concentration_tensors, Rot_mat)
+        self.strains = torch.einsum('ij,gjk,lk ->gil', Rot_mat, self.strains, Rot_mat)
+        
+        #Translate
+        self.positions = self.positions + translation_vector[None, :] 
+
 
     # ------------------------------------------------------------------------------------------
     # The methods below here are for computing polefigures, not needed for diffraction patterns.

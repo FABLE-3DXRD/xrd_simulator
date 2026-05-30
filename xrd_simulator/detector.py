@@ -406,9 +406,8 @@ class Detector:
             uv_corrds: Tensor,
             scale_factors: Tensor,
             concentration_tensors: Tensor,
-            patch_size: int = 16,
-            splat_max_size: float = 50.0 # Todo, come pu with good rule here. 
-                                         # d times max misorientation + max grainsize
+            patch_size: int = 64,
+            splat_max_size: float = 50.0,
         ):
         """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
 
@@ -437,7 +436,6 @@ class Detector:
         u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
         f = torch.zeros(shape)
 
-        patch_size = 16
         n_patches_dim1 = (shape[0]-1)//patch_size+1
         n_patches_dim2 = (shape[1]-1)//patch_size+1
 
