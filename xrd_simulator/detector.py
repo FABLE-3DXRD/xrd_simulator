@@ -406,7 +406,7 @@ class Detector:
             uv_corrds: Tensor,
             scale_factors: Tensor,
             concentration_tensors: Tensor,
-            patch_size: int = 64,
+            patch_size: int = 16,
             splat_max_size: float = 50.0,
         ):
         """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
