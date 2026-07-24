@@ -449,7 +449,7 @@ class Detector:
                 patch_center = torch.Tensor([(patch_index_1+0.5)*patch_size, (patch_index_2+0.5)*patch_size]) 
                 distance = patch_center[None, :] - uv_corrds
                 scaled_distace = torch.einsum('su,suv,sv->s', distance, concentration_tensors, distance)
-                include_index = torch.logical_or(scaled_distace < 3, torch.sum(distance**2, axis=1) < (2 * patch_size)**2)
+                include_index = torch.logical_or(scaled_distace < 6, torch.sum(distance**2, axis=1) < (2 * patch_size)**2)
 
                 local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
                                             v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
