@@ -406,8 +406,7 @@ class Detector:
             uv_corrds: Tensor,
             scale_factors: Tensor,
             concentration_tensors: Tensor,
-            patch_size: int = 16,
-            splat_max_size: float = 50.0,
+            patch_size: int = 32,
         ):
         """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
 
@@ -436,6 +435,7 @@ class Detector:
         u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
         f = torch.zeros(shape)
 
+
         n_patches_dim1 = (shape[0]-1)//patch_size+1
         n_patches_dim2 = (shape[1]-1)//patch_size+1
 
@@ -445,20 +445,19 @@ class Detector:
                 patch_slice = (slice(patch_size*patch_index_1, patch_size*(patch_index_1+1)),
                                slice(patch_size*patch_index_2, patch_size*(patch_index_2+1)),)
 
-                patch_mean_u = patch_size*(patch_index_1+0.5)
-                patch_mean_v = patch_size*(patch_index_2+0.5)
-                
-                include_index = (uv_corrds[:, 0]-patch_mean_u)**2 + (uv_corrds[:, 1]-patch_mean_v)**2 < splat_max_size**2
-                if not torch.any(include_index):
-                    continue
 
+                patch_center = torch.Tensor([(patch_index_1+0.5)*patch_size, (patch_index_2+0.5)*patch_size]) 
+                distance = patch_center[None, :] - uv_corrds
+                scaled_distace = torch.einsum('su,suv,sv->s', distance, concentration_tensors, distance)
+                include_index = torch.logical_or(scaled_distace < 3, torch.sum(distance**2, axis=1) < (2 * patch_size)**2)
 
                 local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
                                             v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
                                             ], axis=1)
 
-                f[patch_slice] +=  torch.sum(scale_factors[include_index, None, None]\
+                f[patch_slice] =  torch.sum(scale_factors[include_index, None, None]\
                     * torch.exp(- torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)), axis=0)
+                # f[patch_slice] = torch.sum(include_index)
 
         return f
 

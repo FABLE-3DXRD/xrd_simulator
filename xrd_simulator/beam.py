@@ -461,6 +461,7 @@ class GaussianBeam:
         long_axis_direction=None,
         short_axis_width=None,
         short_axis_direction=None,
+
     ):
         
         # Convert to torch tensors first, then normalize using torch operations
@@ -483,7 +484,10 @@ class GaussianBeam:
 
         # If all parameters are given, full 2D beamshape
         else:
-            raise NotImplementedError
+            self.beam_concentration_tensor = torch.outer(long_axis_direction, long_axis_direction) * 1 / long_axis_width**2\
+                + torch.outer(short_axis_direction, short_axis_direction) * 1 / short_axis_width**2
+            self.max_width = np.maximum(long_axis_width, short_axis_width)
+
 
     def _intersect(
             self,

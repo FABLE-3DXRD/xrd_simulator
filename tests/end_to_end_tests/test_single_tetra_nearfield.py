@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import torch
 
 from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.beam import Beam
@@ -15,15 +14,15 @@ from xrd_simulator.utils import ensure_torch
 
 ### Parameters
 wavelength=0.28523
-beam_half_edgewidth = 500.0
-tetrahedron_bbox_size = 45.0
+beam_half_edgewidth = 100.0
+tetrahedron_bbox_size = 150.0
 eta = np.pi / 2
 hkl_tuple = (2, 1, 0)
-detector_distance = 1e5
-pixelsize =  1.0
-n_pixels = 600
+detector_distance = 0.5e4
+pixelsize =  10.0
+n_pixels = 2000
 rocking_axis = np.array([0, 1, 0])
-rocking_angle = 1 * np.pi / 180
+rocking_angle = 5.0 * np.pi / 180
 strain = -0.001*np.eye(3)
 strain = -0.000*np.array([[0,1,0],
                           [1,0,0],
@@ -131,8 +130,7 @@ theta = np.arcsin(beam.wavelength * np.linalg.norm(q) / 4 / np.pi)
 
 ### Place detector in the beam
 detetctor_halfsize = n_pixels * pixelsize / 2
-detector_mid = np.array([detector_distance, detector_distance*np.tan(2*theta)*np.cos(eta), detector_distance*np.tan(2*theta)*np.sin(eta)])
-
+detector_mid = np.array([1.0, 0.0, 0.0]) * detector_distance
 
 # The detector plane is defined by it's corner coordinates det_corner_0,det_corner_1,det_corner_2
 detector = Detector(
@@ -144,40 +142,40 @@ detector = Detector(
    max_gaussian_kernel_radius=5,
 )
 
+### Do simulation
+motion_rock_init = RigidBodyMotion(
+   rotation_axis= -rocking_axis,
+   rotation_angle= 0.5 * rocking_angle,
+   translation=np.array([0.0, 0.0, 0.0]),
+)
 
-# ### Do simulation
-# motion_rock_init = RigidBodyMotion(
-#    rotation_axis= -rocking_axis,
-#    rotation_angle= 0.5 * rocking_angle,
-#    translation=np.array([0.0, 0.0, 0.0]),
-# )
+motion_rock = RigidBodyMotion(
+   rotation_axis=rocking_axis,
+   rotation_angle= rocking_angle,
+   translation=np.array([0.0, 0.0, 0.0]),
+)
 
-# motion_rock = RigidBodyMotion(
-#    rotation_axis=rocking_axis,
-#    rotation_angle= rocking_angle,
-#    translation=np.array([0.0, 0.0, 0.0]),
-# )
+motion_rock_reset = RigidBodyMotion(
+   rotation_axis=rocking_axis,
+   rotation_angle= 0.5 * rocking_angle,
+   translation=np.array([0.0, 0.0, 0.0]),
+)
 
-# motion_rock_reset = RigidBodyMotion(
-#    rotation_axis=rocking_axis,
-#    rotation_angle= 0.5 * rocking_angle,
-#    translation=np.array([0.0, 0.0, 0.0]),
-# )
+polycrystal.transform(motion_rock_init, 1.0)
 
-# polycrystal.transform(motion_rock_init, 1.0)
 
-# peaks_dict = polycrystal.diffract(beam, motion_rock, detector=detector)
-# diffraction_pattern, peaks_dict = detector.render(
-#    peaks_dict, frames_to_render=100, method="macro"
-# )
+peaks_dict = polycrystal.diffract(beam, motion_rock, detector=detector)
+diffraction_pattern, peaks_dict = detector.render(
+   peaks_dict, frames_to_render=0, method="macro"
+)
 
-# polycrystal.transform(motion_rock_reset, 1.0)
+polycrystal.transform(motion_rock_reset, 1.0)
 
-# patterns = (
-# diffraction_pattern.cpu().numpy()
-# if hasattr(diffraction_pattern, "cpu")
-# else diffraction_pattern
-# )
+pattern = (
+diffraction_pattern[0].cpu().numpy()
+if hasattr(diffraction_pattern, "cpu")
+else diffraction_pattern[0]
+)
 
 ############# Gaussian based workflow ###############
 def make_random_tensor(axis_1, axis_2):
@@ -188,8 +186,8 @@ def make_random_tensor(axis_1, axis_2):
 
 
 misorientation_tensor = make_random_tensor(
-    np.random.uniform(0.002, 0.002),
-    np.random.uniform(0.002, 0.002),
+    np.random.uniform(0.005, 0.005),
+    np.random.uniform(0.0001, 0.0001),
 )
 
 grain_list = []
@@ -218,8 +216,6 @@ grain = GaussianGrainish(
     )
 grain_list.append(grain)
 
-
-
 gauss_polycrystal = GaussianPolycrystal(grain_list, max_misorientation = 0.005)
 
 gaussian_beam = GaussianBeam(
@@ -231,45 +227,29 @@ gaussian_beam = GaussianBeam(
 
 gauss_polycrystal.transform(alignment_rotation)
 
-patterns_gs = np.zeros((100, *detector.shape))
 
-for ii, omega in enumerate(np.linspace(-0.5*rocking_angle, 0.5*rocking_angle, 100)):
-
-   f = gauss_polycrystal.render_detector_frame(
-      beam=gaussian_beam,
-      detector=detector,
-      sample_orientation=R.from_rotvec(rocking_axis*omega).as_matrix(),
-      sample_rotation_during_exposure = rocking_axis * rocking_angle / 100 ,
-   )
-
-   patterns_gs[ii] = f
+f = gauss_polycrystal.render_detector_frame(
+    beam=gaussian_beam,
+    detector=detector,
+    sample_rotation_during_exposure = rocking_axis * rocking_angle /2.5,
+    timing=True,
+)
 
 
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
 
-    fig, axs = plt.subplots(2, 2, figsize=(8, 8))
+    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     # render returns (frames, height, width), take first frame
 
-   #  img = axs[0].imshow(np.sum(patterns, axis=0))
-   #  axs[0].set_title('Tetrahedron based model')
-   #  axs[0].grid()
+   #  img = axs[0].imshow(np.log10(pattern+1e0), cmap="jet")
+    img = axs[0].imshow(pattern, vmin =0, vmax = 5e6, cmap="jet")
+    axs[0].set_title('Tetrahedron based model')
+    axs[0].grid()
 
-    img = axs[0,0].imshow(np.sum(patterns_gs, axis=0))
-    axs[0,0].set_title('Summed detector image')
-    axs[0,0].set_ylabel(r'$q_{||}$')
-    axs[0,0].set_xlabel(r'$q_\perp$')
-
-    img = axs[0,1].imshow(np.sum(patterns_gs, axis=1), aspect = 6)
-    axs[0,1].set_ylabel(r'$q_{\mathrm{rock}}$')
-    axs[1,0].set_xlabel(r'$q_\perp$')
-
-    img = axs[1,0].imshow(np.sum(patterns_gs, axis=2), aspect = 6)
-    axs[1,0].set_ylabel(r'$q_{\mathrm{rock}}$')
-    axs[0,1].set_xlabel(r'$q_{||}$')
-
-    axs[1,1].plot(np.sum(patterns_gs, axis=(1,2)))
-    axs[1,1].set_xlabel(r'$q_{\mathrm{rock}}$')
-
+    img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
+    img = axs[1].imshow(f, vmin =0, vmax = 2e4, cmap="jet")
+    axs[1].set_title('Gaussian based_model')
+    axs[1].grid()
     plt.show()
