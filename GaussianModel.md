@@ -97,7 +97,8 @@ $$
    \Leftrightarrow
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}}_{\mathrm{rock}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
-       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
+       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}\\\\
+       = 
     2\sin\theta_0 \varepsilon \hat{\mathbf{Q}}
     + \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
      + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp}
@@ -106,9 +107,7 @@ $$
 $$    
 
 
-In the simple model I choose, the incident beams is monochromatic and
-collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there
-is no strain-broadening $q_{\mathrm{strain}}=0$ leading to a significant simplification:
+In the simple model I choose, the incident beams is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to a significant simplification:
 
 $$
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
@@ -124,12 +123,60 @@ $$
 $$
 
 
-So the scattered beam is simply a 1D Gaussian that samples the RSM though a line offset by $\delta q$ from the center.
+So the scattered beam is simply a 1D Gaussian that samples the RSM though a line offset by $\delta q$ from the center of the RSM.
 
 Computing the RSM from an anisotropic Gaussian texture model
 ------------------------------------------------------------
 
-Some more derivations...
+Because Orientation Distribution Functions (ODFs) are defined in SO(3), our set-up of multivariate Gaussians and line-interals does not actually work. The approach we take here is to consider some narrow distribution of orientations $f(g)$ which is a real-valued function of orientations, $g$. The distribution is centered on some orientation $g_0$, and we will approximate orientation-space with it's tangent space on this point. Say we have some mapping from a general  orientation $g$ to a tangent-vector $\mathbf{r}$ such that:
+
+$$
+    g \approx R_{\mathbf{r}}g_0 = \begin{bmatrix}
+1 & -r_z & r_y \\
+r_z & 1 & -r_x \\
+-r_y & r_x & 1 
+\end{bmatrix} g_0
+$$
+
+The density function we will be working with is:
+
+$$
+    f(\mathbf{r}) = \frac{2}{\sqrt{\pi}}\sqrt{\det T}\exp\left( -\mathbf{r}^{\mathrm{T}}T\mathbf{r} \right)  
+$$
+
+The important result is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $\mathbf{h}$ in a given laboratory-space direction $\mathbf{y}$. Both unit-3-vectors. Normally this involves an integral over a circle of rotation in SO(3), but in our approximation we can replace it with an infinite integral in $\mathbf{r}$-space. Defining $\mathbf{p} = g_0\mathbf{h}$, one parametrization of this line is:
+
+$$
+    \mathbf{r} = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
+$$
+
+this allows us to evaluate the integral using all the same steps as in the prelude:
+
+$$
+    A(\mathbf{y}, \mathbf{p};f) = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{r}_0 + \frac{(\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{p})^2}{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}} \right)
+$$
+
+Since this expression is anyways already only approximate, I make the further approximation: $\mathbf{p}\cdot\mathbf{y} \approx 1$ and rewrite:
+
+$$
+    A(\mathbf{y}, \mathbf{p};f) = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{y}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\mathbf{y} \right)
+$$
+
+where $\mathrm{T}_{\mathbf{p}}$ is a 3-by-3 matrix with elements:
+
+$$
+    [\mathrm{T}_{\mathbf{p}}]_{ij} = p_k \varepsilon_{lki}(T_{lm}-T_{lp}p_pp_qT_{qm}/pTp)\varepsilon_{mnj}p_n
+$$
+
+where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor. 
+
+To construct a pole figure, we have to sum over the symmetry elements:
+
+$$
+    \mathrm{PF}_{\mathbf{h}}(\mathbf{y}) = \frac{1}{|S|}\sum_{s \in S} A(\mathbf{y}, g_0s\mathbf{h};f)
+$$
+
+When we don't deal with strain-broadedning, the pole-figure times a 1-D delta-Dirac function is identical to the RSM.
 
 Testing
 -------
