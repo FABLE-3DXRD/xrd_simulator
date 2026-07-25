@@ -44,7 +44,12 @@ $$
 $$
 
 where hat denoes the normalized vector. $\hat{\mathbf{k}_{||}}$ is 
-a vector orthogonal to $\mathbf{k}_{0}$ that lies in the span of $\mathbf{G}$ and $\mathbf{k}_0$ with the sign chosen such that $\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
+a vector orthogonal to 
+$\mathbf{k}_0$ that lies in the span of 
+$\mathbf{G}$ and 
+$\mathbf{k}_0$ with the sign chosen such that 
+$\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis 
+$\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
 
 We compute a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
 
@@ -70,7 +75,11 @@ $$
 where $\delta q = (\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
 
 Now finally we can choose a parametrization of the outgoing ray. First we define $\mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q}$
-which by construction is $\mathbf{k}_h = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]$.
+which by construction is equal to
+
+ $$
+ \mathbf{k}_h = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]$$
+
 Again we need to final unit vector normal to this: $\hat{\mathbf{k}_{\mathrm{up}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]$.
 
 $$
