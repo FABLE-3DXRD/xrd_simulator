@@ -18,8 +18,8 @@ There are a number of peak-broadedning effects that we could consider to include
 
 To limit the scope here, I implement a model with grain-size and mosaicity only.
 
-The geometric model of XRD
---------------------------
+Scattering theory
+-----------------
 
 Given an incident beam descibed by some phase-space density, $p(\mathbf{k})$, centered on a point
 $\mathbf{k}_0$ with length $k=2\pi/\lambda_0$. And given a crystallite with a "reciprocal space map" (RSM)
@@ -44,9 +44,7 @@ $$
 $$
 
 where hat denoes the normalized vector. $\hat{\mathbf{k}_{||}}$ is 
-a vector orthogonal to \mathbf{k}_0 such that lies in the span of $\mathbf{G}_0$ and $\mathbf{k}_0$
-with the sign chosen such that $\mathbf{G}_0\cdot\hat{\mathbf{k}_{||}}>0$. The last unit vector completes
-a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$.
+a vector orthogonal to $\mathbf{k}_0$ that lies in the span of $\mathbf{G}_0$ and $\mathbf{k}_0$ with the sign chosen such that $\mathbf{G}_0\cdot\hat{\mathbf{k}_{||}}>0$. The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$.
 
 We compute a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
 
