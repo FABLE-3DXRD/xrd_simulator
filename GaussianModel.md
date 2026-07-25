@@ -44,7 +44,7 @@ $$
 $$
 
 where hat denoes the normalized vector. $\hat{\mathbf{k}_{||}}$ is 
-a vector orthogonal to $\mathbf{k}_0$ that lies in the span of $\mathbf{G}$ and $\mathbf{k}_0$ with the sign chosen such that $\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
+a vector orthogonal to $\mathbf{k}_{0}$ that lies in the span of $\mathbf{G}$ and $\mathbf{k}_0$ with the sign chosen such that $\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
 
 We compute a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
 
@@ -80,15 +80,9 @@ $$
 $$
 
 Assuming all deviations from the nominal directions are small, we see that $|\mathbf{k}|\approx k+\epsilon$ 
-and $|\mathbf{p}|\approx k+\epsilon'$ so the energy-conservation integral can be removed by
-setting $\varepsilon = \varepsilon'$ and raising an corresponding integral.
+and $|\mathbf{p}|\approx k+\epsilon'$ so the energy-conservation integral can be raised by setting $\varepsilon = \varepsilon'$.
 
-In practive we are not interested in the energy-distribution of the outgoing wave, 
-so we will integrate out the outgoing energy also.
-
-The momentum-conservation factor can be used to raise either the $\mathbf{k}$ or the $\mathbf{q}$
-integral. The one you don't raise will become your integration variable, so depeding on what
-model you want to construct one choise might be better that the other.
+The momentum-conservation factor can be used to raise either the $\mathbf{k}$ or the $\mathbf{q}$ integral.
 
 In either case, the equations enforced by momentum conservation is
 
@@ -107,19 +101,19 @@ $$
 $$    
 
 
-In the simple model I choose, the incident beams is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to a significant simplification:
+In the current model, the incident beams is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to a significant simplification:
 
 $$
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
-    + \psi_{||}\hat{\mathbf{k}_{\mathrm{up}}}
-     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp}
+    + \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
+     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\mathrm{rad}}
 $$
 
 which can be rearanged to the three scalar equations:
 
 $$
-    q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{||}=0
+    q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{\mathrm{rad}}=0
 $$
 
 
@@ -147,13 +141,13 @@ $$
 The important result is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $\mathbf{h}$ in a given laboratory-space direction $\mathbf{y}$. Both unit-3-vectors. Normally this involves an integral over a circle of rotation in SO(3), but in our approximation we can replace it with an infinite integral in $\mathbf{r}$-space. Defining $\mathbf{p} = g_0\mathbf{h}$, one parametrization of this line is:
 
 $$
-    \mathbf{r} = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
+    \mathbf{r}(\lambda) = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
 $$
 
-this allows us to evaluate the integral using all the same steps as in the prelude:
+this allows us to evaluate the integral by plugging in, completing the square, and remembering the Gaussian integral. (excercise for reader...)
 
 $$
-    A(\mathbf{y}, \mathbf{p};f) = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{r}_0 + \frac{(\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{p})^2}{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}} \right)
+    A(\mathbf{y}, \mathbf{p};f) = \int_{-\infty}^\infty f(\mathbf{r}(\lambda)) \mathrm{d}\lambda = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{r}_0 + \frac{(\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{p})^2}{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}} \right)
 $$
 
 Since this expression is anyways already only approximate, I make the further approximation: $\mathbf{p}\cdot\mathbf{y} \approx 1$ and rewrite:
@@ -168,15 +162,7 @@ $$
     [\mathrm{T}_{\mathbf{p}}]_{ij} = p_k \varepsilon_{lki}(T_{lm}-T_{lp}p_pp_qT_{qm}/pTp)\varepsilon_{mnj}p_n
 $$
 
-where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor. 
-
-To construct a pole figure, we have to sum over the symmetry elements:
-
-$$
-    \mathrm{PF}_{\mathbf{h}}(\mathbf{y}) = \frac{1}{|S|}\sum_{s \in S} A(\mathbf{y}, g_0s\mathbf{h};f)
-$$
-
-When we don't deal with strain-broadedning, the pole-figure times a 1-D delta-Dirac function is identical to the RSM.
+where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor. When we don't deal with strain-broadedning, the pole-figure times a 1-D delta-Dirac function is identical to the RSM.
 
 Testing
 -------
