@@ -7,8 +7,7 @@ Par of the appeal of these new methods is that the reconstructed scenes can be r
 We can model a polycrystal as a set of Gaussian subgrains, and under a set approximations, each such subgrain will cause a 2D-Gaussian gaussian-shaped
 diffraction peak on the detector. The approach has been demonstrated and tested already in a serial-crystallography setting [Brehm2023].
 
-There are a number of peak-broadedning effects that we could consider to include, and as long as we assume that all of these have a Gaussian profile 
-and are small enough that non-linear terms can be discarded, they will continue to produce a Gaussian spot on the detector.
+There are a number of peak-broadedning effects that we could consider to include. As long as we assume that all of these have a Gaussian profile and are small enough that non-linear terms can be discarded, they will produce a Gaussian spot on the detector.
 
 * Grain size
 * Detector point-spread
@@ -17,9 +16,7 @@ and are small enough that non-linear terms can be discarded, they will continue 
 * lattice misorientation spread (aka. mosaicity)
 * Strain-broadening (probably modeled by dislocation-concentrations and contrast factors)
 
-To limit the scope here, I implement a model with Grain-size and mosaicity only. But I will implement anisotropic misorientation densities.
-The approach to derive and implement the model with more effect is essentially the same, but if you have several very-small terms, you can get into numerical
-stability problems.
+To limit the scope here, I implement a model with grain-size and mosaicity only.
 
 The geometric model of XRD
 --------------------------
@@ -73,8 +70,7 @@ $$
 $$
 
 
-where $\delta q = (\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the crystallite is
-out of alignment. 
+where $\delta q = (\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
 
 Now finally we can choose a parametrization of the outgoing ray. First we define $\mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q}$
 which by construction is $\mathbf{k}_h = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]$.
@@ -104,7 +100,7 @@ $$
 
    \Leftrightarrow
 
-    (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
+    (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}}_{\mathrm{rock}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
     2\sin\theta_0 \varepsilon \hat{\mathbf{Q}}
@@ -124,20 +120,41 @@ $$
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
     + \psi_{||}\hat{\mathbf{k}_{\mathrm{up}}}
      + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp} \\
+$$
 
-    \Leftrightarrow
+which can be rearanged to the three scalar equations:
+
+$$
     q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{||}=0
 $$
 
 
-So the scattered beam is simply a 1D Gaussian that samples the RSM though a line with no extent in the
-radial direction.
-
+So the scattered beam is simply a 1D Gaussian that samples the RSM though a line offset by $\delta q$ from the center.
 
 Computing the RSM from an anisotropic Gaussian texture model
 ------------------------------------------------------------
 
-Some more derivations
+Some more derivations...
+
+Testing
+-------
+
+I simulate a 1 degree rotation of a single crystal of quartz in the shape of a symmetric tetrahedron. The crystal is much larger than the pixels and  the largest scattering angles are over 90 degrees to see the perspective effect at large angles.
+
+The gaussian simulation uses seven gaussians to approximate the tetragedron (on symmetric in the center and six prolate ones along the edges) and has low misorientation.
+
+The position and shapes of the peaks match well. The gaussian model includes some extra weak peaks because it is integrating a gaussian shaped time-window where the tetrahedron model is integrating a top hat time window.
+
+![image](docs/_static/single_crystal_quartz.png)
+
+
+
+Potential improvements
+----------------------
+
+Include incident beam divergence and bandwidth.
+
+Improve performance of the rasterizer.
 
 
 ### References
