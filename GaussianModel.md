@@ -62,8 +62,7 @@ which completes the basis for $\mathbf{q}$:
 $$
    \mathbf{q} = \mathbf{G}_0 + q_{\mathrm{rock}}\hat{\mathbf{q}_{\mathrm{rock}}}
     + q_{\mathrm{strain}}\hat{\mathbf{Q}}
-     + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} \\
-
+     + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} \\\\
      \approx \mathbf{Q} + (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}
@@ -96,10 +95,8 @@ model you want to construct one choise might be better that the other.
 In either case, the equations enforced by momentum conservation is
 
 $$
-   \mathbf{q} = \mathbf{p} - \mathbf{k} \\
-
+   \mathbf{q} = \mathbf{p} - \mathbf{k} \\\\
    \Leftrightarrow
-
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}}_{\mathrm{rock}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
@@ -119,7 +116,7 @@ $$
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
     + \psi_{||}\hat{\mathbf{k}_{\mathrm{up}}}
-     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp} \\
+     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp}
 $$
 
 which can be rearanged to the three scalar equations:
