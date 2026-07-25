@@ -44,7 +44,7 @@ $$
 $$
 
 where hat denoes the normalized vector. $\hat{\mathbf{k}_{||}}$ is 
-a vector orthogonal to $\mathbf{k}_0$ that lies in the span of $\mathbf{G}$ and $\mathbf{k}\_0$ with the sign chosen such that $\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
+a vector orthogonal to $\mathbf{k}_0$ that lies in the span of $\mathbf{G}$ and $\mathbf{k}_0$ with the sign chosen such that $\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0$ . The last unit vector completes a right hand basis $\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}$ .
 
 We compute a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
 
