@@ -10,6 +10,7 @@ from xrd_simulator.detector import Detector
 from xrd_simulator.laue import _get_diffraction_arcsegment
 from xrd_simulator.beam import GaussianBeam
 from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.scattering_factors import _polarization
 
 from xfab.tools import form_b_mat, genhkl_base
 from xfab import sg
@@ -99,7 +100,7 @@ class GaussianPolycrystal:
         sample_orientation = ensure_torch(sample_orientation)
         sample_rotation_during_exposure = ensure_torch(sample_rotation_during_exposure)
         
-        #Rotate detector and incident beam by inverse of sample-rotation.
+        # Rotate detector and incident beam by inverse of sample-rotation.
         xray_propagation_direction = torch.einsum('ij,i->j', sample_orientation, ensure_torch(xray_propagation_direction) )
         detector_origin = detector.pixel_coordinates[0,0]
         W = np.stack([detector.zdhat, detector.ydhat])
@@ -107,7 +108,6 @@ class GaussianPolycrystal:
         detector_origin = torch.einsum('ij,i->j', sample_orientation, ensure_torch(detector_origin))
         W = torch.einsum('ij,ui->uj', sample_orientation, ensure_torch(W))
         pixellengths = torch.tensor([detector.pixel_size_y, detector.pixel_size_z])
-        d = torch.dot(detector_origin, detector_norm) / torch.dot(xray_propagation_direction, detector_norm)
 
         #Compute intersection of grains and beam
         intersection_pos, intersection_shape_concentration_tensors, beam_intensity_factors, grains_hit\
@@ -145,14 +145,16 @@ class GaussianPolycrystal:
             # If no structure factors provided, use uniform intensity (all ones)
             structure_factors = torch.ones(miller_indices.shape[0])
         
-        # Test to find the reflections close to the bragg condition
+        # Get scattering vectors and scattering angle.
         h = torch.einsum('ij,hj->hi', B, miller_indices)
         p_vectors = torch.einsum('ghi,gij,kj->gkh', torch.eye(3)[None,:,:] - self.strains[grains_hit], self.orientaions[grains_hit], h)
         p_vectors_norm = torch.linalg.norm(p_vectors, axis=-1)
         theta_angle = torch.asin( p_vectors_norm * wavelength / 4 / np.pi )
+
+        # Filter out reflections far from the bragg-condition
         dp = torch.einsum('i,ghi->gh', xray_propagation_direction, p_vectors) / p_vectors_norm 
         does_diffract = torch.abs( dp + torch.sin(theta_angle) ) \
-            < 3 * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure))
+            < 3 * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure)) #IDEA: Consider a per-gaussian max misorientation
         grain_does_diffract, hkl_does_diffract = torch.where(does_diffract)
 
         if not torch.any(does_diffract):
@@ -191,28 +193,26 @@ class GaussianPolycrystal:
             print(f'Realspace proj took {time.time()-t0}')
             t0 = time.time()
 
-        # This part involves propagation from sample to detector. unclear where it belongs
-        # ----------------------------------------------------------------------------------------------------------
         # Ray-trace onto detector plane
         pos = intersection_pos[grain_does_diffract]
         ray_lengths = torch.einsum('xi,i->x', detector_origin[None, :] - pos, detector_norm) / torch.einsum('xi,i->x', mean_scattering_directions, detector_norm)
         point_of_detector_intersection = pos + ray_lengths[:,None] * mean_scattering_directions
-        uv_coords = torch.einsum('xi,vi,v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths) #TODO Tests with un-equal pixel sizes
+        uv_coords = torch.einsum('xi,vi,v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths)
 
         # Do smearing due to angular divergence
         azimuthal_direction_uv = torch.einsum('xi,ui->xu', azim_directions, W) / pixellengths[None, :] * ray_lengths[:, None] * azim_widths[:, None]\
             / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2)
         azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
+        detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + azimuthal_smearing_tensor)
+        intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )
 
-        detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + azimuthal_smearing_tensor) #DEBUG
-        intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )  #TODO This was (organically) vibe-coded. Check on paper if there is a simplification.
-        # ----------------------------------------------------------------------------------------------------------
+        # Collect all intensity modifying factors
+        polarization_factors = _polarization(mean_scattering_directions, beam.polarization_vector)
+        solid_angle_factor = torch.abs(torch.einsum('xi,i->x',mean_scattering_directions, detector_norm))
+        scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * partialities * intensity_spread_out_factor\
+            * beam_intensity_factors[grain_does_diffract]*polarization_factors*solid_angle_factor
 
-
-
-
-        scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * partialities * intensity_spread_out_factor * beam_intensity_factors[grain_does_diffract]
-        does_diffract = scalefactors > 1e-10 * torch.max(scalefactors)
+        does_diffract = scalefactors > 1e-10 # Discard weak peaks. Depends one unit-convention!
 
         if timing:
             print(f'Raytracing took {time.time()-t0}')

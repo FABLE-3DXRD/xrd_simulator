@@ -457,6 +457,7 @@ class GaussianBeam:
         beam_centroid_position,
         xray_propagation_direction,
         wavelength,
+        polarization_vector,
         long_axis_width=None,
         long_axis_direction=None,
         short_axis_width=None,
@@ -470,6 +471,7 @@ class GaussianBeam:
         self.beam_center = ensure_torch(beam_centroid_position)
         self.beam_center = self.beam_center - torch.dot(self.xray_dir, self.beam_center) * self.xray_dir
         self.wavelength = wavelength
+        self.polarization_vector = ensure_torch(polarization_vector)
 
         # If no shape information is given, assume wide-field illumination
         if long_axis_width is None:
@@ -484,9 +486,9 @@ class GaussianBeam:
 
         # If all parameters are given, full 2D beamshape
         else:
-            self.beam_concentration_tensor = torch.outer(long_axis_direction, long_axis_direction) * 1 / long_axis_width**2\
-                + torch.outer(short_axis_direction, short_axis_direction) * 1 / short_axis_width**2
-            self.max_width = np.maximum(long_axis_width, short_axis_width)
+            self.beam_concentration_tensor = torch.outer(ensure_torch(long_axis_direction), ensure_torch(long_axis_direction)) * 1 / ensure_torch(long_axis_width)**2\
+                + torch.outer(ensure_torch(short_axis_direction), ensure_torch(short_axis_direction)) * 1 / ensure_torch(short_axis_width)**2
+            self.max_width = np.maximum(ensure_torch(long_axis_width), ensure_torch(short_axis_width))
 
 
     def _intersect(

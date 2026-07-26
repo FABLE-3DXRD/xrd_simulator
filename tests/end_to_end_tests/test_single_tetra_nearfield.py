@@ -15,14 +15,15 @@ from xrd_simulator.utils import ensure_torch
 ### Parameters
 wavelength=0.28523
 beam_half_edgewidth = 100.0
-tetrahedron_bbox_size = 150.0
-eta = np.pi / 2
+tetrahedron_bbox_size = 350.0
+eta = 0.0
 hkl_tuple = (2, 1, 0)
 detector_distance = 0.5e4
 pixelsize =  10.0
 n_pixels = 2000
-rocking_axis = np.array([0, 1, 0])
-rocking_angle = 5.0 * np.pi / 180
+rocking_axis = np.array([0, 0, 1])
+polarization_vector = np.array([0, 1, 0])
+rocking_angle = 1.0 * np.pi / 180
 strain = -0.001*np.eye(3)
 strain = -0.000*np.array([[0,1,0],
                           [1,0,0],
@@ -64,14 +65,14 @@ def align_grain(polycrystal, grainindex, beam,  hkl_tuple, eta, ):
 
 beam_vertices = np.array(
    [
-      [-1e6, -beam_half_edgewidth, -beam_half_edgewidth],
-      [-1e6, beam_half_edgewidth, -beam_half_edgewidth],
-      [-1e6, beam_half_edgewidth, beam_half_edgewidth],
-      [-1e6, -beam_half_edgewidth, beam_half_edgewidth],
-      [1e6, -beam_half_edgewidth, -beam_half_edgewidth],
-      [1e6, beam_half_edgewidth, -beam_half_edgewidth],
-      [1e6, beam_half_edgewidth, beam_half_edgewidth],
-      [1e6, -beam_half_edgewidth, beam_half_edgewidth],
+      [-1e6, -beam_half_edgewidth/10, -beam_half_edgewidth],
+      [-1e6, beam_half_edgewidth/10, -beam_half_edgewidth],
+      [-1e6, beam_half_edgewidth/10, beam_half_edgewidth],
+      [-1e6, -beam_half_edgewidth/10, beam_half_edgewidth],
+      [1e6, -beam_half_edgewidth/10, -beam_half_edgewidth],
+      [1e6, beam_half_edgewidth/10, -beam_half_edgewidth],
+      [1e6, beam_half_edgewidth/10, beam_half_edgewidth],
+      [1e6, -beam_half_edgewidth/10, beam_half_edgewidth],
    ]
 )
 
@@ -79,7 +80,7 @@ beam = Beam(
    beam_vertices,
    xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
    wavelength=wavelength,
-   polarization_vector=np.array([0.0, 1.0, 0.0]),
+   polarization_vector=polarization_vector,
 )
 
 ### Define sample
@@ -222,7 +223,19 @@ gaussian_beam = GaussianBeam(
     xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
     beam_centroid_position=np.array([0.0, 0.0, 0.0,]),
     wavelength=beam.wavelength,
+    polarization_vector=polarization_vector,
     long_axis_width = beam_half_edgewidth,
+)
+
+gaussian_beam = GaussianBeam(
+    xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
+    beam_centroid_position=np.array([0.0, 0.0, 0.0,]),
+    wavelength=0.28523,
+    polarization_vector = np.array([0.0, 1.0, 0.0,]),
+    long_axis_width = beam_half_edgewidth,
+    long_axis_direction=np.array([0.0, 0.0, 1.0,]),
+    short_axis_width = beam_half_edgewidth/10,
+    short_axis_direction=np.array([0.0, 1.0, 0.0,]),
 )
 
 gauss_polycrystal.transform(alignment_rotation)
@@ -249,7 +262,7 @@ if __name__ == "__main__":
     axs[0].grid()
 
     img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
-    img = axs[1].imshow(f, vmin =0, vmax = 2e4, cmap="jet")
+    img = axs[1].imshow(f, vmin =0, vmax = 5e4, cmap="jet")
     axs[1].set_title('Gaussian based_model')
     axs[1].grid()
     plt.show()

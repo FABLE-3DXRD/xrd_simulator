@@ -28,6 +28,8 @@ strain = -0.001*np.eye(3)
 strain = -0.000*np.array([[0,1,0],
                           [1,0,0],
                           [0,0,0],])
+polarization_vector = np.array([0, 1, 0])
+
 ### Utility funcitons
 def align_grain(polycrystal, grainindex, beam,  hkl_tuple, eta, ):
 
@@ -219,13 +221,13 @@ grain = GaussianGrainish(
 grain_list.append(grain)
 
 
-
 gauss_polycrystal = GaussianPolycrystal(grain_list, max_misorientation = 0.005)
 
 gaussian_beam = GaussianBeam(
     xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
     beam_centroid_position=np.array([0.0, 0.0, 0.0,]),
     wavelength=beam.wavelength,
+    polarization_vector=polarization_vector,
     long_axis_width = beam_half_edgewidth,
 )
 

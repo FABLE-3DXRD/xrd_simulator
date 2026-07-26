@@ -422,8 +422,6 @@ class Detector:
             Shape concentration tensors, shape ``(N, 2, 2)``
         patch_size : int
             For evaluation the detector is split into patches of shize `patch_size` by `patch_size`.
-        splat_max_size : float
-            Maximum size of a gaussian splat.
 
         Returns
         -------
@@ -435,7 +433,6 @@ class Detector:
         u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
         f = torch.zeros(shape)
 
-
         n_patches_dim1 = (shape[0]-1)//patch_size+1
         n_patches_dim2 = (shape[1]-1)//patch_size+1
 
@@ -444,7 +441,6 @@ class Detector:
 
                 patch_slice = (slice(patch_size*patch_index_1, patch_size*(patch_index_1+1)),
                                slice(patch_size*patch_index_2, patch_size*(patch_index_2+1)),)
-
 
                 patch_center = torch.Tensor([(patch_index_1+0.5)*patch_size, (patch_index_2+0.5)*patch_size]) 
                 distance = patch_center[None, :] - uv_corrds
