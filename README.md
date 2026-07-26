@@ -78,7 +78,7 @@ $$
 $$
 
 Assuming all deviations from the nominal directions are small, we see that $|\mathbf{k}|\approx k+\epsilon$ 
-and $|\mathbf{p}|\approx k+\epsilon'$ so the energy-conservation integral can be raised by setting $\varepsilon = \varepsilon'$.
+and $|\mathbf{p}|\approx k+\epsilon'$ so the energy integral can be raised by setting $\varepsilon = \varepsilon'$.
 
 The momentum-conservation factor can be used to raise either the $\mathbf{k}$ or the $\mathbf{q}$ integral.
 
@@ -176,20 +176,30 @@ Testing
 
 I simulate a 1 degree rotation of a single crystal of quartz in the shape of a symmetric tetrahedron. The crystal is much larger than the pixels and  the largest scattering angles are over 90 degrees to see the perspective effect at large angles.
 
-The gaussian simulation uses seven gaussians to approximate the tetrahedron (on symmetric in the center and six prolate ones along the edges) and has low misorientation.
+The gaussian simulation uses seven gaussians to approximate the tetrahedron (one symmetric gaussian in the center and six prolate ones along the edges) and has low misorientation.
 
 The position and shapes of the peaks match well. The gaussian model includes some extra weak peaks because it is integrating a gaussian shaped time-window where the tetrahedron model is integrating a top hat time window.
 
 ![image](docs/_static/single_crystal_quartz.png)
 
 
+I also simulate the example from the main documentation, but with a reduced number of grains (~4000 gaussians and 10 000 000 reflections) which takes about 3 minutes to render on my laptop.
+
+The resulting diffraction images look quite realistic.
+
+![image](docs/_static/many_grains_gs.png)
+
 
 Potential improvements
 ----------------------
 
-Include incident beam divergence and bandwidth.
+**Include incident beam divergence and bandwidth.**
 
-Improve performance of the rasterizer.
+For lab-instruments these are the dominant factors that determine reflection widths, rather than mosaicity. They also only add a very small amount of model complexity. The issue is numerical stability and actually just stitting down and evaluating the integrals.
+
+**Improve performance of the rasterizer.**
+
+About 97.5 percent of the computation time is spent in the very simple function `detector._render_gaussian_splats`. Which simply renderes a set of 2D gaussians onto a pixel map. It must be possible to speed this up by checking for inclusion in a better way.
 
 
 ### References
