@@ -1,29 +1,25 @@
 Gaussian models
 ===============
 
-Gaussian splatting [Kerbl2023] is a quite trendy set of algorithms for modeling and rendering 3D scenes from a series of images with varying viewpoint.
-Par of the appeal of these new methods is that the reconstructed scenes can be rendered very efficiently with a rasterization-approach.
+Gaussian splatting [Kerbl2023] is a quite trendy set of algorithms for modeling and rendering 3D scenes from a series of images with varying viewpoint. Part of the appeal of these new methods is that the reconstructed scenes can be rendered very quickly with a rasterization-approach.
 
-We can model a polycrystal as a set of Gaussian subgrains, and under a set approximations, each such subgrain will cause a 2D-Gaussian gaussian-shaped
-diffraction peak on the detector. The approach has been demonstrated and tested already in a serial-crystallography setting [Brehm2023].
+We can model a polycrystal as a set of Gaussian subgrains, and under a certain set approximations, each such subgrain will cause a 2D-Gaussian gaussian-shaped diffraction peak on the detector. Part of the approach has been demonstrated and tested already in a serial-crystallography setting [Brehm2023] which I'm borrowing some ideas from.
 
 There are a number of peak-broadedning effects that we could consider to include. As long as we assume that all of these have a Gaussian profile and are small enough that non-linear terms can be discarded, they will produce a Gaussian spot on the detector.
 
 * Grain size
 * Detector point-spread
-* Incidident beam bandwidth
+* Incident beam bandwidth
 * Incident beam angular divergence
-* lattice misorientation spread (aka. mosaicity)
-* Strain-broadening (probably modeled by dislocation-concentrations and contrast factors)
+* Lattice misorientation (mosaicity)
+* Strain-broadening 
 
 To limit the scope here, I implement a model with grain-size and mosaicity only.
 
 Scattering theory
 -----------------
 
-Given an incident beam descibed by some phase-space density, $p(\mathbf{k})$, centered on a point
-$\mathbf{k}_0$ with length $k=2\pi/\lambda_0$. And given a crystallite with a "reciprocal space map" (RSM)
-$f(\mathbf{q})$ around a specific reciprocal lattice vector $\mathbf{G}_0$. We want to compute 
+Given an incident beam descibed by some phase-space density, $p(\mathbf{k})$, centered on a vector $\mathbf{k}_0$ with magnitude $k=2\pi/\lambda_0$. And given a crystallite with a "reciprocal space map" (RSM) $f(\mathbf{q})$ around a specific reciprocal lattice vector $`\mathbf{G}_0`$. We want to compute 
 the phase-space distribution of the scattered beam which is given by an integral:
 
 $$
@@ -31,11 +27,9 @@ $$
     p(\mathbf{k})f(\mathbf{q})\delta(|\mathbf{k}|-|\mathbf{p}|)\delta(\mathbf{k}+\mathbf{q}-\mathbf{p})
 $$
 
-the two delta-Dirac function ensure energy- and momentum conservation respectively. 
+the two delta-Dirac functions ensure energy- and momentum conservation respectively. 
 
-You can plug in various combinations of gaussians and delta-Dirac function in for 
-the two functions and go to town, but for a little bit of extra phyical understanding we
-introduce a specific choise of basis vectors.
+You can plug in various combinations of gaussians and delta-Dirac function in for the two functions and go to town, but it is helpful to introduce a specific set of basis vector for the integration variables.
 
 $$
    \mathbf{k} = \mathbf{k}_0 + \varepsilon\hat{\mathbf{\mathbf{k}_0}}
@@ -69,13 +63,13 @@ $$
 
 where $\delta q = (\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
 
-Now finally we can choose a parametrization of the outgoing ray. First we define $\mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q}$
-which by construction is equal to
+The coordinates $`[\varepsilon, \zeta_{||}, \zeta_\perp]`$ and $`[q_{\mathrm{rock}}, q_{\mathrm{strain}}, q_{\mathrm{roll}}]`$ are a natural choice for integration variables. We can further choose coordinates for the outgoing ray. First we define the nominal scattered wavevector
 
- $$
- \mathbf{k}_h = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]$$
+$$
+    \mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q} = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]
+$$
 
-Again we need to final unit vector normal to this: $\hat{\mathbf{k}_{\mathrm{up}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]$.
+and a unit vector normal to this: $\hat{\mathbf{k}_{\mathrm{rad}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]$ so we can write.
 
 $$
    \mathbf{p} = \mathbf{k}_h + \varepsilon'\hat{\mathbf{\mathbf{k}_h}}
@@ -105,16 +99,16 @@ $$
 $$    
 
 
-In the current model, the incident beams is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to a significant simplification:
+In the current model, the incident beam is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to:
 
 $$
     (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
        + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
-    + \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
+    \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
      + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\mathrm{azim}}
 $$
 
-which can be rearanged to the three scalar equations:
+which can be rearanged to the three coordinate equations:
 
 $$
     q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{\mathrm{rad}}=0
@@ -126,7 +120,7 @@ So the scattered beam is simply a 1D Gaussian that samples the RSM though a line
 Computing the RSM from an anisotropic Gaussian texture model
 ------------------------------------------------------------
 
-Because Orientation Distribution Functions (ODFs) are defined in SO(3), our set-up of multivariate Gaussians and line-interals does not actually work. The approach we take here is to consider some narrow distribution of orientations $f(g)$ which is a real-valued function of orientations, $g$. The distribution is centered on some orientation $g_0$, and we will approximate orientation-space with it's tangent space on this point. Say we have some mapping from a general  orientation $g$ to a tangent-vector $\mathbf{r}$ such that:
+The approach we take here is to consider some narrow distribution of orientations $f(g)$ which is a real-valued function of orientation, $g$. The distribution is centered on some orientation $g_0$, and we will approximate orientation-space with it's tangent space on this point. Say we have some mapping from a general  orientation $g$ to a tangent-vector $\mathbf{r}$ such that:
 
 $$
     g \approx R_{\mathbf{r}}g_0 = \begin{bmatrix}
@@ -142,7 +136,7 @@ $$
     f(\mathbf{r}) = \frac{2}{\sqrt{\pi}}\sqrt{\det T}\exp\left( -\mathbf{r}^{\mathrm{T}}T\mathbf{r} \right)  
 $$
 
-The important result is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $\mathbf{h}$ in a given laboratory-space direction $\mathbf{y}$. Both unit-3-vectors. Normally this involves an integral over a circle of rotation in SO(3), but in our approximation we can replace it with an infinite integral in $\mathbf{r}$-space. Defining $\mathbf{p} = g_0\mathbf{h}$, one parametrization of this line is:
+The quantity we need is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $`\mathbf{h} = \mathbf{B}_0[h, k, \ell]^{\mathrm{T}}/|\mathbf{B}_0[h, k, \ell]^{\mathrm{T}}|`$ in a given laboratory-space direction $\mathbf{y} = \hat{\mathbf{q}}$. Normally this involves an integral over a circle in SO(3), but in our approximation we can replace it with an infinite line integral in the tangent-space. Defining $\mathbf{p} = g_0\mathbf{h}=\hat{G}$, one parametrization of this line is:
 
 $$
     \mathbf{r}(\lambda) = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
@@ -166,7 +160,16 @@ $$
     [\mathrm{T}_{\mathbf{p}}]_{ij} = p_k \varepsilon_{lki}(T_{lm}-T_{lp}p_pp_qT_{qm}/pTp)\varepsilon_{mnj}p_n
 $$
 
-where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor. When we don't deal with strain-broadedning, the pole-figure times a 1-D delta-Dirac function is identical to the RSM.
+where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor.
+
+This function is only defined on unit-vectors arguments, but we can restrict it to a 2D space orthogonal to $\mathbf{p}$
+
+$$
+    f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{y}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\mathbf{y} \right) \\\\
+    \text{where } \mathbf{y} = \mathbf{p} +\frac{1}{2k\sin\theta_0} [\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}}
+$$
+
+
 
 Testing
 -------
