@@ -176,7 +176,7 @@ Testing
 
 I simulate a 1 degree rotation of a single crystal of quartz in the shape of a symmetric tetrahedron. The crystal is much larger than the pixels and  the largest scattering angles are over 90 degrees to see the perspective effect at large angles.
 
-The gaussian simulation uses seven gaussians to approximate the tetragedron (on symmetric in the center and six prolate ones along the edges) and has low misorientation.
+The gaussian simulation uses seven gaussians to approximate the tetrahedron (on symmetric in the center and six prolate ones along the edges) and has low misorientation.
 
 The position and shapes of the peaks match well. The gaussian model includes some extra weak peaks because it is integrating a gaussian shaped time-window where the tetrahedron model is integrating a top hat time window.
 
