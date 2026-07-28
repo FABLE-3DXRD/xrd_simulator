@@ -251,8 +251,8 @@ A = \begin{bmatrix}
 \end{bmatrix}
 \begin{bmatrix} 2 & 0\\
 0 & 2\sin\theta_0
-\end{bmatrix} \\\\
- + \begin{bmatrix}
+\end{bmatrix} +
+\begin{bmatrix}
     \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
     \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
 \end{bmatrix}
