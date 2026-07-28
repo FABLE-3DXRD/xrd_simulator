@@ -29,12 +29,12 @@ $$
 
 the two delta-Dirac functions ensure energy- and momentum conservation respectively. 
 
-You can plug in various combinations of gaussians and delta-Dirac function in for the two functions and go to town, but it is helpful to introduce a specific set of basis vector for the integration variables.
+You can plug in various combinations of gaussians and delta-Dirac function in for the two functions and go to town, but following [Poulsen2018] we introduce a specific set of basis vector for the integration variables.
 
 $$
-   \mathbf{k} = \mathbf{k}_0 + \varepsilon\hat{\mathbf{\mathbf{k}_0}}
+   \mathbf{k} = \mathbf{k}_0 + k\left(\varepsilon\hat{\mathbf{\mathbf{k}_0}}
     + \zeta_{||}\hat{\mathbf{k}_{||}}
-     + \zeta_\perp\hat{\mathbf{k}_\perp}
+     + \zeta_\perp\hat{\mathbf{k}_\perp}\right)
 $$
 
 where hat denoes the normalized vector. $`\hat{\mathbf{k}_{||}}`$ is 
@@ -46,24 +46,25 @@ $$
    \mathbf{Q} = 2k\sin\theta_0[\cos\theta_0 \hat{\mathbf{k}_{||}} - \sin\theta_0\hat{\mathbf{k}_0}] = 2k\sin\theta_0\hat{\mathbf{Q}}
 $$
 
-Importantly this vector is not quite equal to $\mathbf{G}$ but should be close the difference
-between the two is to first order parrallel to the unit-vector $`\hat{\mathbf{q}}_{\mathrm{rock}} = [\cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}]`$
+This vector is only equal to the reciprocal lattice vector $\mathbf{G}$ crystallite is perfectly aligned. For small deviations, the difference between the two is parrallel to the unit-vector $`\hat{\mathbf{q}}_{\mathrm{rock}} = [\cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}]`$
 
 which completes the basis for $\mathbf{q}$:
 
 $$
-   \mathbf{q} = \mathbf{G}_0 + q_{\mathrm{rock}}\hat{\mathbf{q}_{\mathrm{rock}}}
+   \mathbf{q} = \mathbf{G}_0 + 2k\sin\theta_0\left(q_{\mathrm{rock}}\hat{\mathbf{q}_{\mathrm{rock}}}
     + q_{\mathrm{strain}}\hat{\mathbf{Q}}
-     + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} \\\\
-     \approx \mathbf{Q} + (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
+     + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}\right) \\\\
+     \approx \mathbf{Q} + 2k\sin\theta_0\left((q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
-       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}
+       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}\right)
 $$
 
 
-where $\delta q = (\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
+where $\delta q = 1/(2k\sin\theta_0)(\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
 
-The coordinates $`[\varepsilon, \zeta_{||}, \zeta_\perp]`$ and $`[q_{\mathrm{rock}}, q_{\mathrm{strain}}, q_{\mathrm{roll}}]`$ are a natural choice for integration variables. We can further choose coordinates for the outgoing ray. First we define the nominal scattered wavevector
+The coordinates $`[\varepsilon, \zeta_{||}, \zeta_\perp]`$ and $`[q_{\mathrm{rock}}, q_{\mathrm{strain}}, q_{\mathrm{roll}}]`$ are a natural choice for integration variables as they allow sepparating, energy, collimation, misoientation, and strain-effects.
+
+We can also choose coordinates for the outgoing ray. First we define the nominal scattered wavevector
 
 $$
     \mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q} = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]
@@ -72,13 +73,13 @@ $$
 and a unit vector normal to this: $`\hat{\mathbf{k}_{\mathrm{rad}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]`$ so we can write.
 
 $$
-   \mathbf{p} = \mathbf{k}_h + \varepsilon'\hat{\mathbf{\mathbf{k}_h}}
+   \mathbf{p} = \mathbf{k}_h + k\left(\varepsilon'\hat{\mathbf{\mathbf{k}_h}}
     + \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
-     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp}
+     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\perp}\right)
 $$
 
-Assuming all deviations from the nominal directions are small, we see that $|\mathbf{k}|\approx k+\epsilon$ 
-and $|\mathbf{p}|\approx k+\epsilon'$ so the energy integral can be raised by setting $\varepsilon = \varepsilon'$.
+Assuming all deviations from the nominal directions are small, we see that $|\mathbf{k}|\approx k(1+\epsilon)$ 
+and $|\mathbf{p}|\approx k(1+\epsilon')$ so the energy integral can be raised by setting $\varepsilon = \varepsilon'$.
 
 The momentum-conservation factor can be used to raise either the $\mathbf{k}$ or the $\mathbf{q}$ integral.
 
@@ -87,9 +88,9 @@ In either case, the equations enforced by momentum conservation is
 $$
    \mathbf{q} = \mathbf{p} - \mathbf{k} \\\\
    \Leftrightarrow
-    (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}}_{\mathrm{rock}}
+    2\sin\theta_0\left[(q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}}_{\mathrm{rock}}
       + q_{\mathrm{strain}}\hat{\mathbf{Q}}
-       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}\\\\
+       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}\right]\\\\
        = 
     2\sin\theta_0 \varepsilon \hat{\mathbf{Q}}
     + \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
@@ -162,12 +163,10 @@ $$
 
 where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor.
 
-This function is only defined on unit-vectors arguments, but we can restrict it to a 2D space orthogonal to $\mathbf{p}$
+This function is defined for unit-vectors arguments, but we can upgrade it to a 3D RSM which is only non-zero on a 2D plane:
 
 $$
-    f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{y}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\mathbf{y} \right) \\\\
-    \text{where } \mathbf{y} = \mathbf{p} +\frac{1}{2k\sin\theta_0} [\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}}
-$$
+    f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}} \right) $$
 
 
 
@@ -208,3 +207,96 @@ About 97.5 percent of the computation time is spent in the very simple function 
 [Kerbl2023] Bernhard Kerbl, Georgios Kopanas, Thomas Leimkuehler, and George Drettakis. 3d gaussian splatting for real-time radiance field rendering, 2023.
 
 [Brehm2023] Brehm, W., White, T. & Chapman, H. N. (2023). Crystal diffraction prediction and partiality estimation using Gaussian basis functions. Acta Cryst. A79
+
+[Poulsen2018] Poulsen, H. F., Jakobsen, A. C., Simons, H., Ahl, S. R., Cook, P. K. & Detlefs, C. (2017). X-ray diffraction microscopy based on refractive optics. J. Appl. Cryst. 50
+
+WorkInProgress: Model with beam divergence
+------------------------------------------
+
+We are not interested in the energy of the outgoing beam, so we integrate out $`\varepsilon`$ and we still set strain-broadening to zero.
+
+We isolate the incident beam variables in the momentum conservation equation:
+
+$$
+   \varepsilon = \frac{1}{\sin\theta_0}\psi_{\mathrm{rad}}-\tan\theta_0(q_{\mathrm{rock}}-\delta q) \\\\
+   \zeta_{||} = -\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q) \\\\
+   \zeta_\perp = \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}
+$$
+
+Now $`q_{\mathrm{rock}}`$ and $`q_{\mathrm{roll}}`$ are the integration variables. 
+
+$$
+   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}q_{\mathrm{rock}}\int \mathrm{d}q_{\mathrm{roll}} \exp\Bigg[ -\mathrm{E}\left(\frac{1}{\sin\theta_0}\psi_{\mathrm{rad}}-\tan\theta_0(q_{\mathrm{rock}}-\delta q)\right)^2 \\\\
+    -[-\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q), \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}]^{\mathrm{T}}[\hat{\mathbf{k}}_{||}, \hat{\mathbf{k}}_\perp]^{\mathrm{T}}\mathrm{D}[\hat{\mathbf{k}}_{||}, \hat{\mathbf{k}}_\perp][-\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q), \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}] \left) \right)\\\\
+    -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}}
+    \Bigg]
+$$
+
+where $`\mathrm{E}`$ is one over the bandwidth squared, and $`\mathrm{D}`$ is a tensor describing the divergence of the beam. We want to rewrite this as a 2D Gaussian in $`\psi_{\mathrm{rad}}`$ and $\psi_{\mathrm{azim}}$.
+
+Steps are as follows:
+
+**Collect terms that depend on the integration variables squared.**
+
+$$
+A = \begin{bmatrix}
+    E\tan^2\theta_0 & 0 \\
+    0 & 0
+\end{bmatrix} + 
+\begin{bmatrix} 2 & 0\\
+0 & 2\sin\theta_0
+\end{bmatrix}^{\mathrm{T}}
+\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
+\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+\end{bmatrix}
+\begin{bmatrix} 2 & 0\\
+0 & 2\sin\theta_0
+\end{bmatrix} \\\\
+ + \begin{bmatrix}
+    \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
+    \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
+\end{bmatrix}
+$$
+
+**And linear**
+
+$$
+B = \begin{bmatrix}
+    E\tan\theta_0(1/\sin\theta_0\psi_{\mathrm{rad}} + \tan\theta_0\delta q)\\
+0
+\end{bmatrix} +
+\begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
+\psi_{\mathrm{azim}}
+\end{bmatrix}^{\mathrm{T}}
+\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
+\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+\end{bmatrix}
+\begin{bmatrix} 2 & 0\\
+0 & 2\sin\theta_0
+\end{bmatrix}
+$$
+
+**And everything else**
+
+$$
+C = -E\left(\frac{1}{\sin\theta_0}\psi + \tan\theta_0\delta q\right)^2 - \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
+\psi_{\mathrm{azim}}
+\end{bmatrix}^{\mathrm{T}}\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
+\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+\end{bmatrix}
+\begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
+\psi_{\mathrm{azim}}
+\end{bmatrix} 
+$$
+
+Now the integral is on a form we can deal with.
+
+$$
+   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}\mathbf{q'} \exp\Bigg[ -\mathbf{q'}^{\mathrm{T}}A\mathbf{q'}^{\mathrm{T}} + 2 B^{\mathrm{T}}\mathbf{q'} + C
+    \Bigg] = \frac{1}{(\det\mathrm{A})^{1/2}}\exp\left[C - B^{\mathrm{T}} A^{-1} B\right]
+$$
+
+
+**Then do the whole excercise again with the dependent variables**
+
+This might need a computer algebra system... 
