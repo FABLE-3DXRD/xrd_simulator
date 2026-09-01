@@ -309,7 +309,7 @@ $$
      - c \Bigg] 
 $$
 
-where $'\mathrm{F} = \left( (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1} \right)^{-1}'$. Now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
+where $'\mathrm{F} = ((\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1})^{-1}{}'$. Now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
 
 SQUARE TERMS:
 
