@@ -291,10 +291,9 @@ $$
 and
 
 $$
-c = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \mathbf{q}_0^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}_0 \\\\
-= \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Psi + 2\delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}\\\\
- \mathrm{B} = \mathrm{A} - \mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A} 
-
+   c = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \mathbf{q}_0^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}_0 \\\\
+   = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Psi + 2\delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}\\\\
+    \mathrm{B} = \mathrm{A} - \mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A} 
 $$
 
 The integral can now be evaluated:
@@ -310,12 +309,7 @@ $$
      - c \Bigg] 
 $$
 
-where 
-$$
-   \mathrm{F} = \left( (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1} \right)^{-1}
-$$
-
-now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
+where $'\mathrm{F} = \left( (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1} \right)^{-1}'$. Now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
 
 SQUARE TERMS:
 
