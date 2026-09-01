@@ -219,6 +219,8 @@ $$
    \zeta_\perp = \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}
 $$
 
+or as a vector equation:
+
 $$
    \begin{bmatrix} \varepsilon \\
    \zeta_{||} \\
