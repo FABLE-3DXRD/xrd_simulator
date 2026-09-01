@@ -215,7 +215,7 @@ We isolate the incident beam variables in the momentum conservation equation:
 
 $$
    \varepsilon = \frac{1}{\sin\theta_0}\psi_{\mathrm{rad}}-\tan\theta_0(q_{\mathrm{rock}}-\delta q) \\\\
-   \zeta_{||} = -\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q) \\\\
+   \zeta_{||} = -\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q) \\
    \zeta_\perp = \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}
 $$
 
@@ -245,7 +245,7 @@ $$
    q_{\mathrm{roll}}
 \end{bmatrix}
 \\\\
-=\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm{V}\mathbf{q}'
+=\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm{V}\mathbf{q}
 $$
 
 
@@ -262,18 +262,17 @@ where
 
 
 $$
-
 A = 
-\begin{bmatrix} E & 0 & 0 \\
- 0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
-0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
-\end{bmatrix}
-\text{ and }
-T_g = 
-\begin{bmatrix}
-    \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
-    \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
-\end{bmatrix}
+   \begin{bmatrix} E & 0 & 0 \\
+    0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
+   0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+   \end{bmatrix}
+   \text{ and }
+   T_g = 
+   \begin{bmatrix}
+       \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
+       \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
+   \end{bmatrix}
 $$
 
 To get this on the form of a 2D convolution, we have to expand out the first term a bit:
