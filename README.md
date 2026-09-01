@@ -226,28 +226,27 @@ $$
    \zeta_{||} \\
    \zeta_\perp
    \end{bmatrix}
-=
-\begin{bmatrix}
-   \frac{1}{\sin\theta_0} & 0 \\
-   -1 & 0 \\
-    0 & 1
-\end{bmatrix}
-\begin{bmatrix}
-   \psi_{\mathrm{rad}} \\
-   \psi_{\mathrm{azim}}
-\end{bmatrix}
-+
-\begin{bmatrix}
-   \tan\theta_0 & 0 \\
-   -2 & 0 \\
-   0 & -2\sin\theta_0
-\end{bmatrix}
-\begin{bmatrix}
-   q_{\mathrm{rock}} - \delta q \\
-   q_{\mathrm{roll}}
-\end{bmatrix}
-\\\\
-=\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm{V}\mathbf{q}
+   =
+   \begin{bmatrix}
+      \frac{1}{\sin\theta_0} & 0 \\
+      -1 & 0 \\
+       0 & 1
+   \end{bmatrix}
+   \begin{bmatrix}
+      \psi_{\mathrm{rad}} \\
+      \psi_{\mathrm{azim}}
+   \end{bmatrix}
+   +
+   \begin{bmatrix}
+      \tan\theta_0 & 0 \\
+      -2 & 0 \\
+      0 & -2\sin\theta_0
+   \end{bmatrix}
+   \begin{bmatrix}
+      q_{\mathrm{rock}} - \delta q \\
+      q_{\mathrm{roll}}
+   \end{bmatrix}\\
+   =\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm   {V}\mathbf{q}
 $$
 
 
