@@ -200,7 +200,99 @@ def _get_diffraction_arcsegment(
         Divergence of the scattered beams in radians, shape ``(N,)``        
     """
 
-    # Splat onto poelfigure
+    # Project odf in hkl direction.
+    T_proj = _project_misorientation_tensor(T, p_vectors)
+    
+
+    # Compute point of "exact bragg condition" in the plane Span(k_0, p)
+    p_norm = torch.linalg.norm(p_vectors, axis=-1)
+    theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
+    dir_scatteringplane_norm = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
+    dir_scatteringplane_norm = dir_scatteringplane_norm / torch.linalg.norm(dir_scatteringplane_norm, axis=-1)[:, None]
+    q_0_unit = torch.cos(theta_angle)[:, None] * dir_scatteringplane_norm - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
+    dir_scatteringplane_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, dir_scatteringplane_norm)
+
+    # Compute partiality, mean direction, and azimthal spread
+    A = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, q_0_unit,)
+    B = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, dir_scatteringplane_orth,)
+    C = torch.einsum('xi,xij,xj->x', dir_scatteringplane_orth, T_proj, dir_scatteringplane_orth,)
+    
+    azimuthal_divergence = np.sqrt(1 / C) * torch.sin( 2 * theta_angle )
+    azim_offset = B / C
+    mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
+        + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
+    D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
+    partialities = torch.exp(-A + B**2 / C) * 2 * torch.sqrt( torch.linalg.det(T) / D ) / torch.sqrt(C)
+
+    return mean_scattering_directions, partialities, dir_scatteringplane_orth, azimuthal_divergence
+
+
+def _get_diffraction_arcsegment_divergent_beam(
+        p_vectors: Tensor,
+        T: Tensor,
+        xray_propagation_direction: Tensor,
+        wavelength: Tensor,
+        beam_divergence_tensor,
+        relative_bandwidth,
+    ):
+    """ Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
+    of the scattered beam.
+
+    Parameters
+    ----------
+    p_vectors : Tensor
+        Lattice vectors in lattice reference frame (not hkl-tuples), shape ``(N, 3)``
+        Uses the convention with
+        .. math:: |h| = 4 \pi\sin\theta / \lambda
+    T : Tensor
+        Lab-space orientation concentration tensors, shape ``(N, 3, 3)``
+    xray_propagation_direction : Tensor
+        Incident x-ray propagation direction unit vector, shape ``(3,)``
+    wavelength : float
+        
+
+    Returns
+    -------
+    mean_scattering_directions : Tensor
+        Propagation direction unit vectors of the center of the scattered beams, shape ``(N, 3,)``
+    partialities : Tenor
+        Intensity of the scattered beams per unit-volume sample, shape ``(N,)``
+    dir_scatteringplane_orth : Tensor
+        Dispersion direction unit vectors of the scattered beams, shape ``(N, 3,)``
+    azimuthal_divergence : Tensor
+        Divergence of the scattered beams in radians, shape ``(N,)``        
+    """
+
+    # Splat onto polefigure
+    T_proj = _project_misorientation_tensor(T, p_vectors)
+
+    # Compute special directions
+    p_norm = torch.linalg.norm(p_vectors, axis=-1)
+    theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
+
+    k_par = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
+    k_par = k_par / torch.linalg.norm(k_par, axis=-1)[:, None]
+    q_hat = torch.cos(theta_angle)[:, None] * k_par - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
+    k_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, k_par)
+    del_q = 2 * torch.sin(theta_angle) * torch.linalg.norm(p_vectors / p_norm - q_hat, axis =-1)
+
+    # Rotate 2D tensors into azimuthal frame
+    incident_beam_frame = torch.stack([k_par, k_orth], axis=-1)
+    q_frame = torch.stack([q_hat, k_orth], axis=-1)
+    D = torch.einsum('xia,ij,xib->xab',incident_beam_frame, beam_divergence_tensor, incident_beam_frame)
+    T = torch.einsum('xia,ij,xib->xab',q_frame, T_proj, q_frame)
+
+    # Build all the elemnts
+    E = 1/2/relative_bandwidth**2
+    coeff = torch.diag([2, 2 * torch.sin(theta_angle)])
+    A = torch.diag([E * torch.tan(theta_angle)**2, 0])[None, :, :] + T \
+        + torch.einsum('xji,xjk,xkl->xil', coeff, D, coeff)
+
+    return 0#mean_scattering_directions, partialities, dir_scatteringplane_orth, azimuthal_divergence
+
+
+def _project_misorientation_tensor(T, p_vectors):
+
     p_norm = torch.linalg.norm(p_vectors, axis=-1)
     D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
 
@@ -219,26 +311,7 @@ def _get_diffraction_arcsegment(
         _levi_cita_symbol,
         p_vectors,
     ) / p_norm[:, None, None]**2
-
-    # Compute point of "exact bragg condition" in the plane Span(k_0, p)
-    theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
-    dir_scatteringplane_norm = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
-    dir_scatteringplane_norm = dir_scatteringplane_norm / torch.linalg.norm(dir_scatteringplane_norm, axis=-1)[:, None]
-    q_0_unit = torch.cos(theta_angle)[:, None] * dir_scatteringplane_norm - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
-    dir_scatteringplane_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, dir_scatteringplane_norm)
-
-    # Compute partiality, mean direction, and azimthal spread
-    A = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, q_0_unit,)
-    B = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, dir_scatteringplane_orth,)
-    C = torch.einsum('xi,xij,xj->x', dir_scatteringplane_orth, T_proj, dir_scatteringplane_orth,)
-    
-    azimuthal_divergence = np.sqrt(1 / C) * torch.sin( 2 * theta_angle )
-    azim_offset = B / C
-    mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
-        + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
-    partialities = torch.exp(-A + B**2 / C) * 2 * torch.sqrt( torch.linalg.det(T) / D ) / torch.sqrt(C)
-
-    return mean_scattering_directions, partialities, dir_scatteringplane_orth, azimuthal_divergence
+    return T_proj
 
 # ==============================================================================
 # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION

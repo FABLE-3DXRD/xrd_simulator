@@ -14,8 +14,8 @@ from xrd_simulator.utils import ensure_torch
 
 ### Parameters
 wavelength=0.28523
-beam_half_edgewidth = 100.0
-tetrahedron_bbox_size = 350.0
+beam_half_edgewidth = 200.0
+tetrahedron_bbox_size = 150.0
 eta = 0.0
 hkl_tuple = (2, 1, 0)
 detector_distance = 0.5e4
@@ -257,12 +257,12 @@ if __name__ == "__main__":
     # render returns (frames, height, width), take first frame
 
    #  img = axs[0].imshow(np.log10(pattern+1e0), cmap="jet")
-    img = axs[0].imshow(pattern, vmin =0, vmax = 5e6, cmap="jet")
+    img = axs[0].imshow(pattern, vmin =0, vmax = 2e6, cmap="jet")
     axs[0].set_title('Tetrahedron based model')
     axs[0].grid()
 
     img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
-    img = axs[1].imshow(f, vmin =0, vmax = 5e4, cmap="jet")
+    img = axs[1].imshow(f, vmin =0, vmax = 1e4, cmap="jet")
     axs[1].set_title('Gaussian based_model')
     axs[1].grid()
     plt.show()

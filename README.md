@@ -196,10 +196,6 @@ Potential improvements
 
 For lab-instruments these are the dominant factors that determine reflection widths, rather than mosaicity. They also only add a very small amount of model complexity. The issue is numerical stability and actually just stitting down and evaluating the integrals.
 
-**Improve performance of the rasterizer.**
-
-About 97.5 percent of the computation time is spent in the very simple function `detector._render_gaussian_splats`. Which simply renderes a set of 2D gaussians onto a pixel map. It must be possible to speed this up by checking for inclusion in a better way.
-
 
 ### References
 
@@ -223,20 +219,144 @@ $$
    \zeta_\perp = \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}
 $$
 
-Now $`q_{\mathrm{rock}}`$ and $`q_{\mathrm{roll}}`$ are the integration variables. 
+$$
+   \begin{bmatrix} \varepsilon \\
+   \zeta_{||} \\
+   \zeta_\perp
+   \end{bmatrix}
+=
+\begin{bmatrix}
+   \frac{1}{\sin\theta_0} & 0 \\
+   -1 & 0 \\
+    0 & 1
+\end{bmatrix}
+\begin{bmatrix}
+   \psi_{\mathrm{rad}} \\
+   \psi_{\mathrm{azim}}
+\end{bmatrix}
++
+\begin{bmatrix}
+   \tan\theta_0 & 0 \\
+   -2 & 0 \\
+   0 & -2\sin\theta_0
+\end{bmatrix}
+\begin{bmatrix}
+   q_{\mathrm{rock}} - \delta q \\
+   q_{\mathrm{roll}}
+\end{bmatrix}
+\\\\
+=\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm{V}\mathbf{q}'
+$$
+
+
+These equations are used to raise the three corresponding integrals. Now $`q_{\mathrm{rock}}`$ and $`q_{\mathrm{roll}}`$ are the integration variables. 
 
 $$
-   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}q_{\mathrm{rock}}\int \mathrm{d}q_{\mathrm{roll}} \exp\Bigg[ -\mathrm{E}\left(\frac{1}{\sin\theta_0}\psi_{\mathrm{rad}}-\tan\theta_0(q_{\mathrm{rock}}-\delta q)\right)^2 \\\\
-    -[-\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q), \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}]^{\mathrm{T}}[\hat{\mathbf{k}}_{||}, \hat{\mathbf{k}}_\perp]^{\mathrm{T}}\mathrm{D}[\hat{\mathbf{k}}_{||}, \hat{\mathbf{k}}_\perp][-\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q), \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}] \left) \right)\\\\
-    -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}}
+   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = (\det\mathrm{A})^{1/2} \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\int \mathrm{d}\mathbf{q} \exp\Bigg[
+    -(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')^{\mathrm{T}}\mathrm{A}(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')
+    -\mathbf{q}^{\mathrm{T}} T_g \mathbf{q}
     \Bigg]
 $$
 
-where $`\mathrm{E}`$ is one over the bandwidth squared, and $`\mathrm{D}`$ is a tensor describing the divergence of the beam. We want to rewrite this as a 2D Gaussian in $`\psi_{\mathrm{rad}}`$ and $\psi_{\mathrm{azim}}$.
+where
 
-Steps are as follows:
 
-**Collect terms that depend on the integration variables squared.**
+$$
+
+A = 
+\begin{bmatrix} E & 0 & 0 \\
+ 0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
+0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+\end{bmatrix}
+\text{ and }
+T_g = 
+\begin{bmatrix}
+    \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
+    \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
+\end{bmatrix}
+$$
+
+To get this on the form of a 2D convolution, we have to expand out the first term a bit:
+
+$$
+(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')^{\mathrm{T}}\mathrm{A}(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}') = \mathbf{q'}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}' + 2\Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}' + \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi \\\\
+= (\mathbf{q}+ \delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathbf{q} + \delta\mathbf{q} + \mathbf{q}_0) + c
+$$
+
+where 
+
+$$
+\mathbf{q}_0 = (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}
+$$
+
+and
+
+$$
+c = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \mathbf{q}_0^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}_0 \\\\
+= \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Psi + 2\delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}\\\\
+ \mathrm{B} = \mathrm{A} - \mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A} 
+
+$$
+
+The integral can now be evaluated:
+
+$$
+\int \mathrm{d}\mathbf{q} \exp\Bigg[
+    -(\mathbf{q}+ \delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathbf{q} + \delta\mathbf{q} + \mathbf{q}_0)
+    -\mathbf{q}^{\mathrm{T}} T_g \mathbf{q}
+     - c \Bigg]\\\\
+    =(\det(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V} + T_g))^(-1/2)
+    \exp\Bigg[
+    -(\delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{F}(\delta\mathbf{q} + \mathbf{q}_0)
+     - c \Bigg] 
+$$
+
+where 
+$$
+   \mathrm{F} = \left( (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1} \right)^{-1}
+$$
+
+now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
+
+SQUARE TERMS:
+
+$$
+  \Psi^{\mathrm{T}}G\Psi=\Psi^{\mathrm{T}}\Big[\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{F}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}+\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Big]\Psi
+$$
+
+This is the divergence of the outgoing beam. I'm definetely not excluding that this expression can be simplified.
+
+Now the linear terms, which we'll need to find the direction of the beam:
+
+$$
+   2\delta\mathbf{q}^{\mathrm{T}}\mathrm{H}^{\mathrm{T}}\Psi = \delta \mathbf{q}^{\mathrm{T}}\Big[F(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U} + \mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Big]\Psi\text{ + transpose}
+$$
+
+since this term is a scalar, it is probably equal to its transpose.
+
+The square-term and the linear term together gives us the angular offset. The expression unfortunately involves an inverse again, so I won't write it out in full.
+
+$$
+\Psi_0 = - \mathrm{G}^{-1}\mathrm{H}\delta\mathbf{q}
+$$
+
+and now we can finish the constant term, which gives the width of the rocking curve.
+
+$$
+k = -\delta\mathbf{q}^{\mathrm{T}}\mathrm{H}^{\mathrm{T}}G^{-1}\mathrm{H}\delta\mathbf{q} + \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}
+$$
+
+I should try to simplify some of the expressions. G and B are prime candidates for some "Woodbuy matrix identity" tricks, but probably I need a computer algebra system.
+
+FOr now I will see if these expressions are numerically stable and check that it produces reasonable rocking curves.
+
+<!-- **Collect terms that depend on the integration variables squared.**
+
+Some notation:
+
+
+
+Wich just amounts to tensor-rotations into the wanted coordinate-system.
 
 $$
 A = \begin{bmatrix}
@@ -246,57 +366,141 @@ A = \begin{bmatrix}
 \begin{bmatrix} 2 & 0\\
 0 & 2\sin\theta_0
 \end{bmatrix}^{\mathrm{T}}
-\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
-\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
-\end{bmatrix}
+\mathrm{D}_g
 \begin{bmatrix} 2 & 0\\
 0 & 2\sin\theta_0
-\end{bmatrix} +
-\begin{bmatrix}
-    \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
-    \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
 \end{bmatrix}
 $$
 
 **And linear**
 
 $$
-B = \begin{bmatrix}
+\mathbf{b}^{\mathrm{T}} = \begin{bmatrix}
     E\tan\theta_0(1/\sin\theta_0\psi_{\mathrm{rad}} + \tan\theta_0\delta q)\\
 0
 \end{bmatrix} +
 \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
 \psi_{\mathrm{azim}}
 \end{bmatrix}^{\mathrm{T}}
-\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
-\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
+\mathrm{D}_g
+\begin{bmatrix} 2 & 0\\
+0 & 2\sin\theta_0
+\end{bmatrix} \\\\
+=\begin{bmatrix} \psi_{\mathrm{rad}} \\
+\psi_{\mathrm{azim}}
+\end{bmatrix}^{\mathrm{T}}
+\left(
+    \begin{bmatrix} E\sec\theta_0 & 0 \\
+0 & 0 \\
+\end{bmatrix} +
+\begin{bmatrix} -1 & 0 \\
+0 & 1 \\
 \end{bmatrix}
+\mathrm{D}_g
 \begin{bmatrix} 2 & 0\\
 0 & 2\sin\theta_0
 \end{bmatrix}
+\right)
++ 
+\begin{bmatrix} E \tan^2\theta_0\delta q\\
+0 
+\end{bmatrix}^{\mathrm{T}}\\\\
+
+=\psi^{\mathrm{T}} \mathrm{F}^{\mathrm{T}} + \psi_b^{\mathrm{T}}
 $$
 
 **And everything else**
 
 $$
-C = -E\left(\frac{1}{\sin\theta_0}\psi + \tan\theta_0\delta q\right)^2 - \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
+C = E\left(\frac{1}{\sin\theta_0}\psi_{\mathrm{rad}} + \tan\theta_0\delta q\right)^2 + \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
 \psi_{\mathrm{azim}}
-\end{bmatrix}^{\mathrm{T}}\begin{bmatrix} \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
-\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
-\end{bmatrix}
+\end{bmatrix}^\mathrm{T}
+\mathrm{D}_g
 \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
 \psi_{\mathrm{azim}}
+\end{bmatrix} \\\\
+=\begin{bmatrix} \psi_{\mathrm{rad}} \\
+\psi_{\mathrm{azim}}
+\end{bmatrix}^{\mathrm{T}}
+\left(
+\begin{bmatrix}
+    E \frac{1}{\sin^2\theta_0} & 0 \\
+    0 & 0
+\end{bmatrix}
++
+\begin{bmatrix} -1 & 0 \\
+0 & 1
+\end{bmatrix}^{\mathrm{T}}
+\mathrm{D}_g
+\begin{bmatrix} -1 & 0 \\
+0 & 1
 \end{bmatrix} 
+\right)
+\begin{bmatrix} \psi_{\mathrm{rad}} \\
+\psi_{\mathrm{azim}}
+\end{bmatrix}\\\\
+\left(\begin{bmatrix} 2E\sec\theta_0\delta q + 4\delta q \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||}   \\
+-4\delta q \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{\perp}
+\end{bmatrix} \right)^{\mathrm{T}}\begin{bmatrix} \psi_{\mathrm{rad}} \\
+\psi_{\mathrm{azim}}
+\end{bmatrix} \\\\
++ E\tan^2\theta_0\delta q^2 + 4\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||}\delta q^2 \\\\
+=\psi^{\mathrm{T}}\mathrm{G}\psi + \mathbf{c}^{\mathrm{T}}\psi+ c
 $$
 
 Now the integral is on a form we can deal with.
 
 $$
-   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}\mathbf{q'} \exp\Bigg[ -\mathbf{q'}^{\mathrm{T}}A\mathbf{q'}^{\mathrm{T}} + 2 B^{\mathrm{T}}\mathbf{q'} + C
-    \Bigg] = \frac{1}{(\det\mathrm{A})^{1/2}}\exp\left[C - B^{\mathrm{T}} A^{-1} B\right]
+   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}\mathbf{q}\exp\left( -\Bigg[ \mathbf{q}^{\mathrm{T}}\mathrm{T}_g\mathbf{q} + \mathbf{q}^{\mathrm{T}}\mathrm{A}\mathbf{q} + 2 \mathbf{b}^{\mathrm{T}}\mathbf{q} + C
+    \Bigg]\right) \\\\
+    = \exp\left( -C + \mathbf{b}^{\mathrm{T}}\mathrm{A}^{-1}\mathbf{b}\right)\int \mathrm{d}\mathbf{q'}\exp\left( -\Bigg[ \mathbf{q}^{\mathrm{T}}\mathrm{T}_g\mathbf{q} + (\mathbf{q-q'})^{\mathrm{T}}\mathrm{A}(\mathbf{q-q'})
+    \Bigg]\right) \\\\
+    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{q}'^{\mathrm{T}}\mathrm{E}\mathbf{q}' -C + \mathbf{b}^{\mathrm{T}}\mathrm{A}^{-1}\mathbf{b}\right) \\\\
+    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{b}^{\mathrm{T}}(\mathrm{A}^{-1}\mathrm{E}\mathrm{A}^{-1}-\mathrm{A}^{-1})\mathbf{b} -C\right) \\\\
+    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{b}^{\mathrm{T}}(\mathrm{A}^{-1}\mathrm{E}\mathrm{A}^{-1}-\mathrm{A}^{-1})\mathbf{b} -C\right)
 $$
 
+where $`\mathrm{E} = (A^{-1}+\mathrm{T}_g^{-1})^{-1} `$ and $`\mathbf{q}' = -\mathrm{A}^{-1}\mathbf{b}`$
+#TODO I think this is wrong!
 
 **Then do the whole excercise again with the dependent variables**
 
-This might need a computer algebra system... 
+We want to rewrite this expresion on the form:
+
+$$
+\int \mathrm{d}\varepsilon  I(\mathbf{p}) = I_{\mathrm{out}} \exp\left[-(\psi-\psi_0)^{\mathrm{T}} D_{\mathrm{out}}(\psi-\psi_0) \right]
+$$
+
+So now we try to collect terms squared and linear in $`\psi`$ from $`C + B^{\mathrm{T}} A^{-1} B`$. A is constant and B is linear, so it should work.
+
+We can write the square term:
+
+$$
+D_{\mathrm{out}} = G + \mathrm{F}^{\mathrm{T}}\mathrm{A}^{-1}\mathrm{F}
+$$
+
+The linear term:
+
+$$
+2\mathbf{f}\psi = 2\psi_b^{\mathrm{T}}\mathrm{F}\psi + \mathbf{c}^{\mathrm{T}}\psi 
+$$
+
+and constant
+
+$$
+L = c +  \psi_b^{\mathrm{T}}\mathrm{A}^{-1}\psi_b
+$$
+
+completing the square gives:
+
+$$
+\psi_0 = D_{\mathrm{out}}^{-1}K 
+$$
+
+and the constant term is
+
+$$
+I_{\mathrm{out}} = \frac{1}{(\det\mathrm{A})^{1/2}}\exp\left[-L + \mathbf{f}^{\mathrm{T}}D_{\mathrm{out}}^{-1}\mathbf{f}\right]
+$$
+
+This result is a lot uglier than I expected. I do still need to check it with a computer algebra system. -->
