@@ -225,8 +225,7 @@ $$
    \begin{bmatrix} \varepsilon \\
    \zeta_{||} \\
    \zeta_\perp
-   \end{bmatrix}
-   =
+   \end{bmatrix} =
    \begin{bmatrix}
       \frac{1}{\sin\theta_0} & 0 \\
       -1 & 0 \\
