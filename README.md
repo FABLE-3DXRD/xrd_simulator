@@ -1,6 +1,10 @@
 Gaussian models
 ===============
 
+https://github.com/user-attachments/assets/534a0ea2-f01e-4928-a6dd-93d50e0fbd23
+
+
+
 Gaussian splatting [Kerbl2023] is a quite trendy set of algorithms for modeling and rendering 3D scenes from a series of images with varying viewpoint. Part of the appeal of these new methods is that the reconstructed scenes can be rendered very quickly with a rasterization-approach.
 
 We can model a polycrystal as a set of Gaussian subgrains, and under a certain set approximations, each such subgrain will cause a 2D-Gaussian gaussian-shaped diffraction peak on the detector. Part of the approach has been demonstrated and tested already in a serial-crystallography setting [Brehm2023] which I'm borrowing some ideas from.
