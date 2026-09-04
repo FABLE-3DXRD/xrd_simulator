@@ -190,6 +190,10 @@ The resulting diffraction images look quite realistic.
 
 ![image](docs/_static/many_grains_gs.png)
 
+Simulate a high-reslution rocking-curve and test that the 3D RSM has the shape I expect.
+
+![image](docs/_static/testing_rocking_curves.png)
+
 
 Potential improvements
 ----------------------
