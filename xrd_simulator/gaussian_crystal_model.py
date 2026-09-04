@@ -212,13 +212,13 @@ class GaussianPolycrystal:
         scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * partialities * intensity_spread_out_factor\
             * beam_intensity_factors[grain_does_diffract]*polarization_factors*solid_angle_factor
 
-        does_diffract = scalefactors > 1e-10 # Discard weak peaks. Depends one unit-convention!
+        does_diffract = scalefactors > 1e-6 * torch.max(scalefactors) # Discard weak peaks. Depends one unit-convention!
 
         if timing:
             print(f'Raytracing took {time.time()-t0}')
             t0 = time.time()
 
-        peaks_batch_size = 10000
+        peaks_batch_size = 20000
         n_batches = torch.sum(does_diffract) // peaks_batch_size + 1
         image_stack = torch.zeros(n_batches, *detector.shape)
 

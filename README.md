@@ -5,11 +5,11 @@ https://github.com/user-attachments/assets/534a0ea2-f01e-4928-a6dd-93d50e0fbd23
 
 
 
-Gaussian splatting [Kerbl2023] is a quite trendy set of algorithms for modeling and rendering 3D scenes from a series of images with varying viewpoint. Part of the appeal of these new methods is that the reconstructed scenes can be rendered very quickly with a rasterization-approach.
+Gaussian splatting [Kerbl2023] is a quite trendy set of algorithms for modeling and rendering 3D scenes from a series of images with varying viewpoint. Part of the appeal of this method is that the reconstructed scenes can be rendered very quickly with a rasterization-approach.
 
-We can model a polycrystal as a set of Gaussian subgrains, and under a certain set approximations, each such subgrain will cause a 2D-Gaussian gaussian-shaped diffraction peak on the detector. Part of the approach has been demonstrated and tested already in a serial-crystallography setting [Brehm2023] which I'm borrowing some ideas from.
+We can model a polycrystal as a set of Gaussian grains/subgrains that have a gaussian density profile in real space and a mosaic spread of lattice orientation also descibed by a gaussian function. Under a certain set of approximations, each such subgrain will cause a gaussian shaped diffraction peak on the detector. Part of the approach has been demonstrated and tested already in a serial-crystallography setting by [Brehm2023].
 
-There are a number of peak-broadedning effects that we could consider to include. As long as we assume that all of these have a Gaussian profile and are small enough that non-linear terms can be discarded, they will produce a Gaussian spot on the detector.
+There are a number of peak-broadedning effects that we could choose to include in the model. As long as we assume that all of these have a Gaussian profile and are small enough that non-linear terms can be discarded, they will produce a Gaussian spot on the detector.
 
 * Grain size
 * Detector point-spread
@@ -18,13 +18,12 @@ There are a number of peak-broadedning effects that we could consider to include
 * Lattice misorientation (mosaicity)
 * Strain-broadening 
 
-To limit the scope here, I implement a model with grain-size and mosaicity only.
+Currently, we only implement a model with grain-size and mosaicity.
 
 Scattering theory
 -----------------
 
-Given an incident beam descibed by some phase-space density, $p(\mathbf{k})$, centered on a vector $\mathbf{k}_0$ with magnitude $k=2\pi/\lambda_0$. And given a crystallite with a "reciprocal space map" (RSM) $f(\mathbf{q})$ around a specific reciprocal lattice vector $`\mathbf{G}_0`$. We want to compute 
-the phase-space distribution of the scattered beam which is given by an integral:
+Given an incident x-ray beam descibed by some phase-space density, $p(\mathbf{k})$, centered on a vector $\mathbf{k}_0$ with magnitude $k=2\pi/\lambda_0$ and given a subgrain with a "reciprocal space map" (RSM) $f(\mathbf{q})$ around a specific reciprocal lattice vector $`\mathbf{G}_0`$, we want to compute the phase-space distribution of the scattered beam which is given by an integral:
 
 $$
    I(\mathbf{p}) = \int \mathrm{d}\mathbf{k}\int \mathrm{d}\mathbf{q}
@@ -44,15 +43,13 @@ $$
 where hat denoes the normalized vector. $`\hat{\mathbf{k}_{||}}`$ is 
 a vector orthogonal to $`\mathbf{k}_0`$ that lies in the span of $`\mathbf{G}`$ and $`\mathbf{k}_0`$ with the sign chosen such that $`\mathbf{G}\cdot\hat{\mathbf{k}_{||}}>0`$ . The last unit vector completes a right hand basis $`\hat{\mathbf{k}_\perp}=\hat{\mathbf{k}_0}\times\hat{\mathbf{k}_{||}}`$ .
 
-We compute a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
+We define a nominal scattering vector $\theta_0=\arcsin(|\mathbf{G}_0|/2k)$ and
 
 $$
    \mathbf{Q} = 2k\sin\theta_0[\cos\theta_0 \hat{\mathbf{k}_{||}} - \sin\theta_0\hat{\mathbf{k}_0}] = 2k\sin\theta_0\hat{\mathbf{Q}}
 $$
 
-This vector is only equal to the reciprocal lattice vector $\mathbf{G}$ crystallite is perfectly aligned. For small deviations, the difference between the two is parrallel to the unit-vector $`\hat{\mathbf{q}}_{\mathrm{rock}} = [\cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}]`$
-
-which completes the basis for $\mathbf{q}$:
+The two vectors $\mathbf{G}_0$ and $\mathbf{Q}$ are only equal when the subgrain at hand is perfectly aligned. For small deviations, the difference between the two is parrallel to the unit-vector $`\hat{\mathbf{q}}_{\mathrm{rock}} = \cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}`$. This vector completes the basis for $\mathbf{q}$ which can be written:
 
 $$
    \mathbf{q} = \mathbf{G}_0 + 2k\sin\theta_0\left(q_{\mathrm{rock}}\hat{\mathbf{q}_{\mathrm{rock}}}
@@ -64,11 +61,9 @@ $$
 $$
 
 
-where $\delta q = 1/(2k\sin\theta_0)(\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. 
+where $\delta q = 1/(2k\sin\theta_0)(\mathbf{Q} - \mathbf{G})\cdot\hat{\mathbf{q}_{\mathrm{rock}}}$ is a measure of how far the reflection is out of alignment. It's equal to the so called "rocking angle" to first order.
 
-The coordinates $`[\varepsilon, \zeta_{||}, \zeta_\perp]`$ and $`[q_{\mathrm{rock}}, q_{\mathrm{strain}}, q_{\mathrm{roll}}]`$ are a natural choice for integration variables as they allow sepparating, energy, collimation, misoientation, and strain-effects.
-
-We can also choose coordinates for the outgoing ray. First we define the nominal scattered wavevector
+The coordinates $`[\varepsilon, \zeta_{||}, \zeta_\perp]`$ and $`[q_{\mathrm{rock}}, q_{\mathrm{strain}}, q_{\mathrm{roll}}]`$ are a natural choice for integration variables as they allow sepparating, energy, collimation, misoientation, and strain-effects. To finish the syntax, we also choose coordinates for the outgoing ray. First we define the nominal scattered wavevector
 
 $$
     \mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q} = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]
@@ -120,7 +115,7 @@ $$
 $$
 
 
-So the scattered beam is simply a 1D Gaussian that samples the RSM though a line offset by $\delta q$ from the center of the RSM.
+So the scattered beam is simply a 1D Gaussian that samples the RSM though a line parallel to $\hat{\mathbf{k}}_\perp$ offset by $\delta q$ from the center of the RSM.
 
 Computing the RSM from an anisotropic Gaussian texture model
 ------------------------------------------------------------
@@ -141,13 +136,17 @@ $$
     f(\mathbf{r}) = \frac{2}{\sqrt{\pi}}\sqrt{\det T}\exp\left( -\mathbf{r}^{\mathrm{T}}T\mathbf{r} \right)  
 $$
 
-The quantity we need is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $`\mathbf{h} = \mathbf{B}_0[h, k, \ell]^{\mathrm{T}}/|\mathbf{B}_0[h, k, \ell]^{\mathrm{T}}|`$ in a given laboratory-space direction $\mathbf{y} = \hat{\mathbf{q}}$. Normally this involves an integral over a circle in SO(3), but in our approximation we can replace it with an infinite line integral in the tangent-space. Defining $\mathbf{p} = g_0\mathbf{h}=\hat{G}$, one parametrization of this line is:
+The quantity we need is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $`\mathbf{h} = \mathbf{B}_0[h, k, \ell]^{\mathrm{T}}/|\mathbf{B}_0[h, k, \ell]^{\mathrm{T}}|`$ in a given laboratory-space direction $\mathbf{y}$.
+
+ (In the notation of last section $\mathbf{h} || \mathbf{G}$ and $\mathbf{y} || \mathbf{Q}_0$. The notation used here is conventional in texture-analysis. Note: $\mathbf{y}$ has nothing to do with "the y-axis".)
+ 
+  Normally this involves an integral over a circle in SO(3), but in our approximation we can replace it with an infinite line integral in the tangent-space. Defining $\mathbf{p} = g_0\mathbf{h}=\hat{G}$, one parametrization of this line is:
 
 $$
     \mathbf{r}(\lambda) = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
 $$
 
-this allows us to evaluate the integral by plugging in, completing the square, and remembering the Gaussian integral. (excercise for reader...)
+this allows us to evaluate the integral by plugging in, completing the square, and evaluating a Gaussian integral. (excercise for reader ...)
 
 $$
     A(\mathbf{y}, \mathbf{p};f) = \int_{-\infty}^\infty f(\mathbf{r}(\lambda)) \mathrm{d}\lambda = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{r}_0 + \frac{(\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{p})^2}{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}} \right)
@@ -165,14 +164,13 @@ $$
     [\mathrm{T}_{\mathbf{p}}]_{ij} = p_k \varepsilon_{lki}(T_{lm}-T_{lp}p_pp_qT_{qm}/pTp)\varepsilon_{mnj}p_n
 $$
 
-where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol, used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor.
+where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol which is simply used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor, to make future expressions nicer.
 
 This function is defined for unit-vectors arguments, but we can upgrade it to a 3D RSM which is only non-zero on a 2D plane:
 
 $$
-    f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}} \right) $$
-
-
+    f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}} \right)
+$$
 
 Testing
 -------
@@ -346,158 +344,3 @@ $$
 I should try to simplify some of the expressions. G and B are prime candidates for some "Woodbuy matrix identity" tricks, but probably I need a computer algebra system.
 
 FOr now I will see if these expressions are numerically stable and check that it produces reasonable rocking curves.
-
-<!-- **Collect terms that depend on the integration variables squared.**
-
-Some notation:
-
-
-
-Wich just amounts to tensor-rotations into the wanted coordinate-system.
-
-$$
-A = \begin{bmatrix}
-    E\tan^2\theta_0 & 0 \\
-    0 & 0
-\end{bmatrix} + 
-\begin{bmatrix} 2 & 0\\
-0 & 2\sin\theta_0
-\end{bmatrix}^{\mathrm{T}}
-\mathrm{D}_g
-\begin{bmatrix} 2 & 0\\
-0 & 2\sin\theta_0
-\end{bmatrix}
-$$
-
-**And linear**
-
-$$
-\mathbf{b}^{\mathrm{T}} = \begin{bmatrix}
-    E\tan\theta_0(1/\sin\theta_0\psi_{\mathrm{rad}} + \tan\theta_0\delta q)\\
-0
-\end{bmatrix} +
-\begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
-\psi_{\mathrm{azim}}
-\end{bmatrix}^{\mathrm{T}}
-\mathrm{D}_g
-\begin{bmatrix} 2 & 0\\
-0 & 2\sin\theta_0
-\end{bmatrix} \\\\
-=\begin{bmatrix} \psi_{\mathrm{rad}} \\
-\psi_{\mathrm{azim}}
-\end{bmatrix}^{\mathrm{T}}
-\left(
-    \begin{bmatrix} E\sec\theta_0 & 0 \\
-0 & 0 \\
-\end{bmatrix} +
-\begin{bmatrix} -1 & 0 \\
-0 & 1 \\
-\end{bmatrix}
-\mathrm{D}_g
-\begin{bmatrix} 2 & 0\\
-0 & 2\sin\theta_0
-\end{bmatrix}
-\right)
-+ 
-\begin{bmatrix} E \tan^2\theta_0\delta q\\
-0 
-\end{bmatrix}^{\mathrm{T}}\\\\
-
-=\psi^{\mathrm{T}} \mathrm{F}^{\mathrm{T}} + \psi_b^{\mathrm{T}}
-$$
-
-**And everything else**
-
-$$
-C = E\left(\frac{1}{\sin\theta_0}\psi_{\mathrm{rad}} + \tan\theta_0\delta q\right)^2 + \begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
-\psi_{\mathrm{azim}}
-\end{bmatrix}^\mathrm{T}
-\mathrm{D}_g
-\begin{bmatrix} -\left(\psi_{\mathrm{rad}} + 2\delta q\right) \\
-\psi_{\mathrm{azim}}
-\end{bmatrix} \\\\
-=\begin{bmatrix} \psi_{\mathrm{rad}} \\
-\psi_{\mathrm{azim}}
-\end{bmatrix}^{\mathrm{T}}
-\left(
-\begin{bmatrix}
-    E \frac{1}{\sin^2\theta_0} & 0 \\
-    0 & 0
-\end{bmatrix}
-+
-\begin{bmatrix} -1 & 0 \\
-0 & 1
-\end{bmatrix}^{\mathrm{T}}
-\mathrm{D}_g
-\begin{bmatrix} -1 & 0 \\
-0 & 1
-\end{bmatrix} 
-\right)
-\begin{bmatrix} \psi_{\mathrm{rad}} \\
-\psi_{\mathrm{azim}}
-\end{bmatrix}\\\\
-\left(\begin{bmatrix} 2E\sec\theta_0\delta q + 4\delta q \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||}   \\
--4\delta q \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{\perp}
-\end{bmatrix} \right)^{\mathrm{T}}\begin{bmatrix} \psi_{\mathrm{rad}} \\
-\psi_{\mathrm{azim}}
-\end{bmatrix} \\\\
-+ E\tan^2\theta_0\delta q^2 + 4\hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||}\delta q^2 \\\\
-=\psi^{\mathrm{T}}\mathrm{G}\psi + \mathbf{c}^{\mathrm{T}}\psi+ c
-$$
-
-Now the integral is on a form we can deal with.
-
-$$
-   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = \int \mathrm{d}\mathbf{q}\exp\left( -\Bigg[ \mathbf{q}^{\mathrm{T}}\mathrm{T}_g\mathbf{q} + \mathbf{q}^{\mathrm{T}}\mathrm{A}\mathbf{q} + 2 \mathbf{b}^{\mathrm{T}}\mathbf{q} + C
-    \Bigg]\right) \\\\
-    = \exp\left( -C + \mathbf{b}^{\mathrm{T}}\mathrm{A}^{-1}\mathbf{b}\right)\int \mathrm{d}\mathbf{q'}\exp\left( -\Bigg[ \mathbf{q}^{\mathrm{T}}\mathrm{T}_g\mathbf{q} + (\mathbf{q-q'})^{\mathrm{T}}\mathrm{A}(\mathbf{q-q'})
-    \Bigg]\right) \\\\
-    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{q}'^{\mathrm{T}}\mathrm{E}\mathbf{q}' -C + \mathbf{b}^{\mathrm{T}}\mathrm{A}^{-1}\mathbf{b}\right) \\\\
-    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{b}^{\mathrm{T}}(\mathrm{A}^{-1}\mathrm{E}\mathrm{A}^{-1}-\mathrm{A}^{-1})\mathbf{b} -C\right) \\\\
-    = (\det\mathrm{E})^{-1/2}\exp\left( -\mathbf{b}^{\mathrm{T}}(\mathrm{A}^{-1}\mathrm{E}\mathrm{A}^{-1}-\mathrm{A}^{-1})\mathbf{b} -C\right)
-$$
-
-where $`\mathrm{E} = (A^{-1}+\mathrm{T}_g^{-1})^{-1} `$ and $`\mathbf{q}' = -\mathrm{A}^{-1}\mathbf{b}`$
-#TODO I think this is wrong!
-
-**Then do the whole excercise again with the dependent variables**
-
-We want to rewrite this expresion on the form:
-
-$$
-\int \mathrm{d}\varepsilon  I(\mathbf{p}) = I_{\mathrm{out}} \exp\left[-(\psi-\psi_0)^{\mathrm{T}} D_{\mathrm{out}}(\psi-\psi_0) \right]
-$$
-
-So now we try to collect terms squared and linear in $`\psi`$ from $`C + B^{\mathrm{T}} A^{-1} B`$. A is constant and B is linear, so it should work.
-
-We can write the square term:
-
-$$
-D_{\mathrm{out}} = G + \mathrm{F}^{\mathrm{T}}\mathrm{A}^{-1}\mathrm{F}
-$$
-
-The linear term:
-
-$$
-2\mathbf{f}\psi = 2\psi_b^{\mathrm{T}}\mathrm{F}\psi + \mathbf{c}^{\mathrm{T}}\psi 
-$$
-
-and constant
-
-$$
-L = c +  \psi_b^{\mathrm{T}}\mathrm{A}^{-1}\psi_b
-$$
-
-completing the square gives:
-
-$$
-\psi_0 = D_{\mathrm{out}}^{-1}K 
-$$
-
-and the constant term is
-
-$$
-I_{\mathrm{out}} = \frac{1}{(\det\mathrm{A})^{1/2}}\exp\left[-L + \mathbf{f}^{\mathrm{T}}D_{\mathrm{out}}^{-1}\mathbf{f}\right]
-$$
-
-This result is a lot uglier than I expected. I do still need to check it with a computer algebra system. -->

@@ -400,7 +400,6 @@ class Detector:
         """
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
 
-
     def render_gaussian_splats(
             self,
             uv_corrds: Tensor,
@@ -429,8 +428,6 @@ class Detector:
             Detector image, shape ``self.shape``.
         """
 
-
-
         shape = self.shape
         u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
         f = torch.zeros(shape)
@@ -440,7 +437,7 @@ class Detector:
 
         ### SnugBox algorithm from https://speedysplat.github.io/
         # Threshold
-        t = 3.0
+        t = 6.0
         D = concentration_tensors[:, 0, 1]**2 - concentration_tensors[:, 0, 0]*concentration_tensors[:, 1, 1]
 
         x_dargs = torch.sqrt(-concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 0, 0])
@@ -457,7 +454,7 @@ class Detector:
         x_min = torch.minimum(x_1, x_2) + uv_corrds[:,0]
         x_max = torch.maximum(x_1, x_2) + uv_corrds[:,0]
 
-        for patch_index_1 in range(n_patches_dim1):
+        for patch_index_1 in range(n_patches_dim1):    
             for patch_index_2 in range(n_patches_dim2):
 
                 patch_slice = (slice(patch_size*patch_index_1, patch_size*(patch_index_1+1)),
@@ -476,7 +473,7 @@ class Detector:
                                             v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
                                             ], axis=1)
 
-                f[patch_slice] =  torch.sum(scale_factors[include_index, None, None]\
+                f[patch_slice] += torch.sum(scale_factors[include_index, None, None]\
                     * torch.exp(- torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)), axis=0)
                 # f[patch_slice] = torch.sum(include_index)
 
