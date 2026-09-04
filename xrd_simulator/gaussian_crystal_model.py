@@ -170,7 +170,7 @@ class GaussianPolycrystal:
             t0 = time.time()
 
         # Do pole-figure part of the calculation
-        mean_scattering_directions, partialities, azim_directions, azim_widths = _get_diffraction_arcsegment(
+        mean_scattering_directions, partialities, outgoing_beam_divergence_tensor = _get_diffraction_arcsegment(
             p_vectors,
             misori_concentration_tensors,
             xray_propagation_direction,
@@ -199,12 +199,27 @@ class GaussianPolycrystal:
         point_of_detector_intersection = pos + ray_lengths[:,None] * mean_scattering_directions
         uv_coords = torch.einsum('xi,vi,v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths)
 
-        # Do smearing due to angular divergence
-        azimuthal_direction_uv = torch.einsum('xi,ui->xu', azim_directions, W) / pixellengths[None, :] * ray_lengths[:, None] * azim_widths[:, None]\
-            / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2)
-        azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
-        detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + azimuthal_smearing_tensor)
+        # # Do smearing due to angular divergence
+        # azimuthal_spread_xyz = azim_directions * ray_lengths[:, None] * azim_widths[:, None]
+        # azimuthal_direction_uv = torch.einsum('xi,ui->xu', azimuthal_spread_xyz, W) / pixellengths[None, :]\
+        #     / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2) # factor accounts for a smearing effect when the scattered beam
+        #                                                                         # direction is not normal to the detector. I should re-write to
+        #                                                                         # tensor-expressions for future-proofing. 
+        
+        W_scaled = W * 1 / pixellengths[:, None]
+        divergence_smearing_tensor = torch.einsum('ui,xij,vj->xuv',
+            W_scaled, outgoing_beam_divergence_tensor * ray_lengths[:, None, None]**2, W_scaled)
+
+
+        # print(torch.linalg.eig(outgoing_beam_divergence_concentration_tensor[torch.argmax(partialities)]))
+        
+        # azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
+        detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + divergence_smearing_tensor)
         intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )
+
+        # print(torch.linalg.eig(azimuthal_smearing_tensor[torch.argmax(partialities)]).eigenvalues)
+        # print(azimuthal_smearing_tensor[torch.argmax(partialities)])
+        # print(torch.linalg.inv(detectorspace_grainshape_projections)[torch.argmax(partialities)])
 
         # Collect all intensity modifying factors
         polarization_factors = _polarization(mean_scattering_directions, beam.polarization_vector)

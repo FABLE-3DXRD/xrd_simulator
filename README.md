@@ -102,16 +102,16 @@ $$
 In the current model, the incident beam is monochromatic and collimated ($\varepsilon = \zeta_{||} = \zeta_{\perp} = 0$) and there is no strain-broadening $q_{\mathrm{strain}}=0$ leading to:
 
 $$
-    (q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
-       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp} = 
+    2\sin\theta_0[(q_{\mathrm{rock}} - \delta q)\hat{\mathbf{q}_{\mathrm{rock}}}
+       + q_{\mathrm{roll}}\hat{\mathbf{k}_\perp}] = 
     \psi_{\mathrm{rad}}\hat{\mathbf{k}_{\mathrm{rad}}}
-     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\mathrm{azim}}
+     + \psi_{\mathrm{azim}}\hat{\mathbf{k}_\mathrm{\perp}}
 $$
 
 which can be rearanged to the three coordinate equations:
 
 $$
-    q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{\mathrm{rad}}=0
+    2\sin\theta_0 q_{\mathrm{roll}} = \psi_{\mathrm{azim}} \text{ and } q_{\mathrm{rock}} = \delta q \text{ and } \psi_{\mathrm{rad}}=0
 $$
 
 
