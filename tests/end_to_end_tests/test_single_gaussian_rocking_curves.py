@@ -105,7 +105,6 @@ def make_random_tensor(axis_1, axis_2):
     return tensor
 
 
-# Test independence on misorientation.
 ### Do simulation
 motion_rock_init = RigidBodyMotion(
    rotation_axis= -rocking_axis,
@@ -158,6 +157,8 @@ polycrystal.transform(motion_rock_init, 1.0)
 
 
 if __name__ == "__main__":
+
+    print(np.sum(RSM_simulated) / np.linalg.det(shape_tensor))
 
     fig, axs = plt.subplots(2,2, figsize = (8,8))
     y_lab = (np.arange(n_pixels) - n_pixels/2) * pixelsize

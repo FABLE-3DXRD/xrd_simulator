@@ -245,7 +245,7 @@ f = gauss_polycrystal.render_detector_frame(
     beam=gaussian_beam,
     detector=detector,
     sample_rotation_during_exposure = rocking_axis * rocking_angle /2.5,
-    timing=True,
+    verbose=True,
 )
 
 
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     axs[0].set_title('Tetrahedron based model')
     axs[0].grid()
 
-    img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
+   #  img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
     img = axs[1].imshow(f, vmin =0, vmax = 1e4, cmap="jet")
     axs[1].set_title('Gaussian based_model')
     axs[1].grid()
