@@ -7,7 +7,7 @@ from torch import Tensor
 from xrd_simulator.phase import Phase
 from xrd_simulator.utils import ensure_torch
 from xrd_simulator.detector import Detector
-from xrd_simulator.laue import _get_diffraction_arcsegment
+from xrd_simulator.laue import _get_diffraction_arcsegment, _project_misorientation_tensor
 from xrd_simulator.beam import GaussianBeam
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.scattering_factors import _polarization
@@ -89,10 +89,29 @@ class GaussianPolycrystal:
         sample_orientation: npt.NDArray | Tensor = np.eye(3),
         sample_translation: npt.NDArray | Tensor = np.zeros(3),
         sample_rotation_during_exposure: npt.NDArray | Tensor = np.zeros(3),
-        timing=False
+        verbose=False,
+        threshold = 6.0,
     ):
+        """ Render a single diffraction pattern.
 
-        if timing:
+        Parameters
+        ----------
+        beam : GaussianBeam
+            Object representing the x-ray beam hitting the crystal.
+        detector : Detector
+            Object representing the x-ray detector.
+        sample_orientation : NDArray, optional
+            3-by-3 Rotation matrix representing the orientation of the sample
+        sample_translation : NDArray, optional
+            3-vector prepresenting the translation of the sample. (the sample is first
+            rotated about the origin, then translated)
+        sample_rotation_during_exposure : NDArray, optional
+            3-vector representing a small rotation carried out during the measurement
+        verbose : bool, optional
+            If ``True`` print timing information. Default is ``False``.
+        """
+
+        if verbose:
             t0 = time.time()
 
         xray_propagation_direction = beam.xray_dir
@@ -119,26 +138,25 @@ class GaussianPolycrystal:
             self.max_grain_size,
         )
 
-        if timing:
+        if verbose:
             print(f'Beam-grain intersection took {time.time()-t0}.')
             t0 = time.time()
 
         # Simulate sample-rotation by adding a rotation to the grain misorientation
         sample_rotation_during_exposure = ensure_torch(sample_rotation_during_exposure)
         rotation_vector = torch.einsum('ij,i->j', sample_orientation, sample_rotation_during_exposure)
-        smeared_misorientation_tensors = torch.linalg.inv(torch.linalg.inv(self.misori_concentration_tensors[grains_hit]) + torch.outer(rotation_vector, rotation_vector))
+        smeared_misorientation_tensors = torch.linalg.inv(
+            torch.linalg.inv(self.misori_concentration_tensors[grains_hit]) + torch.outer(rotation_vector, rotation_vector))
 
         #Construct some crystal and geometry information.
         B = torch.Tensor(form_b_mat(self.phase.unit_cell))
         max_angle = detector._get_wrapping_cone(xray_propagation_direction, np.mean([0, 0, 0]))
-        self.phase._setup_diffracting_planes(wavelength=wavelength, min_bragg_angle=0.0, max_bragg_angle=max_angle+0.1)  #TODO Using private method
+        self.phase._setup_diffracting_planes(wavelength=wavelength, min_bragg_angle=0.0, max_bragg_angle=max_angle+0.1)
         
         # Get miller indicies and structure factors
         miller_indices = torch.Tensor(self.phase.miller_indices)
         if self.phase.structure_factors is not None:
-            structure_factors = torch.sum(
-                ensure_torch(self.phase.structure_factors) ** 2, axis=1
-            )
+            structure_factors = torch.sum(ensure_torch(self.phase.structure_factors) ** 2, axis=1)
             miller_indices = miller_indices[structure_factors > 1e-6]
             structure_factors = structure_factors[structure_factors > 1e-6]
         else:
@@ -154,42 +172,39 @@ class GaussianPolycrystal:
         # Filter out reflections far from the bragg-condition
         dp = torch.einsum('i,ghi->gh', xray_propagation_direction, p_vectors) / p_vectors_norm 
         does_diffract = torch.abs( dp + torch.sin(theta_angle) ) \
-            < 3 * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure)) #IDEA: Consider a per-gaussian max misorientation
-        grain_does_diffract, hkl_does_diffract = torch.where(does_diffract)
+            < threshold * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure)) #IDEA: Consider a per-gaussian max misorientation
 
+        # Exception if no grains diffract.
         if not torch.any(does_diffract):
             return torch.zeros(detector.shape)
 
-        # Select the relevant reflections and flatten the grain- and symetry-indexes.
+        # Select the relevant reflections and flatten the grain- and hkl-indexes.
+        grain_does_diffract, hkl_does_diffract = torch.where(does_diffract)
         misori_concentration_tensors = smeared_misorientation_tensors[grain_does_diffract]
         p_vectors = p_vectors[does_diffract]
         shape_concentration_tensors = intersection_shape_concentration_tensors[grain_does_diffract]
 
-        if timing:
+        if verbose:
             print(f'Bragg-condition filterin took {time.time()-t0}. ({does_diffract.shape[0]*does_diffract.shape[1]} -> {torch.sum(does_diffract)})')
             t0 = time.time()
 
         # Do pole-figure part of the calculation
-        mean_scattering_directions, partialities, outgoing_beam_divergence_tensor = _get_diffraction_arcsegment(
+        mean_scattering_directions, log_partialities, normalization_factors, outgoing_beam_divergence_tensor = _get_diffraction_arcsegment(
             p_vectors,
             misori_concentration_tensors,
             xray_propagation_direction,
             wavelength,
         )
 
-        if timing:
+        if verbose:
             print(f'Reciprocal space part took {time.time()-t0}')
             t0 = time.time()
 
-        # Splat grain realspace shapes (Consider using the non-strained non-azimuthally shifted directions to simplify gradients later)
+        # Splat grain realspace shapes (#NOTE Consider using the non-strained non-azimuthally shifted directions to simplify gradients)
         detectorspace_grainshape_projections, projected_thicknes_scale_factors = self.splat_grainshapes(
-            mean_scattering_directions,
-            shape_concentration_tensors,
-            W,
-            pixellengths,
-        )
+            mean_scattering_directions, shape_concentration_tensors, W, pixellengths,)
 
-        if timing:
+        if verbose:
             print(f'Realspace proj took {time.time()-t0}')
             t0 = time.time()
 
@@ -200,54 +215,38 @@ class GaussianPolycrystal:
         uv_coords = torch.einsum('xi,vi,v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths)
 
         # # Do smearing due to angular divergence
-        # azimuthal_spread_xyz = azim_directions * ray_lengths[:, None] * azim_widths[:, None]
-        # azimuthal_direction_uv = torch.einsum('xi,ui->xu', azimuthal_spread_xyz, W) / pixellengths[None, :]\
-        #     / (1 - torch.einsum('xi,ui->xu', mean_scattering_directions, W)**2) # factor accounts for a smearing effect when the scattered beam
-        #                                                                         # direction is not normal to the detector. I should re-write to
-        #                                                                         # tensor-expressions for future-proofing. 
-        
-        W_scaled = W * 1 / pixellengths[:, None]
+        W_scaled = W * 1 / pixellengths[:, None] #TODO I think this assumes orthorgonal pixel directions.
         divergence_smearing_tensor = torch.einsum('ui,xij,vj->xuv',
             W_scaled, outgoing_beam_divergence_tensor * ray_lengths[:, None, None]**2, W_scaled)
-
-
-        # print(torch.linalg.eig(outgoing_beam_divergence_concentration_tensor[torch.argmax(partialities)]))
-        
-        # azimuthal_smearing_tensor = torch.einsum('xu,xv->xuv',azimuthal_direction_uv, azimuthal_direction_uv)
         detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + divergence_smearing_tensor)
         intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )
-
-        # print(torch.linalg.eig(azimuthal_smearing_tensor[torch.argmax(partialities)]).eigenvalues)
-        # print(azimuthal_smearing_tensor[torch.argmax(partialities)])
-        # print(torch.linalg.inv(detectorspace_grainshape_projections)[torch.argmax(partialities)])
 
         # Collect all intensity modifying factors
         polarization_factors = _polarization(mean_scattering_directions, beam.polarization_vector)
         solid_angle_factor = torch.abs(torch.einsum('xi,i->x',mean_scattering_directions, detector_norm))
-        scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * partialities * intensity_spread_out_factor\
+        scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * np.exp(log_partialities) * normalization_factors * intensity_spread_out_factor\
             * beam_intensity_factors[grain_does_diffract]*polarization_factors*solid_angle_factor
 
-        does_diffract = scalefactors > 1e-6 * torch.max(scalefactors) # Discard weak peaks. Depends one unit-convention!
+        does_diffract = log_partialities > -2 * threshold
 
-        if timing:
+        if verbose:
             print(f'Raytracing took {time.time()-t0}')
             t0 = time.time()
 
         peaks_batch_size = 20000
         n_batches = torch.sum(does_diffract) // peaks_batch_size + 1
-        image_stack = torch.zeros(n_batches, *detector.shape)
+        f = torch.zeros(detector.shape)
 
         for peaks_batch in range(n_batches):
 
-            image_stack[peaks_batch] = detector.render_gaussian_splats(
+            f += detector.render_gaussian_splats(
                 uv_coords[does_diffract][peaks_batch*peaks_batch_size:(peaks_batch+1)*peaks_batch_size],
                 scalefactors[does_diffract][peaks_batch*peaks_batch_size:(peaks_batch+1)*peaks_batch_size],
                 detspace_splat_concentration[does_diffract][peaks_batch*peaks_batch_size:(peaks_batch+1)*peaks_batch_size],
+                threshold + log_partialities[does_diffract][peaks_batch*peaks_batch_size:(peaks_batch+1)*peaks_batch_size],
             )
 
-        f = torch.sum(image_stack, axis=0)
-
-        if timing:
+        if verbose:
             print(f'Rasterization took {time.time()-t0}')
             t0 = time.time()
 
@@ -329,7 +328,7 @@ class GaussianPolycrystal:
         # Rotate vectors:
         self.positions = torch.einsum('ij,gj->gi', Rot_mat, self.positions-rigid_body_motion.origin[None,:])+rigid_body_motion.origin[None,:]
 
-        # Rotate compose rotations
+        # Rotate lattices
         self.orientaions = torch.einsum('ij,gjk->gik', Rot_mat, self.orientaions)
 
         #Rotate tensors
@@ -427,8 +426,8 @@ class GaussianPolycrystal:
         
         scale = 1 / n_symmetries / torch.sum(volumes) * volumes[:, None] * 2 * torch.sqrt(torch.linalg.det(self.misori_concentration_tensors))[:, None] / np.sqrt( pTp )
         
-        return p_vectors, scale, projected_misorientation                
-
+        return p_vectors, scale, projected_misorientation
+    
     def rasterize_on_unitvector_map(
         self,
         y : Tensor,

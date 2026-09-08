@@ -172,7 +172,7 @@ def _get_diffraction_arcsegment(
         xray_propagation_direction: Tensor,
         wavelength: Tensor,
     ):
-    """ Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
+    r""" Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
     of the scattered beam.
 
     Parameters
@@ -228,10 +228,10 @@ def _get_diffraction_arcsegment(
     mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
         + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
     D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
-    partialities = torch.exp(-A + B**2 / C) * 2 * torch.sqrt( torch.linalg.det(T) / D ) / torch.sqrt(C)
+    log_partialities = -A + B**2 / C
+    normalization_factors = 2 * torch.sqrt( torch.linalg.det(T) / D / C )
 
-    # print(torch.linalg.eig(outgoing_beam_divergence_concentration_tensor[torch.argmax(partialities)]).eigenvalues)
-    return mean_scattering_directions, partialities, outgoing_beam_divergence_tensor
+    return mean_scattering_directions, log_partialities, normalization_factors, outgoing_beam_divergence_tensor
 
 
 # def _get_diffraction_arcsegment_divergent_beam(
