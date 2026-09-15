@@ -227,7 +227,7 @@ class GaussianPolycrystal:
         scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * np.exp(log_partialities) * normalization_factors * intensity_spread_out_factor\
             * beam_intensity_factors[grain_does_diffract]*polarization_factors*solid_angle_factor
 
-        does_diffract = log_partialities > -2 * threshold
+        does_diffract = log_partialities > - 1 * threshold
 
         if verbose:
             print(f'Raytracing took {time.time()-t0}')
