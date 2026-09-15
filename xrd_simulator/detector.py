@@ -406,7 +406,7 @@ class Detector:
             scale_factors: Tensor,
             concentration_tensors: Tensor,
             threshold: Tensor = None,
-            patch_size: int =64,
+            patch_size: int =32,
         ):
         """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
 
@@ -437,21 +437,21 @@ class Detector:
         n_patches_dim2 = (shape[1]-1)//patch_size+1
 
         ### SnugBox algorithm from https://speedysplat.github.io/
-        # Threshold
-        D = concentration_tensors[:, 0, 1]**2 - concentration_tensors[:, 0, 0]*concentration_tensors[:, 1, 1]
+        # assert np.allclose(concentration_tensors[:, 0, 1], concentration_tensors[:, 1, 0])
 
-        x_dargs = torch.sqrt(-concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 0, 0])
-        sqrt_term = torch.sqrt(D  * x_dargs**2 + 2 * threshold * concentration_tensors[:, 1, 1])
-        y_1 = (-concentration_tensors[:, 0, 1] + sqrt_term)/concentration_tensors[:, 1, 1]
-        y_2 = (-concentration_tensors[:, 0, 1] - sqrt_term)/concentration_tensors[:, 1, 1]
-        y_min = torch.minimum(y_1, y_2) + uv_corrds[:,1]
+        D = concentration_tensors[:, 0, 1]**2 - concentration_tensors[:, 0, 0]*concentration_tensors[:, 1, 1]
+        x_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 0, 0])
+        sqrt_term = torch.sqrt(D  * x_dargs**2 + threshold * concentration_tensors[:, 1, 1])
+        y_1 = (-concentration_tensors[:, 0, 1] * x_dargs + sqrt_term)/concentration_tensors[:, 1, 1]
+        y_2 = (concentration_tensors[:, 0, 1] * x_dargs - sqrt_term)/concentration_tensors[:, 1, 1]
+        y_min = -torch.maximum(y_1, y_2) + uv_corrds[:,1]
         y_max = torch.maximum(y_1, y_2) + uv_corrds[:,1]
 
-        y_dargs = torch.sqrt(-concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 1, 1])
-        sqrt_term = torch.sqrt(D  * y_dargs**2 + 2 * threshold * concentration_tensors[:, 0, 0])
-        x_1 = (-concentration_tensors[:, 0, 1] + sqrt_term)/concentration_tensors[:, 0, 0]
-        x_2 = (-concentration_tensors[:, 0, 1] - sqrt_term)/concentration_tensors[:, 0, 0]
-        x_min = torch.minimum(x_1, x_2) + uv_corrds[:,0]
+        y_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 1, 1])
+        sqrt_term = torch.sqrt(D  * y_dargs**2 + threshold * concentration_tensors[:, 0, 0])
+        x_1 = (-concentration_tensors[:, 0, 1]* y_dargs + sqrt_term)/concentration_tensors[:, 0, 0]
+        x_2 = (concentration_tensors[:, 0, 1] * y_dargs  - sqrt_term)/concentration_tensors[:, 0, 0]
+        x_min = -torch.maximum(x_1, x_2) + uv_corrds[:,0]
         x_max = torch.maximum(x_1, x_2) + uv_corrds[:,0]
 
         for patch_index_1 in range(n_patches_dim1):    
@@ -471,14 +471,13 @@ class Detector:
                 local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
                                             v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
                                             ], axis=1)
-
                                 
                 arg = torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)
 
                 below_threshold = arg < threshold[include_index, None, None]
                 f[patch_slice] += torch.sum(scale_factors[include_index, None, None]\
                     * torch.exp(-arg)*below_threshold, axis=0)
-                # f[patch_slice] = torch.sum(include_index)
+                # f[patch_slice] += torch.sum(include_index)
 
         return f
 
