@@ -15,7 +15,9 @@ from xrd_simulator.utils import ensure_torch
 ### Parameters
 wavelength=0.28523
 beam_half_edgewidth = 200.0
+beam_half_edgewidth = 200.0
 tetrahedron_bbox_size = 150.0
+eta = 0.0
 eta = 0.0
 hkl_tuple = (2, 1, 0)
 detector_distance = 0.5e4
