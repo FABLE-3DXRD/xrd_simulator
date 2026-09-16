@@ -234,71 +234,23 @@ def _get_diffraction_arcsegment(
     return mean_scattering_directions, log_partialities, normalization_factors, outgoing_beam_divergence_tensor
 
 
-# def _get_diffraction_arcsegment_divergent_beam(
-#         p_vectors: Tensor,
-#         T: Tensor,
-#         xray_propagation_direction: Tensor,
-#         wavelength: Tensor,
-#         beam_divergence_tensor,
-#         relative_bandwidth,
-#     ):
-#     """ Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
-#     of the scattered beam.
-
-#     Parameters
-#     ----------
-#     p_vectors : Tensor
-#         Lattice vectors in lattice reference frame (not hkl-tuples), shape ``(N, 3)``
-#         Uses the convention with
-#         .. math:: |h| = 4 \pi\sin\theta / \lambda
-#     T : Tensor
-#         Lab-space orientation concentration tensors, shape ``(N, 3, 3)``
-#     xray_propagation_direction : Tensor
-#         Incident x-ray propagation direction unit vector, shape ``(3,)``
-#     wavelength : float
-        
-
-#     Returns
-#     -------
-#     mean_scattering_directions : Tensor
-#         Propagation direction unit vectors of the center of the scattered beams, shape ``(N, 3,)``
-#     partialities : Tenor
-#         Intensity of the scattered beams per unit-volume sample, shape ``(N,)``
-#     dir_scatteringplane_orth : Tensor
-#         Dispersion direction unit vectors of the scattered beams, shape ``(N, 3,)``
-#     azimuthal_divergence : Tensor
-#         Divergence of the scattered beams in radians, shape ``(N,)``        
-#     """
-
-#     # Splat onto polefigure
-#     T_proj = _project_misorientation_tensor(T, p_vectors)
-
-#     # Compute special directions
-#     p_norm = torch.linalg.norm(p_vectors, axis=-1)
-#     theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
-
-#     k_par = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
-#     k_par = k_par / torch.linalg.norm(k_par, axis=-1)[:, None]
-#     q_hat = torch.cos(theta_angle)[:, None] * k_par - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
-#     k_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, k_par)
-#     del_q = 2 * torch.sin(theta_angle) * torch.linalg.norm(p_vectors / p_norm - q_hat, axis =-1)
-
-#     # Rotate 2D tensors into azimuthal frame
-#     incident_beam_frame = torch.stack([k_par, k_orth], axis=-1)
-#     q_frame = torch.stack([q_hat, k_orth], axis=-1)
-#     D = torch.einsum('xia,ij,xib->xab',incident_beam_frame, beam_divergence_tensor, incident_beam_frame)
-#     T = torch.einsum('xia,ij,xib->xab',q_frame, T_proj, q_frame)
-
-#     # Build all the elemnts
-#     E = 1/2/relative_bandwidth**2
-#     coeff = torch.diag([2, 2 * torch.sin(theta_angle)])
-#     A = torch.diag([E * torch.tan(theta_angle)**2, 0])[None, :, :] + T \
-#         + torch.einsum('xji,xjk,xkl->xil', coeff, D, coeff)
-
-#     return 0#mean_scattering_directions, partialities, dir_scatteringplane_orth, azimuthal_divergence
-
-
 def _project_misorientation_tensor(T, p_vectors):
+    r"""Calculate RSM-broadedning due to misorientation along specific (lab-space) scattering directions.
+
+    Parameters
+    ----------
+    T : torch.Tensor
+        Lab-space inverse misorientation tensors, shape (N, 3, 3,)
+    p_vectors : torch.Tensor
+        Lab-space scattering vectors, shape (N, 3,)
+    
+    Returns
+    -------
+    T_proj : torch.Tensor
+        Projected misorientations along the scattering directions represented as
+        3-by-3 tensors. Singular along the ``p_vectors`` direction, shape (N, 3, 3,).
+    """
+
 
     p_norm = torch.linalg.norm(p_vectors, axis=-1)
     D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2

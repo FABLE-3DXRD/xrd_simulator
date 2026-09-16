@@ -405,10 +405,10 @@ class Detector:
             uv_corrds: Tensor,
             scale_factors: Tensor,
             concentration_tensors: Tensor,
-            threshold: Tensor = None,
+            threshold: Tensor,
             patch_size: int =32,
         ):
-        """ Basic 2D Gaussian rasterizer. Each gaussian has the expression:
+        r"""Basic 2D Gaussian rasterizer. Each gaussian has the expression:
 
         .. math:: f = s \exp(-[u-u_0, v-v_0] S [u-u_0, v-v_0]^T).
         
@@ -420,6 +420,9 @@ class Detector:
             Intensity scale factors, shape ``(N,)``
         concentration_tensors : Tensor
             Shape concentration tensors, shape ``(N, 2, 2)``
+        threshold : Tensor, shape ``(N,)``
+            Per gaussian threshold value used to truncate the Gaussians. Gaussians are set to zero
+            when the value falls bellow ``scale_factors*torch.exp(-theshold)``.
         patch_size : int
             For evaluation the detector is split into patches of shize `patch_size` by `patch_size`.
 
@@ -429,56 +432,45 @@ class Detector:
             Detector image, shape ``self.shape``.
         """
 
-        shape = self.shape
-        u, v = torch.meshgrid(torch.arange(shape[0]), torch.arange(shape[1]))
-        f = torch.zeros(shape)
-
-        n_patches_dim1 = (shape[0]-1)//patch_size+1
-        n_patches_dim2 = (shape[1]-1)//patch_size+1
-
-        ### SnugBox algorithm from https://speedysplat.github.io/
         # assert np.allclose(concentration_tensors[:, 0, 1], concentration_tensors[:, 1, 0])
 
+        u, v = torch.meshgrid(torch.arange(self.shape[0]), torch.arange(self.shape[1]))
+        f = torch.zeros(self.shape)
+        n_patches_dim1 = (self.shape[0]-1)//patch_size+1
+        n_patches_dim2 = (self.shape[1]-1)//patch_size+1
+
+        ### SnugBox algorithm from https://speedysplat.github.io/
         D = concentration_tensors[:, 0, 1]**2 - concentration_tensors[:, 0, 0]*concentration_tensors[:, 1, 1]
         x_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 0, 0])
         sqrt_term = torch.sqrt(D  * x_dargs**2 + threshold * concentration_tensors[:, 1, 1])
-        y_1 = (-concentration_tensors[:, 0, 1] * x_dargs + sqrt_term)/concentration_tensors[:, 1, 1]
-        y_2 = (concentration_tensors[:, 0, 1] * x_dargs - sqrt_term)/concentration_tensors[:, 1, 1]
-        y_min = -torch.maximum(y_1, y_2) + uv_corrds[:,1]
-        y_max = torch.maximum(y_1, y_2) + uv_corrds[:,1]
+        y_offset = torch.abs((-concentration_tensors[:, 0, 1] * x_dargs + sqrt_term)/concentration_tensors[:, 1, 1])
 
         y_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 1, 1])
         sqrt_term = torch.sqrt(D  * y_dargs**2 + threshold * concentration_tensors[:, 0, 0])
-        x_1 = (-concentration_tensors[:, 0, 1]* y_dargs + sqrt_term)/concentration_tensors[:, 0, 0]
-        x_2 = (concentration_tensors[:, 0, 1] * y_dargs  - sqrt_term)/concentration_tensors[:, 0, 0]
-        x_min = -torch.maximum(x_1, x_2) + uv_corrds[:,0]
-        x_max = torch.maximum(x_1, x_2) + uv_corrds[:,0]
+        x_offset = torch.abs((-concentration_tensors[:, 0, 1]* y_dargs + sqrt_term)/concentration_tensors[:, 0, 0])
 
+        # Loop over patches (Should be parallelized)
         for patch_index_1 in range(n_patches_dim1):    
             for patch_index_2 in range(n_patches_dim2):
 
                 patch_slice = (slice(patch_size*patch_index_1, patch_size*(patch_index_1+1)),
                                slice(patch_size*patch_index_2, patch_size*(patch_index_2+1)),)
-
                 patch_center = torch.Tensor([(patch_index_1+0.5)*patch_size, (patch_index_2+0.5)*patch_size]) 
 
-                in_bbox_x = torch.logical_and(patch_center[0] - 0.5 * patch_size < x_max,
-                                              patch_center[0] + 0.5 * patch_size > x_min)
-                in_bbox_y = torch.logical_and(patch_center[1] - 0.5 * patch_size < y_max,
-                                              patch_center[1] + 0.5 * patch_size > y_min)
+                # Determine which gaussians bounding boxes intersect this patch
+                in_bbox_x = torch.logical_and(patch_center[0] - 0.5 * patch_size < x_offset + uv_corrds[:,0],
+                                              patch_center[0] + 0.5 * patch_size > -x_offset + uv_corrds[:,0])
+                in_bbox_y = torch.logical_and(patch_center[1] - 0.5 * patch_size < y_offset + uv_corrds[:,1],
+                                              patch_center[1] + 0.5 * patch_size > -y_offset + uv_corrds[:,1])
                 include_index = torch.logical_and(in_bbox_x, in_bbox_y)
 
+                # Evaluate the gaussians
                 local_coords = torch.stack([u[patch_slice][None, :, :] - uv_corrds[include_index, 0, None, None],
                                             v[patch_slice][None, :, :] - uv_corrds[include_index, 1, None, None],
                                             ], axis=1)
-                                
                 arg = torch.einsum('xiuv,xij,xjuv->xuv' ,local_coords, concentration_tensors[include_index, :, :], local_coords)
-
                 below_threshold = arg < threshold[include_index, None, None]
-                f[patch_slice] += torch.sum(scale_factors[include_index, None, None]\
-                    * torch.exp(-arg)*below_threshold, axis=0)
-                # f[patch_slice] += torch.sum(include_index)
-
+                f[patch_slice] += torch.sum(scale_factors[include_index, None, None] * torch.exp(-arg)*below_threshold, axis=0)
         return f
 
     # ------------------------------------------------------------------

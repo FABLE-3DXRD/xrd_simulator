@@ -58,6 +58,10 @@ class GaussianGrainish:
         self.strain_tensor = strain_tensor
 
 class GaussianPolycrystal:
+    """ Colection of ``GaussianGrainish`` object representing a polycrystalline sample.
+    Variables ``max_grain_size`` and ``max_misorientation`` can be supplied to speed up
+    diffraction calculations.
+    """
 
     def __init__(self,
         grain_list: list[GaussianGrainish],
@@ -82,7 +86,7 @@ class GaussianPolycrystal:
         
         self.strains = torch.stack([ensure_torch(grain.strain_tensor) for grain in grain_list])
 
-    def render_detector_frame(
+    def diffract(
         self,
         beam: GaussianBeam,
         detector: Detector,
@@ -91,6 +95,7 @@ class GaussianPolycrystal:
         sample_rotation_during_exposure: npt.NDArray | Tensor = np.zeros(3),
         verbose=False,
         threshold = 6.0,
+        peaks_batch_size = 20000,
     ):
         """ Render a single diffraction pattern.
 
@@ -136,6 +141,7 @@ class GaussianPolycrystal:
             sample_orientation,
             sample_translation,
             self.max_grain_size,
+            threshold = threshold,
         )
 
         if verbose:
@@ -172,14 +178,14 @@ class GaussianPolycrystal:
         # Filter out reflections far from the bragg-condition
         dp = torch.einsum('i,ghi->gh', xray_propagation_direction, p_vectors) / p_vectors_norm 
         does_diffract = torch.abs( dp + torch.sin(theta_angle) ) \
-            < threshold * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure)) #IDEA: Consider a per-gaussian max misorientation
+            < threshold * (self.max_misorientation + torch.linalg.norm(sample_rotation_during_exposure)) #IDEA: Consider a per-gaussian max misorientation.
 
         # Exception if no grains diffract.
         if not torch.any(does_diffract):
             return torch.zeros(detector.shape)
 
         # Select the relevant reflections and flatten the grain- and hkl-indexes.
-        grain_does_diffract, hkl_does_diffract = torch.where(does_diffract)
+        grain_does_diffract, hkl_does_diffract = torch.where(does_diffract) # Don't ask me what this line does
         misori_concentration_tensors = smeared_misorientation_tensors[grain_does_diffract]
         p_vectors = p_vectors[does_diffract]
         shape_concentration_tensors = intersection_shape_concentration_tensors[grain_does_diffract]
@@ -188,7 +194,7 @@ class GaussianPolycrystal:
             print(f'Bragg-condition filterin took {time.time()-t0}. ({does_diffract.shape[0]*does_diffract.shape[1]} -> {torch.sum(does_diffract)})')
             t0 = time.time()
 
-        # Do pole-figure part of the calculation
+        # Find the parameters of the scattered rays.
         mean_scattering_directions, log_partialities, normalization_factors, outgoing_beam_divergence_tensor = _get_diffraction_arcsegment(
             p_vectors,
             misori_concentration_tensors,
@@ -214,10 +220,9 @@ class GaussianPolycrystal:
         point_of_detector_intersection = pos + ray_lengths[:,None] * mean_scattering_directions
         uv_coords = torch.einsum('xi,vi,v->xv',point_of_detector_intersection - detector_origin[None, :], W, 1/pixellengths)
 
-        # # Do smearing due to angular divergence
+        # Smearing due to angular divergence of the scattered beam.
         W_scaled = W * 1 / pixellengths[:, None] #TODO I think this assumes orthorgonal pixel directions.
-        divergence_smearing_tensor = torch.einsum('ui,xij,vj->xuv',
-            W_scaled, outgoing_beam_divergence_tensor * ray_lengths[:, None, None]**2, W_scaled)
+        divergence_smearing_tensor = torch.einsum('ui,xij,vj->xuv', W_scaled, outgoing_beam_divergence_tensor * ray_lengths[:, None, None]**2, W_scaled)
         detspace_splat_concentration = torch.linalg.inv( torch.linalg.inv(detectorspace_grainshape_projections) + divergence_smearing_tensor)
         intensity_spread_out_factor = torch.sqrt( torch.linalg.det(detspace_splat_concentration) / torch.linalg.det(detectorspace_grainshape_projections) )
 
@@ -227,13 +232,13 @@ class GaussianPolycrystal:
         scalefactors = structure_factors[hkl_does_diffract] * projected_thicknes_scale_factors * np.exp(log_partialities) * normalization_factors * intensity_spread_out_factor\
             * beam_intensity_factors[grain_does_diffract]*polarization_factors*solid_angle_factor
 
+        # Discard reflections too far out on the rocking curve.
         does_diffract = log_partialities > - 1 * threshold
 
         if verbose:
             print(f'Raytracing took {time.time()-t0}')
             t0 = time.time()
 
-        peaks_batch_size = 20000
         n_batches = torch.sum(does_diffract) // peaks_batch_size + 1
         f = torch.zeros(detector.shape)
 
@@ -260,7 +265,7 @@ class GaussianPolycrystal:
         W: Tensor,
         pixellengths: Tensor,
     ):
-        """ Project the laoratory space shape-concentration-tensors of a range of grains along a the scattering directions
+        """ Project the labratory space shape-concentration-tensors of a range of grains along a the scattering directions
         into 2D detector pixels space.
 
         Parameters
@@ -383,8 +388,7 @@ class GaussianPolycrystal:
             hkl: tuple[int],
         ):
 
-
-        # A = form_a_mat(self.phase.unit_cell)
+        # A = form_a_mat(self.phase.unit_cell) # WARNING! xfab uses non-compatible A- and B-matrices. The B-matrix is considered the correct one.
         # B = 2 * np.pi * np.linalg.inv(A).T
         B = form_b_mat(self.phase.unit_cell)
         h = torch.tensor(B @ hkl)
@@ -400,7 +404,6 @@ class GaussianPolycrystal:
         levi_cita_symbol = torch.tensor(levi_cita_symbol)
 
         # TODO reduce the number of symmetries evaluated for low-multiplicity peaks
-
         n_symmetries = len(self.phase.rot)
         
         volumes = torch.sqrt(torch.linalg.det(self.shape_concentration_tensors))
@@ -425,7 +428,7 @@ class GaussianPolycrystal:
         )
         
         scale = 1 / n_symmetries / torch.sum(volumes) * volumes[:, None] * 2 * torch.sqrt(torch.linalg.det(self.misori_concentration_tensors))[:, None] / np.sqrt( pTp )
-        
+
         return p_vectors, scale, projected_misorientation
     
     def rasterize_on_unitvector_map(
@@ -466,5 +469,5 @@ class GaussianPolycrystal:
                 f[patch_size*patch_index_1:patch_size*(patch_index_1+1),
                   patch_size*patch_index_2:patch_size*(patch_index_2+1)]\
                     += torch.sum(vals, axis=0)
-        
+
         return f

@@ -120,9 +120,9 @@ motion_rock = RigidBodyMotion(
 
 misorientation_tensor = make_random_tensor(
     np.random.uniform(0.01, 0.01),
-    np.random.uniform(0.05, 0.05),
+    np.random.uniform(0.03, 0.03),
 )
-shape_tensor = np.eye(3) * 70**2
+shape_tensor = np.eye(3) * 100.0**2
 
 polycrystal = GaussianPolycrystal(
     [GaussianGrainish(
@@ -143,9 +143,10 @@ detector = make_detector(eta)
 RSM_simulated = np.zeros((rocking_steps, n_pixels, n_pixels))
 
 for ii in range(rocking_steps):  
-    f = polycrystal.render_detector_frame(
+    f = polycrystal.diffract(
         beam=beam,
         detector=detector,
+        threshold=10.0,
     )
     polycrystal.transform(motion_rock, 1.0)
 
@@ -165,6 +166,7 @@ if __name__ == "__main__":
     z_lab = np.tan(2 * theta) * detector_distance
     eta_pixels = np.atan2(y_lab, z_lab)
 
+    # axs[0,0].imshow(np.log10(RSM_simulated[rocking_steps//2, :, :]))
     axs[0,0].imshow(np.sum(RSM_simulated, axis=1), extent = (eta_pixels[0], eta_pixels[-1], -rocking_angle / 2, rocking_angle / 2))
     axs[0,0].set_title('RSM averaged over detector z')
     axs[0,0].set_xlabel('Eta angle (apparent q_roll)')
