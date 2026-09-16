@@ -6,7 +6,7 @@ import torch
 from xrd_simulator.phase import Phase
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.detector import Detector
-from xrd_simulator.gaussian_crystal_model import GaussianGrainish, GaussianPolycrystal
+from xrd_simulator.gaussian_crystal_model import GaussianSubgrain, GaussianPolycrystal
 from xrd_simulator.beam import GaussianBeam
 from xrd_simulator.utils import ensure_torch
 from xfab.tools import form_b_mat
@@ -17,7 +17,7 @@ beam_half_edgewidth = 500.0
 hkl_tuple = (1, 2, 0)
 detector_distance = 1e4
 pixelsize =  3.0
-n_pixels = 512
+n_pixels = 256
 
 rocking_axis = np.array([0, 1, 0])
 rocking_angle = 10 * np.pi / 180
@@ -98,13 +98,6 @@ def align_grain(polycrystal, eta, ):
     print(q)
     return alignment_rotation
 
-def make_random_tensor(axis_1, axis_2):
-    random_direction = np.random.normal(size=3)
-    random_direction = random_direction/np.linalg.norm(random_direction)
-    tensor = axis_1**2 * np.eye(3) + (axis_2**2-axis_1**2) * np.outer(random_direction, random_direction)
-    return tensor
-
-
 ### Do simulation
 motion_rock_init = RigidBodyMotion(
    rotation_axis= -rocking_axis,
@@ -118,18 +111,17 @@ motion_rock = RigidBodyMotion(
    translation=np.array([0.0, 0.0, 0.0]),
 )
 
-misorientation_tensor = make_random_tensor(
-    np.random.uniform(0.01, 0.01),
-    np.random.uniform(0.03, 0.03),
-)
+random_direction = np.array([1, 2, 3]) / np.sqrt(14)
+random_direction = random_direction/np.linalg.norm(random_direction)
+misorientation_tensor = 0.01**2 * np.eye(3) + (0.03**2-0.01**2) * np.outer(random_direction, random_direction)
 shape_tensor = np.eye(3) * 100.0**2
 
 polycrystal = GaussianPolycrystal(
-    [GaussianGrainish(
+    [GaussianSubgrain(
         phase=quartz,
         position = np.zeros(3),
         shape_tensor=shape_tensor,
-        orientation = R.random().as_matrix(),
+        orientation = R.from_euler('zyz', (1, 2, 3)).as_matrix(),
         misorientation_tensor=misorientation_tensor,
         strain_tensor = np.zeros((3,3,)),
     )],
@@ -149,17 +141,44 @@ for ii in range(rocking_steps):
         threshold=10.0,
     )
     polycrystal.transform(motion_rock, 1.0)
-
-    
-
     RSM_simulated[ii] = f
    
 polycrystal.transform(motion_rock_init, 1.0)
 
 
-if __name__ == "__main__":
+def test_rocking_curve_widths():
 
-    print(np.sum(RSM_simulated) / np.linalg.det(shape_tensor))
+    sumint = np.sum(RSM_simulated)
+
+    x = np.arange(n_pixels) - n_pixels/2
+
+    I = np.sum(RSM_simulated, axis=(0,1))
+    mean = np.sum(x * I) / sumint 
+    var = np.sum(x**2 * I) / sumint
+
+    assert np.isclose(mean, 0.0, atol=1.0)
+    assert np.isclose(np.sqrt(var), 30.42096961852941, atol=1e-3)
+
+    I = np.sum(RSM_simulated, axis=(0,2))
+    mean = np.sum(x * I) / sumint 
+    var = np.sum(x**2 * I) / sumint
+
+    assert np.isclose(mean, 0.0, atol=1.0)
+    assert np.isclose(np.sqrt(var), 29.16660112636527, atol=1e-3)
+
+    x = np.arange(rocking_steps) - rocking_steps/2
+    I = np.sum(RSM_simulated, axis=(1,2))
+    mean = np.sum(x * I) / sumint 
+    var = np.sum(x**2 * I) / sumint
+
+    print(mean)
+    print(np.sqrt(var))
+    
+    assert np.isclose(mean, 0.0, atol=1.0)
+    assert np.isclose(np.sqrt(var), 27.418048029705794, atol=1e-3)
+
+
+if __name__ == "__main__":
 
     fig, axs = plt.subplots(2,2, figsize = (8,8))
     y_lab = (np.arange(n_pixels) - n_pixels/2) * pixelsize

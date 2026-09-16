@@ -443,11 +443,11 @@ class Detector:
         D = concentration_tensors[:, 0, 1]**2 - concentration_tensors[:, 0, 0]*concentration_tensors[:, 1, 1]
         x_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 0, 0])
         sqrt_term = torch.sqrt(D  * x_dargs**2 + threshold * concentration_tensors[:, 1, 1])
-        y_offset = torch.abs((-concentration_tensors[:, 0, 1] * x_dargs + sqrt_term)/concentration_tensors[:, 1, 1])
+        y_offset = torch.abs((np.abs(concentration_tensors[:, 0, 1]) * x_dargs + sqrt_term)/concentration_tensors[:, 1, 1])
 
         y_dargs = torch.sqrt(- threshold * concentration_tensors[:, 0, 1]**2/ D / concentration_tensors[:, 1, 1])
         sqrt_term = torch.sqrt(D  * y_dargs**2 + threshold * concentration_tensors[:, 0, 0])
-        x_offset = torch.abs((-concentration_tensors[:, 0, 1]* y_dargs + sqrt_term)/concentration_tensors[:, 0, 0])
+        x_offset = torch.abs((np.abs(concentration_tensors[:, 0, 1])* y_dargs + sqrt_term)/concentration_tensors[:, 0, 0])
 
         # Loop over patches (Should be parallelized)
         for patch_index_1 in range(n_patches_dim1):    

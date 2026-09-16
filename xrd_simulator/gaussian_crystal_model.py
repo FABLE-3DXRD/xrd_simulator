@@ -18,10 +18,8 @@ from xfab import sg
 
 import time
 
-class GaussianGrainish:
-    """It's not a grain, it's a grain-ish.
-    
-    A grain-ish has a 3D-gaussian density distribution and a narrow (<=0.1 rad) 3D
+class GaussianSubgrain:
+    """A `subgrain` has a 3D-gaussian density distribution and a narrow (<=0.1 rad) 3D
     orientation distribution function.
 
     Attributes
@@ -58,13 +56,13 @@ class GaussianGrainish:
         self.strain_tensor = strain_tensor
 
 class GaussianPolycrystal:
-    """ Colection of ``GaussianGrainish`` object representing a polycrystalline sample.
+    """ Colection of ``GaussianSubgrain`` object representing a polycrystalline sample.
     Variables ``max_grain_size`` and ``max_misorientation`` can be supplied to speed up
     diffraction calculations.
     """
 
     def __init__(self,
-        grain_list: list[GaussianGrainish],
+        grain_list: list[GaussianSubgrain],
         max_grain_size: float = 1000.0,
         max_misorientation: float = 0.1, 
     ):

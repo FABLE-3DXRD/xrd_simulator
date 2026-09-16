@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from scipy.ndimage import label, center_of_mass
 
 from xrd_simulator.polycrystal import Polycrystal
 from xrd_simulator.beam import Beam
@@ -8,7 +9,7 @@ from xrd_simulator.phase import Phase
 from xrd_simulator.motion import RigidBodyMotion
 from xrd_simulator.detector import Detector
 from xfab.tools import form_b_mat
-from xrd_simulator.gaussian_crystal_model import GaussianGrainish, GaussianPolycrystal
+from xrd_simulator.gaussian_crystal_model import GaussianSubgrain, GaussianPolycrystal
 from xrd_simulator.beam import GaussianBeam
 from xrd_simulator.utils import ensure_torch
 
@@ -16,7 +17,7 @@ from xrd_simulator.utils import ensure_torch
 wavelength=0.28523
 beam_half_edgewidth = 200.0
 beam_half_edgewidth = 200.0
-tetrahedron_bbox_size = 150.0
+tetrahedron_bbox_size = 100.0
 eta = 0.0
 eta = 0.0
 hkl_tuple = (2, 1, 0)
@@ -25,11 +26,14 @@ pixelsize =  10.0
 n_pixels = 2000
 rocking_axis = np.array([0, 0, 1])
 polarization_vector = np.array([0, 1, 0])
-rocking_angle = 1.0 * np.pi / 180
+rocking_angle = 2.0 * np.pi / 180
 strain = -0.001*np.eye(3)
 strain = -0.000*np.array([[0,1,0],
                           [1,0,0],
                           [0,0,0],])
+orientation = R.from_euler('zyz', (1, 2, 3,)).as_matrix()[None, :, :]
+print(orientation.shape)
+
 ### Utility funcitons
 def align_grain(polycrystal, grainindex, beam,  hkl_tuple, eta, ):
 
@@ -111,7 +115,6 @@ cs_cl = Phase(
    path_to_cif_file=None,  # phases can be defined from crystalographic information files
 )
 
-orientation = R.random(mesh.number_of_elements).as_matrix()
 element_phase_map = np.zeros(mesh.number_of_elements, dtype=int)
 polycrystal = Polycrystal(
    mesh,
@@ -120,7 +123,6 @@ polycrystal = Polycrystal(
    phases=quartz,
    element_phase_map=element_phase_map,
 )
-
 
 ### Align for single-crystal experiment
 alignment_rotation = align_grain(polycrystal, 0, beam, hkl_tuple, eta)
@@ -166,7 +168,6 @@ motion_rock_reset = RigidBodyMotion(
 
 polycrystal.transform(motion_rock_init, 1.0)
 
-
 peaks_dict = polycrystal.diffract(beam, motion_rock, detector=detector)
 diffraction_pattern, peaks_dict = detector.render(
    peaks_dict, frames_to_render=0, method="macro"
@@ -181,23 +182,13 @@ else diffraction_pattern[0]
 )
 
 ############# Gaussian based workflow ###############
-def make_random_tensor(axis_1, axis_2):
-    random_direction = np.random.normal(size=3)
-    random_direction = random_direction/np.linalg.norm(random_direction)
-    tensor = axis_1**2 * np.eye(3) + (axis_2**2-axis_1**2) * np.outer(random_direction, random_direction)
-    return tensor
-
-
-misorientation_tensor = make_random_tensor(
-    np.random.uniform(0.005, 0.005),
-    np.random.uniform(0.0001, 0.0001),
-)
+misorientation_tensor = np.eye(3) * 0.005**2
 
 grain_list = []
 for ii, vert1 in enumerate(tetr_vertexes):
    for vert2 in tetr_vertexes[ii+1:]:
 
-      grain = GaussianGrainish(
+      grain = GaussianSubgrain(
                      phase=quartz, #  For now it assumes all gaussians are the same phase, but it just needs a wrapper for multiphase
                      position=0.3*(vert1+vert2), # 3 vector centroid real-space position
                      shape_tensor=tetrahedron_bbox_size**2*np.eye(3)/8 + np.outer(vert1-vert2, vert1-vert2)/8, # 3-by-3 symmetric shape tensor where the eigenvalues are the radii-squared.
@@ -208,7 +199,7 @@ for ii, vert1 in enumerate(tetr_vertexes):
                   )
       grain_list.append(grain)
 
-grain = GaussianGrainish(
+grain = GaussianSubgrain(
         phase=quartz, #  For now it assumes all gaussians are the same phase, but it just needs a wrapper for multiphase
         position=np.zeros(3), # 3 vector centroid real-space position
         shape_tensor=tetrahedron_bbox_size**2*np.eye(3)/4, # 3-by-3 symmetric shape tensor where the eigenvalues are the radii-squared.
@@ -251,20 +242,46 @@ f = gauss_polycrystal.diffract(
 )
 
 
-if __name__ == "__main__":
+def test_compare_tets_and_gaussians():
+   
+    labels_tetr, N_peaks_tetr = label(pattern>1e5)
+    labels_gauss, N_peaks_gauss = label(f>3e2)
 
+    COMs_tetr = np.stack(center_of_mass(pattern, labels_tetr, np.arange(N_peaks_tetr)))
+    COMs_gauss = np.stack(center_of_mass(f, labels_gauss, np.arange(N_peaks_gauss)))
+
+    distance_matrix = np.sqrt((COMs_tetr[:, None, 0] - COMs_gauss[None, :, 0])**2 + (COMs_tetr[:, None, 1] - COMs_gauss[None, :, 1])**2)
+    min_dist = np.min(distance_matrix, axis=1)
+
+    # Check peaks are actually found
+    assert N_peaks_tetr > 100
+    assert N_peaks_gauss > 100
+
+    # Check peaks are similar between tetr and gauss model
+    assert np.percentile(min_dist, 90) < 10
+
+
+if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
     # render returns (frames, height, width), take first frame
 
+    labels_tetr, N_peaks_tetr = label(pattern>1e5)
+    labels_gauss, N_peaks_gauss = label(f>3e2)
+
+
    #  img = axs[0].imshow(np.log10(pattern+1e0), cmap="jet")
     img = axs[0].imshow(pattern, vmin =0, vmax = 2e6, cmap="jet")
+    COMs_tetr = np.stack(center_of_mass(pattern, labels_tetr, np.arange(N_peaks_tetr)))
+   #  axs[0].scatter(COMs_tetr[:, 1], COMs_tetr[:, 0], s = 5, c = 'w', marker='o')
     axs[0].set_title('Tetrahedron based model')
     axs[0].grid()
 
    #  img = axs[1].imshow(np.log10(f+1e0), cmap="jet")
-    img = axs[1].imshow(f, vmin =0, vmax = 1e4, cmap="jet")
+    img = axs[1].imshow(f, vmin =0, vmax = 2e4, cmap="jet")
+    COMs_gauss = np.stack(center_of_mass(f, labels_gauss, np.arange(N_peaks_gauss)))
+   #  axs[1].scatter(COMs_gauss[:, 1], COMs_gauss[:, 0], s = 5, c = 'w', marker='o')
     axs[1].set_title('Gaussian based_model')
     axs[1].grid()
     plt.show()
