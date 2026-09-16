@@ -47,7 +47,7 @@ $$
 $$
 
 Importantly this vector is not quite equal to $\mathbf{G}$ but should be close the difference
-between the two is to first order parrallel to the unit-vector $\hat{\mathbf{q}}_{\mathrm{rock}} = [\cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}]$
+between the two is to first order parrallel to the unit-vector $`\hat{\mathbf{q}}_{\mathrm{rock}} = [\cos\theta_0\hat{\mathbf{k}_0} + \sin\theta_0 \hat{\mathbf{k}_{||}}]`$
 
 which completes the basis for $\mathbf{q}$:
 
@@ -69,7 +69,7 @@ $$
     \mathbf{k}_h = \mathbf{k}_0 + \mathbf{Q} = k [\cos2\theta_0 \hat{\mathbf{k}_0} + \sin2\theta_0\hat{\mathbf{k}_{||}}]
 $$
 
-and a unit vector normal to this: $\hat{\mathbf{k}_{\mathrm{rad}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]$ so we can write.
+Again we need to final unit vector normal to this: $`\hat{\mathbf{k}_{\mathrm{up}}} = [\cos2\theta_0\hat{\mathbf{k}_{||}}-\sin2\theta_0 \hat{\mathbf{k}_0}]`$.
 
 $$
    \mathbf{p} = \mathbf{k}_h + \varepsilon'\hat{\mathbf{\mathbf{k}_h}}
