@@ -275,15 +275,8 @@ def _lab_strain_to_B_matrix(
         crystal_orientation.transpose(1, 2),
         torch.matmul(strain_tensor, crystal_orientation),
     )
-<<<<<<< HEAD
     B = _epsilon_to_b(crystal_strain, B0)
     return B
-=======
-    # B = _epsilon_to_b(crystal_strain, B0)
-    # print(B)
-    B = torch.matmul(torch.eye(3)[None, :, :] - crystal_strain, B0)
-    return B.squeeze()
->>>>>>> 1e00159 (changed strain convention)
 
 
 def _set_xfab_logging(disabled):
