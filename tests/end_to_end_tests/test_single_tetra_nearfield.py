@@ -241,7 +241,7 @@ gaussian_beam = GaussianBeam(
 gauss_polycrystal.transform(alignment_rotation)
 
 
-f = gauss_polycrystal.render_detector_frame(
+f = gauss_polycrystal.diffract(
     beam=gaussian_beam,
     detector=detector,
     sample_rotation_during_exposure = rocking_axis * rocking_angle /2.5,
