@@ -32,7 +32,7 @@ $$
 
 the two delta-Dirac functions ensure energy- and momentum conservation respectively. 
 
-You can plug in various combinations of gaussians and delta-Dirac function in for the two functions and go to town, but following [Poulsen2018] we introduce a specific set of basis vector for the integration variables.
+You can plug in various combinations of gaussians and delta-Dirac function in for the two functions and go to town, but following [Poulsen2017] we introduce a specific set of basis vector for the integration variables.
 
 $$
    \mathbf{k} = \mathbf{k}_0 + k\left(\varepsilon\hat{\mathbf{\mathbf{k}_0}}
@@ -187,15 +187,6 @@ As a second test, we simulate a high-reslution rocking-curve and test that the 3
 
 ![image](docs/_static/testing_rocking_curves.png)
 
-
-Potential improvements
-----------------------
-
-**Include incident beam divergence and bandwidth.**
-
-For lab-instruments these are the dominant factors that determine reflection widths, rather than mosaicity. They also only add a very small amount of model complexity. The issue is numerical stability and actually just stitting down and evaluating the integrals.
-
-
 ### References
 
 
@@ -203,7 +194,7 @@ For lab-instruments these are the dominant factors that determine reflection wid
 
 [Brehm2023] Brehm, W., White, T. & Chapman, H. N. (2023). Crystal diffraction prediction and partiality estimation using Gaussian basis functions. Acta Cryst. A79
 
-[Poulsen2018] Poulsen, H. F., Jakobsen, A. C., Simons, H., Ahl, S. R., Cook, P. K. & Detlefs, C. (2017). X-ray diffraction microscopy based on refractive optics. J. Appl. Cryst. 50
+[Poulsen2017] Poulsen, H. F., Jakobsen, A. C., Simons, H., Ahl, S. R., Cook, P. K. & Detlefs, C. (2017). X-ray diffraction microscopy based on refractive optics. J. Appl. Cryst. 50
 
 ## Demonstration
 
