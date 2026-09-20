@@ -285,7 +285,7 @@ class Polycrystal:
 
         peaks = torch.empty(
             (0, 10)
-        )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
+        )  # We create a dataframe to store all the relevant values for each individual reflection in an organized manner
 
         # For each phase of the sample, we compute all reflections at once in a vectorized manner
         for i, phase in enumerate(phases):

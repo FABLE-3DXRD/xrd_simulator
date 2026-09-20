@@ -7,6 +7,7 @@ for the advanced user, access to these functions may be of interest.
 
 import numpy as np
 import torch
+from torch import Tensor
 
 torch.set_default_dtype(torch.float64)
 from xrd_simulator.utils import ensure_torch
@@ -154,6 +155,122 @@ def _find_solutions_to_tangens_half_angle_equation(
 
     return grains, planes, times, G
 
+
+_levi_cita_symbol = np.zeros((3,3,3))
+_levi_cita_symbol[0, 1, 2] = 1
+_levi_cita_symbol[1, 2, 0] = 1
+_levi_cita_symbol[2, 0, 1] = 1
+_levi_cita_symbol[0, 2, 1] = -1
+_levi_cita_symbol[1, 0, 2] = -1
+_levi_cita_symbol[2, 1, 0] = -1
+_levi_cita_symbol = torch.tensor(_levi_cita_symbol)
+
+
+def _get_diffraction_arcsegment(
+        p_vectors: Tensor,
+        T: Tensor,
+        xray_propagation_direction: Tensor,
+        wavelength: Tensor,
+    ):
+    r""" Given a range of orientation-concentration-tensors and reflection-information, compute the propeties
+    of the scattered beam.
+
+    Parameters
+    ----------
+    p_vectors : Tensor
+        Lattice vectors in lattice reference frame (not hkl-tuples), shape ``(N, 3)``
+        Uses the convention with
+        .. math:: |h| = 4 \pi\sin\theta / \lambda
+    T : Tensor
+        Lab-space orientation concentration tensors, shape ``(N, 3, 3)``
+    xray_propagation_direction : Tensor
+        Incident x-ray propagation direction unit vector, shape ``(3,)``
+    wavelength : float
+        
+
+    Returns
+    -------
+    mean_scattering_directions : Tensor
+        Propagation direction unit vectors of the center of the scattered beams, shape ``(N, 3,)``
+    partialities : Tenor
+        Intensity of the scattered beams per unit-volume sample, shape ``(N,)``
+    dir_scatteringplane_orth : Tensor
+        Dispersion direction unit vectors of the scattered beams, shape ``(N, 3,)``
+    azimuthal_divergence : Tensor
+        Divergence of the scattered beams in radians, shape ``(N,)``        
+    """
+
+    # Project odf in hkl direction.
+    T_proj = _project_misorientation_tensor(T, p_vectors)
+    
+
+    # Compute point of "exact bragg condition" in the plane Span(k_0, p)
+    p_norm = torch.linalg.norm(p_vectors, axis=-1)
+    theta_angle = np.asin( p_norm * wavelength / 4 / np.pi )
+    dir_scatteringplane_norm = (p_vectors - xray_propagation_direction[None, :] * np.einsum('xi,i->x', p_vectors, xray_propagation_direction)[:, None] )
+    dir_scatteringplane_norm = dir_scatteringplane_norm / torch.linalg.norm(dir_scatteringplane_norm, axis=-1)[:, None]
+    q_0_unit = torch.cos(theta_angle)[:, None] * dir_scatteringplane_norm - torch.sin(theta_angle)[:, None] * xray_propagation_direction[None, :]
+    dir_scatteringplane_orth = torch.einsum('ijk,j,xk->xi', _levi_cita_symbol, xray_propagation_direction, dir_scatteringplane_norm)
+
+    # Compute partiality, mean direction, and azimthal spread
+    A = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, q_0_unit,)
+    B = torch.einsum('xi,xij,xj->x', q_0_unit, T_proj, dir_scatteringplane_orth,)
+    C = torch.einsum('xi,xij,xj->x', dir_scatteringplane_orth, T_proj, dir_scatteringplane_orth,)
+    
+    azimuthal_divergence = np.sqrt(1 / C) * torch.sin(2*theta_angle) # Trig. term converts from q_roll to psi_azim
+    # radial_divergence = torch.zeros(p_vectors.shape[0]) # Always zero in this model, but we do it like this to be ready
+    #                                                     # for future improvements.
+  
+    outgoing_beam_divergence_tensor = torch.einsum('xi,xj->xij', dir_scatteringplane_orth, dir_scatteringplane_orth) * azimuthal_divergence[:, None, None]**2
+        # + torch.eigsum('xi,xj->xij', k_rad, k_rad) * 1 / radial_divergence**2
+
+    azim_offset = B / C
+    mean_scattering_directions = torch.cos(2*theta_angle)[:, None] * xray_propagation_direction[None, :]\
+        + torch.sin(2*theta_angle)[:, None]*(torch.cos(azim_offset)[:, None]*dir_scatteringplane_norm + torch.sin(azim_offset)[:, None]*dir_scatteringplane_orth)
+    D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
+    log_partialities = -A + B**2 / C
+    normalization_factors = 2 * torch.sqrt( torch.linalg.det(T) / D / C )
+
+    return mean_scattering_directions, log_partialities, normalization_factors, outgoing_beam_divergence_tensor
+
+
+def _project_misorientation_tensor(T, p_vectors):
+    r"""Calculate RSM-broadedning due to misorientation along specific (lab-space) scattering directions.
+
+    Parameters
+    ----------
+    T : torch.Tensor
+        Lab-space inverse misorientation tensors, shape (N, 3, 3,)
+    p_vectors : torch.Tensor
+        Lab-space scattering vectors, shape (N, 3,)
+    
+    Returns
+    -------
+    T_proj : torch.Tensor
+        Projected misorientations along the scattering directions represented as
+        3-by-3 tensors. Singular along the ``p_vectors`` direction, shape (N, 3, 3,).
+    """
+
+
+    p_norm = torch.linalg.norm(p_vectors, axis=-1)
+    D = torch.einsum('xi,xij,xj->x', p_vectors, T, p_vectors)/ p_norm**2
+
+    inner_part = T - torch.einsum(
+        'xij,xj,xk,xkl->xil',
+        T,
+        p_vectors,
+        p_vectors,
+        T,
+    ) / D[:, None, None] / p_norm[:, None, None]**2
+    T_proj = torch.einsum(
+        'xj,ijk,xil,lmn,xm->xkn',
+        p_vectors,
+        _levi_cita_symbol,
+        inner_part,
+        _levi_cita_symbol,
+        p_vectors,
+    ) / p_norm[:, None, None]**2
+    return T_proj
 
 # ==============================================================================
 # DEPRECATED METHODS - TO BE REMOVED IN FUTURE VERSION
