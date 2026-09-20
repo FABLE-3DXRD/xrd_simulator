@@ -69,7 +69,9 @@ class GaussianPolycrystal:
         
         phases_list = list(set([grain.phase for grain in grain_list]))
         n_phases = len(phases_list)
-        assert n_phases == 1
+
+        if not n_phases == 1:
+            raise NotImplementedError('Multi-phase object has not been implemented yet.')
 
         self.n_grains = len(grain_list)
         self.max_grain_size = max_grain_size

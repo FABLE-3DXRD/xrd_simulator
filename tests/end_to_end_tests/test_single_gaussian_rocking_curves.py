@@ -221,7 +221,7 @@ if __name__ == "__main__":
     z_mid = 0.5 * (detector.det_corner_0[2] + detector.det_corner_2[2])
     axs[1,0].plot(z_lab, np.sum(RSM_simulated, axis =(0,2))/np.max(np.sum(RSM_simulated, axis =(0,2))), linewidth = 4)
     axs[1,0].plot(z_lab, np.exp(-(z_lab -z_mid)**2 * 1/shape_tensor[0, 0] * np.cos(2 * theta)**2), '--',  color='C2')
-    axs[1,0].set_xlabel('Lab z (\u03bcm)')
+    axs[1,0].set_xlabel('Detector z (\u03bcm)')
 
 
     rocking_angles = np.linspace(-0.5*rocking_angle, 0.5*rocking_angle, rocking_steps, endpoint=False)

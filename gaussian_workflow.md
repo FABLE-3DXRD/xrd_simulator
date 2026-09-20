@@ -138,7 +138,7 @@ $$
 
 The quantity we need is the pair-correlation function (pole density) which gives the probability of finding a lattice direction, $`\mathbf{h} = \mathbf{B}_0[h, k, \ell]^{\mathrm{T}}/|\mathbf{B}_0[h, k, \ell]^{\mathrm{T}}|`$ in a given laboratory-space direction $\mathbf{y}$.
 
- (In the notation of last section $\mathbf{h} || \mathbf{G}$ and $\mathbf{y} || \mathbf{Q}_0$. The notation used here is conventional in texture-analysis. Note: $\mathbf{y}$ has nothing to do with "the y-axis".)
+ (In the notation of last section $\mathbf{h} || \mathbf{G}$ and $\mathbf{y} || \mathbf{q}$. The notation used here is conventional in texture-analysis. Note: $\mathbf{y}$ has nothing to do with "the y-axis".)
  
   Normally this involves an integral over a circle in SO(3), but in our approximation we can replace it with an infinite line integral in the tangent-space. Defining $\mathbf{p} = g_0\mathbf{h}=\hat{G}$, one parametrization of this line is:
 
@@ -146,13 +146,13 @@ $$
     \mathbf{r}(\lambda) = \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}} + \lambda \mathbf{p} = \mathbf{r}_0 + \lambda \mathbf{p}
 $$
 
-this allows us to evaluate the integral by plugging in, completing the square, and evaluating a Gaussian integral. (excercise for reader ...)
+this allows us to evaluate the integral by plugging in, completing the square, and evaluating a Gaussian integral. (excercise left for reader)
 
 $$
     A(\mathbf{y}, \mathbf{p};f) = \int_{-\infty}^\infty f(\mathbf{r}(\lambda)) \mathrm{d}\lambda = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{r}_0 + \frac{(\mathbf{r}_0^{\mathrm{T}}\mathrm{T}\mathbf{p})^2}{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}} \right)
 $$
 
-Since this expression is anyways already only approximate, I make the further approximation: $\mathbf{p}\cdot\mathbf{y} \approx 1$ and rewrite:
+Since this expression is already approximate, I make the further approximation: $\mathbf{p}\cdot\mathbf{y} \approx 1$ and rewrite:
 
 $$
     A(\mathbf{y}, \mathbf{p};f) = \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -\mathbf{y}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\mathbf{y} \right)
@@ -166,7 +166,7 @@ $$
 
 where $pTp = \mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}$ and $\varepsilon_{ijk}$ is the Levi-Civita symbol which is simply used to move the cross-product in the definition of $\mathbf{r}_0$ into the definition of the projected tensor, to make future expressions nicer.
 
-This function is defined for unit-vectors arguments, but we can upgrade it to a 3D RSM which is only non-zero on a 2D plane:
+This function is defined for unit-vector arguments, but we can upgrade it to a 3D RSM which is only non-zero on a 2D plane. Here given in the nice coordinates of last section:
 
 $$
     f(\mathbf{q}) \approx \delta(q_{\mathrm{strain}})\frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\exp\left( -[q_{\mathrm{rock}}, q_{\mathrm{roll}}][\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp]^\mathrm{T}\mathrm{T}_{\mathbf{p}}[\hat{\mathbf{q}}_{\mathrm{rock}}, \hat{\mathbf{k}}_\perp][q_{\mathrm{rock}}, q_{\mathrm{roll}}]^{\mathrm{T}} \right)
@@ -183,14 +183,7 @@ The position and shapes of the peaks match well. The gaussian model includes som
 
 ![image](docs/_static/single_crystal_quartz.png)
 
-
-I also simulate the example from the main documentation, but with a reduced number of grains (~4000 gaussians and 10 000 000 reflections) which takes about 3 minutes to render on my laptop.
-
-The resulting diffraction images look quite realistic.
-
-![image](docs/_static/many_grains_gs.png)
-
-Simulate a high-reslution rocking-curve and test that the 3D RSM has the shape I expect.
+As a second test, we simulate a high-reslution rocking-curve and test that the 3D RSM has the expected shape.
 
 ![image](docs/_static/testing_rocking_curves.png)
 
@@ -212,139 +205,121 @@ For lab-instruments these are the dominant factors that determine reflection wid
 
 [Poulsen2018] Poulsen, H. F., Jakobsen, A. C., Simons, H., Ahl, S. R., Cook, P. K. & Detlefs, C. (2017). X-ray diffraction microscopy based on refractive optics. J. Appl. Cryst. 50
 
-WorkInProgress: Model with beam divergence
-------------------------------------------
+## Demonstration
 
-We are not interested in the energy of the outgoing beam, so we integrate out $`\varepsilon`$ and we still set strain-broadening to zero.
+The demonstration closely follows the example in ``README.rst`` file. but uses the Gaussian-misorientation model.
 
-We isolate the incident beam variables in the momentum conservation equation:
+First we define the `GaussianBeam`, `Detector` and `Phase` structures.
 
-$$
-   \varepsilon = \frac{1}{\sin\theta_0}\psi_{\mathrm{rad}}-\tan\theta_0(q_{\mathrm{rock}}-\delta q) \\\\
-   \zeta_{||} = -\psi_{\mathrm{rad}} - 2(q_{\mathrm{rock}}-\delta q) \\
-   \zeta_\perp = \psi_{\mathrm{azim}} - 2\sin\theta_0q_{\mathrm{roll}}
-$$
+```
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+import matplotlib.pyplot as plt
 
-or as a vector equation:
+from xrd_simulator.beam import GaussianBeam
+from xrd_simulator.detector import Detector
+from xrd_simulator.phase import Phase
 
-$$
-   \begin{bmatrix} \varepsilon \\
-   \zeta_{||} \\
-   \zeta_\perp
-   \end{bmatrix} =
-   \begin{bmatrix}
-      \frac{1}{\sin\theta_0} & 0 \\
-      -1 & 0 \\
-       0 & 1
-   \end{bmatrix}
-   \begin{bmatrix}
-      \psi_{\mathrm{rad}} \\
-      \psi_{\mathrm{azim}}
-   \end{bmatrix}
-   +
-   \begin{bmatrix}
-      \tan\theta_0 & 0 \\
-      -2 & 0 \\
-      0 & -2\sin\theta_0
-   \end{bmatrix}
-   \begin{bmatrix}
-      q_{\mathrm{rock}} - \delta q \\
-      q_{\mathrm{roll}}
-   \end{bmatrix}\\
-   =\mathrm{U}\Psi + \mathrm{V}(\mathbf{q} + \delta\mathbf{q}) = \mathrm{U}\Psi + \mathrm   {V}\mathbf{q}
-$$
+# Define the beam.
+gaussian_beam = GaussianBeam(
+    xray_propagation_direction=np.array([1.0, 0.0, 0.0]),
+    beam_centroid_position=np.array([0.0, 0.0, 0.0,]),
+    wavelength=0.28523,
+    polarization_vector = np.array([0.0, 1.0, 0.0,]),
+    long_axis_width = 300,
+    long_axis_direction=np.array([0.0, 0.0, 1.0,]),
+    short_axis_width = 50,
+    short_axis_direction=np.array([0.0, 1.0, 0.0,]),
+)
+
+# Define a detector
+detector = Detector(
+   det_corner_0=np.array([142938.3, -38400.0, -38400.0]),
+   det_corner_1=np.array([142938.3, 38400.0, -38400.0]),
+   det_corner_2=np.array([142938.3, -38400.0, 38400.0]),
+   pixel_size=(25.0, 25.0),
+   gaussian_sigma=1.0,
+   max_gaussian_kernel_radius=5,
+)
+
+# Define the crystallographic information
+quartz = Phase(
+   unit_cell=[4.926, 4.926, 5.4189, 90.0, 90.0, 120.0],
+   sgname="P3221",  # (Quartz)
+   path_to_cif_file="./tests/data/quartz.cif",
+)
+```
+
+Next we build a polycrystal with random positions, random orientations and random axially-symmetric misorientations with a width between 0.01 and 0.03 radians.
+
+```
+from xrd_simulator.gaussian_crystal_model import GaussianSubgrain, GaussianPolycrystal
+
+# Utility function to generate random symmetric tensors
+def make_random_tensor(axis_1, axis_2):
+    random_direction = np.random.normal(size=3)
+    random_direction = random_direction/np.linalg.norm(random_direction)
+    tensor = axis_1**2 * np.eye(3) + (axis_2**2-axis_1**2) * np.outer(random_direction, random_direction)
+    return tensor
+
+N_subgrains = 2000
+
+grain_list = []
+
+for ii in range(N_subgrains):
+
+    position = np.random.uniform(-500, 500, size=(3,))
+    shape_tensor = misorientation_tensor = make_random_tensor(
+        np.random.uniform(200, 50),
+        np.random.uniform(200, 50),
+    )
+
+    orientation = R.random().as_matrix()
+    misorientation_tensor = make_random_tensor(
+        np.random.uniform(0.01, 0.03),
+        np.random.uniform(0.01, 0.03),
+    )
+
+    strain = np.zeros((3, 3,))
 
 
-These equations are used to raise the three corresponding integrals. Now $`q_{\mathrm{rock}}`$ and $`q_{\mathrm{roll}}`$ are the integration variables. 
+    grain = GaussianSubgrain(
+        phase=quartz, #  For now it assumes all gaussians are the same phase, but it just needs a wrapper for multiphase
+        position=position, # 3 vector centroid real-space position
+        shape_tensor=shape_tensor, # 3-by-3 symmetric shape tensor where the eigenvalues are the radii-squared.
+        orientation=orientation, # 3-by-3 rotation matrix.
+        misorientation_tensor=misorientation_tensor, # 3-by-3 misorientation tensor where the eigenvalues are the misorientaion spread in radians squared.
+                                                     # misorientation vectors live in laboratory coordinates.
+        strain_tensor=strain # 3-by-3 symmetric strain tensor.
+    )
 
-$$
-   \int \mathrm{d}\varepsilon  I(\mathbf{p}) = (\det\mathrm{A})^{1/2} \frac{2\sqrt{\det \mathrm{T}}}{\sqrt{\mathbf{p}^{\mathrm{T}}\mathrm{T}\mathbf{p}}}\int \mathrm{d}\mathbf{q} \exp\Bigg[
-    -(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')^{\mathrm{T}}\mathrm{A}(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')
-    -\mathbf{q}^{\mathrm{T}} T_g \mathbf{q}
-    \Bigg]
-$$
+    grain_list.append(grain)
+    
+gaussian_polycrystal = GaussianPolycrystal(grain_list, max_misorientation=0.03, max_grain_size=200)
+```
 
-where
+Now we can compute a static (no sample rotation) diffraction pattern:
 
+```
+# Calculate a diffraction pattern
+f = gaussian_polycrystal.diffract(
+    beam=gaussian_beam,
+    detector=detector,
+    verbose=True,
+    threshold = 10.0,
+)
+```
 
-$$
-A = 
-   \begin{bmatrix} E & 0 & 0 \\
-    0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_{||} \\
-   0 & \hat{\mathbf{k}}_{||}^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{D}\hat{\mathbf{k}}_\perp \\
-   \end{bmatrix}
-   \text{ and }
-   T_g = 
-   \begin{bmatrix}
-       \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{q}}_{\mathrm{rock}}^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp \\
-       \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{q}}_{\mathrm{rock}} & \hat{\mathbf{k}}_\perp^{\mathrm{T}}\mathrm{T}_{\mathbf{p}}\hat{\mathbf{k}}_\perp
-   \end{bmatrix}
-$$
+Finaly a plot
 
-To get this on the form of a 2D convolution, we have to expand out the first term a bit:
+```
+fig, axs = plt.subplots(1, 3, figsize=(8, 4), width_ratios=(1, 1, 0.1))
+img = axs[0].imshow(np.log10(f+1e-10), cmap="jet", vmax = 6, vmin = 3)
+img = axs[1].imshow(np.log10(f+1e-10), cmap="jet", vmax = 6, vmin = 3)
+axs[1].set_xlim(1500, 2200)
+axs[1].set_ylim(2200, 1500)
+fig.colorbar(img, cax = axs[2])
+plt.show()
+```
 
-$$
-(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}')^{\mathrm{T}}\mathrm{A}(\mathrm{U}\Psi + \mathrm{V}\mathbf{q}') = \mathbf{q'}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}' + 2\Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}' + \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi \\\\
-= (\mathbf{q}+ \delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathbf{q} + \delta\mathbf{q} + \mathbf{q}_0) + c
-$$
-
-where 
-
-$$
-\mathbf{q}_0 = (\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}
-$$
-
-and
-
-$$
-   c = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \mathbf{q}_0^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\mathbf{q}_0 \\\\
-   = \Psi^{\mathrm{T}}\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Psi + 2\delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Psi - \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}\\\\
-    \mathrm{B} = \mathrm{A} - \mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A} 
-$$
-
-The integral can now be evaluated:
-
-$$
-\int \mathrm{d}\mathbf{q} \exp\Bigg[
-    -(\mathbf{q}+ \delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathbf{q} + \delta\mathbf{q} + \mathbf{q}_0)
-    -\mathbf{q}^{\mathrm{T}} T_g \mathbf{q}
-     - c \Bigg]\\\\
-    =(\det(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V} + T_g))^(-1/2)
-    \exp\Bigg[
-    -(\delta\mathbf{q} + \mathbf{q}_0)^{\mathrm{T}}\mathrm{F}(\delta\mathbf{q} + \mathbf{q}_0)
-     - c \Bigg] 
-$$
-
-where $'\mathrm{F} = ((\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1} + T_g^{-1})^{-1}{}'$. Now we insert $`c`$ and do a last "complete the square" excercise. $`\Psi`$ is the variable now. $`\delta q`$ is considered a constant.
-
-SQUARE TERMS:
-
-$$
-  \Psi^{\mathrm{T}}G\Psi=\Psi^{\mathrm{T}}\Big[\mathrm{U}^{\mathrm{T}}\mathrm{A}\mathrm{V}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{F}(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}+\mathrm{U}^{\mathrm{T}}\mathrm{B}\mathrm{U}\Big]\Psi
-$$
-
-This is the divergence of the outgoing beam. I'm definetely not excluding that this expression can be simplified.
-
-Now the linear terms, which we'll need to find the direction of the beam:
-
-$$
-   2\delta\mathbf{q}^{\mathrm{T}}\mathrm{H}^{\mathrm{T}}\Psi = \delta \mathbf{q}^{\mathrm{T}}\Big[F(\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V})^{-1}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U} + \mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{U}\Big]\Psi\text{ + transpose}
-$$
-
-since this term is a scalar, it is probably equal to its transpose.
-
-The square-term and the linear term together gives us the angular offset. The expression unfortunately involves an inverse again, so I won't write it out in full.
-
-$$
-\Psi_0 = - \mathrm{G}^{-1}\mathrm{H}\delta\mathbf{q}
-$$
-
-and now we can finish the constant term, which gives the width of the rocking curve.
-
-$$
-k = -\delta\mathbf{q}^{\mathrm{T}}\mathrm{H}^{\mathrm{T}}G^{-1}\mathrm{H}\delta\mathbf{q} + \delta\mathbf{q}^{\mathrm{T}}\mathrm{V}^{\mathrm{T}}\mathrm{A}\mathrm{V}\delta\mathbf{q}
-$$
-
-I should try to simplify some of the expressions. G and B are prime candidates for some "Woodbuy matrix identity" tricks, but probably I need a computer algebra system.
-
-FOr now I will see if these expressions are numerically stable and check that it produces reasonable rocking curves.
+![image](docs/_static/many_crystals_quartz.png)
