@@ -735,7 +735,10 @@ class TestDetector(unittest.TestCase):
 
         pc = polycrystal.Polycrystal(
             mesh=mesh,
-            orientation=Rotation.random(mesh.number_of_elements).as_matrix(),
+            orientation=Rotation.random(
+                mesh.number_of_elements,
+                random_state=42,
+            ).as_matrix(),
             strain=np.zeros((3, 3)),
             phases=[Phase(unit_cell, sgname, path_to_cif_file=None)],
             element_phase_map=np.zeros((mesh.number_of_elements,)).astype(int),
