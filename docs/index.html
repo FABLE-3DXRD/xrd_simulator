@@ -19,6 +19,7 @@
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="_static/copybutton.js?v=f281be69"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -124,6 +125,7 @@
 <li><a class="reference internal" href="#xrd_simulator.beam.Beam.load"><code class="docutils literal notranslate"><span class="pre">Beam.load()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#xrd_simulator.beam.GaussianBeam"><code class="docutils literal notranslate"><span class="pre">GaussianBeam</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#module-xrd_simulator.detector">detector</a><ul>
@@ -150,6 +152,7 @@
 <li><a class="reference internal" href="#xrd_simulator.detector.Detector.load"><code class="docutils literal notranslate"><span class="pre">Detector.load()</span></code></a></li>
 <li><a class="reference internal" href="#xrd_simulator.detector.Detector.render"><code class="docutils literal notranslate"><span class="pre">Detector.render()</span></code></a></li>
 <li><a class="reference internal" href="#xrd_simulator.detector.Detector.contains"><code class="docutils literal notranslate"><span class="pre">Detector.contains()</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.detector.Detector.render_gaussian_splats"><code class="docutils literal notranslate"><span class="pre">Detector.render_gaussian_splats()</span></code></a></li>
 <li><a class="reference internal" href="#xrd_simulator.detector.Detector.peaks_detector_intersection"><code class="docutils literal notranslate"><span class="pre">Detector.peaks_detector_intersection()</span></code></a></li>
 </ul>
 </li>
@@ -171,13 +174,30 @@
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#module-xrd_simulator.gaussian_crystal_model">gaussian_crystal_model</a><ul>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain</span></code></a><ul>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.phase"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.phase</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.position"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.position</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.shape_tensor"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.shape_tensor</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.orientation"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.orientation</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.misorientation_tensor"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.misorientation_tensor</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.strain_tensor"><code class="docutils literal notranslate"><span class="pre">GaussianSubgrain.strain_tensor</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal"><code class="docutils literal notranslate"><span class="pre">GaussianPolycrystal</span></code></a><ul>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.diffract"><code class="docutils literal notranslate"><span class="pre">GaussianPolycrystal.diffract()</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.splat_grainshapes"><code class="docutils literal notranslate"><span class="pre">GaussianPolycrystal.splat_grainshapes()</span></code></a></li>
+<li><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.transform"><code class="docutils literal notranslate"><span class="pre">GaussianPolycrystal.transform()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#module-xrd_simulator.templates">templates</a><ul>
 <li><a class="reference internal" href="#xrd_simulator.templates.s3dxrd"><code class="docutils literal notranslate"><span class="pre">s3dxrd()</span></code></a></li>
 <li><a class="reference internal" href="#xrd_simulator.templates.polycrystal_from_odf"><code class="docutils literal notranslate"><span class="pre">polycrystal_from_odf()</span></code></a></li>
 <li><a class="reference internal" href="#xrd_simulator.templates.get_uniform_powder_sample"><code class="docutils literal notranslate"><span class="pre">get_uniform_powder_sample()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#module-xrd_simulator.laue">laue</a></li>
 </ul>
 </li>
 </ul>
@@ -206,9 +226,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="toctree-wrapper compound">
-</div>
-<img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
+  <img alt="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" src="https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true" />
 <a class="reference external image-reference" href="https://pypi.org/project/xrd-simulator/"><img alt="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" src="https://img.shields.io/pypi/pyversions/xrd-simulator.svg?" />
 </a>
 <a class="reference external image-reference" href="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py313.yml/badge.svg"><img alt="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py313.yml/badge.svg?" src="https://github.com/FABLE-3DXRD/xrd_simulator/actions/workflows/python-package-run-tests-linux-py313.yml/badge.svg?" />
@@ -582,7 +600,7 @@ Default is <code class="docutils literal notranslate"><span class="pre">None</sp
 
 <dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.polycrystal.Polycrystal.diffract">
-<span class="sig-name descname"><span class="pre">diffract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><span class="pre">Beam</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><span class="pre">RigidBodyMotion</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bragg_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_bragg_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.5707963267948966</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><span class="pre">Detector</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.diffract" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">diffract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.beam.Beam" title="xrd_simulator.beam.Beam"><span class="pre">Beam</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><span class="pre">RigidBodyMotion</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bragg_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_bragg_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.5707963267948966</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><span class="pre">Detector</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/polycrystal.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.polycrystal.Polycrystal.diffract" title="Link to this definition"></a></dt>
 <dd><p>Compute diffraction from the rotating and translating polycrystal.</p>
 <p>Simulates diffraction while the sample is illuminated by an X-ray beam.
 Returns peaks that can be rendered on a detector.</p>
@@ -1264,6 +1282,30 @@ unauthenticated source.</p>
 
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="xrd_simulator.beam.GaussianBeam">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.beam.</span></span><span class="sig-name descname"><span class="pre">GaussianBeam</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_centroid_position</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xray_propagation_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wavelength</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polarization_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_axis_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_axis_direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_axis_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_axis_direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/beam.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.beam.GaussianBeam" title="Link to this definition"></a></dt>
+<dd><p>Represents a monochromatic X-ray beam with a 2D gaussian cross-section.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>beam_centroid_position</strong> (<em>torch.Tensor</em><em> or </em><em>numpy.ndarray</em>) – A point on the center-line of the beam. <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>.</p></li>
+<li><p><strong>xray_propagation_direction</strong> (<em>torch.Tensor</em><em> or </em><em>numpy.ndarray</em>) – Propagation direction of X-rays, shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>.</p></li>
+<li><p><strong>wavelength</strong> (<em>float</em>) – X-ray wavelength in units of angstrom.</p></li>
+<li><p><strong>polarization_vector</strong> (<em>torch.Tensor</em><em> or </em><em>numpy.ndarray</em>) – Beam linear polarization unit vector, shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>. Must be
+orthogonal to the X-ray propagation direction.</p></li>
+<li><p><strong>long_axis_width</strong> (<em>float</em>) – Width of the beam along the longest direction.</p></li>
+<li><p><strong>long_axis_direction</strong> (<em>torch.Tensor</em><em> or </em><em>numpy.ndarray</em>) – Direction of the major-axis of the beam, shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>. Must be
+orthogonal to the X-ray propagation direction. If not given, the
+beam is assumed circular with a width given by <code class="docutils literal notranslate"><span class="pre">long_axis_width</span></code>.</p></li>
+<li><p><strong>long_axis_width</strong> – Width of the beam along the shortest direction.</p></li>
+<li><p><strong>long_axis_direction</strong> – Direction of the minor-axis of the beam, shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code>. Must be
+orthogonal to the X-ray propagation direction.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="module-xrd_simulator.detector">
 <span id="detector"></span><h2>detector<a class="headerlink" href="#module-xrd_simulator.detector" title="Link to this heading"></a></h2>
@@ -1661,6 +1703,32 @@ bounds.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.detector.Detector.render_gaussian_splats">
+<span class="sig-name descname"><span class="pre">render_gaussian_splats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uv_corrds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concentration_tensors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.render_gaussian_splats" title="Link to this definition"></a></dt>
+<dd><p>Basic 2D Gaussian rasterizer. Each gaussian has the expression:</p>
+<div class="math notranslate nohighlight">
+\[f = s \exp(-[u-u_0, v-v_0] S [u-u_0, v-v_0]^T).\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>uv_corrds</strong> (<em>Tensor</em>) – Centroid pixel coordinates, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2)</span></code></p></li>
+<li><p><strong>scale_factors</strong> (<em>Tensor</em>) – Intensity scale factors, shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code></p></li>
+<li><p><strong>concentration_tensors</strong> (<em>Tensor</em>) – Shape concentration tensors, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2,</span> <span class="pre">2)</span></code></p></li>
+<li><p><strong>threshold</strong> (Tensor, shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code>) – Per gaussian threshold value used to truncate the Gaussians. Gaussians are set to zero
+when the value falls bellow <code class="docutils literal notranslate"><span class="pre">scale_factors*torch.exp(-theshold)</span></code>.</p></li>
+<li><p><strong>patch_size</strong> (<em>int</em>) – For evaluation the detector is split into patches of shize <cite>patch_size</cite> by <cite>patch_size</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>detector_image</strong> – Detector image, shape <code class="docutils literal notranslate"><span class="pre">self.shape</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="xrd_simulator.detector.Detector.peaks_detector_intersection">
 <span class="sig-name descname"><span class="pre">peaks_detector_intersection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">peaks_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frames_to_render</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/detector.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.detector.Detector.peaks_detector_intersection" title="Link to this definition"></a></dt>
 <dd><p>Project diffraction peaks onto the detector and filter to those that hit it.</p>
@@ -1985,6 +2053,320 @@ unauthenticated source.</p>
 </dd></dl>
 
 </section>
+<section id="module-xrd_simulator.gaussian_crystal_model">
+<span id="gaussian-crystal-model"></span><h2>gaussian_crystal_model<a class="headerlink" href="#module-xrd_simulator.gaussian_crystal_model" title="Link to this heading"></a></h2>
+<p>Gaussian subgrain models for polycrystalline X-ray diffraction simulation.</p>
+<p>Represent a polycrystal as a collection of subgrains with Gaussian real-space
+density profiles and narrow Gaussian orientation distributions. Each subgrain
+is defined by its crystallographic phase, centroid, shape tensor, mean lattice
+orientation, misorientation tensor, and uniform strain tensor. Both the shape
+and orientation spread may be anisotropic.</p>
+<p><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain" title="xrd_simulator.gaussian_crystal_model.GaussianSubgrain"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianSubgrain</span></code></a> describes an individual subgrain, while
+<a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal" title="xrd_simulator.gaussian_crystal_model.GaussianPolycrystal"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianPolycrystal</span></code></a> assembles subgrains and renders diffraction
+patterns using a <a class="reference internal" href="#xrd_simulator.beam.GaussianBeam" title="xrd_simulator.beam.GaussianBeam"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianBeam</span></code></a> and a
+<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><code class="xref py py-class docutils literal notranslate"><span class="pre">Detector</span></code></a>.</p>
+<p>The forward model computes beam-subgrain intersections, reflection
+partialities, and scattered-beam angular distributions. Illuminated subgrain
+shapes are projected onto the detector and combined with mosaicity-induced
+angular broadening to form two-dimensional Gaussian spots. These contributions
+are rasterized and summed into a detector intensity image. Small sample
+rotations during an exposure are approximated by additional Gaussian
+orientation broadening.</p>
+<p>The module also supports rigid-body transformations of the polycrystal and
+pole-figure rendering.</p>
+<p class="rubric">Notes</p>
+<p>The current implementation supports single-phase polycrystals and assumes a
+monochromatic, collimated incident beam. Orientation distributions are
+approximated in the tangent space about each subgrain’s mean orientation,
+requiring small misorientations. Uniform strain modifies reciprocal-lattice
+vectors, but strain-distribution broadening is not included within an
+individual subgrain. A distribution of strains can instead be approximated by
+combining appropriately weighted diffraction patterns from subgrain
+populations with different uniform strain tensors.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="gaussian_model_theory.html"><span class="doc">Gaussian model: theory and references</span></a></dt><dd><p>Scattering geometry, Gaussian orientation distributions, reciprocal-space
+maps, model assumptions, illustrative tests, and references.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<p>Simulate a static diffraction pattern from 2000 Gaussian quartz subgrains with
+random positions, orientations, shapes, and anisotropic orientation spreads.</p>
+<p>Run the example from the repository root with <code class="docutils literal notranslate"><span class="pre">xrd_simulator</span></code> installed, so
+that <code class="docutils literal notranslate"><span class="pre">tests/data/quartz.cif</span></code> is available. Real-space lengths are in
+micrometres, the wavelength and unit-cell lengths are in angstroms, and
+unit-cell angles are in degrees. Orientation-spread parameters are in radians.</p>
+<p>First, define the beam, detector, and crystallographic phase:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.transform</span> <span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
+
+<span class="kn">from</span> <span class="nn">xrd_simulator.beam</span> <span class="kn">import</span> <span class="n">GaussianBeam</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.detector</span> <span class="kn">import</span> <span class="n">Detector</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.phase</span> <span class="kn">import</span> <span class="n">Phase</span>
+<span class="kn">from</span> <span class="nn">xrd_simulator.gaussian_crystal_model</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GaussianSubgrain</span><span class="p">,</span>
+    <span class="n">GaussianPolycrystal</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">gaussian_beam</span> <span class="o">=</span> <span class="n">GaussianBeam</span><span class="p">(</span>
+    <span class="n">xray_propagation_direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+    <span class="n">beam_centroid_position</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+    <span class="n">wavelength</span><span class="o">=</span><span class="mf">0.28523</span><span class="p">,</span>
+    <span class="n">polarization_vector</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+    <span class="n">long_axis_width</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span>
+    <span class="n">long_axis_direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]),</span>
+    <span class="n">short_axis_width</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+    <span class="n">short_axis_direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+<span class="p">)</span>
+
+<span class="n">detector</span> <span class="o">=</span> <span class="n">Detector</span><span class="p">(</span>
+    <span class="n">det_corner_0</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.0</span><span class="p">]),</span>
+    <span class="n">det_corner_1</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="mf">38400.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.0</span><span class="p">]),</span>
+    <span class="n">det_corner_2</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">142938.3</span><span class="p">,</span> <span class="o">-</span><span class="mf">38400.0</span><span class="p">,</span> <span class="mf">38400.0</span><span class="p">]),</span>
+    <span class="n">pixel_size</span><span class="o">=</span><span class="p">(</span><span class="mf">25.0</span><span class="p">,</span> <span class="mf">25.0</span><span class="p">),</span>
+    <span class="n">gaussian_sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">max_gaussian_kernel_radius</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">quartz</span> <span class="o">=</span> <span class="n">Phase</span><span class="p">(</span>
+    <span class="n">unit_cell</span><span class="o">=</span><span class="p">[</span><span class="mf">4.926</span><span class="p">,</span> <span class="mf">4.926</span><span class="p">,</span> <span class="mf">5.4189</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">],</span>
+    <span class="n">sgname</span><span class="o">=</span><span class="s2">&quot;P3221&quot;</span><span class="p">,</span>
+    <span class="n">path_to_cif_file</span><span class="o">=</span><span class="s2">&quot;tests/data/quartz.cif&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, build the polycrystal. The helper generates a symmetric positive-definite
+width tensor with a randomly oriented symmetry axis. Its eigenvalues are
+<code class="docutils literal notranslate"><span class="pre">axis_1**2</span></code>, <code class="docutils literal notranslate"><span class="pre">axis_1**2</span></code>, and <code class="docutils literal notranslate"><span class="pre">axis_2**2</span></code>. Shape-width parameters range
+from 50 to 200 micrometres, and misorientation-width parameters range from
+0.01 to 0.03 radians. The distinction between these width parameters and
+standard deviations is explained on the theory page.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">make_random_tensor</span><span class="p">(</span><span class="n">axis_1</span><span class="p">,</span> <span class="n">axis_2</span><span class="p">):</span>
+    <span class="n">random_direction</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">random_direction</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">random_direction</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">axis_1</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">axis_2</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">axis_1</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">random_direction</span><span class="p">,</span> <span class="n">random_direction</span><span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="n">grain_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mf">500.0</span><span class="p">,</span> <span class="mf">500.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">shape_tensor</span> <span class="o">=</span> <span class="n">make_random_tensor</span><span class="p">(</span>
+        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">200.0</span><span class="p">),</span>
+        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">200.0</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">orientation</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+    <span class="n">misorientation_tensor</span> <span class="o">=</span> <span class="n">make_random_tensor</span><span class="p">(</span>
+        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">),</span>
+        <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="n">grain_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">GaussianSubgrain</span><span class="p">(</span>
+            <span class="n">phase</span><span class="o">=</span><span class="n">quartz</span><span class="p">,</span>
+            <span class="n">position</span><span class="o">=</span><span class="n">position</span><span class="p">,</span>
+            <span class="n">shape_tensor</span><span class="o">=</span><span class="n">shape_tensor</span><span class="p">,</span>
+            <span class="n">orientation</span><span class="o">=</span><span class="n">orientation</span><span class="p">,</span>
+            <span class="n">misorientation_tensor</span><span class="o">=</span><span class="n">misorientation_tensor</span><span class="p">,</span>
+            <span class="n">strain_tensor</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="n">gaussian_polycrystal</span> <span class="o">=</span> <span class="n">GaussianPolycrystal</span><span class="p">(</span>
+    <span class="n">grain_list</span><span class="p">,</span>
+    <span class="n">max_misorientation</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span>
+    <span class="n">max_grain_size</span><span class="o">=</span><span class="mf">200.0</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Compute a diffraction pattern without sample rotation during the exposure:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">f</span> <span class="o">=</span> <span class="n">gaussian_polycrystal</span><span class="o">.</span><span class="n">diffract</span><span class="p">(</span>
+    <span class="n">beam</span><span class="o">=</span><span class="n">gaussian_beam</span><span class="p">,</span>
+    <span class="n">detector</span><span class="o">=</span><span class="n">detector</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">threshold</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, plot the full detector image and a magnified region on the same
+logarithmic intensity scale:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">log_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-10</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+    <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+    <span class="n">gridspec_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;width_ratios&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)},</span>
+    <span class="n">constrained_layout</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">log_intensity</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;jet&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">img</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">log_intensity</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;jet&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Full detector&quot;</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Magnified region&quot;</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">1500</span><span class="p">,</span> <span class="mi">2200</span><span class="p">)</span>
+<span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">2200</span><span class="p">,</span> <span class="mi">1500</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$\log_</span><span class="si">{10}</span><span class="s2">(I + 10^{-10})$&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="_images/many_crystals_quartz.png"><img alt="Simulated quartz diffraction pattern and a magnified detector region." src="_images/many_crystals_quartz.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Representative output from the Gaussian workflow. The precise spot pattern
+depends on the random subgrain realization. This image is retained from the
+original workflow and need not match the seeded realization above exactly.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<dl class="py class">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.gaussian_crystal_model.</span></span><span class="sig-name descname"><span class="pre">GaussianSubgrain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phase</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase"><span class="pre">Phase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([0,</span> <span class="pre">0,</span> <span class="pre">0])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([[1.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">1.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">1.]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([[1.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">1.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">1.]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">misorientation_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([[0.00030625,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.00030625,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">0.00030625]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strain_tensor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([[0.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">0.]])</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain" title="Link to this definition"></a></dt>
+<dd><p>A <cite>subgrain</cite> has a 3D-gaussian density distribution and a narrow (&lt;=0.1 rad) 3D
+orientation distribution function.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.phase">
+<span class="sig-name descname"><span class="pre">phase</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.phase" title="Link to this definition"></a></dt>
+<dd><p>Object representing the crystal structure of the grain.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#xrd_simulator.phase.Phase" title="xrd_simulator.phase.Phase">Phase</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.position">
+<span class="sig-name descname"><span class="pre">position</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.position" title="Link to this definition"></a></dt>
+<dd><p>Position of the grain centroid, shape <code class="docutils literal notranslate"><span class="pre">(3,)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor | np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.shape_tensor">
+<span class="sig-name descname"><span class="pre">shape_tensor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.shape_tensor" title="Link to this definition"></a></dt>
+<dd><p>Covariance tensor of the real-space grain shape. <code class="docutils literal notranslate"><span class="pre">(3,</span> <span class="pre">3,)</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor | np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.orientation">
+<span class="sig-name descname"><span class="pre">orientation</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.orientation" title="Link to this definition"></a></dt>
+<dd><p>Orientation of the centroid of the ODF as a rotation matrix, shape <code class="docutils literal notranslate"><span class="pre">(3,</span> <span class="pre">3,)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor | np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.misorientation_tensor">
+<span class="sig-name descname"><span class="pre">misorientation_tensor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.misorientation_tensor" title="Link to this definition"></a></dt>
+<dd><p>Covariance tensor of the grain orientation in the left-hand tangent space.
+aka. laboratory coordinates, shape <code class="docutils literal notranslate"><span class="pre">(3,</span> <span class="pre">3,)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor | np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianSubgrain.strain_tensor">
+<span class="sig-name descname"><span class="pre">strain_tensor</span></span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain.strain_tensor" title="Link to this definition"></a></dt>
+<dd><p>Strain tensor in laboratory coordinates, shape <code class="docutils literal notranslate"><span class="pre">(3,</span> <span class="pre">3,)</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor | np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianPolycrystal">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">xrd_simulator.gaussian_crystal_model.</span></span><span class="sig-name descname"><span class="pre">GaussianPolycrystal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grain_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#xrd_simulator.gaussian_crystal_model.GaussianSubgrain" title="xrd_simulator.gaussian_crystal_model.GaussianSubgrain"><span class="pre">GaussianSubgrain</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_grain_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_misorientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal" title="Link to this definition"></a></dt>
+<dd><p>Colection of <code class="docutils literal notranslate"><span class="pre">GaussianSubgrain</span></code> object representing a polycrystalline sample.
+Variables <code class="docutils literal notranslate"><span class="pre">max_grain_size</span></code> and <code class="docutils literal notranslate"><span class="pre">max_misorientation</span></code> can be supplied to speed up
+diffraction calculations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.diffract">
+<span class="sig-name descname"><span class="pre">diffract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.beam.GaussianBeam" title="xrd_simulator.beam.GaussianBeam"><span class="pre">GaussianBeam</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><span class="pre">Detector</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_orientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([[1.,</span> <span class="pre">0.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">1.,</span> <span class="pre">0.],</span> <span class="pre">[0.,</span> <span class="pre">0.,</span> <span class="pre">1.]])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_translation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([0.,</span> <span class="pre">0.,</span> <span class="pre">0.])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_rotation_during_exposure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">_ScalarType_co</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tensor</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">array([0.,</span> <span class="pre">0.,</span> <span class="pre">0.])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peaks_batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.diffract" title="Link to this definition"></a></dt>
+<dd><p>Render a single diffraction pattern.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>beam</strong> (<a class="reference internal" href="#xrd_simulator.beam.GaussianBeam" title="xrd_simulator.beam.GaussianBeam"><em>GaussianBeam</em></a>) – Object representing the x-ray beam hitting the crystal.</p></li>
+<li><p><strong>detector</strong> (<a class="reference internal" href="#xrd_simulator.detector.Detector" title="xrd_simulator.detector.Detector"><em>Detector</em></a>) – Object representing the x-ray detector.</p></li>
+<li><p><strong>sample_orientation</strong> (<em>NDArray</em><em>, </em><em>optional</em>) – 3-by-3 Rotation matrix representing the orientation of the sample</p></li>
+<li><p><strong>sample_translation</strong> (<em>NDArray</em><em>, </em><em>optional</em>) – 3-vector prepresenting the translation of the sample. (the sample is first
+rotated about the origin, then translated)</p></li>
+<li><p><strong>sample_rotation_during_exposure</strong> (<em>NDArray</em><em>, </em><em>optional</em>) – 3-vector representing a small rotation carried out during the measurement</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> print timing information. Default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.splat_grainshapes">
+<span class="sig-name descname"><span class="pre">splat_grainshapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mean_scattering_directions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape_concentration_tensors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixellengths</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.splat_grainshapes" title="Link to this definition"></a></dt>
+<dd><p>Project the labratory space shape-concentration-tensors of a range of grains along a the scattering directions
+into 2D detector pixels space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mean_scattering_directions</strong> (<em>Tensor</em>) – Scattering direction unit vectors, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">3)</span></code></p></li>
+<li><p><strong>shape_concentration_tensors</strong> (<em>Tensor</em>) – Shape concentration tensors in laboratory coordinates, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">3,</span> <span class="pre">3)</span></code></p></li>
+<li><p><strong>W</strong> (<em>Tensor</em>) – Pixel-direction unit vectors stacked, shape <code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">3)</span></code></p></li>
+<li><p><strong>pixellengths</strong> (<em>Tensor</em>) – Pixel lengths, shape <code class="docutils literal notranslate"><span class="pre">(2,</span> <span class="pre">3)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>projected_shape_pixelunits</strong> (<em>Tensor</em>) – Concentarion tensor of the projected grainshape in detector pixel units, shape <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">2,</span> <span class="pre">2)</span></code></p></li>
+<li><p><strong>projected_thicknes_scale_factors</strong> (<em>Tensor</em>) – Intensity scaling factor due the projected thickness of the grain, shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rigid_body_motion</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><span class="pre">RigidBodyMotion</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/fable-3dxrd/xrd_simulator/blob/main/xrd_simulator/gaussian_crystal_model.py/"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xrd_simulator.gaussian_crystal_model.GaussianPolycrystal.transform" title="Link to this definition"></a></dt>
+<dd><p>Transform the polycrystal by performing a rigid body motion.</p>
+<p>This updates all the sample-information in-place.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rigid_body_motion</strong> (<a class="reference internal" href="#xrd_simulator.motion.RigidBodyMotion" title="xrd_simulator.motion.RigidBodyMotion"><em>RigidBodyMotion</em></a>) – Rigid body motion object describing the polycrystal transformation
+as a function of time on the domain <code class="docutils literal notranslate"><span class="pre">time=[0,</span> <span class="pre">1]</span></code>.</p></li>
+<li><p><strong>time</strong> (<em>float</em>) – Time between <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> at which to call the rigid body motion.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 <section id="module-xrd_simulator.templates">
 <span id="templates"></span><h2>templates<a class="headerlink" href="#module-xrd_simulator.templates" title="Link to this heading"></a></h2>
 <p>Templates module for fast creation of sample types and diffraction geometries.</p>
@@ -2222,13 +2604,6 @@ factors are computed.</p></li>
 </div>
 </dd></dl>
 
-</section>
-<section id="module-xrd_simulator.laue">
-<span id="laue"></span><h2>laue<a class="headerlink" href="#module-xrd_simulator.laue" title="Link to this heading"></a></h2>
-<p>Collection of functions for solving time-dependent Laue equations.</p>
-<p>This module provides functions for arbitrary rigid body motions. It is mainly
-used internally by the <a class="reference internal" href="#xrd_simulator.polycrystal.Polycrystal" title="xrd_simulator.polycrystal.Polycrystal"><code class="xref py py-class docutils literal notranslate"><span class="pre">xrd_simulator.polycrystal.Polycrystal</span></code></a>. However,
-for the advanced user, access to these functions may be of interest.</p>
 </section>
 </section>
 

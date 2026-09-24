@@ -1,7 +1,3 @@
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
 .. include:: ../../README.rst
 
 ======================================
@@ -50,16 +46,16 @@ motion
     :members:
     :inherited-members:
 
+gaussian_crystal_model
+======================================
+
+.. automodule:: xrd_simulator.gaussian_crystal_model
+   :members:
+   :inherited-members:
+
 templates
 ======================================
 
 .. automodule:: xrd_simulator.templates
-    :members:
-    :inherited-members:
-
-laue
-======================================
-
-.. automodule:: xrd_simulator.laue
     :members:
     :inherited-members:
