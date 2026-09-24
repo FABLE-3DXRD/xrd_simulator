@@ -1,0 +1,626 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gaussian model: theory and references &mdash; xrd_simulator 0.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=7026087e"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/logo_stripped_white.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">Gaussian model: theory and references</a><ul>
+<li><a class="reference internal" href="#gaussian-subgrain-representation">Gaussian subgrain representation</a></li>
+<li><a class="reference internal" href="#scattering-theory">Scattering theory</a><ul>
+<li><a class="reference internal" href="#scattered-beam-distribution">Scattered-beam distribution</a></li>
+<li><a class="reference internal" href="#incident-beam-coordinates">Incident-beam coordinates</a></li>
+<li><a class="reference internal" href="#reciprocal-space-coordinates">Reciprocal-space coordinates</a></li>
+<li><a class="reference internal" href="#outgoing-beam-coordinates">Outgoing-beam coordinates</a></li>
+<li><a class="reference internal" href="#linearized-conservation-equations">Linearized conservation equations</a></li>
+<li><a class="reference internal" href="#monochromatic-collimated-specialization">Monochromatic, collimated specialization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#anisotropic-gaussian-orientation-distributions">Anisotropic Gaussian orientation distributions</a><ul>
+<li><a class="reference internal" href="#tangent-space-approximation">Tangent-space approximation</a></li>
+<li><a class="reference internal" href="#pole-density-as-a-line-integral">Pole density as a line integral</a></li>
+<li><a class="reference internal" href="#projected-concentration-tensor">Projected concentration tensor</a></li>
+<li><a class="reference internal" href="#reciprocal-space-map">Reciprocal-space map</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#illustrative-tests">Illustrative tests</a><ul>
+<li><a class="reference internal" href="#comparison-with-a-tetrahedral-crystal">Comparison with a tetrahedral crystal</a></li>
+<li><a class="reference internal" href="#high-resolution-rocking-curve">High-resolution rocking curve</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xrd_simulator</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Gaussian model: theory and references</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/gaussian_model_theory.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="gaussian-model-theory-and-references">
+<span id="gaussian-model-theory"></span><h1>Gaussian model: theory and references<a class="headerlink" href="#gaussian-model-theory-and-references" title="Link to this heading"></a></h1>
+<p>This page describes the scattering model and approximations underlying
+<a class="reference internal" href="index.html#module-xrd_simulator.gaussian_crystal_model" title="xrd_simulator.gaussian_crystal_model"><code class="xref py py-mod docutils literal notranslate"><span class="pre">xrd_simulator.gaussian_crystal_model</span></code></a>. A worked example is provided in
+the module documentation.</p>
+<nav class="contents local" id="on-this-page">
+<p class="topic-title">On this page</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#gaussian-subgrain-representation" id="id6">Gaussian subgrain representation</a></p></li>
+<li><p><a class="reference internal" href="#scattering-theory" id="id7">Scattering theory</a></p>
+<ul>
+<li><p><a class="reference internal" href="#scattered-beam-distribution" id="id8">Scattered-beam distribution</a></p></li>
+<li><p><a class="reference internal" href="#incident-beam-coordinates" id="id9">Incident-beam coordinates</a></p></li>
+<li><p><a class="reference internal" href="#reciprocal-space-coordinates" id="id10">Reciprocal-space coordinates</a></p></li>
+<li><p><a class="reference internal" href="#outgoing-beam-coordinates" id="id11">Outgoing-beam coordinates</a></p></li>
+<li><p><a class="reference internal" href="#linearized-conservation-equations" id="id12">Linearized conservation equations</a></p></li>
+<li><p><a class="reference internal" href="#monochromatic-collimated-specialization" id="id13">Monochromatic, collimated specialization</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#anisotropic-gaussian-orientation-distributions" id="id14">Anisotropic Gaussian orientation distributions</a></p>
+<ul>
+<li><p><a class="reference internal" href="#tangent-space-approximation" id="id15">Tangent-space approximation</a></p></li>
+<li><p><a class="reference internal" href="#pole-density-as-a-line-integral" id="id16">Pole density as a line integral</a></p></li>
+<li><p><a class="reference internal" href="#projected-concentration-tensor" id="id17">Projected concentration tensor</a></p></li>
+<li><p><a class="reference internal" href="#reciprocal-space-map" id="id18">Reciprocal-space map</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#illustrative-tests" id="id19">Illustrative tests</a></p>
+<ul>
+<li><p><a class="reference internal" href="#comparison-with-a-tetrahedral-crystal" id="id20">Comparison with a tetrahedral crystal</a></p></li>
+<li><p><a class="reference internal" href="#high-resolution-rocking-curve" id="id21">High-resolution rocking curve</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#references" id="id22">References</a></p></li>
+</ul>
+</nav>
+<section id="gaussian-subgrain-representation">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Gaussian subgrain representation</a><a class="headerlink" href="#gaussian-subgrain-representation" title="Link to this heading"></a></h2>
+<p>Gaussian splatting represents a three-dimensional scene using Gaussian
+primitives whose projected contributions can be rendered efficiently by
+rasterization <a class="reference internal" href="#kerbl2023" id="id1"><span>[Kerbl2023]</span></a>. Here, a polycrystal is represented by Gaussian
+grains or subgrains, each with a Gaussian real-space density profile and a
+narrow Gaussian distribution of lattice orientations. Under the approximations
+below, each subgrain produces Gaussian-shaped diffraction spots on the
+detector. Related Gaussian-basis methods for diffraction prediction and
+partiality estimation have been demonstrated in serial crystallography
+<a class="reference internal" href="#brehm2023" id="id2"><span>[Brehm2023]</span></a>.</p>
+<p>Several effects can contribute to diffraction-spot broadening: grain size,
+detector point-spread, incident-beam bandwidth, incident-beam angular
+divergence, lattice misorientation (mosaicity), and distributions of strain.
+When these effects have Gaussian profiles and their deviations are small
+enough to neglect nonlinear terms, they can be combined within a Gaussian
+model.</p>
+<p>The model described here includes the real-space extent of the illuminated
+subgrains and their mosaicity. The incident beam is monochromatic and
+collimated, and each subgrain has a uniform strain tensor. A uniform strain
+can shift a reflection but does not describe a distribution of lattice
+spacings within that subgrain. Small sample rotations during an exposure are
+approximated by additional Gaussian orientation broadening.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Gaussian-splat rendering path does not apply a separate detector
+point-spread convolution. The <code class="docutils literal notranslate"><span class="pre">gaussian_sigma</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max_gaussian_kernel_radius</span></code> detector settings retained in the worked
+example therefore do not add this broadening to its Gaussian spots.</p>
+</div>
+</section>
+<section id="scattering-theory">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Scattering theory</a><a class="headerlink" href="#scattering-theory" title="Link to this heading"></a></h2>
+<section id="scattered-beam-distribution">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Scattered-beam distribution</a><a class="headerlink" href="#scattered-beam-distribution" title="Link to this heading"></a></h3>
+<p>Let the incident beam have a phase-space density <span class="math notranslate nohighlight">\(p(\mathbf{k})\)</span>
+centred on <span class="math notranslate nohighlight">\(\mathbf{k}_0\)</span>, with nominal wavenumber</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-wavenumber">
+<span class="eqno">(1)<a class="headerlink" href="#equation-gaussian-wavenumber" title="Link to this equation"></a></span>\[k = \lvert\mathbf{k}_0\rvert = \frac{2\pi}{\lambda_0}.\]</div>
+<p>For a particular reflection, let <span class="math notranslate nohighlight">\(f(\mathbf{q})\)</span> describe the subgrain’s
+reciprocal-space map (RSM) around a reciprocal-lattice vector
+<span class="math notranslate nohighlight">\(\mathbf{G}_0\)</span>. The scattered-beam distribution is written as</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-scattering-integral">
+<span class="eqno">(2)<a class="headerlink" href="#equation-gaussian-scattering-integral" title="Link to this equation"></a></span>\[I(\mathbf{p})
+= \int \mathrm{d}^{3}\mathbf{k}
+  \int \mathrm{d}^{3}\mathbf{q}\;
+  p(\mathbf{k})\,f(\mathbf{q})\,
+  \delta\!\left(\lvert\mathbf{k}\rvert-\lvert\mathbf{p}\rvert\right)
+  \delta^{(3)}\!\left(\mathbf{k}+\mathbf{q}-\mathbf{p}\right).\]</div>
+<p>The scalar Dirac delta enforces elastic scattering, while the
+three-dimensional Dirac delta enforces momentum conservation.</p>
+</section>
+<section id="incident-beam-coordinates">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Incident-beam coordinates</a><a class="headerlink" href="#incident-beam-coordinates" title="Link to this heading"></a></h3>
+<p>Following the coordinate construction used by Poulsen et al.
+<a class="reference internal" href="#poulsen2017" id="id3"><span>[Poulsen2017]</span></a>, write the incident wavevector as</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-incident-wavevector">
+<span class="eqno">(3)<a class="headerlink" href="#equation-gaussian-incident-wavevector" title="Link to this equation"></a></span>\[\mathbf{k}
+= \mathbf{k}_0
+  + k\left(
+      \varepsilon\,\hat{\mathbf{k}}_0
+      + \zeta_{\parallel}\,\hat{\mathbf{k}}_{\parallel}
+      + \zeta_{\perp}\,\hat{\mathbf{k}}_{\perp}
+    \right).\]</div>
+<p>A hat denotes a unit vector. The vector
+<span class="math notranslate nohighlight">\(\hat{\mathbf{k}}_{\parallel}\)</span> is perpendicular to
+<span class="math notranslate nohighlight">\(\mathbf{k}_0\)</span> and lies in the plane spanned by <span class="math notranslate nohighlight">\(\mathbf{k}_0\)</span>
+and <span class="math notranslate nohighlight">\(\mathbf{G}_0\)</span>. Its sign is chosen so that
+<span class="math notranslate nohighlight">\(\mathbf{G}_0\cdot\hat{\mathbf{k}}_{\parallel}&gt;0\)</span>. Complete the
+right-handed basis with</p>
+<div class="math notranslate nohighlight">
+\[\hat{\mathbf{k}}_{\perp}
+= \hat{\mathbf{k}}_0\times\hat{\mathbf{k}}_{\parallel}.\]</div>
+<p>The coordinate <span class="math notranslate nohighlight">\(\varepsilon\)</span> describes the relative wavenumber
+deviation, and <span class="math notranslate nohighlight">\(\zeta_{\parallel}\)</span> and <span class="math notranslate nohighlight">\(\zeta_{\perp}\)</span> describe
+small angular deviations of the incident beam.</p>
+</section>
+<section id="reciprocal-space-coordinates">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Reciprocal-space coordinates</a><a class="headerlink" href="#reciprocal-space-coordinates" title="Link to this heading"></a></h3>
+<p>Define the nominal Bragg angle and the exactly aligned scattering vector by</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-nominal-scattering-vector">
+<span class="eqno">(4)<a class="headerlink" href="#equation-gaussian-nominal-scattering-vector" title="Link to this equation"></a></span>\[\begin{split}\begin{aligned}
+\theta_0
+&amp;= \arcsin\!\left(\frac{\lvert\mathbf{G}_0\rvert}{2k}\right), \\
+\mathbf{Q}
+&amp;= 2k\sin\theta_0\left(
+    \cos\theta_0\,\hat{\mathbf{k}}_{\parallel}
+    - \sin\theta_0\,\hat{\mathbf{k}}_0
+  \right) \\
+&amp;= 2k\sin\theta_0\,\hat{\mathbf{Q}}.
+\end{aligned}\end{split}\]</div>
+<p>The vectors <span class="math notranslate nohighlight">\(\mathbf{G}_0\)</span> and <span class="math notranslate nohighlight">\(\mathbf{Q}\)</span> coincide when the
+reflection is exactly aligned. For a small misalignment, their difference is
+parallel, to first order, to the rocking direction</p>
+<div class="math notranslate nohighlight">
+\[\hat{\mathbf{q}}_{\mathrm{rock}}
+= \cos\theta_0\,\hat{\mathbf{k}}_0
+  + \sin\theta_0\,\hat{\mathbf{k}}_{\parallel}.\]</div>
+<p>Use dimensionless rocking, strain, and rolling coordinates to write</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-reciprocal-coordinates">
+<span class="eqno">(5)<a class="headerlink" href="#equation-gaussian-reciprocal-coordinates" title="Link to this equation"></a></span>\[\begin{split}\begin{aligned}
+\mathbf{q}
+&amp;= \mathbf{G}_0
+   + 2k\sin\theta_0\left(
+       q_{\mathrm{rock}}\,\hat{\mathbf{q}}_{\mathrm{rock}}
+       + q_{\mathrm{strain}}\,\hat{\mathbf{Q}}
+       + q_{\mathrm{roll}}\,\hat{\mathbf{k}}_{\perp}
+     \right) \\
+&amp;\approx \mathbf{Q}
+   + 2k\sin\theta_0\left(
+       (q_{\mathrm{rock}}-\delta q)\,
+           \hat{\mathbf{q}}_{\mathrm{rock}}
+       + q_{\mathrm{strain}}\,\hat{\mathbf{Q}}
+       + q_{\mathrm{roll}}\,\hat{\mathbf{k}}_{\perp}
+     \right),
+\end{aligned}\end{split}\]</div>
+<p>where</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-rocking-offset">
+<span class="eqno">(6)<a class="headerlink" href="#equation-gaussian-rocking-offset" title="Link to this equation"></a></span>\[\delta q
+= \frac{
+    (\mathbf{Q}-\mathbf{G}_0)\cdot\hat{\mathbf{q}}_{\mathrm{rock}}
+  }{2k\sin\theta_0}.\]</div>
+<p>This offset measures the reflection’s misalignment and is equal to the
+rocking angle to first order, with the sign convention above. The incident
+coordinates <span class="math notranslate nohighlight">\((\varepsilon,\zeta_{\parallel},\zeta_{\perp})\)</span> and the
+reciprocal-space coordinates
+<span class="math notranslate nohighlight">\((q_{\mathrm{rock}},q_{\mathrm{strain}},q_{\mathrm{roll}})\)</span> separate
+bandwidth, collimation, misorientation, and strain effects.</p>
+</section>
+<section id="outgoing-beam-coordinates">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Outgoing-beam coordinates</a><a class="headerlink" href="#outgoing-beam-coordinates" title="Link to this heading"></a></h3>
+<p>The nominal scattered wavevector is</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-nominal-outgoing-wavevector">
+<span class="eqno">(7)<a class="headerlink" href="#equation-gaussian-nominal-outgoing-wavevector" title="Link to this equation"></a></span>\[\mathbf{k}_h
+= \mathbf{k}_0+\mathbf{Q}
+= k\left(
+    \cos(2\theta_0)\,\hat{\mathbf{k}}_0
+    + \sin(2\theta_0)\,\hat{\mathbf{k}}_{\parallel}
+  \right).\]</div>
+<p>Define the radial direction perpendicular to <span class="math notranslate nohighlight">\(\mathbf{k}_h\)</span> by</p>
+<div class="math notranslate nohighlight">
+\[\hat{\mathbf{k}}_{\mathrm{rad}}
+= \cos(2\theta_0)\,\hat{\mathbf{k}}_{\parallel}
+  - \sin(2\theta_0)\,\hat{\mathbf{k}}_0.\]</div>
+<p>The outgoing wavevector can then be written as</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-outgoing-wavevector">
+<span class="eqno">(8)<a class="headerlink" href="#equation-gaussian-outgoing-wavevector" title="Link to this equation"></a></span>\[\mathbf{p}
+= \mathbf{k}_h
+  + k\left(
+      \varepsilon'\,\hat{\mathbf{k}}_h
+      + \psi_{\mathrm{rad}}\,\hat{\mathbf{k}}_{\mathrm{rad}}
+      + \psi_{\mathrm{azim}}\,\hat{\mathbf{k}}_{\perp}
+    \right).\]</div>
+<p>Here <span class="math notranslate nohighlight">\(\psi_{\mathrm{rad}}\)</span> and <span class="math notranslate nohighlight">\(\psi_{\mathrm{azim}}\)</span> are small
+transverse angular deviations from the nominal outgoing direction.</p>
+</section>
+<section id="linearized-conservation-equations">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Linearized conservation equations</a><a class="headerlink" href="#linearized-conservation-equations" title="Link to this heading"></a></h3>
+<p>To first order,</p>
+<div class="math notranslate nohighlight">
+\[\lvert\mathbf{k}\rvert\approx k(1+\varepsilon),
+\qquad
+\lvert\mathbf{p}\rvert\approx k(1+\varepsilon').\]</div>
+<p>Energy conservation therefore sets <span class="math notranslate nohighlight">\(\varepsilon'=\varepsilon\)</span>.
+Momentum conservation gives <span class="math notranslate nohighlight">\(\mathbf{q}=\mathbf{p}-\mathbf{k}\)</span> and,
+after substitution,</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-linearized-momentum">
+<span class="eqno">(9)<a class="headerlink" href="#equation-gaussian-linearized-momentum" title="Link to this equation"></a></span>\[\begin{split}\begin{aligned}
+&amp;2\sin\theta_0\Bigl[
+    (q_{\mathrm{rock}}-\delta q)\,
+        \hat{\mathbf{q}}_{\mathrm{rock}}
+    + q_{\mathrm{strain}}\,\hat{\mathbf{Q}}
+    + q_{\mathrm{roll}}\,\hat{\mathbf{k}}_{\perp}
+\Bigr] \\
+&amp;\qquad = 2\sin\theta_0\,\varepsilon\,\hat{\mathbf{Q}}
+    + \psi_{\mathrm{rad}}\,\hat{\mathbf{k}}_{\mathrm{rad}} \\
+&amp;\qquad\quad
+    + \psi_{\mathrm{azim}}\,\hat{\mathbf{k}}_{\perp}
+    - \zeta_{\parallel}\,\hat{\mathbf{k}}_{\parallel}
+    - \zeta_{\perp}\,\hat{\mathbf{k}}_{\perp}.
+\end{aligned}\end{split}\]</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The incident-divergence terms have minus signs because the incident
+wavevector is subtracted in <span class="math notranslate nohighlight">\(\mathbf{q}=\mathbf{p}-\mathbf{k}\)</span>.
+This corrects the corresponding signs in the original workflow. It does
+not affect the monochromatic, collimated specialization below, where
+both terms vanish.</p>
+</div>
+</section>
+<section id="monochromatic-collimated-specialization">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Monochromatic, collimated specialization</a><a class="headerlink" href="#monochromatic-collimated-specialization" title="Link to this heading"></a></h3>
+<p>The current model assumes</p>
+<div class="math notranslate nohighlight">
+\[\varepsilon=\zeta_{\parallel}=\zeta_{\perp}=0,
+\qquad q_{\mathrm{strain}}=0.\]</div>
+<p>The last condition excludes strain-distribution broadening; it does not
+require the uniform subgrain strain to vanish. The conservation equation
+reduces to</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{aligned}
+&amp;2\sin\theta_0\left[
+    (q_{\mathrm{rock}}-\delta q)\,
+        \hat{\mathbf{q}}_{\mathrm{rock}}
+    + q_{\mathrm{roll}}\,\hat{\mathbf{k}}_{\perp}
+\right] \\
+&amp;\qquad
+= \psi_{\mathrm{rad}}\,\hat{\mathbf{k}}_{\mathrm{rad}}
+  + \psi_{\mathrm{azim}}\,\hat{\mathbf{k}}_{\perp}.
+\end{aligned}\end{split}\]</div>
+<p>For a nondegenerate Bragg geometry, the three coordinate equations are</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-scattering-constraints">
+<span class="eqno">(10)<a class="headerlink" href="#equation-gaussian-scattering-constraints" title="Link to this equation"></a></span>\[q_{\mathrm{rock}}=\delta q,
+\qquad
+\psi_{\mathrm{rad}}=0,
+\qquad
+\psi_{\mathrm{azim}}=2\sin\theta_0\,q_{\mathrm{roll}}.\]</div>
+<p>Thus, the scattered angular distribution samples the RSM along a line
+parallel to <span class="math notranslate nohighlight">\(\hat{\mathbf{k}}_{\perp}\)</span>, offset by <span class="math notranslate nohighlight">\(\delta q\)</span>
+from its centre. For a Gaussian RSM, this gives a one-dimensional Gaussian
+angular distribution. The finite real-space extent of the illuminated
+subgrain is subsequently projected onto the detector to produce a
+two-dimensional spot.</p>
+</section>
+</section>
+<section id="anisotropic-gaussian-orientation-distributions">
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">Anisotropic Gaussian orientation distributions</a><a class="headerlink" href="#anisotropic-gaussian-orientation-distributions" title="Link to this heading"></a></h2>
+<section id="tangent-space-approximation">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Tangent-space approximation</a><a class="headerlink" href="#tangent-space-approximation" title="Link to this heading"></a></h3>
+<p>Consider a narrow orientation distribution centred on an orientation
+<span class="math notranslate nohighlight">\(g_0\)</span>. Approximate orientation space by its left tangent space at
+<span class="math notranslate nohighlight">\(g_0\)</span>, so that a small rotation vector <span class="math notranslate nohighlight">\(\mathbf{r}\)</span> acts in
+laboratory coordinates:</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-tangent-rotation">
+<span class="eqno">(11)<a class="headerlink" href="#equation-gaussian-tangent-rotation" title="Link to this equation"></a></span>\[\begin{split}g\approx R_{\mathbf{r}}g_0
+\approx
+\begin{bmatrix}
+    1    &amp; -r_z &amp; r_y \\
+    r_z  &amp; 1    &amp; -r_x \\
+    -r_y &amp; r_x  &amp; 1
+\end{bmatrix}g_0.\end{split}\]</div>
+<p>The Gaussian orientation density used in the workflow is</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-orientation-density">
+<span class="eqno">(12)<a class="headerlink" href="#equation-gaussian-orientation-density" title="Link to this equation"></a></span>\[f(\mathbf{r})
+= \frac{2}{\sqrt{\pi}}\sqrt{\det\mathbf{T}}\,
+  \exp\!\left(-\mathbf{r}^{\mathsf{T}}\mathbf{T}\mathbf{r}\right),\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{T}\)</span> is a symmetric positive-definite concentration
+tensor.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The prefactor above retains the workflow’s normalization convention.
+With ordinary Euclidean tangent-space measure,
+<span class="math notranslate nohighlight">\(\int f(\mathbf{r})\,\mathrm{d}^{3}\mathbf{r}=2\pi\)</span>, not one.
+It should therefore not be interpreted as a unit-normalized Euclidean
+probability density without rescaling.</p>
+<p>For an exponential of the form
+<span class="math notranslate nohighlight">\(\exp(-\mathbf{r}^{\mathsf{T}}\mathbf{T}\mathbf{r})\)</span>, the
+corresponding normalized Gaussian has covariance
+<span class="math notranslate nohighlight">\(\tfrac{1}{2}\mathbf{T}^{-1}\)</span>. The implementation directly inverts
+<code class="docutils literal notranslate"><span class="pre">misorientation_tensor</span></code> to obtain <span class="math notranslate nohighlight">\(\mathbf{T}\)</span>. Consequently,
+the square roots of the input tensor’s eigenvalues are Gaussian width
+parameters, not standard deviations. For an input eigenvalue
+<span class="math notranslate nohighlight">\(a^2\)</span>, the standard deviation is <span class="math notranslate nohighlight">\(a/\sqrt{2}\)</span>.
+The real-space Gaussian uses the same exponential convention for
+<code class="docutils literal notranslate"><span class="pre">shape_tensor</span></code>. This distinction matters because the class attribute
+descriptions currently use the word “covariance” for these inputs.</p>
+</div>
+</section>
+<section id="pole-density-as-a-line-integral">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Pole density as a line integral</a><a class="headerlink" href="#pole-density-as-a-line-integral" title="Link to this heading"></a></h3>
+<p>For Miller indices <span class="math notranslate nohighlight">\((h,k,\ell)\)</span>, define the unit lattice direction in
+crystal coordinates by</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{h}
+= \frac{
+    \mathbf{B}_0[h,k,\ell]^{\mathsf{T}}
+  }{
+    \left\lvert\mathbf{B}_0[h,k,\ell]^{\mathsf{T}}\right\rvert
+  },
+\qquad
+\mathbf{p}=g_0\mathbf{h}.\]</div>
+<p>Here <span class="math notranslate nohighlight">\(\mathbf{B}_0\)</span> is the reciprocal-lattice basis matrix. In this
+section, <span class="math notranslate nohighlight">\(\mathbf{p}\)</span> denotes the mean lattice direction, rather than
+the outgoing wavevector used in the scattering section. It is parallel to
+<span class="math notranslate nohighlight">\(\mathbf{G}_0\)</span>. Let <span class="math notranslate nohighlight">\(\mathbf{y}\)</span> be a unit direction in
+laboratory coordinates, parallel to a sampled reciprocal-space vector
+<span class="math notranslate nohighlight">\(\mathbf{q}\)</span>; it is not a Cartesian coordinate-axis label.</p>
+<p>The pole density, also called the pair-correlation function in texture
+analysis, describes the density of lattice directions along
+<span class="math notranslate nohighlight">\(\mathbf{y}\)</span>. Its calculation normally involves an integral over a
+circle in <span class="math notranslate nohighlight">\(\mathrm{SO}(3)\)</span>. Within the tangent-space approximation,
+replace this by an infinite line integral, parameterized as</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-orientation-fibre">
+<span class="eqno">(13)<a class="headerlink" href="#equation-gaussian-orientation-fibre" title="Link to this equation"></a></span>\[\mathbf{r}(\lambda)
+= \frac{\mathbf{p}\times\mathbf{y}}{\mathbf{p}\cdot\mathbf{y}}
+  + \lambda\mathbf{p}
+= \mathbf{r}_0+\lambda\mathbf{p}.\]</div>
+<p>The parameter <span class="math notranslate nohighlight">\(\lambda\)</span> here is a line-integration parameter, not the
+X-ray wavelength. Substitution into the Gaussian density and completion of
+the square give, with
+<span class="math notranslate nohighlight">\(d=\mathbf{p}^{\mathsf{T}}\mathbf{T}\mathbf{p}\)</span>,</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-pole-density-integral">
+<span class="eqno">(14)<a class="headerlink" href="#equation-gaussian-pole-density-integral" title="Link to this equation"></a></span>\[\begin{split}\begin{aligned}
+A(\mathbf{y},\mathbf{p};f)
+&amp;= \int_{-\infty}^{\infty}
+     f\!\left(\mathbf{r}_0+\lambda\mathbf{p}\right)
+     \,\mathrm{d}\lambda \\
+&amp;= \frac{2\sqrt{\det\mathbf{T}}}
+        {\sqrt{d}}
+   \exp\!\left[
+       -\mathbf{r}_0^{\mathsf{T}}\mathbf{T}\mathbf{r}_0
+       + \frac{
+           (\mathbf{r}_0^{\mathsf{T}}\mathbf{T}\mathbf{p})^2
+         }{d}
+   \right].
+\end{aligned}\end{split}\]</div>
+</section>
+<section id="projected-concentration-tensor">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Projected concentration tensor</a><a class="headerlink" href="#projected-concentration-tensor" title="Link to this heading"></a></h3>
+<p>For directions close to the pole, make the further approximation
+<span class="math notranslate nohighlight">\(\mathbf{p}\cdot\mathbf{y}\approx1\)</span>. Define</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{M}
+= \mathbf{T}
+  - \frac{
+      \mathbf{T}\mathbf{p}\mathbf{p}^{\mathsf{T}}\mathbf{T}
+    }{d}.\]</div>
+<p>Let <span class="math notranslate nohighlight">\([\mathbf{p}]_{\times}\)</span> denote the cross-product matrix,
+<span class="math notranslate nohighlight">\([\mathbf{p}]_{\times}\mathbf{y}=\mathbf{p}\times\mathbf{y}\)</span>. Then</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-projected-concentration">
+<span class="eqno">(15)<a class="headerlink" href="#equation-gaussian-projected-concentration" title="Link to this equation"></a></span>\[\mathbf{T}_{\mathbf{p}}
+= [\mathbf{p}]_{\times}^{\mathsf{T}}
+    \mathbf{M}
+    [\mathbf{p}]_{\times},\]</div>
+<p>and the pole density becomes</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-pole-density">
+<span class="eqno">(16)<a class="headerlink" href="#equation-gaussian-pole-density" title="Link to this equation"></a></span>\[A(\mathbf{y},\mathbf{p};f)
+\approx \frac{2\sqrt{\det\mathbf{T}}}{\sqrt{d}}\,
+  \exp\!\left(
+      -\mathbf{y}^{\mathsf{T}}\mathbf{T}_{\mathbf{p}}\mathbf{y}
+  \right).\]</div>
+<p>Equivalently, using the Levi-Civita symbol <span class="math notranslate nohighlight">\(\epsilon_{ijk}\)</span> and
+summation over repeated indices,</p>
+<div class="math notranslate nohighlight">
+\[[\mathbf{T}_{\mathbf{p}}]_{ij}
+= p_k\,\epsilon_{lki}
+  \left(
+    T_{lm}-\frac{T_{la}p_a p_b T_{bm}}{d}
+  \right)
+  \epsilon_{mnj}\,p_n.\]</div>
+<p>This absorbs the cross products into the projected tensor and makes the
+subsequent Gaussian expressions more compact.</p>
+</section>
+<section id="reciprocal-space-map">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Reciprocal-space map</a><a class="headerlink" href="#reciprocal-space-map" title="Link to this heading"></a></h3>
+<p>The pole density is defined for unit-vector arguments. With no
+strain-distribution broadening, extend it to a reciprocal-space map supported
+on the local plane <span class="math notranslate nohighlight">\(q_{\mathrm{strain}}=0\)</span>.</p>
+<p>Introduce the two-column basis matrix and coordinate vector</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{U}
+= \begin{bmatrix}
+    \hat{\mathbf{q}}_{\mathrm{rock}} &amp; \hat{\mathbf{k}}_{\perp}
+  \end{bmatrix},
+\qquad
+\mathbf{u}
+= \begin{bmatrix}
+    q_{\mathrm{rock}} \\
+    q_{\mathrm{roll}}
+  \end{bmatrix}.\end{split}\]</div>
+<p>In the dimensionless reciprocal-space coordinates defined above, the
+workflow’s local RSM is</p>
+<div class="math notranslate nohighlight" id="equation-gaussian-local-rsm">
+<span class="eqno">(17)<a class="headerlink" href="#equation-gaussian-local-rsm" title="Link to this equation"></a></span>\[f(\mathbf{q})
+\approx \delta(q_{\mathrm{strain}})\,
+   \frac{2\sqrt{\det\mathbf{T}}}{\sqrt{d}}\,
+   \exp\!\left[
+       -\mathbf{u}^{\mathsf{T}}
+        \left(\mathbf{U}^{\mathsf{T}}
+              \mathbf{T}_{\mathbf{p}}\mathbf{U}\right)
+        \mathbf{u}
+   \right].\]</div>
+<p>The Dirac delta expresses the absence of a distribution of lattice spacings
+within the subgrain. Sampling this Gaussian at
+<span class="math notranslate nohighlight">\(q_{\mathrm{rock}}=\delta q\)</span>, as required by
+<a class="reference internal" href="#equation-gaussian-scattering-constraints">(10)</a>, gives the scattered angular
+distribution for the reflection.</p>
+</section>
+</section>
+<section id="illustrative-tests">
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Illustrative tests</a><a class="headerlink" href="#illustrative-tests" title="Link to this heading"></a></h2>
+<section id="comparison-with-a-tetrahedral-crystal">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Comparison with a tetrahedral crystal</a><a class="headerlink" href="#comparison-with-a-tetrahedral-crystal" title="Link to this heading"></a></h3>
+<p>The workflow compares a one-degree rotation of a single quartz crystal
+shaped as a symmetric tetrahedron with a Gaussian approximation of the same
+crystal. The crystal is much larger than the detector pixels, and the largest
+scattering angles exceed 60 degrees, making radial spot elongation from the
+projection geometry visible.</p>
+<p>Seven Gaussians approximate the tetrahedron: one isotropic Gaussian at its
+centre and six prolate Gaussians along its edges. The Gaussian model uses a
+small orientation spread.</p>
+<p>The comparison shows similar peak positions and shapes. The Gaussian model
+also produces additional weak peaks because its rotational integration uses
+a Gaussian time window, whereas the tetrahedral model uses a top-hat time
+window.</p>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="_images/single_crystal_quartz.png"><img alt="Quartz diffraction patterns from tetrahedral and Gaussian models." src="_images/single_crystal_quartz.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Comparison of the tetrahedral crystal model with a seven-Gaussian
+approximation during a one-degree sample rotation.</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="high-resolution-rocking-curve">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">High-resolution rocking curve</a><a class="headerlink" href="#high-resolution-rocking-curve" title="Link to this heading"></a></h3>
+<p>A second test resolves a rocking curve and checks the shape of the resulting
+three-dimensional reciprocal-space map. The workflow figure compares the
+simulated profiles with the expected contributions from grain size and
+misorientation.</p>
+<figure class="align-center" id="id5">
+<a class="reference internal image-reference" href="_images/testing_rocking_curves.png"><img alt="Reciprocal-space map and profiles from a high-resolution rocking scan." src="_images/testing_rocking_curves.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">High-resolution rocking-curve test showing the reciprocal-space map and
+the contributions of grain size and misorientation to the simulated
+profiles.</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="references">
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<div role="list" class="citation-list">
+<div class="citation" id="kerbl2023" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">Kerbl2023</a><span class="fn-bracket">]</span></span>
+<p>Kerbl, B., Kopanas, G., Leimkühler, T. and Drettakis, G.
+(2023). 3D Gaussian Splatting for Real-Time Radiance Field Rendering.
+<em>ACM Transactions on Graphics</em>, <strong>42</strong>(4).
+<a class="reference external" href="https://doi.org/10.1145/3592433">doi:10.1145/3592433</a>.</p>
+</div>
+<div class="citation" id="brehm2023" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">Brehm2023</a><span class="fn-bracket">]</span></span>
+<p>Brehm, W., White, T. and Chapman, H. N. (2023).
+Crystal diffraction prediction and partiality estimation using Gaussian
+basis functions. <em>Acta Crystallographica Section A: Foundations and
+Advances</em>, <strong>79</strong>, 145–162.
+<a class="reference external" href="https://doi.org/10.1107/S2053273323000682">doi:10.1107/S2053273323000682</a>.</p>
+</div>
+<div class="citation" id="poulsen2017" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">Poulsen2017</a><span class="fn-bracket">]</span></span>
+<p>Poulsen, H. F., Jakobsen, A. C., Simons, H., Ahl, S. R.,
+Cook, P. K. and Detlefs, C. (2017). X-ray diffraction microscopy based on
+refractive optics. <em>Journal of Applied Crystallography</em>, <strong>50</strong>, 1441–1456.
+<a class="reference external" href="https://doi.org/10.1107/S1600576717011037">doi:10.1107/S1600576717011037</a>.</p>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021, Axel Henningsson.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
